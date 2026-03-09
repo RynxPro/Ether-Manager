@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --color-active-accent: var(--active-accent);
+}
+@layer base {
+  :root {
+    --background: #0a0a0f;
+    --navbar: #0d0d15;
+    --card: #0f0f1a;
+    --text-primary: #ffffff;
+    --text-secondary: #8c8c9a;
+    --border: rgba(255, 255, 255, 0.06);
+    --active-accent: #00f5cc; /* Default to GIMI */
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: "Inter", system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+@layer components {
+  /* Titlebar drag handle */
+  .titlebar-drag {
+    -webkit-app-region: drag;
+    height: 60px;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+  }
+
+  /* Make sure buttons/interactive elements stay clickable over the draggable area */
+  .no-drag {
+    -webkit-app-region: no-drag;
+    position: relative;
+    z-index: 10;
+  }
+
+  .glass-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+
+  .glow-border {
+    position: relative;
+  }
+  .glow-border::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: var(--active-accent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+  }
+  .glow-border:hover::before {
+    opacity: 0.5;
+  }
+
+  /* Pill navigation active state */
+  .nav-pill-active {
+    background-color: color-mix(in srgb, var(--active-accent) 15%, transparent);
+    color: var(--active-accent);
+    border: 1px solid color-mix(in srgb, var(--active-accent) 30%, transparent);
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--active-accent) 20%, transparent);
+  }
+
+  /* Toggle switch */
+  .toggle-checkbox:checked {
+    right: 0;
+    border-color: var(--active-accent);
+  }
+  .toggle-checkbox:checked + .toggle-label {
+    background-color: var(--active-accent);
+  }
+}
