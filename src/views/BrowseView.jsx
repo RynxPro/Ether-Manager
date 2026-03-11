@@ -189,7 +189,19 @@ export default function BrowseView({ game }) {
                 key={mod._idRow}
                 mod={mod}
                 isInstalled={installedModIds.has(mod._idRow)}
-                onInstall={() => setInstallTarget(mod)}
+                onInstall={async () => {
+                  try {
+                    // Fetch full mod details including files before showing modal
+                    const result = await window.electronMods.fetchGbMod(mod._idRow);
+                    if (result.success && result.data) {
+                      setInstallTarget(result.data);
+                    } else {
+                      setError("Failed to fetch mod details.");
+                    }
+                  } catch (err) {
+                    setError("Failed to fetch mod details.");
+                  }
+                }}
               />
             ))}
             {mods.length === 0 && (

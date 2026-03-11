@@ -14,10 +14,12 @@
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
+    "7zip-bin": "^5.2.0",
     "adm-zip": "^0.5.16",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.2",
     "lucide-react": "^0.577.0",
+    "node-7z": "^3.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.5.0",

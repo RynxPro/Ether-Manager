@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog, shell, net } from "electron";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import unzipper from "unzipper";
+import Seven from "node-7z";
+import sevenBin from "7zip-bin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -362,7 +363,7 @@ ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, n
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";
-const GB_FIELDS = "name,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
+const GB_PROPERTIES = "_sName,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
 
 async function fetchFromGB(url) {
   const res = await fetch(url, {
@@ -375,7 +376,7 @@ async function fetchFromGB(url) {
 // Fetch single mod metadata from GameBanana
 ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
   try {
-    const data = await fetchFromGB(`${GB_API}/Mod/${gamebananaId}?_csvFields=${encodeURIComponent(GB_FIELDS)}`);
+    const data = await fetchFromGB(`${GB_API}/Mod/${gamebananaId}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`);
     // Construct thumbnail URL from preview media
     let thumbnailUrl = null;
     const images = data._aPreviewMedia?._aImages;
@@ -398,7 +399,7 @@ ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
 ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "new", search = "" }) => {
   try {
     const searchParam = search ? `&_sName=${encodeURIComponent(search)}` : "";
-    const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
+    const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl,_aFiles";
     
     // Map our sort options to GB's undocumented valid sort aliases, or omit for 'Latest' (default)
     let sortStr = "";
@@ -456,34 +457,49 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
     const buffer = Buffer.from(await res.arrayBuffer());
     fs.writeFileSync(tmpPath, buffer);
 
-    // Extract the zip
+    // Extract the archive using 7zip (supports zip, rar, 7z)
     const extractedFolders = [];
-    await fs
-      .createReadStream(tmpPath)
-      .pipe(unzipper.Parse())
-      .on("entry", (entry) => {
-        const entryPath = entry.path;
-        const type = entry.type;
-        // Get top-level folder name
-        const topLevel = entryPath.split("/")[0];
-        if (!extractedFolders.includes(topLevel)) extractedFolders.push(topLevel);
+    
+    await new Promise((resolve, reject) => {
+      const stream = Seven.extractFull(tmpPath, modsPath, {
+        $bin: sevenBin.path7za,
+      });
 
-        const dest = path.join(modsPath, entryPath);
-        if (type === "Directory") {
-          fs.mkdirSync(dest, { recursive: true });
-          entry.autodrain();
-        } else {
-          fs.mkdirSync(path.dirname(dest), { recursive: true });
-          entry.pipe(fs.createWriteStream(dest));
+      stream.on('data', function (data) {
+        // data.file is the relative path (e.g. "JaneDoe", "JaneDoe/face", "README.txt")
+        // data.attributes contains 'D' for directory.
+        const entryPath = data.file;
+        const normalizedPath = entryPath.replace(/\\/g, '/');
+        const parts = normalizedPath.replace(/\/+$/, "").split("/");
+        
+        // Ensure it's a directory by checking attributes, or by inference if we see a file with a parent
+        // Even if 7z doesn't yield an explicit "Directory" event for the folder itself,
+        // we can track the root folder name from any file inside it.
+        if (parts.length > 1) {
+          const topLevel = parts[0];
+          if (topLevel && !extractedFolders.includes(topLevel)) {
+            extractedFolders.push(topLevel);
+          }
+        } else if (data.attributes && data.attributes.startsWith('D')) {
+           const topLevel = parts[0];
+           if (topLevel && !extractedFolders.includes(topLevel)) {
+             extractedFolders.push(topLevel);
+           }
         }
-      })
-      .promise();
+      });
 
-    // Rename each top-level folder with the character prefix
+      stream.on('end', () => resolve());
+      stream.on('error', (err) => reject(err));
+    });
+
+    // Rename each top-level folder with the character prefix and write metadata
     const renamedFolders = [];
     for (const folderName of extractedFolders) {
       const srcPath = path.join(modsPath, folderName);
       if (!fs.existsSync(srcPath)) continue;
+
+      // Ensure it's actually a directory (ignore top-level loose files like README.txt)
+      if (!fs.statSync(srcPath).isDirectory()) continue;
 
       let targetName = folderName;
       if (cleanCharName && !folderName.toLowerCase().startsWith(cleanCharName.toLowerCase())) {
