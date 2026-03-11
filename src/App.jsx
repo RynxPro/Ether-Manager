@@ -3,10 +3,12 @@ import { GAME_CONFIG } from "./gameConfig";
 import Navbar from "./components/Navbar";
 import CharacterGrid from "./views/CharacterGrid";
 import ModDetail from "./views/ModDetail";
+import BrowseView from "./views/BrowseView";
 
 function App() {
   const [activeGame, setActiveGame] = useState("GIMI");
   const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [activeView, setActiveView] = useState("mods"); // "mods" | "browse"
 
   // Update accent color variable when game changes
   useEffect(() => {
@@ -19,6 +21,7 @@ function App() {
   const handleGameSelect = (gameId) => {
     setActiveGame(gameId);
     setSelectedCharacter(null); // Reset detail view when switching games
+    setActiveView("mods");      // Reset to My Mods when switching games
   };
 
   const game = GAME_CONFIG[activeGame];
@@ -37,21 +40,25 @@ function App() {
         games={Object.values(GAME_CONFIG)}
         activeGame={activeGame}
         onSelectGame={handleGameSelect}
+        activeView={activeView}
+        onSelectView={setActiveView}
       />
 
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-8 py-6 relative z-10">
-          {selectedCharacter ? (
-            <ModDetail
-              game={game}
-              character={selectedCharacter}
-              onBack={() => setSelectedCharacter(null)}
-            />
-          ) : (
-            <CharacterGrid
-              game={game}
-              onSelectCharacter={setSelectedCharacter}
-            />
-          )}
+        {activeView === "browse" ? (
+          <BrowseView game={game} />
+        ) : selectedCharacter ? (
+          <ModDetail
+            game={game}
+            character={selectedCharacter}
+            onBack={() => setSelectedCharacter(null)}
+          />
+        ) : (
+          <CharacterGrid
+            game={game}
+            onSelectCharacter={setSelectedCharacter}
+          />
+        )}
       </main>
     </div>
   );

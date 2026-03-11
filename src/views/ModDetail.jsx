@@ -7,25 +7,39 @@ export default function ModDetail({ game, character, onBack }) {
   const portraitUrl = getCharacterPortrait(character.name);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [gbDataMap, setGbDataMap] = useState({}); // { [gamebananaId]: { thumbnailUrl, hasUpdate } }
 
   const loadMods = async () => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       if (importerPath) {
-        // Pass the list of all known characters to the backend for robust fuzzy detection
         const knownCharacters = getAllCharacterNames();
         const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
-        // Filter mods for this character
-        const charMods = loadedMods.filter(
-          (m) => m.character === character.name,
-        );
-        // Sort enabled first, then alphabetically
+        const charMods = loadedMods.filter((m) => m.character === character.name);
         charMods.sort((a, b) => {
           if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
           return a.isEnabled ? -1 : 1;
         });
         setMods(charMods);
+
+        // Fetch GameBanana data for mods that have a gamebananaId
+        const gbIds = charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId);
+        if (gbIds.length > 0 && window.electronMods.fetchGbMod) {
+          const results = await Promise.allSettled(
+            gbIds.map((id) => window.electronMods.fetchGbMod(id))
+          );
+          const map = {};
+          results.forEach((res, i) => {
+            if (res.status === "fulfilled" && res.value.success) {
+              map[gbIds[i]] = {
+                thumbnailUrl: res.value.data.thumbnailUrl,
+                hasUpdate: false, // update checking TODO
+              };
+            }
+          });
+          setGbDataMap(map);
+        }
       }
     }
   };
@@ -165,6 +179,7 @@ export default function ModDetail({ game, character, onBack }) {
           <ModCard
             key={mod.originalFolderName}
             mod={mod}
+            gbData={mod.gamebananaId ? gbDataMap[mod.gamebananaId] : undefined}
             isUnassignedMode={character.name === "Unassigned"}
             characters={getAllCharacterNames()}
             onToggle={(enable) => handleToggle(mod, enable)}

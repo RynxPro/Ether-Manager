@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, net } from "electron";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import unzipper from "unzipper";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -202,6 +203,16 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         ).length;
       } catch (err) {}
 
+      // Read aether.json for GameBanana metadata
+      let gamebananaId = null;
+      try {
+        const aetherJsonPath = path.join(folderPath, "aether.json");
+        if (fs.existsSync(aetherJsonPath)) {
+          const aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
+          gamebananaId = aetherData.gamebananaId || null;
+        }
+      } catch (err) { /* ignore parse errors */ }
+
       mods.push({
         id: realName,
         originalFolderName: folderName,
@@ -210,6 +221,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         isEnabled,
         iniCount,
         path: folderPath,
+        gamebananaId,
       });
     });
 
@@ -344,6 +356,162 @@ ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, n
     return { success: true, newFolderName };
   } catch (err) {
     console.error("Failed to assign mod:", err);
+    return { success: false, error: err.message };
+  }
+});
+// ─── GameBanana API Helpers ───────────────────────────────────────────────
+
+const GB_API = "https://gamebanana.com/apiv10";
+const GB_FIELDS = "name,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
+
+async function fetchFromGB(url) {
+  const res = await fetch(url, {
+    headers: { "User-Agent": "AetherManager/1.0.0" },
+  });
+  if (!res.ok) throw new Error(`GB API error: ${res.status}`);
+  return res.json();
+}
+
+// Fetch single mod metadata from GameBanana
+ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
+  try {
+    const data = await fetchFromGB(`${GB_API}/Mod/${gamebananaId}?_csvFields=${encodeURIComponent(GB_FIELDS)}`);
+    // Construct thumbnail URL from preview media
+    let thumbnailUrl = null;
+    const images = data._aPreviewMedia?._aImages;
+    if (images && images.length > 0) {
+      const img = images[0];
+      thumbnailUrl = img._sFile530
+        ? `${img._sBaseUrl}/${img._sFile530}`
+        : img._sFile
+        ? `${img._sBaseUrl}/${img._sFile}`
+        : null;
+    }
+    return { success: true, data: { ...data, thumbnailUrl } };
+  } catch (err) {
+    console.error("Failed to fetch GB mod:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Fetch a page of mods from GameBanana for a given game
+ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "new", search = "" }) => {
+  try {
+    const searchParam = search ? `&_sName=${encodeURIComponent(search)}` : "";
+    const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
+    
+    // Map our sort options to GB's undocumented valid sort aliases, or omit for 'Latest' (default)
+    let sortStr = "";
+    if (sort === "popular") sortStr = "&_sSort=Generic_MostDownloaded";
+    else if (sort === "best_rating") sortStr = "&_sSort=Generic_MostLiked";
+    else if (sort === "downloads") sortStr = "&_sSort=Generic_MostDownloaded";
+    
+    const url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${searchParam}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+    const data = await fetchFromGB(url);
+    
+    // Add constructed thumbnail URLs
+    const records = (data._aRecords || []).map(mod => {
+      const images = mod._aPreviewMedia?._aImages;
+      let thumbnailUrl = null;
+      if (images && images.length > 0) {
+        const img = images[0];
+        thumbnailUrl = img._sFile220
+          ? `${img._sBaseUrl}/${img._sFile220}`
+          : img._sFile
+          ? `${img._sBaseUrl}/${img._sFile}`
+          : null;
+      }
+      return { ...mod, thumbnailUrl };
+    });
+
+    return { success: true, records, total: data._aMetadata?._nRecordCount || 0 };
+  } catch (err) {
+    console.error("Failed to browse GB mods:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Download and install a mod from GameBanana
+ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gbModId, fileUrl, fileName }) => {
+  const tmpPath = path.join(app.getPath("temp"), `aether_${Date.now()}_${fileName}`);
+  
+  try {
+    // Resolve mods dir
+    let modsPath = importerPath;
+    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
+      modsPath = path.join(modsPath, "Mods");
+    }
+    if (!fs.existsSync(modsPath)) {
+      return { success: false, error: "Mods directory not found." };
+    }
+
+    // Clean character name for folder prefix
+    const cleanCharName = characterName && characterName !== "Unassigned"
+      ? characterName.replace(/\s+/g, "")
+      : null;
+
+    // Download the zip file
+    const res = await fetch(fileUrl, { headers: { "User-Agent": "AetherManager/1.0.0" } });
+    if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    fs.writeFileSync(tmpPath, buffer);
+
+    // Extract the zip
+    const extractedFolders = [];
+    await fs
+      .createReadStream(tmpPath)
+      .pipe(unzipper.Parse())
+      .on("entry", (entry) => {
+        const entryPath = entry.path;
+        const type = entry.type;
+        // Get top-level folder name
+        const topLevel = entryPath.split("/")[0];
+        if (!extractedFolders.includes(topLevel)) extractedFolders.push(topLevel);
+
+        const dest = path.join(modsPath, entryPath);
+        if (type === "Directory") {
+          fs.mkdirSync(dest, { recursive: true });
+          entry.autodrain();
+        } else {
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          entry.pipe(fs.createWriteStream(dest));
+        }
+      })
+      .promise();
+
+    // Rename each top-level folder with the character prefix
+    const renamedFolders = [];
+    for (const folderName of extractedFolders) {
+      const srcPath = path.join(modsPath, folderName);
+      if (!fs.existsSync(srcPath)) continue;
+
+      let targetName = folderName;
+      if (cleanCharName && !folderName.toLowerCase().startsWith(cleanCharName.toLowerCase())) {
+        targetName = `${cleanCharName}_${folderName}`;
+      }
+
+      const targetPath = path.join(modsPath, targetName);
+      if (srcPath !== targetPath) {
+        fs.renameSync(srcPath, targetPath);
+      }
+
+      // Write aether.json inside the mod folder
+      const aetherJson = {
+        gamebananaId: gbModId,
+        installedAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
+      renamedFolders.push(targetName);
+    }
+
+    // Cleanup temp file
+    fs.unlinkSync(tmpPath);
+
+    return { success: true, installedFolders: renamedFolders };
+  } catch (err) {
+    console.error("Failed to install GB mod:", err);
+    // Cleanup temp if error
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
     return { success: false, error: err.message };
   }
 });

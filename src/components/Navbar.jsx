@@ -3,7 +3,7 @@ import { cn } from "../lib/utils";
 import { useState } from "react";
 import SettingsModal from "./SettingsModal";
 
-export default function Navbar({ games, activeGame, onSelectGame }) {
+export default function Navbar({ games, activeGame, onSelectGame, activeView, onSelectView }) {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
@@ -40,9 +40,32 @@ export default function Navbar({ games, activeGame, onSelectGame }) {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 w-48 no-drag">
-          <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-            <Search size={18} />
-          </button>
+          {/* My Mods / Browse toggle */}
+          <div className="flex items-center bg-white/5 border border-white/10 rounded-full p-0.5">
+            <button
+              onClick={() => onSelectView("mods")}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200",
+                activeView === "mods"
+                  ? "bg-[var(--active-accent)] text-black"
+                  : "text-gray-400 hover:text-white"
+              )}
+            >
+              My Mods
+            </button>
+            <button
+              onClick={() => onSelectView("browse")}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200",
+                activeView === "browse"
+                  ? "bg-[var(--active-accent)] text-black"
+                  : "text-gray-400 hover:text-white"
+              )}
+            >
+              Browse
+            </button>
+          </div>
+
           <button
             onClick={() => setShowSettings(true)}
             className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
