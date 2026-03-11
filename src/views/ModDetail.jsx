@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, User, Plus } from "lucide-react";
 import ModCard from "../components/ModCard";
-import { getCharacterPortrait } from "../lib/portraits";
+import { getCharacterPortrait, getAllCharacterNames } from "../lib/portraits";
 
 export default function ModDetail({ game, character, onBack }) {
   const portraitUrl = getCharacterPortrait(character.name);
@@ -13,7 +13,9 @@ export default function ModDetail({ game, character, onBack }) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       if (importerPath) {
-        const loadedMods = await window.electronMods.getMods(importerPath);
+        // Pass the list of all known characters to the backend for robust fuzzy detection
+        const knownCharacters = getAllCharacterNames();
+        const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
         // Filter mods for this character
         const charMods = loadedMods.filter(
           (m) => m.character === character.name,
@@ -56,6 +58,43 @@ export default function ModDetail({ game, character, onBack }) {
   const handleOpenFolder = async (path) => {
     if (window.electronMods) {
       await window.electronMods.openFolder(path);
+    }
+  };
+
+  const handleImport = async () => {
+    if (window.electronConfig && window.electronMods) {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+
+      const result = await window.electronMods.importMod({
+        importerPath,
+        characterName: character.name
+      });
+
+      if (result && result.success) {
+        loadMods();
+      } else if (result && !result.canceled) {
+        alert(result.error || "Failed to import mod.");
+      }
+    }
+  };
+
+  const handleAssign = async (mod, newCharacterName) => {
+    if (window.electronConfig && window.electronMods) {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+
+      const result = await window.electronMods.assignMod({
+        importerPath,
+        originalFolderName: mod.originalFolderName,
+        newCharacterName,
+      });
+
+      if (result.success) {
+        loadMods();
+      } else {
+        alert(result.error || "Failed to assign mod.");
+      }
     }
   };
 
@@ -111,7 +150,10 @@ export default function ModDetail({ game, character, onBack }) {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-[var(--active-accent)] text-black font-semibold rounded-lg hover:brightness-110 active:brightness-90 transition-all shadow-lg shadow-[var(--active-accent)]/20">
+        <button 
+          onClick={handleImport}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[var(--active-accent)] text-black font-semibold rounded-lg hover:brightness-110 active:brightness-90 transition-all shadow-lg shadow-[var(--active-accent)]/20"
+        >
           <Plus size={18} />
           Add Mod
         </button>
@@ -123,8 +165,11 @@ export default function ModDetail({ game, character, onBack }) {
           <ModCard
             key={mod.originalFolderName}
             mod={mod}
+            isUnassignedMode={character.name === "Unassigned"}
+            characters={getAllCharacterNames()}
             onToggle={(enable) => handleToggle(mod, enable)}
             onOpenFolder={() => handleOpenFolder(mod.path)}
+            onAssign={(newCharName) => handleAssign(mod, newCharName)}
           />
         ))}
       </div>

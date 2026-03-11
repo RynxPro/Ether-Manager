@@ -1,7 +1,7 @@
 import { FileText, FolderOpen } from "lucide-react";
 import { cn } from "../lib/utils";
 
-export default function ModCard({ mod, onToggle, onOpenFolder }) {
+export default function ModCard({ mod, isUnassignedMode, onToggle, onOpenFolder, onAssign, characters = [] }) {
   return (
     <div
       className={cn(
@@ -40,36 +40,51 @@ export default function ModCard({ mod, onToggle, onOpenFolder }) {
 
       {/* Bottom section (Actions) */}
       <div className="flex items-center justify-between mt-4">
-        {/* Toggle Switch */}
-        <label className="flex items-center cursor-pointer relative">
-          <input
-            type="checkbox"
-            className="sr-only toggle-checkbox"
-            checked={mod.isEnabled}
-            onChange={(e) => onToggle(e.target.checked)}
-          />
-          <div
-            className={cn(
-              "toggle-label w-11 h-6 rounded-full transition-colors duration-300 relative",
-              mod.isEnabled ? "bg-[var(--active-accent)]" : "bg-gray-700",
-            )}
+        {/* Action Area */}
+        {isUnassignedMode ? (
+          <select 
+            onChange={(e) => {
+              if (e.target.value) onAssign(e.target.value);
+            }}
+            className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-[var(--active-accent)] bg-[#0a0a0f]"
+            defaultValue=""
           >
+            <option value="" disabled>Assign Character...</option>
+            {characters.map(char => (
+              <option key={char} value={char}>{char}</option>
+            ))}
+          </select>
+        ) : (
+          <label className="flex items-center cursor-pointer relative">
+            <input
+              type="checkbox"
+              className="sr-only toggle-checkbox"
+              checked={mod.isEnabled}
+              onChange={(e) => onToggle(e.target.checked)}
+            />
             <div
               className={cn(
-                "absolute bg-white w-5 h-5 rounded-full top-[2px] transition-all duration-300 shadow-sm",
-                mod.isEnabled ? "left-[22px]" : "left-[2px]",
+                "toggle-label w-11 h-6 rounded-full transition-colors duration-300 relative",
+                mod.isEnabled ? "bg-[var(--active-accent)]" : "bg-gray-700",
               )}
-            ></div>
-          </div>
-          <span
-            className={cn(
-              "ml-3 text-sm font-semibold transition-colors duration-300",
-              mod.isEnabled ? "text-white" : "text-gray-500",
-            )}
-          >
-            {mod.isEnabled ? "ON" : "OFF"}
-          </span>
-        </label>
+            >
+              <div
+                className={cn(
+                  "absolute bg-white w-5 h-5 rounded-full top-[2px] transition-all duration-300 shadow-sm",
+                  mod.isEnabled ? "left-[22px]" : "left-[2px]",
+                )}
+              ></div>
+            </div>
+            <span
+              className={cn(
+                "ml-3 text-sm font-semibold transition-colors duration-300",
+                mod.isEnabled ? "text-white" : "text-gray-500",
+              )}
+            >
+              {mod.isEnabled ? "ON" : "OFF"}
+            </span>
+          </label>
+        )}
 
         {/* Open Folder Button */}
         <button

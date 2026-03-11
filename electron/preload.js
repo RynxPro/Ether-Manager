@@ -8,9 +8,11 @@ contextBridge.exposeInMainWorld("electronConfig", {
 });
 
 contextBridge.exposeInMainWorld("electronMods", {
-  getMods: (importerPath) => ipcRenderer.invoke("get-mods", importerPath),
+  getMods: (importerPath, knownCharacters) => ipcRenderer.invoke("get-mods", importerPath, knownCharacters),
   toggleMod: (args) => ipcRenderer.invoke("toggle-mod", args),
   openFolder: (folderPath) => ipcRenderer.invoke("open-folder", folderPath),
+  importMod: (args) => ipcRenderer.invoke("import-mod", args),
+  assignMod: (args) => ipcRenderer.invoke("assign-mod", args),
 });
 
 contextBridge.exposeInMainWorld("electronEnvironment", {

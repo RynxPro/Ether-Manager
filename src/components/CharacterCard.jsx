@@ -18,8 +18,8 @@ export default function CharacterCard({ character, onClick }) {
       variants={itemVariants}
       onClick={onClick}
       className={cn(
-        "rounded-2xl overflow-hidden cursor-pointer group transition-transform duration-200",
-        "hover:-translate-y-1 hover:shadow-2xl hover:shadow-[var(--active-accent)]/20",
+        "rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300",
+        "hover:-translate-y-1 hover:shadow-2xl hover:shadow-[var(--active-accent)]/20 hover:border-[var(--active-accent)]/50",
         "will-change-transform bg-[#0f0f1a] border border-white/5",
       )}
       style={{ contain: "layout paint" }}

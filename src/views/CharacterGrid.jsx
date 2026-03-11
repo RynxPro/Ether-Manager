@@ -14,7 +14,8 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
         const config = await window.electronConfig.getConfig();
         const importerPath = config[game.id];
         if (importerPath) {
-          const loadedMods = await window.electronMods.getMods(importerPath);
+          const knownCharacters = getAllCharacterNames();
+          const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
           setMods(loadedMods);
         } else {
           setMods([]);
@@ -60,9 +61,14 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
     }
   });
 
-  const characters = Array.from(charactersMap.values()).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  const characters = Array.from(charactersMap.values())
+    .filter(c => c.name !== "Unassigned" || c.totalMods > 0) // Only show Unassigned if it has mods
+    .sort((a, b) => {
+      // Keep Unassigned at the very top or bottom (let's put it at the top for visibility)
+      if (a.name === "Unassigned") return -1;
+      if (b.name === "Unassigned") return 1;
+      return a.name.localeCompare(b.name);
+    });
 
   const filteredCharacters = characters.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()),
