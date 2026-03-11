@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
+import { getAllCharacterNames } from "../lib/portraits";
+import { motion } from "framer-motion";
 
 export default function CharacterGrid({ game, onSelectCharacter }) {
   const [mods, setMods] = useState([]);
@@ -24,6 +26,19 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
 
   // Group mods by character
   const charactersMap = new Map();
+  
+  // Pre-populate with all known characters for ZZMI
+  if (game.id === "ZZMI") {
+    getAllCharacterNames().forEach(name => {
+      charactersMap.set(name, {
+        name: name,
+        totalMods: 0,
+        enabledMods: 0,
+        disabledMods: 0,
+        mods: [],
+      });
+    });
+  }
   mods.forEach((mod) => {
     if (!charactersMap.has(mod.character)) {
       charactersMap.set(mod.character, {
@@ -53,8 +68,18 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
     c.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.04,
+      },
+    },
+  };
+
   return (
-    <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col h-full animate-in fade-in duration-500">
       {/* Sub-header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -79,7 +104,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
         </div>
       </div>
 
-      {mods.length === 0 && !searchQuery ? (
+      {characters.length === 0 && !searchQuery ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-white/5 border border-white/5 rounded-2xl border-dashed">
           <h3 className="text-xl font-medium text-white mb-2">No Mods Found</h3>
           <p className="text-gray-400 max-w-md">
@@ -89,7 +114,12 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
+        <motion.div 
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
           {filteredCharacters.map((char) => (
             <CharacterCard
               key={char.name}
@@ -103,7 +133,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
               No characters found matching "{searchQuery}"
             </div>
           )}
-        </div>
+        </motion.div>
       )}
     </div>
   );

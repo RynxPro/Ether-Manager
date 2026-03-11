@@ -8,7 +8,7 @@ export default function Navbar({ games, activeGame, onSelectGame }) {
 
   return (
     <>
-      <nav className="w-full h-[60px] bg-[#0d0d15] border-b border-white/5 flex items-center justify-between px-6 z-20">
+      <nav className="w-full h-[60px] shrink-0 bg-[#0d0d15] border-b border-white/5 flex items-center justify-between px-6 pl-20 z-20 titlebar-drag">
         {/* Logo */}
         <div className="flex items-center gap-2 w-48 no-drag">
           <Zap size={20} className="text-white fill-white" />

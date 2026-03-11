@@ -18,7 +18,18 @@ for (const path in portraitModules) {
     .replace(/_/g, " ")
     .toLowerCase();
 
-  portraits[name] = portraitModules[path];
+  portraits[name] = {
+    url: portraitModules[path],
+    displayName: filename
+      .replace(/^Agent_/, "")
+      .replace(/_Portrait\.(webp|png|jpg|jpeg)$/, "")
+      .replace(/\.(webp|png|jpg|jpeg)$/, "")
+      .replace(/_/g, " ")
+  };
+}
+
+export function getAllCharacterNames() {
+  return Object.values(portraits).map(p => p.displayName).sort((a, b) => a.localeCompare(b));
 }
 
 export function getCharacterPortrait(characterName) {
@@ -26,17 +37,17 @@ export function getCharacterPortrait(characterName) {
   const normalized = characterName.toLowerCase().replace(/[-_]/g, " ");
 
   // 1. Exact match
-  if (portraits[normalized]) return portraits[normalized];
+  if (portraits[normalized]) return portraits[normalized].url;
 
   // 2. Contains match (e.g. "anby" matches "anby demara")
-  for (const [key, url] of Object.entries(portraits)) {
+  for (const [key, data] of Object.entries(portraits)) {
     // If the image name contains the mod's character name
     if (key.includes(normalized)) {
-      return url;
+      return data.url;
     }
     // If the mod's character name contains the image name
     if (normalized.includes(key)) {
-      return url;
+      return data.url;
     }
   }
 

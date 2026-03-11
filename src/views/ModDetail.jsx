@@ -6,6 +6,7 @@ import { getCharacterPortrait } from "../lib/portraits";
 export default function ModDetail({ game, character, onBack }) {
   const portraitUrl = getCharacterPortrait(character.name);
   const [mods, setMods] = useState([]);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const loadMods = async () => {
     if (window.electronConfig && window.electronMods) {
@@ -80,12 +81,20 @@ export default function ModDetail({ game, character, onBack }) {
       <div className="flex items-end justify-between mb-8 pb-6 border-b border-white/5 relative">
         <div className="flex items-center gap-6">
           <div
-            className="w-16 h-16 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 bg-cover bg-center overflow-hidden"
-            style={
-              portraitUrl ? { backgroundImage: `url(${portraitUrl})` } : {}
-            }
+            className="w-16 h-16 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 overflow-hidden relative"
           >
-            {!portraitUrl && <User size={32} className="text-white" />}
+            {portraitUrl ? (
+              <img 
+                src={portraitUrl} 
+                alt={character.name}
+                onLoad={() => setImgLoaded(true)}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out ${
+                  imgLoaded ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            ) : (
+              <User size={32} className="text-white/30" />
+            )}
           </div>
           <div>
             <h1 className="text-4xl font-bold text-white tracking-tight mb-2">

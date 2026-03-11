@@ -1,55 +1,73 @@
 import { cn } from "../lib/utils";
 import { User } from "lucide-react";
 import { getCharacterPortrait } from "../lib/portraits";
+import { motion } from "framer-motion";
+import { useState } from "react";
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
+};
 
 export default function CharacterCard({ character, onClick }) {
   const portraitUrl = getCharacterPortrait(character.name);
-
-  // Generate a consistent gradient based on character name for placeholder
-  const getGradient = (name) => {
-    const hash = name
-      .split("")
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const hues = [0, 45, 120, 180, 240, 280, 320]; // Pinks, Blues, Greens, etc
-    const hue = hues[hash % hues.length];
-
-    return `linear-gradient(135deg, hsl(${hue}, 80%, 40%) 0%, hsl(${(hue + 40) % 360}, 100%, 20%) 100%)`;
-  };
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <div
+    <motion.div
+      variants={itemVariants}
       onClick={onClick}
       className={cn(
-        "glass-card rounded-xl overflow-hidden cursor-pointer group glow-border transition-all duration-300",
+        "rounded-2xl overflow-hidden cursor-pointer group transition-transform duration-200",
         "hover:-translate-y-1 hover:shadow-2xl hover:shadow-[var(--active-accent)]/20",
+        "will-change-transform bg-[#0f0f1a] border border-white/5",
       )}
+      style={{ contain: "layout paint" }}
     >
-      {/* Portrait Area */}
-      <div
-        className="h-[180px] w-full relative content-center items-center justify-center flex bg-cover bg-center"
-        style={{
-          background: portraitUrl
-            ? `url(${portraitUrl}) center/cover no-repeat`
-            : getGradient(character.name),
-        }}
-      >
-        {!portraitUrl && <User size={64} className="text-white/30" />}
+      {/* Portrait Area — tall card, image pinned to top */}
+      <div className="relative h-52 w-full bg-[#0f0f1a] overflow-hidden">
+        {portraitUrl ? (
+          <>
+            {/* Low-fi placeholder shimmer while image loads */}
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-white/5 animate-pulse" />
+            )}
+            <img
+              src={portraitUrl}
+              alt={character.name}
+              onLoad={() => setImgLoaded(true)}
+              className={cn(
+                "absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-500",
+                imgLoaded ? "opacity-100" : "opacity-0",
+              )}
+              loading="lazy"
+              decoding="async"
+            />
+            {/* Bottom vignette so text is readable */}
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#0f0f1a] to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <User size={64} className="text-white/10" />
+          </div>
+        )}
 
         {/* Mod count badge */}
-        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-bold text-white border border-white/20 shadow-lg group-hover:bg-[var(--active-accent)] group-hover:text-black group-hover:border-[var(--active-accent)] transition-colors">
+        <div className="absolute top-3 right-3 z-10 min-w-[24px] h-6 px-2 rounded-full text-xs font-bold text-white bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center group-hover:bg-[var(--active-accent)] group-hover:text-black group-hover:border-transparent transition-colors">
           {character.totalMods}
         </div>
       </div>
 
       {/* Info Area */}
-      <div className="p-4 bg-[#0f0f1a]">
-        <h3 className="text-xl font-bold text-white mb-1 truncate">
+      <div className="px-4 py-3">
+        <h3 className="text-sm font-semibold text-white leading-tight truncate">
           {character.name}
         </h3>
-        <p className="text-sm text-[var(--active-accent)] font-medium">
-          {character.totalMods} mods · {character.enabledMods} enabled
+        <p className="text-xs text-[var(--active-accent)]/80 mt-0.5 font-medium">
+          {character.totalMods} mods
+          {character.totalMods > 0 ? ` · ${character.enabledMods} enabled` : ""}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -131,16 +131,33 @@ ipcMain.handle("choose-folder", async (event) => {
 
 // Mods management
 ipcMain.handle("get-mods", (event, importerPath) => {
+  console.log("Fetching mods for path:", importerPath);
   if (!importerPath) return [];
 
-  const modsPath = path.join(importerPath, "Mods");
-  if (!fs.existsSync(modsPath)) return [];
+  let modsPath = importerPath;
+  // If the selected path doesn't end in 'Mods', and there's a 'Mods' subfolder, use it.
+  // Otherwise, if the path itself is the Mods folder, use it as is.
+  if (
+    !modsPath.toLowerCase().endsWith("mods") &&
+    fs.existsSync(path.join(modsPath, "Mods"))
+  ) {
+    modsPath = path.join(modsPath, "Mods");
+  }
+
+  console.log("Final mods directory path:", modsPath);
+
+  if (!fs.existsSync(modsPath)) {
+    console.log("Mods directory does not exist at:", modsPath);
+    return [];
+  }
 
   try {
     const modFolders = fs
       .readdirSync(modsPath, { withFileTypes: true })
       .filter((dirent) => dirent.isDirectory())
       .map((dirent) => dirent.name);
+
+    console.log(`Found ${modFolders.length} folders in Mods directory`);
 
     const mods = [];
 

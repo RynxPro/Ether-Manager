@@ -42,12 +42,7 @@
   /* Titlebar drag handle */
   .titlebar-drag {
     -webkit-app-region: drag;
-    height: 60px;
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 0;
+    -webkit-user-select: none;
   }
 
   /* Make sure buttons/interactive elements stay clickable over the draggable area */
