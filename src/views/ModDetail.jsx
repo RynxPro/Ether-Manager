@@ -32,9 +32,21 @@ export default function ModDetail({ game, character, onBack }) {
           const map = {};
           results.forEach((res, i) => {
             if (res.status === "fulfilled" && res.value.success) {
+              const gbMod = res.value.data;
+              const localMod = charMods.find(m => m.gamebananaId === gbIds[i]);
+              
+              let hasUpdate = false;
+              if (localMod && localMod.installedAt && gbMod._tsDateUpdated) {
+                const installedDate = new Date(localMod.installedAt).getTime() / 1000;
+                // If the update date from GameBanana is newer than our installation date
+                if (gbMod._tsDateUpdated > installedDate + 60) { // +60s buffer for safety
+                  hasUpdate = true;
+                }
+              }
+
               map[gbIds[i]] = {
-                thumbnailUrl: res.value.data.thumbnailUrl,
-                hasUpdate: false, // update checking TODO
+                thumbnailUrl: gbMod.thumbnailUrl,
+                hasUpdate: hasUpdate,
               };
             }
           });
@@ -174,7 +186,7 @@ export default function ModDetail({ game, character, onBack }) {
       </div>
 
       {/* Mods Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
         {mods.map((mod) => (
           <ModCard
             key={mod.originalFolderName}

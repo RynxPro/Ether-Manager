@@ -17,8 +17,8 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
       )}
     >
       {/* Thumbnail strip (shown only when GB data available) */}
-      {thumbnailUrl && (
-        <div className="relative h-28 w-full shrink-0 overflow-hidden bg-white/5">
+      {thumbnailUrl ? (
+        <div className="relative h-36 w-full shrink-0 overflow-hidden bg-white/5">
           {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
           <img
             src={thumbnailUrl}
@@ -44,6 +44,25 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
               {mod.isEnabled ? "ENABLED" : "DISABLED"}
             </div>
             {gbData?.hasUpdate && <UpdateBadge />}
+        </div>
+      </div>
+      ) : (
+        <div className="relative h-36 w-full bg-white/5 overflow-hidden shrink-0 flex items-center justify-center">
+          <span className="text-4xl font-bold text-white/5 select-none uppercase">
+            {mod.name?.[0] || "?"}
+          </span>
+          {/* Status overlay for no-thumbnail cards */}
+          <div className="absolute top-2 left-2 flex items-center gap-1.5">
+            <div
+              className={cn(
+                "px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider",
+                mod.isEnabled
+                  ? "bg-[var(--active-accent)]/90 text-black"
+                  : "bg-black/70 text-gray-300"
+              )}
+            >
+              {mod.isEnabled ? "ENABLED" : "DISABLED"}
+            </div>
           </div>
         </div>
       )}
@@ -52,29 +71,15 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
       <div className="p-4 flex flex-col flex-1 justify-between">
         {/* Top section */}
         <div>
-          <div className="flex items-start justify-between mb-1.5">
+          <div className="flex items-start justify-between gap-2 mb-1">
             <h3
-              className="text-sm font-semibold text-white line-clamp-2 pr-3 leading-snug"
+              className="text-sm font-semibold text-white line-clamp-2 leading-tight min-h-[2.5rem]"
               title={mod.name}
             >
               {mod.name}
             </h3>
-            {/* Badge (only when no thumbnail, otherwise shown in overlay) */}
-            {!thumbnailUrl && (
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <div
-                  className={cn(
-                    "px-2.5 py-1 rounded-sm text-[10px] font-bold tracking-wider",
-                    mod.isEnabled
-                      ? "bg-[var(--active-accent)]/20 text-[var(--active-accent)] border border-[var(--active-accent)]/30"
-                      : "bg-white/10 text-gray-400 border border-white/5",
-                  )}
-                >
-                  {mod.isEnabled ? "ENABLED" : "DISABLED"}
-                </div>
-                {gbData?.hasUpdate && <UpdateBadge />}
-              </div>
-            )}
+            {/* Update badge overlay if no thumbnail */}
+            {!thumbnailUrl && gbData?.hasUpdate && <UpdateBadge className="shrink-0" />}
           </div>
 
           <div className="flex items-center text-xs text-gray-500">
@@ -130,10 +135,10 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
 
           <button
             onClick={onOpenFolder}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-semibold text-gray-400 hover:text-white hover:bg-white/10 transition-colors uppercase tracking-wider"
           >
-            <FolderOpen size={14} />
-            <span>Folder</span>
+            <FolderOpen size={12} />
+            Folder
           </button>
         </div>
       </div>

@@ -206,11 +206,13 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
 
       // Read aether.json for GameBanana metadata
       let gamebananaId = null;
+      let installedAt = null;
       try {
         const aetherJsonPath = path.join(folderPath, "aether.json");
         if (fs.existsSync(aetherJsonPath)) {
           const aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
           gamebananaId = aetherData.gamebananaId || null;
+          installedAt = aetherData.installedAt || null;
         }
       } catch (err) { /* ignore parse errors */ }
 
@@ -223,6 +225,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         iniCount,
         path: folderPath,
         gamebananaId,
+        installedAt,
       });
     });
 
@@ -363,7 +366,7 @@ ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, n
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";
-const GB_PROPERTIES = "_sName,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
+const GB_PROPERTIES = "_idRow,_sName,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
 
 async function fetchFromGB(url) {
   const res = await fetch(url, {
