@@ -395,21 +395,71 @@ ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
   }
 });
 
+const characterCategoryCache = {}; // Cache to map character name -> GameBanana subcategory ID
+
 // Fetch a page of mods from GameBanana for a given game
-ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "new", search = "" }) => {
+// Dual-mode: keyword search via Util/Search/Results, general browse via Mod/Index
+ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "", search = "" }) => {
   try {
-    const searchParam = search ? `&_sName=${encodeURIComponent(search)}` : "";
-    const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl,_aFiles";
+    const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
+
+    // Only supported sort aliases (verified via testing)
+    const sortAliases = {
+      "likes":     "Generic_MostLiked",
+      "downloads": "Generic_MostDownloaded",
+      "views":     "Generic_MostViewed",
+    };
+    const sortStr = sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
+
+    let url;
     
-    // Map our sort options to GB's undocumented valid sort aliases, or omit for 'Latest' (default)
-    let sortStr = "";
-    if (sort === "popular") sortStr = "&_sSort=Generic_MostDownloaded";
-    else if (sort === "best_rating") sortStr = "&_sSort=Generic_MostLiked";
-    else if (sort === "downloads") sortStr = "&_sSort=Generic_MostDownloaded";
-    
-    const url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${searchParam}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+    // Auto-discover the character category ID to enable native Mod/Index sorting
+    async function resolveCharCategory(gameId, charName) {
+      const cacheKey = `${gameId}_${charName.toLowerCase()}`;
+      if (characterCategoryCache[cacheKey]) return characterCategoryCache[cacheKey];
+
+      try {
+        const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
+        const searchRes = await fetchFromGB(searchUrl);
+        if (!searchRes._aRecords) return null;
+
+        for (const mod of searchRes._aRecords) {
+          // Fetch detailed mod to inspect category tree
+          const mData = await fetchFromGB(`${GB_API}/Mod/${mod._idRow}?_csvProperties=_aRootCategory,_aCategory`);
+          if (mData._aCategory && mData._aRootCategory) {
+            const rootName = (mData._aRootCategory._sName || "").toLowerCase();
+            if (rootName.includes("skin") || rootName.includes("character")) {
+               const catId = mData._aCategory._idRow;
+               characterCategoryCache[cacheKey] = catId;
+               return catId;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to auto-discover category ID:", err.message);
+      }
+      return null;
+    }
+
+    if (search && search.trim().length >= 2) {
+      const charName = search.trim();
+      const catId = await resolveCharCategory(gbGameId, charName);
+      
+      if (catId) {
+        // We found their explicit category! Use Mod/Index to get perfect sorting & pagination.
+        // Omit Generic_Game here because providing both game and category filters causes an empty response bug in apiv10.
+        url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+      } else {
+        // Fallback: full-text search endpoint (Warning: GameBanana ignores _sSort parameter here)
+        url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}`;
+      }
+    } else {
+      // General browse
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+    }
+
     const data = await fetchFromGB(url);
-    
+
     // Add constructed thumbnail URLs
     const records = (data._aRecords || []).map(mod => {
       const images = mod._aPreviewMedia?._aImages;
@@ -454,7 +504,27 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
     // Download the zip file
     const res = await fetch(fileUrl, { headers: { "User-Agent": "AetherManager/1.0.0" } });
     if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
-    const buffer = Buffer.from(await res.arrayBuffer());
+    
+    const contentLength = res.headers.get("content-length");
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+    let downloadedBytes = 0;
+    const chunks = [];
+    
+    // Read the stream chunk by chunk to report progress
+    const reader = res.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        downloadedBytes += value.length;
+        if (totalBytes > 0) {
+          const percent = Math.round((downloadedBytes / totalBytes) * 100);
+          event.sender.send("download-progress", { gbModId, percent, downloadedBytes, totalBytes });
+        }
+      }
+    }
+    const buffer = Buffer.concat(chunks);
     fs.writeFileSync(tmpPath, buffer);
 
     // Extract the archive using 7zip (supports zip, rar, 7z)

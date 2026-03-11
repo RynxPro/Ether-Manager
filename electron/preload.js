@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld("electronMods", {
   fetchGbMod: (gamebananaId) => ipcRenderer.invoke("fetch-gb-mod", gamebananaId),
   browseGbMods: (args) => ipcRenderer.invoke("browse-gb-mods", args),
   installGbMod: (args) => ipcRenderer.invoke("install-gb-mod", args),
+  onDownloadProgress: (callback) => {
+    const fn = (event, data) => callback(data);
+    ipcRenderer.on("download-progress", fn);
+    return () => ipcRenderer.removeListener("download-progress", fn);
+  },
 });
 
 contextBridge.exposeInMainWorld("electronEnvironment", {

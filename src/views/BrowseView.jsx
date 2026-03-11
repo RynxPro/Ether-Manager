@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import BrowseModCard from "../components/BrowseModCard";
 import InstallModal from "../components/InstallModal";
 import { getAllCharacterNames } from "../lib/portraits";
 
 const SORT_OPTIONS = [
-  { label: "Latest", value: "new" },
-  { label: "Popular", value: "popular" },
-  { label: "Most Liked", value: "best_rating" },
+  { label: "Latest", value: "" },
+  { label: "Most Liked", value: "likes" },
   { label: "Most Downloaded", value: "downloads" },
+  { label: "Most Viewed", value: "views" },
 ];
 
 const PER_PAGE = 20;
@@ -18,14 +18,13 @@ export default function BrowseView({ game }) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("new");
+  const [sort, setSort] = useState("");
   const [page, setPage] = useState(1);
   const [installedModIds, setInstalledModIds] = useState(new Set());
-  const [installTarget, setInstallTarget] = useState(null); // mod to install
+  const [installTarget, setInstallTarget] = useState(null);
   const [importerPath, setImporterPath] = useState(null);
 
-  const characters = getAllCharacterNames();
+  const [characterFilter, setCharacterFilter] = useState("");
 
   // Load importer path once
   useEffect(() => {
@@ -51,10 +50,12 @@ export default function BrowseView({ game }) {
     loadInstalled();
   }, [importerPath]);
 
+
+
   // Fetch mods from GameBanana when params change
   const fetchMods = useCallback(async () => {
     if (!game.gbGameId) {
-      setError("GameBanana is not yet available for this game.");
+      setError("GameBanana integration is not yet available for this game.");
       return;
     }
     setLoading(true);
@@ -65,7 +66,7 @@ export default function BrowseView({ game }) {
         page,
         perPage: PER_PAGE,
         sort,
-        search,
+        search: characterFilter,
       });
       if (result.success) {
         setMods(result.records);
@@ -78,21 +79,11 @@ export default function BrowseView({ game }) {
     } finally {
       setLoading(false);
     }
-  }, [game.gbGameId, page, sort, search]);
+  }, [game.gbGameId, page, sort, characterFilter]);
 
   useEffect(() => {
     fetchMods();
   }, [fetchMods]);
-
-  // Handle search with debounce
-  const [searchInput, setSearchInput] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
 
   const handleInstall = async ({ characterName, gbModId, fileUrl, fileName }) => {
     if (!importerPath) throw new Error("No importer path configured. Go to Settings first.");
@@ -104,30 +95,36 @@ export default function BrowseView({ game }) {
       fileName,
     });
     if (!result.success) throw new Error(result.error || "Installation failed.");
-    // Update installed set
     setInstalledModIds((prev) => new Set([...prev, gbModId]));
   };
 
   const totalPages = Math.ceil(total / PER_PAGE);
+  const isFiltering = characterFilter.length > 0;
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Browse Mods</h1>
-          <p className="text-gray-400">
-            {loading ? "Loading..." : `${total.toLocaleString()} mods on GameBanana`}
+          <h1 className="text-4xl font-bold text-white mb-1">
+            {isFiltering ? `${characterFilter} Mods` : "Browse Mods"}
+          </h1>
+          <p className="text-gray-400 text-sm">
+            {loading
+              ? "Loading..."
+              : isFiltering
+              ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} on GameBanana`
+              : `${Math.max(0, total).toLocaleString()} mods on GameBanana`}
           </p>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {/* Sort */}
-          <div className="relative">
+          <div className="relative flex items-center">
             <SlidersHorizontal
               size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+              className="absolute left-3 text-gray-500 pointer-events-none"
             />
             <select
               value={sort}
@@ -140,19 +137,19 @@ export default function BrowseView({ game }) {
             </select>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-              size={16}
-            />
-            <input
-              type="text"
-              placeholder={`Search ${game.name} mods...`}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--active-accent)] focus:bg-white/10 transition-all w-72"
-            />
+          {/* Character Filter */}
+          <div className="relative flex items-center">
+            <select
+              value={characterFilter}
+              onChange={(e) => { setCharacterFilter(e.target.value); setPage(1); }}
+              className="pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--active-accent)] appearance-none w-64 cursor-pointer hover:bg-white/10 transition-colors"
+            >
+              <option value="">All Characters</option>
+              {getAllCharacterNames().map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 text-gray-500 pointer-events-none" />
           </div>
         </div>
       </div>
@@ -191,22 +188,21 @@ export default function BrowseView({ game }) {
                 isInstalled={installedModIds.has(mod._idRow)}
                 onInstall={async () => {
                   try {
-                    // Fetch full mod details including files before showing modal
                     const result = await window.electronMods.fetchGbMod(mod._idRow);
                     if (result.success && result.data) {
                       setInstallTarget(result.data);
                     } else {
                       setError("Failed to fetch mod details.");
                     }
-                  } catch (err) {
+                  } catch {
                     setError("Failed to fetch mod details.");
                   }
                 }}
               />
             ))}
             {mods.length === 0 && (
-              <div className="col-span-full py-16 text-center text-gray-400">
-                No mods found. Try a different search or sort.
+              <div className="col-span-full py-16 text-center text-gray-500">
+                {isFiltering ? `No results for ${characterFilter}` : "No mods found."}
               </div>
             )}
           </div>

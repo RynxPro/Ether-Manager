@@ -2,10 +2,10 @@
 // These are the numeric IDs from gamebanana.com/games/{id}
 const GB_GAME_IDS = {
   GIMI: 8552,   // Genshin Impact
-  WWMI: 19001,  // Wuthering Waves
+  WWMI: 20357,  // Wuthering Waves
   ZZMI: 19567,  // Zenless Zone Zero
-  SRMI: 16249,  // Honkai: Star Rail
-  HIMI: 2507,   // Honkai Impact 3rd
+  SRMI: 18366,  // Honkai: Star Rail
+  HIMI: 10349,   // Honkai Impact 3rd
   EFMI: null,   // Eternal Frontier — no dedicated GB page yet
 };
 

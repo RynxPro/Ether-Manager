@@ -1,11 +1,23 @@
-import { useState } from "react";
-import { X, Download, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Download, ChevronDown, CheckCircle } from "lucide-react";
 import { getAllCharacterNames } from "../lib/portraits";
 
 export default function InstallModal({ mod, game, onClose, onInstall }) {
   const [selectedCharacter, setSelectedCharacter] = useState("");
   const [isInstalling, setIsInstalling] = useState(false);
   const [error, setError] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isInstallComplete, setIsInstallComplete] = useState(false);
+
+  useEffect(() => {
+    if (window.electronMods && window.electronMods.onDownloadProgress) {
+      return window.electronMods.onDownloadProgress((data) => {
+        if (data.gbModId === mod._idRow) {
+          setDownloadProgress(data.percent);
+        }
+      });
+    }
+  }, [mod._idRow]);
 
   const characters = getAllCharacterNames();
   const fileEntry = mod._aFiles && mod._aFiles[0];
@@ -21,6 +33,8 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
     }
     setIsInstalling(true);
     setError(null);
+    setDownloadProgress(0);
+    setIsInstallComplete(false);
     try {
       await onInstall({
         characterName: selectedCharacter,
@@ -28,7 +42,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
         fileUrl: fileEntry._sDownloadUrl,
         fileName: fileEntry._sFile,
       });
-      onClose();
+      setIsInstallComplete(true);
     } catch (err) {
       setError(err.message || "Installation failed.");
     } finally {
@@ -91,27 +105,58 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
             <p className="text-red-400 text-sm mb-4">{error}</p>
           )}
 
+          {isInstallComplete && (
+            <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400">
+              <CheckCircle size={28} className="mb-2" />
+              <p className="font-semibold text-sm">Download Complete!</p>
+              <p className="text-xs opacity-80 mt-1 text-center">Mod installed successfully.</p>
+            </div>
+          )}
+
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleInstall}
-              disabled={isInstalling || !selectedCharacter}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--active-accent)] text-black font-semibold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {isInstalling ? (
-                <span className="animate-pulse">Installing...</span>
-              ) : (
-                <>
-                  <Download size={16} />
-                  Install Mod
-                </>
-              )}
-            </button>
+            {isInstallComplete ? (
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-all"
+              >
+                Close
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleInstall}
+                  disabled={isInstalling || !selectedCharacter}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--active-accent)] text-black font-semibold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden"
+                >
+                  {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
+                     <div 
+                       className="absolute left-0 top-0 bottom-0 bg-black/20" 
+                       style={{ width: `${downloadProgress}%` }}
+                     />
+                  )}
+                  {isInstalling ? (
+                    <span className="animate-pulse relative z-10 whitespace-nowrap">
+                      {downloadProgress > 0 && downloadProgress < 100 
+                        ? `Downloading... ${downloadProgress}%` 
+                        : downloadProgress === 100 
+                          ? "Extracting..." 
+                          : "Starting..."}
+                    </span>
+                  ) : (
+                    <>
+                      <Download size={16} className="relative z-10" />
+                      <span className="relative z-10">Install Mod</span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
