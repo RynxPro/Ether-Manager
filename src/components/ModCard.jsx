@@ -5,10 +5,10 @@ export default function ModCard({ mod, isUnassignedMode, onToggle, onOpenFolder,
   return (
     <div
       className={cn(
-        "relative rounded-xl border p-5 transition-all duration-300 flex flex-col justify-between h-[180px]",
+        "relative rounded-xl border p-5 transition-all duration-300 flex flex-col justify-between h-[180px] group will-change-transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-[var(--active-accent)]/20 hover:border-[var(--active-accent)]/50",
         mod.isEnabled
-          ? "bg-[#0f0f1a] border-[var(--active-accent)]/30 shadow-[0_4px_24px_-8px_var(--active-accent)]"
-          : "bg-white/[0.02] border-white/5 opacity-60 grayscale-[0.5]",
+          ? "bg-[#0f0f1a] border-white/10"
+          : "bg-white/[0.02] border-white/5 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
       )}
     >
       {/* Top section */}

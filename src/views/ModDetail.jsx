@@ -120,14 +120,14 @@ export default function ModDetail({ game, character, onBack }) {
       <div className="flex items-end justify-between mb-8 pb-6 border-b border-white/5 relative">
         <div className="flex items-center gap-6">
           <div
-            className="w-16 h-16 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 overflow-hidden relative"
+            className="w-24 h-24 shrink-0 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 overflow-hidden relative"
           >
             {portraitUrl ? (
               <img 
                 src={portraitUrl} 
                 alt={character.name}
                 onLoad={() => setImgLoaded(true)}
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out ${
+                className={`absolute inset-0 w-full h-full object-cover object-top scale-125 translate-y-3 transition-opacity duration-700 ease-out ${
                   imgLoaded ? "opacity-100" : "opacity-0"
                 }`}
               />
