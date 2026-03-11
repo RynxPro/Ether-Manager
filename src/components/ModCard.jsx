@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, FolderOpen } from "lucide-react";
+import { FileText, FolderOpen, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 
@@ -43,7 +43,14 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             >
               {mod.isEnabled ? "ENABLED" : "DISABLED"}
             </div>
-            {gbData?.hasUpdate && <UpdateBadge />}
+            {gbData?.hasUpdate ? (
+              <UpdateBadge />
+            ) : gbData ? (
+              <div className="px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1">
+                <Check size={10} />
+                LATEST
+              </div>
+            ) : null}
         </div>
       </div>
       ) : (
@@ -63,6 +70,14 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             >
               {mod.isEnabled ? "ENABLED" : "DISABLED"}
             </div>
+            {gbData?.hasUpdate ? (
+              <UpdateBadge />
+            ) : gbData ? (
+              <div className="px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1">
+                <Check size={10} />
+                LATEST
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -78,8 +93,19 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             >
               {mod.name}
             </h3>
-            {/* Update badge overlay if no thumbnail */}
-            {!thumbnailUrl && gbData?.hasUpdate && <UpdateBadge className="shrink-0" />}
+            {/* Status indicators for no-thumbnail cards */}
+            {!thumbnailUrl && (
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                {gbData?.hasUpdate ? (
+                  <UpdateBadge />
+                ) : gbData ? (
+                  <div className="px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1">
+                    <Check size={10} />
+                    LATEST
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center text-xs text-gray-500">
