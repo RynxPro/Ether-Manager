@@ -403,6 +403,27 @@ ipcMain.handle("set-custom-thumbnail", async (event, { importerPath, originalFol
     return { success: false, error: err.message };
   }
 });
+
+ipcMain.handle("delete-mod", async (event, { importerPath, originalFolderName }) => {
+  try {
+    let modsPath = importerPath;
+    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
+      modsPath = path.join(modsPath, "Mods");
+    }
+    const folderPath = path.join(modsPath, originalFolderName);
+    if (!fs.existsSync(folderPath)) {
+      throw new Error(`Folder "${originalFolderName}" not found`);
+    }
+
+    // Move to recycle bin instead of permanent rm -rf
+    await shell.trashItem(folderPath);
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to delete mod:", err);
+    return { success: false, error: err.message };
+  }
+});
+
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { FileText, FolderOpen, Check } from "lucide-react";
+import { FileText, FolderOpen, Check, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 
-export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, characters = [], onClick }) {
+export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
@@ -84,40 +84,27 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
         </div>
       )}
 
-      {/* Card body */}
-      <div className="p-4 flex flex-col flex-1 justify-between">
-        {/* Top section */}
-        <div>
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <h3
-              className="text-sm font-semibold text-white line-clamp-2 leading-tight min-h-[2.5rem]"
-              title={mod.name}
-            >
-              {mod.name}
-            </h3>
-            {/* Status indicators for no-thumbnail cards */}
-            {!thumbnailUrl && (
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                {gbData?.hasUpdate ? (
-                  <UpdateBadge />
-                ) : gbData ? (
-                  <div className="px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1">
-                    <Check size={10} />
-                    LATEST
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
+      {/* Info Section */}
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex-1">
+          <h3
+            className="text-sm font-bold text-white mb-2 line-clamp-2 leading-snug min-h-[2.5rem]"
+            title={mod.name}
+          >
+            {mod.name}
+          </h3>
 
-          <div className="flex items-center text-xs text-gray-500">
-            <FileText size={12} className="mr-1.5 opacity-70" />
-            {mod.iniCount} INI file{mod.iniCount !== 1 ? "s" : ""}
+          <div className="flex flex-col gap-1.5 mt-auto">
+            {/* Version / Folder info */}
+            <div className="flex items-center gap-2 text-xs text-gray-500 truncate">
+              <FileText size={12} className="shrink-0" />
+              <span className="truncate">{mod.originalFolderName}</span>
+            </div>
           </div>
         </div>
 
-        {/* Bottom section (actions) */}
-        <div 
+        {/* Action Bar */}
+        <div
           className="flex items-center justify-between mt-3 relative z-10"
           onClick={(e) => e.stopPropagation()}
         >
@@ -164,13 +151,24 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             </label>
           )}
 
-          <button
-            onClick={onOpenFolder}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-semibold text-gray-400 hover:text-white hover:bg-white/10 transition-colors uppercase tracking-wider"
-          >
-            <FolderOpen size={12} />
-            Folder
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDelete) onDelete(mod);
+              }}
+              className="flex items-center justify-center w-8 h-8 rounded-md text-gray-400 hover:text-red-400 hover:bg-white/10 transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button
+              onClick={onOpenFolder}
+              title="Open Folder"
+              className="flex items-center justify-center w-8 h-8 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <FolderOpen size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

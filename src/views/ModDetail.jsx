@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, User, Plus } from "lucide-react";
+import { ArrowLeft, User, Plus, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import ModCard from "../components/ModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import { getCharacterPortrait, getAllCharacterNames } from "../lib/portraits";
@@ -11,6 +12,7 @@ export default function ModDetail({ game, character, onBack }) {
   const [gbDataMap, setGbDataMap] = useState({}); // { [gamebananaId]: { thumbnailUrl, hasUpdate, fullData } }
   const [selectedMod, setSelectedMod] = useState(null); // Full GB data of clicked mod
   const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFiles: string[] }
+  const [modToDelete, setModToDelete] = useState(null);
 
   const loadMods = async () => {
     if (window.electronConfig && window.electronMods) {
@@ -173,6 +175,25 @@ export default function ModDetail({ game, character, onBack }) {
     }
   };
 
+  const handleDelete = async (mod) => {
+    if (window.electronConfig && window.electronMods) {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+
+      const result = await window.electronMods.deleteMod({
+        importerPath,
+        originalFolderName: mod.originalFolderName,
+      });
+
+      if (result && result.success) {
+        loadMods();
+      } else {
+        alert(result?.error || "Failed to delete mod.");
+      }
+    }
+  };
+
+  if (!character) return null;
   const enabledCount = mods.filter((m) => m.isEnabled).length;
   const disabledCount = mods.length - enabledCount;
 
@@ -268,6 +289,7 @@ export default function ModDetail({ game, character, onBack }) {
               onToggle={(enable) => handleToggle(mod, enable)}
               onOpenFolder={() => handleOpenFolder(mod.path)}
               onAssign={(newCharName) => handleAssign(mod, newCharName)}
+              onDelete={setModToDelete}
             />
           );
         })}
@@ -287,6 +309,48 @@ export default function ModDetail({ game, character, onBack }) {
           onThumbnailChange={() => loadMods()}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {modToDelete && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setModToDelete(null)}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              className="w-full max-w-sm bg-[#12121a] border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500 shadow-inner shadow-red-500/20">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Delete Mod?</h3>
+              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                Are you sure you want to delete <strong className="text-white">{modToDelete.name}</strong>?<br/>
+                This will move the folder to your computer's Recycle Bin.
+              </p>
+              
+              <div className="flex items-center gap-3 w-full">
+                <button
+                  onClick={() => setModToDelete(null)}
+                  className="flex-1 py-2.5 rounded-lg font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    await handleDelete(modToDelete);
+                    setModToDelete(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
