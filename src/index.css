@@ -93,3 +93,28 @@
     background-color: var(--active-accent);
   }
 }
+
+/* GameBanana HTML Descriptions */
+.gb-description a {
+  color: var(--active-accent);
+  text-decoration: none;
+}
+
+.gb-description a:hover {
+  text-decoration: underline;
+}
+
+.gb-description b, .gb-description strong {
+  color: white;
+  font-weight: 700;
+}
+
+.gb-description .RedColor {
+  color: #ff4d4d;
+}
+
+.gb-description br {
+  margin-bottom: 0.5rem;
+  display: block;
+  content: "";
+}

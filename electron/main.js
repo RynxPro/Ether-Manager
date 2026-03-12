@@ -366,7 +366,7 @@ ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, n
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";
-const GB_PROPERTIES = "_idRow,_sName,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
+const GB_PROPERTIES = "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
 
 async function fetchFromGB(url) {
   const res = await fetch(url, {
@@ -380,18 +380,22 @@ async function fetchFromGB(url) {
 ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
   try {
     const data = await fetchFromGB(`${GB_API}/Mod/${gamebananaId}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`);
-    // Construct thumbnail URL from preview media
-    let thumbnailUrl = null;
+    // Construct thumbnail URLs from all preview media
+    const allImages = [];
     const images = data._aPreviewMedia?._aImages;
-    if (images && images.length > 0) {
-      const img = images[0];
-      thumbnailUrl = img._sFile530
-        ? `${img._sBaseUrl}/${img._sFile530}`
-        : img._sFile
-        ? `${img._sBaseUrl}/${img._sFile}`
-        : null;
+    if (images) {
+      images.forEach(img => {
+        const url = img._sFile530
+          ? `${img._sBaseUrl}/${img._sFile530}`
+          : img._sFile
+          ? `${img._sBaseUrl}/${img._sFile}`
+          : null;
+        if (url) allImages.push(url);
+      });
     }
-    return { success: true, data: { ...data, thumbnailUrl } };
+    const thumbnailUrl = allImages.length > 0 ? allImages[0] : null;
+
+    return { success: true, data: { ...data, thumbnailUrl, allImages } };
   } catch (err) {
     console.error("Failed to fetch GB mod:", err);
     return { success: false, error: err.message };

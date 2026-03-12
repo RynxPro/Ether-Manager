@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import BrowseModCard from "../components/BrowseModCard";
-import InstallModal from "../components/InstallModal";
+import ModDetailModal from "../components/ModDetailModal";
 import { getAllCharacterNames } from "../lib/portraits";
 
 const SORT_OPTIONS = [
@@ -233,9 +233,9 @@ export default function BrowseView({ game }) {
         </>
       )}
 
-      {/* Install modal */}
+      {/* Mod detail modal */}
       {installTarget && (
-        <InstallModal
+        <ModDetailModal
           mod={installTarget}
           game={game}
           onClose={() => setInstallTarget(null)}

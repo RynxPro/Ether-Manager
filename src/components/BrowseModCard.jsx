@@ -14,8 +14,9 @@ export default function BrowseModCard({ mod, isInstalled, onInstall }) {
 
   return (
     <div
+      onClick={onInstall}
       className={cn(
-        "relative rounded-xl overflow-hidden border transition-all duration-300 flex flex-col group will-change-transform hover:-translate-y-1 hover:border-[var(--active-accent)]/50 hover:shadow-xl hover:shadow-[var(--active-accent)]/10",
+        "relative rounded-xl overflow-hidden border transition-all duration-300 flex flex-col group will-change-transform hover:-translate-y-1 hover:border-[var(--active-accent)]/50 hover:shadow-xl hover:shadow-[var(--active-accent)]/10 cursor-pointer",
         "bg-[#0f0f1a] border-white/8"
       )}
     >

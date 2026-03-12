@@ -1,0 +1,282 @@
+import { useState, useEffect } from "react";
+import { X, Download, Heart, Eye, ChevronLeft, ChevronRight, Check, ChevronDown, CheckCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { getAllCharacterNames } from "../lib/portraits";
+import { cn } from "../lib/utils";
+
+export default function ModDetailModal({ mod, game, onClose, onInstall }) {
+  const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
+  const [selectedCharacter, setSelectedCharacter] = useState("");
+  const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [error, setError] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isInstallComplete, setIsInstallComplete] = useState(false);
+
+  const characters = getAllCharacterNames();
+  const images = mod.allImages || [mod.thumbnailUrl].filter(Boolean);
+
+  useEffect(() => {
+    if (window.electronMods && window.electronMods.onDownloadProgress) {
+      return window.electronMods.onDownloadProgress((data) => {
+        if (data.gbModId === mod._idRow) {
+          setDownloadProgress(data.percent);
+        }
+      });
+    }
+  }, [mod._idRow]);
+
+  const handleInstall = async () => {
+    if (!selectedCharacter) {
+      setError("Please select a character first.");
+      return;
+    }
+    if (!selectedFile) {
+      setError("Please select a file to download.");
+      return;
+    }
+    setIsInstalling(true);
+    setError(null);
+    setDownloadProgress(0);
+    setIsInstallComplete(false);
+    try {
+      await onInstall({
+        characterName: selectedCharacter,
+        gbModId: mod._idRow,
+        fileUrl: selectedFile._sDownloadUrl,
+        fileName: selectedFile._sFile,
+      });
+      setIsInstallComplete(true);
+    } catch (err) {
+      setError(err.message || "Installation failed.");
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  const nextImage = () => setCurrentImgIndex((prev) => (prev + 1) % images.length);
+  const prevImage = () => setCurrentImgIndex((prev) => (prev - 1 + images.length) % images.length);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-8"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="w-full max-w-5xl bg-[#0f0f1a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px]"
+      >
+        {/* Left Side: Media Carousel */}
+        <div className="md:w-[55%] bg-black relative flex flex-col group h-64 md:h-auto border-r border-white/5">
+          {images.length > 0 ? (
+            <div className="relative flex-1 overflow-hidden bg-[#05050a]">
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={currentImgIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  src={images[currentImgIndex]}
+                  alt={mod._sName}
+                  className="w-full h-full object-contain"
+                />
+              </AnimatePresence>
+              
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                  {/* Indicators */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {images.map((_, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full transition-all",
+                          i === currentImgIndex ? "bg-[var(--active-accent)] w-4" : "bg-white/30"
+                        )}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-white/10 italic">
+              No images available
+            </div>
+          )}
+          
+          {/* Thumbnails row (desktop) */}
+          {images.length > 1 && (
+            <div className="h-20 bg-white/5 border-t border-white/5 flex items-center gap-2 p-3 overflow-x-auto scroller-hidden hidden md:flex">
+              {images.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentImgIndex(i)}
+                  className={cn(
+                    "h-full aspect-video rounded-md overflow-hidden border-2 transition-all shrink-0",
+                    i === currentImgIndex ? "border-[var(--active-accent)]" : "border-transparent opacity-50 hover:opacity-100"
+                  )}
+                >
+                  <img src={img} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right Side: Details & Actions */}
+        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-gradient-to-b from-[#161625] to-[#0f0f1a] overflow-hidden">
+          <div className="flex items-start justify-between mb-4 shrink-0">
+            <div className="min-w-0 pr-4">
+              <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
+              <p className="text-gray-400 text-sm truncate">
+                by <span className="text-[var(--active-accent)]">{mod._aSubmitter?._sName || "Unknown"}</span>
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors shrink-0"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4 text-gray-400 text-xs mb-6 shrink-0">
+            <span className="flex items-center gap-1.5">
+              <Heart size={14} className="text-pink-500/80" /> {mod._nLikeCount?.toLocaleString() || 0}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
+            </span>
+            <span className="flex items-center gap-1.5 text-[var(--active-accent)]">
+              <Download size={14} /> {mod._nDownloadCount?.toLocaleString() || 0}
+            </span>
+          </div>
+
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8 mb-6">
+            {/* Description */}
+            <div>
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">About this mod</h3>
+              <div 
+                className="text-sm text-gray-300 leading-relaxed gb-description"
+                dangerouslySetInnerHTML={{ __html: mod._sText || mod._sDescription || "No description provided." }}
+              />
+            </div>
+
+            {/* Files Selector */}
+            <div>
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Files / Versions</h3>
+              <div className="space-y-2">
+                {mod._aFiles?.map((file) => (
+                  <button
+                    key={file._idRow}
+                    onClick={() => setSelectedFile(file)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                      selectedFile?._idRow === file._idRow
+                        ? "bg-[var(--active-accent)]/10 border-[var(--active-accent)]/50 text-white"
+                        : "bg-white/5 border-white/5 text-gray-400 hover:border-white/10 hover:text-gray-300"
+                    )}
+                  >
+                    <div className="flex-1 min-w-0 mr-3">
+                      <p className="text-sm font-medium truncate">{file._sFile}</p>
+                      <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
+                    </div>
+                    {selectedFile?._idRow === file._idRow && (
+                      <div className="p-1 rounded-full bg-[var(--active-accent)] text-black">
+                        <Check size={12} />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Installation Zone (Fixed at bottom) */}
+          <div className="pt-6 border-t border-white/5 shrink-0">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+              Target Character
+            </label>
+            <div className="relative mb-6">
+              <select
+                value={selectedCharacter}
+                onChange={(e) => setSelectedCharacter(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-[var(--active-accent)] appearance-none cursor-pointer hover:bg-white/10 transition-all"
+              >
+                <option value="" disabled>Select a character...</option>
+                {characters.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+
+            {error && <p className="text-red-400 text-xs mb-4">{error}</p>}
+
+            {isInstallComplete ? (
+              <div className="flex flex-col items-center gap-3">
+                 <div className="flex items-center gap-2 text-green-400 font-semibold bg-green-500/10 w-full justify-center py-3 rounded-xl border border-green-500/20">
+                   <CheckCircle size={18} />
+                   <span>Installed Successfully</span>
+                 </div>
+                 <button 
+                   onClick={onClose}
+                   className="w-full py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all text-sm"
+                 >
+                   Return to Browse
+                 </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleInstall}
+                disabled={isInstalling || !selectedCharacter}
+                className="w-full relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--active-accent)] text-black font-bold text-base hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
+                  <motion.div 
+                    className="absolute left-0 top-0 bottom-0 bg-black/10" 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${downloadProgress}%` }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  {isInstalling ? (
+                    <>
+                      {downloadProgress > 0 && downloadProgress < 100 
+                        ? `Downloading ${downloadProgress}%` 
+                        : "Preparing..."}
+                    </>
+                  ) : (
+                    <>
+                      <Download size={20} />
+                      Install Now
+                    </>
+                  )}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
