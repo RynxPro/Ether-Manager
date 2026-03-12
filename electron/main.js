@@ -366,7 +366,7 @@ ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, n
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";
-const GB_PROPERTIES = "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nViewCount,_aSubmitter,_aGame";
+const GB_PROPERTIES = "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame";
 
 async function fetchFromGB(url) {
   const res = await fetch(url, {
