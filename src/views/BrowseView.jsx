@@ -20,7 +20,7 @@ export default function BrowseView({ game }) {
   const [error, setError] = useState(null);
   const [sort, setSort] = useState("");
   const [page, setPage] = useState(1);
-  const [installedModIds, setInstalledModIds] = useState(new Set());
+  const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFile }
   const [installTarget, setInstallTarget] = useState(null);
   const [importerPath, setImporterPath] = useState(null);
 
@@ -42,10 +42,18 @@ export default function BrowseView({ game }) {
     const loadInstalled = async () => {
       if (!importerPath || !window.electronMods) return;
       const allMods = await window.electronMods.getMods(importerPath, getAllCharacterNames());
-      const gbIds = new Set(
-        allMods.filter((m) => m.gamebananaId != null).map((m) => m.gamebananaId)
-      );
-      setInstalledModIds(gbIds);
+      const infoMap = {}; // gbId -> { installedFiles: string[] }
+      allMods.forEach((m) => {
+        if (m.gamebananaId != null) {
+          if (!infoMap[m.gamebananaId]) {
+            infoMap[m.gamebananaId] = { installedFiles: [] };
+          }
+          if (m.installedFile && !infoMap[m.gamebananaId].installedFiles.includes(m.installedFile)) {
+            infoMap[m.gamebananaId].installedFiles.push(m.installedFile);
+          }
+        }
+      });
+      setInstalledModsInfo(infoMap);
     };
     loadInstalled();
   }, [importerPath]);
@@ -95,7 +103,17 @@ export default function BrowseView({ game }) {
       fileName,
     });
     if (!result.success) throw new Error(result.error || "Installation failed.");
-    setInstalledModIds((prev) => new Set([...prev, gbModId]));
+    setInstalledModsInfo((prev) => {
+      const current = prev[gbModId] || { installedFiles: [] };
+      if (current.installedFiles.includes(fileName)) return prev;
+      return {
+        ...prev,
+        [gbModId]: { 
+          ...current,
+          installedFiles: [...current.installedFiles, fileName] 
+        }
+      };
+    });
   };
 
   const totalPages = Math.ceil(total / PER_PAGE);
@@ -185,7 +203,7 @@ export default function BrowseView({ game }) {
               <BrowseModCard
                 key={mod._idRow}
                 mod={mod}
-                isInstalled={installedModIds.has(mod._idRow)}
+                isInstalled={!!installedModsInfo[mod._idRow]}
                 onInstall={async () => {
                   try {
                     const result = await window.electronMods.fetchGbMod(mod._idRow);
@@ -238,6 +256,7 @@ export default function BrowseView({ game }) {
         <ModDetailModal
           mod={installTarget}
           game={game}
+          installedFileInfo={installedModsInfo[installTarget._idRow]}
           onClose={() => setInstallTarget(null)}
           onInstall={handleInstall}
         />

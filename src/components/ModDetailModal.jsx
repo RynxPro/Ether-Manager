@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 
-export default function ModDetailModal({ mod, game, onClose, onInstall }) {
+export default function ModDetailModal({ mod, game, onClose, onInstall, installedFileInfo }) {
   const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
   const [selectedCharacter, setSelectedCharacter] = useState("");
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
@@ -187,28 +187,38 @@ export default function ModDetailModal({ mod, game, onClose, onInstall }) {
             <div>
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Files / Versions</h3>
               <div className="space-y-2">
-                {mod._aFiles?.map((file) => (
-                  <button
-                    key={file._idRow}
-                    onClick={() => setSelectedFile(file)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
-                      selectedFile?._idRow === file._idRow
-                        ? "bg-[var(--active-accent)]/10 border-[var(--active-accent)]/50 text-white"
-                        : "bg-white/5 border-white/5 text-gray-400 hover:border-white/10 hover:text-gray-300"
-                    )}
-                  >
-                    <div className="flex-1 min-w-0 mr-3">
-                      <p className="text-sm font-medium truncate">{file._sFile}</p>
-                      <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
-                    </div>
-                    {selectedFile?._idRow === file._idRow && (
-                      <div className="p-1 rounded-full bg-[var(--active-accent)] text-black">
-                        <Check size={12} />
+                {mod._aFiles?.map((file) => {
+                  const isInstalled = installedFileInfo?.installedFiles?.includes(file._sFile);
+                  return (
+                    <button
+                      key={file._idRow}
+                      onClick={() => setSelectedFile(file)}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                        selectedFile?._idRow === file._idRow
+                          ? "bg-[var(--active-accent)]/10 border-[var(--active-accent)]/50 text-white"
+                          : "bg-white/5 border-white/5 text-gray-400 hover:border-white/10 hover:text-gray-300"
+                      )}
+                    >
+                      <div className="flex-1 min-w-0 mr-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">{file._sFile}</p>
+                          {isInstalled && (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 uppercase tracking-tighter shrink-0">
+                              Stored
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
                       </div>
-                    )}
-                  </button>
-                ))}
+                      {selectedFile?._idRow === file._idRow && (
+                        <div className="p-1 rounded-full bg-[var(--active-accent)] text-black">
+                          <Check size={12} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

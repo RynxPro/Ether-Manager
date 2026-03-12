@@ -204,15 +204,16 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         ).length;
       } catch (err) {}
 
-      // Read aether.json for GameBanana metadata
       let gamebananaId = null;
       let installedAt = null;
+      let installedFile = null;
       try {
         const aetherJsonPath = path.join(folderPath, "aether.json");
         if (fs.existsSync(aetherJsonPath)) {
           const aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
           gamebananaId = aetherData.gamebananaId || null;
           installedAt = aetherData.installedAt || null;
+          installedFile = aetherData.installedFile || null;
         }
       } catch (err) { /* ignore parse errors */ }
 
@@ -226,6 +227,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         path: folderPath,
         gamebananaId,
         installedAt,
+        installedFile,
       });
     });
 
@@ -592,6 +594,7 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
       const aetherJson = {
         gamebananaId: gbModId,
         installedAt: new Date().toISOString(),
+        installedFile: fileName,
       };
       fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
       renamedFolders.push(targetName);
