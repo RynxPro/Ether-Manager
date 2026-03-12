@@ -26,6 +26,19 @@ export default function ModDetailModal({
   const characters = getAllCharacterNames();
   const images = mod.allImages || [mod.thumbnailUrl].filter(Boolean);
 
+  // Auto-select character based on GameBanana Category tag
+  useEffect(() => {
+    if (!selectedCharacter && mod._aCategory?._sName) {
+      const categoryName = mod._aCategory._sName.toLowerCase();
+      const matchedChar = characters.find(
+        (c) => c.toLowerCase() === categoryName
+      );
+      if (matchedChar) {
+        setSelectedCharacter(matchedChar);
+      }
+    }
+  }, [mod, selectedCharacter, characters]);
+
   useEffect(() => {
     if (window.electronMods && window.electronMods.onDownloadProgress) {
       return window.electronMods.onDownloadProgress((data) => {

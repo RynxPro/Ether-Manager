@@ -427,7 +427,7 @@ ipcMain.handle("delete-mod", async (event, { importerPath, originalFolderName })
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";
-const GB_PROPERTIES = "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame";
+const GB_PROPERTIES = "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame,_aCategory";
 
 async function fetchFromGB(url) {
   const res = await fetch(url, {
