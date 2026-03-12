@@ -15,7 +15,9 @@ for (const path in portraitModules) {
     .replace(/^Agent_/, "")
     .replace(/_Portrait\.(webp|png|jpg|jpeg)$/, "")
     .replace(/\.(webp|png|jpg|jpeg)$/, "")
-    .replace(/_/g, " ")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
     .toLowerCase();
 
   portraits[name] = {
@@ -24,7 +26,9 @@ for (const path in portraitModules) {
       .replace(/^Agent_/, "")
       .replace(/_Portrait\.(webp|png|jpg|jpeg)$/, "")
       .replace(/\.(webp|png|jpg|jpeg)$/, "")
-      .replace(/_/g, " ")
+      .replace(/[-_]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
   };
 }
 
@@ -34,7 +38,10 @@ export function getAllCharacterNames() {
 
 export function getCharacterPortrait(characterName) {
   if (!characterName) return null;
-  const normalized = characterName.toLowerCase().replace(/[-_]/g, " ");
+  const normalized = characterName.toLowerCase()
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   // 1. Exact match
   if (portraits[normalized]) return portraits[normalized].url;

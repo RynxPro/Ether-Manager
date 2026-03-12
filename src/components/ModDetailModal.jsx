@@ -26,6 +26,14 @@ export default function ModDetailModal({ mod, game, onClose, onInstall }) {
     }
   }, [mod._idRow]);
 
+  // Prevent background scroll
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
+
   const handleInstall = async () => {
     if (!selectedCharacter) {
       setError("Please select a character first.");
@@ -74,18 +82,12 @@ export default function ModDetailModal({ mod, game, onClose, onInstall }) {
         <div className="md:w-[55%] bg-black relative flex flex-col group h-64 md:h-auto border-r border-white/5">
           {images.length > 0 ? (
             <div className="relative flex-1 overflow-hidden bg-[#05050a]">
-              <AnimatePresence mode="wait">
-                <motion.img
-                  key={currentImgIndex}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  src={images[currentImgIndex]}
-                  alt={mod._sName}
-                  className="w-full h-full object-contain"
-                />
-              </AnimatePresence>
+              <img
+                key={currentImgIndex}
+                src={images[currentImgIndex]}
+                alt={mod._sName}
+                className="w-full h-full object-contain"
+              />
               
               {images.length > 1 && (
                 <>
