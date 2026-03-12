@@ -1,6 +1,7 @@
 import { Zap, Search, Settings } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState } from "react";
+import { motion } from "framer-motion";
 import SettingsModal from "./SettingsModal";
 
 export default function Navbar({ games, activeGame, onSelectGame, activeView, onSelectView }) {
@@ -41,14 +42,21 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 w-48 no-drag">
           {/* My Mods / Browse toggle */}
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-full p-0.5">
+          <div className="flex items-center bg-white/5 border border-white/10 rounded-full p-1 relative">
+            <motion.div
+              layout
+              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              className="absolute h-[calc(100%-8px)] rounded-full bg-[var(--active-accent)] z-0 shadow-lg shadow-[var(--active-accent)]/20"
+              style={{
+                width: activeView === "mods" ? "calc(50% - 4px)" : "calc(50% - 4px)",
+                left: activeView === "mods" ? "4px" : "calc(50%)",
+              }}
+            />
             <button
               onClick={() => onSelectView("mods")}
               className={cn(
-                "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200",
-                activeView === "mods"
-                  ? "bg-[var(--active-accent)] text-black"
-                  : "text-gray-400 hover:text-white"
+                "px-4 py-1.5 rounded-full text-xs font-bold transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[75px]",
+                activeView === "mods" ? "text-black" : "text-gray-400 hover:text-gray-200"
               )}
             >
               My Mods
@@ -56,10 +64,8 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
             <button
               onClick={() => onSelectView("browse")}
               className={cn(
-                "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200",
-                activeView === "browse"
-                  ? "bg-[var(--active-accent)] text-black"
-                  : "text-gray-400 hover:text-white"
+                "px-4 py-1.5 rounded-full text-xs font-bold transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[75px]",
+                activeView === "browse" ? "text-black" : "text-gray-400 hover:text-gray-200"
               )}
             >
               Browse
