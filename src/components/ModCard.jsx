@@ -3,14 +3,16 @@ import { FileText, FolderOpen, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 
-export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, characters = [] }) {
+export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, characters = [], onClick }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = gbData?.thumbnailUrl;
 
   return (
     <div
+      onClick={onClick}
       className={cn(
         "relative rounded-xl border transition-all duration-300 flex flex-col group will-change-transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-[var(--active-accent)]/20 hover:border-[var(--active-accent)]/50 overflow-hidden",
+        onClick && "cursor-pointer",
         mod.isEnabled
           ? "bg-[#0f0f1a] border-white/10"
           : "bg-white/[0.02] border-white/5 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
@@ -115,7 +117,10 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
         </div>
 
         {/* Bottom section (actions) */}
-        <div className="flex items-center justify-between mt-3">
+        <div 
+          className="flex items-center justify-between mt-3 relative z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
           {isUnassignedMode ? (
             <select
               onChange={(e) => { if (e.target.value) onAssign(e.target.value); }}

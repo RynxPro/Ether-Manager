@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, User, Plus } from "lucide-react";
 import ModCard from "../components/ModCard";
+import ModDetailModal from "../components/ModDetailModal";
 import { getCharacterPortrait, getAllCharacterNames } from "../lib/portraits";
 
 export default function ModDetail({ game, character, onBack }) {
   const portraitUrl = getCharacterPortrait(character.name);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const [gbDataMap, setGbDataMap] = useState({}); // { [gamebananaId]: { thumbnailUrl, hasUpdate } }
+  const [gbDataMap, setGbDataMap] = useState({}); // { [gamebananaId]: { thumbnailUrl, hasUpdate, fullData } }
+  const [selectedMod, setSelectedMod] = useState(null); // Full GB data of clicked mod
+  const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFiles: string[] }
 
   const loadMods = async () => {
     if (window.electronConfig && window.electronMods) {
@@ -23,38 +26,50 @@ export default function ModDetail({ game, character, onBack }) {
         });
         setMods(charMods);
 
-        // Fetch GameBanana data for mods that have a gamebananaId
-        const gbIds = charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId);
-        if (gbIds.length > 0 && window.electronMods.fetchGbMod) {
-          const results = await Promise.allSettled(
-            gbIds.map((id) => window.electronMods.fetchGbMod(id))
-          );
-          const map = {};
-          results.forEach((res, i) => {
-            if (res.status === "fulfilled" && res.value.success) {
-              const gbMod = res.value.data;
-              const localMod = charMods.find(m => m.gamebananaId === gbIds[i]);
-              
-              let hasUpdate = false;
-              if (localMod && localMod.installedAt && gbMod._tsDateUpdated) {
-                const installedDate = new Date(localMod.installedAt).getTime() / 1000;
-                // If the update date from GameBanana is newer than our installation date
-                if (gbMod._tsDateUpdated > installedDate + 60) { // +60s buffer for safety
-                  hasUpdate = true;
+          // Fetch GameBanana data for mods that have a gamebananaId
+          const gbIds = [...new Set(charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId))];
+          if (gbIds.length > 0 && window.electronMods.fetchGbMod) {
+            const results = await Promise.allSettled(
+              gbIds.map((id) => window.electronMods.fetchGbMod(id))
+            );
+            const map = {};
+            results.forEach((res, i) => {
+              if (res.status === "fulfilled" && res.value.success) {
+                const gbMod = res.value.data;
+                const gbId = gbIds[i];
+                
+                map[gbId] = {
+                  thumbnailUrl: gbMod.thumbnailUrl,
+                  fullData: gbMod, // Store full data for modal
+                };
+              }
+            });
+            setGbDataMap(map);
+          }
+
+          // Build installedModsInfo
+          const infoMap = {};
+          charMods.forEach((m) => {
+            if (m.gamebananaId != null) {
+              if (!infoMap[m.gamebananaId]) {
+                infoMap[m.gamebananaId] = { installedFiles: [] };
+              }
+              if (m.installedFile) {
+                // Check if we already added this file name to avoid duplicates
+                const exists = infoMap[m.gamebananaId].installedFiles.find(f => f.fileName === m.installedFile);
+                if (!exists) {
+                  infoMap[m.gamebananaId].installedFiles.push({
+                    fileName: m.installedFile,
+                    installedAt: m.installedAt
+                  });
                 }
               }
-
-              map[gbIds[i]] = {
-                thumbnailUrl: gbMod.thumbnailUrl,
-                hasUpdate: hasUpdate,
-              };
             }
           });
-          setGbDataMap(map);
+          setInstalledModsInfo(infoMap);
         }
       }
-    }
-  };
+    };
 
   useEffect(() => {
     loadMods();
@@ -102,6 +117,40 @@ export default function ModDetail({ game, character, onBack }) {
       } else if (result && !result.canceled) {
         alert(result.error || "Failed to import mod.");
       }
+    }
+  };
+
+  const handleInstallUpdate = async ({ characterName, gbModId, fileUrl, fileName }) => {
+    if (window.electronConfig && window.electronMods) {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+      if (!importerPath) throw new Error("No importer path configured.");
+      
+      const result = await window.electronMods.installGbMod({
+        importerPath,
+        characterName,
+        gbModId,
+        fileUrl,
+        fileName,
+      });
+
+      if (!result.success) throw new Error(result.error || "Installation failed.");
+      
+      // Update local state so badge shows immediately
+      setInstalledModsInfo((prev) => {
+        const current = prev[gbModId] || { installedFiles: [] };
+        if (current.installedFiles.find(f => f.fileName === fileName)) return prev;
+        return {
+          ...prev,
+          [gbModId]: { 
+            ...current,
+            installedFiles: [...current.installedFiles, { fileName, installedAt: new Date().toISOString() }] 
+          }
+        };
+      });
+      
+      // Reload the library view behind the modal
+      loadMods();
     }
   };
 
@@ -187,19 +236,55 @@ export default function ModDetail({ game, character, onBack }) {
 
       {/* Mods Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
-        {mods.map((mod) => (
-          <ModCard
-            key={mod.originalFolderName}
-            mod={mod}
-            gbData={mod.gamebananaId ? gbDataMap[mod.gamebananaId] : undefined}
-            isUnassignedMode={character.name === "Unassigned"}
-            characters={getAllCharacterNames()}
-            onToggle={(enable) => handleToggle(mod, enable)}
-            onOpenFolder={() => handleOpenFolder(mod.path)}
-            onAssign={(newCharName) => handleAssign(mod, newCharName)}
-          />
-        ))}
+        {mods.map((mod) => {
+          const gbData = mod.gamebananaId ? gbDataMap[mod.gamebananaId] : undefined;
+          let hasUpdate = false;
+          
+          if (gbData?.fullData && mod.installedAt) {
+            const installedDate = new Date(mod.installedAt).getTime() / 1000;
+            if (gbData.fullData._tsDateUpdated > installedDate + 60) {
+              hasUpdate = true;
+            }
+          }
+          
+          const cardGbData = gbData ? { ...gbData, hasUpdate } : undefined;
+
+          return (
+            <ModCard
+              key={mod.originalFolderName}
+              mod={mod}
+              gbData={cardGbData}
+              isUnassignedMode={character.name === "Unassigned"}
+              characters={getAllCharacterNames()}
+              onClick={() => {
+                if (gbData?.fullData) {
+                  setSelectedMod({ 
+                    ...gbData.fullData,
+                    isUpdating: hasUpdate 
+                  });
+                }
+              }}
+              onToggle={(enable) => handleToggle(mod, enable)}
+              onOpenFolder={() => handleOpenFolder(mod.path)}
+              onAssign={(newCharName) => handleAssign(mod, newCharName)}
+            />
+          );
+        })}
       </div>
+
+      {/* Mod Detail Modal */}
+      {selectedMod && (
+        <ModDetailModal
+          mod={selectedMod}
+          game={game}
+          installedFileInfo={installedModsInfo[selectedMod._idRow]}
+          preSelectedCharacter={character.name !== "Unassigned" ? character.name : ""}
+          isUpdating={selectedMod.isUpdating}
+          isLibraryContext={true}
+          onClose={() => setSelectedMod(null)}
+          onInstall={handleInstallUpdate}
+        />
+      )}
     </div>
   );
 }

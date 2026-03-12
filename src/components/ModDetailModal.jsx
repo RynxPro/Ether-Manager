@@ -4,9 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 
-export default function ModDetailModal({ mod, game, onClose, onInstall, installedFileInfo }) {
+export default function ModDetailModal({ 
+  mod, 
+  game, 
+  onClose, 
+  onInstall, 
+  installedFileInfo,
+  preSelectedCharacter = "",
+  isUpdating = false,
+  isLibraryContext = false
+}) {
   const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
-  const [selectedCharacter, setSelectedCharacter] = useState("");
+  const [selectedCharacter, setSelectedCharacter] = useState(preSelectedCharacter || "");
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [isInstalling, setIsInstalling] = useState(false);
   const [error, setError] = useState(null);
@@ -188,7 +197,17 @@ export default function ModDetailModal({ mod, game, onClose, onInstall, installe
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Files / Versions</h3>
               <div className="space-y-2">
                 {mod._aFiles?.map((file) => {
-                  const isInstalled = installedFileInfo?.installedFiles?.includes(file._sFile);
+                  const installedData = installedFileInfo?.installedFiles?.find(f => f.fileName === file._sFile);
+                  const isInstalled = !!installedData;
+                  let isOutdated = false;
+                  
+                  if (isInstalled && mod._tsDateUpdated && installedData.installedAt) {
+                    const installedDate = new Date(installedData.installedAt).getTime() / 1000;
+                    if (mod._tsDateUpdated > installedDate + 60) {
+                      isOutdated = true;
+                    }
+                  }
+
                   return (
                     <button
                       key={file._idRow}
@@ -204,9 +223,15 @@ export default function ModDetailModal({ mod, game, onClose, onInstall, installe
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">{file._sFile}</p>
                           {isInstalled && (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 uppercase tracking-tighter shrink-0">
-                              Stored
-                            </span>
+                            isOutdated ? (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 uppercase tracking-tighter shrink-0">
+                                Update Available
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 uppercase tracking-tighter shrink-0">
+                                Stored
+                              </span>
+                            )
                           )}
                         </div>
                         <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
@@ -260,8 +285,13 @@ export default function ModDetailModal({ mod, game, onClose, onInstall, installe
             ) : (
               <button
                 onClick={handleInstall}
-                disabled={isInstalling || !selectedCharacter}
-                className="w-full relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl bg-[var(--active-accent)] text-black font-bold text-base hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                disabled={isInstalling || !selectedCharacter || (isLibraryContext && !isUpdating)}
+                className={cn(
+                  "w-full relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
+                  isLibraryContext && !isUpdating
+                    ? "bg-white/5 text-gray-600 cursor-not-allowed"
+                    : "bg-[var(--active-accent)] text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
               >
                 {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
                   <motion.div 
@@ -280,7 +310,7 @@ export default function ModDetailModal({ mod, game, onClose, onInstall, installe
                   ) : (
                     <>
                       <Download size={20} />
-                      Install Now
+                      {isLibraryContext ? "Update" : "Install Now"}
                     </>
                   )}
                 </span>

@@ -42,14 +42,20 @@ export default function BrowseView({ game }) {
     const loadInstalled = async () => {
       if (!importerPath || !window.electronMods) return;
       const allMods = await window.electronMods.getMods(importerPath, getAllCharacterNames());
-      const infoMap = {}; // gbId -> { installedFiles: string[] }
+      const infoMap = {}; // gbId -> { installedFiles: { fileName: string, installedAt: string }[] }
       allMods.forEach((m) => {
         if (m.gamebananaId != null) {
           if (!infoMap[m.gamebananaId]) {
             infoMap[m.gamebananaId] = { installedFiles: [] };
           }
-          if (m.installedFile && !infoMap[m.gamebananaId].installedFiles.includes(m.installedFile)) {
-            infoMap[m.gamebananaId].installedFiles.push(m.installedFile);
+          if (m.installedFile) {
+            const exists = infoMap[m.gamebananaId].installedFiles.find(f => f.fileName === m.installedFile);
+            if (!exists) {
+              infoMap[m.gamebananaId].installedFiles.push({
+                fileName: m.installedFile,
+                installedAt: m.installedAt
+              });
+            }
           }
         }
       });
@@ -105,12 +111,12 @@ export default function BrowseView({ game }) {
     if (!result.success) throw new Error(result.error || "Installation failed.");
     setInstalledModsInfo((prev) => {
       const current = prev[gbModId] || { installedFiles: [] };
-      if (current.installedFiles.includes(fileName)) return prev;
+      if (current.installedFiles.find(f => f.fileName === fileName)) return prev;
       return {
         ...prev,
         [gbModId]: { 
           ...current,
-          installedFiles: [...current.installedFiles, fileName] 
+          installedFiles: [...current.installedFiles, { fileName, installedAt: new Date().toISOString() }] 
         }
       };
     });
