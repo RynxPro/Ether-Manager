@@ -207,6 +207,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
       let gamebananaId = null;
       let installedAt = null;
       let installedFile = null;
+      let customThumbnail = null;
       try {
         const aetherJsonPath = path.join(folderPath, "aether.json");
         if (fs.existsSync(aetherJsonPath)) {
@@ -214,6 +215,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
           gamebananaId = aetherData.gamebananaId || null;
           installedAt = aetherData.installedAt || null;
           installedFile = aetherData.installedFile || null;
+          customThumbnail = aetherData.customThumbnail || null;
         }
       } catch (err) { /* ignore parse errors */ }
 
@@ -228,6 +230,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         gamebananaId,
         installedAt,
         installedFile,
+        customThumbnail,
       });
     });
 
@@ -362,6 +365,41 @@ ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, n
     return { success: true, newFolderName };
   } catch (err) {
     console.error("Failed to assign mod:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("set-custom-thumbnail", async (event, { importerPath, originalFolderName, thumbnailUrl }) => {
+  try {
+    let modsPath = importerPath;
+    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
+      modsPath = path.join(modsPath, "Mods");
+    }
+    const folderPath = path.join(modsPath, originalFolderName);
+    if (!fs.existsSync(folderPath)) {
+      throw new Error(`Folder "${originalFolderName}" not found`);
+    }
+
+    const aetherJsonPath = path.join(folderPath, "aether.json");
+    let aetherData = {};
+    if (fs.existsSync(aetherJsonPath)) {
+      try {
+        aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
+      } catch (e) {
+        console.error("Error reading aether.json:", e);
+      }
+    }
+
+    if (thumbnailUrl === null) {
+      delete aetherData.customThumbnail;
+    } else {
+      aetherData.customThumbnail = thumbnailUrl;
+    }
+
+    fs.writeFileSync(aetherJsonPath, JSON.stringify(aetherData, null, 2));
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to set custom thumbnail:", err);
     return { success: false, error: err.message };
   }
 });

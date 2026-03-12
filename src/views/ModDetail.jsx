@@ -260,7 +260,8 @@ export default function ModDetail({ game, character, onBack }) {
                 if (gbData?.fullData) {
                   setSelectedMod({ 
                     ...gbData.fullData,
-                    isUpdating: hasUpdate 
+                    isUpdating: hasUpdate,
+                    localMod: mod
                   });
                 }
               }}
@@ -283,6 +284,7 @@ export default function ModDetail({ game, character, onBack }) {
           isLibraryContext={true}
           onClose={() => setSelectedMod(null)}
           onInstall={handleInstallUpdate}
+          onThumbnailChange={() => loadMods()}
         />
       )}
     </div>

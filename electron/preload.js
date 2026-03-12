@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("electronMods", {
   openFolder: (folderPath) => ipcRenderer.invoke("open-folder", folderPath),
   importMod: (args) => ipcRenderer.invoke("import-mod", args),
   assignMod: (args) => ipcRenderer.invoke("assign-mod", args),
+  setCustomThumbnail: (args) => ipcRenderer.invoke("set-custom-thumbnail", args),
   fetchGbMod: (gamebananaId) => ipcRenderer.invoke("fetch-gb-mod", gamebananaId),
   browseGbMods: (args) => ipcRenderer.invoke("browse-gb-mods", args),
   installGbMod: (args) => ipcRenderer.invoke("install-gb-mod", args),

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Download, Heart, Eye, ChevronLeft, ChevronRight, Check, ChevronDown, CheckCircle } from "lucide-react";
+import { X, Download, Heart, Eye, ChevronLeft, ChevronRight, Check, ChevronDown, CheckCircle, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
@@ -12,7 +12,8 @@ export default function ModDetailModal({
   installedFileInfo,
   preSelectedCharacter = "",
   isUpdating = false,
-  isLibraryContext = false
+  isLibraryContext = false,
+  onThumbnailChange
 }) {
   const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
   const [selectedCharacter, setSelectedCharacter] = useState(preSelectedCharacter || "");
@@ -71,6 +72,29 @@ export default function ModDetailModal({
     }
   };
 
+  const handleSetThumbnail = async () => {
+    if (!mod.localMod || !game || !window.electronConfig || !window.electronMods) return;
+    try {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+      if (!importerPath) return;
+      
+      const result = await window.electronMods.setCustomThumbnail({
+        importerPath,
+        originalFolderName: mod.localMod.originalFolderName,
+        thumbnailUrl: images[currentImgIndex]
+      });
+      
+      if (result.success && onThumbnailChange) {
+        // Optimistically update the local mod object
+        mod.localMod.customThumbnail = images[currentImgIndex];
+        onThumbnailChange();
+      }
+    } catch (err) {
+      console.error("Failed to set custom thumbnail", err);
+    }
+  };
+
   const nextImage = () => setCurrentImgIndex((prev) => (prev + 1) % images.length);
   const prevImage = () => setCurrentImgIndex((prev) => (prev - 1 + images.length) % images.length);
 
@@ -125,6 +149,18 @@ export default function ModDetailModal({
                     ))}
                   </div>
                 </>
+              )}
+              
+              {/* Set Thumbnail Button */}
+              {isLibraryContext && mod.localMod && (
+                <button
+                  onClick={handleSetThumbnail}
+                  title="Use this image as the thumbnail in your library"
+                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 backdrop-blur text-white text-xs font-bold hover:bg-[var(--active-accent)] hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
+                >
+                  <ImageIcon size={14} />
+                  Set as Thumbnail
+                </button>
               )}
             </div>
           ) : (

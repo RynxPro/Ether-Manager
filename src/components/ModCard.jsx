@@ -5,7 +5,7 @@ import UpdateBadge from "./UpdateBadge";
 
 export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, characters = [], onClick }) {
   const [imgLoaded, setImgLoaded] = useState(false);
-  const thumbnailUrl = gbData?.thumbnailUrl;
+  const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
   return (
     <div
