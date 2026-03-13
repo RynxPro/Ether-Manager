@@ -21,13 +21,11 @@ export default function CharacterCard({ character, game, onClick }) {
   return (
     <motion.div
       variants={itemVariants}
-      onClick={hasMods || character.name === "Unassigned" ? onClick : undefined}
+      onClick={onClick}
       className={cn(
         "rounded-2xl overflow-hidden group transition-all duration-300 relative",
-        "bg-[#0f0f1a] border border-white/5",
-        hasMods || character.name === "Unassigned"
-          ? "cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50"
-          : "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:border-white/20 transition-all duration-500",
+        "bg-[#0f0f1a] border border-white/5 cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50",
+        !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:border-white/20 transition-all duration-500",
         hasMods && "border-(--active-accent)/20 shadow-lg shadow-(--active-accent)/5"
       )}
       style={{ contain: "layout paint" }}
@@ -51,10 +49,10 @@ export default function CharacterCard({ character, game, onClick }) {
               loading="lazy"
             />
             {/* Bottom vignette */}
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0f0f1a] via-[#0f0f1a]/60 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-[#0f0f1a] via-[#0f0f1a]/60 to-transparent" />
           </>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a]">
+          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-[#1a1a2e] to-[#0f0f1a]">
             {isUI ? (
               <Monitor size={80} className="text-(--active-accent) opacity-20" />
             ) : isMisc ? (

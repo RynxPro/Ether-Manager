@@ -17,18 +17,29 @@
   body {
     background-color: var(--background);
     color: var(--text-primary);
-    font-family: "Inter", system-ui, sans-serif;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
     overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Outfit", sans-serif;
+    font-family: "Space Grotesk", sans-serif;
+    letter-spacing: -0.02em;
   }
 
   button, input, select, textarea {
     font-family: inherit;
+  }
+
+  /* Modern Uppercase labels */
+  .text-xs.uppercase, 
+  .text-\[10px\].uppercase,
+  .tracking-widest {
+    letter-spacing: 0.08em !important;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
   }
 
   /* Custom scrollbar */
@@ -53,6 +64,7 @@
   .titlebar-drag {
     -webkit-app-region: drag;
     -webkit-user-select: none;
+    user-select: none;
   }
 
   /* Make sure buttons/interactive elements stay clickable over the draggable area */

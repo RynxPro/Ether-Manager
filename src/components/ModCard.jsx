@@ -111,7 +111,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
           {isUnassignedMode ? (
             <select
               onChange={(e) => { if (e.target.value) onAssign(e.target.value); }}
-              className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-[var(--active-accent)] bg-[#0a0a0f]"
+              className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-(--active-accent)"
               defaultValue=""
             >
               <option value="" disabled>Assign Character...</option>
@@ -130,7 +130,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
               <div
                 className={cn(
                   "toggle-label w-11 h-6 rounded-full transition-colors duration-300 relative",
-                  mod.isEnabled ? "bg-[var(--active-accent)]" : "bg-gray-700",
+                  mod.isEnabled ? "bg-(--active-accent)" : "bg-gray-700",
                 )}
               >
                 <div
