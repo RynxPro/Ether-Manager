@@ -14,6 +14,16 @@ const portraits = {
   wwmi: {}
 };
 
+export const GLOBAL_CATEGORIES = ["User Interface", "Miscellaneous"];
+
+export function isGlobalCategory(name) {
+  return GLOBAL_CATEGORIES.some(cat => cat.toLowerCase() === (name || "").toLowerCase());
+}
+
+export function getGlobalCategories() {
+  return GLOBAL_CATEGORIES;
+}
+
 const processPortraits = (modules, gameId, prefixToRemove = "", suffixesToRemove = []) => {
   for (const path in modules) {
     const filename = path.split("/").pop();

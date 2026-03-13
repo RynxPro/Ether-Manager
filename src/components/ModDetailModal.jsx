@@ -23,18 +23,33 @@ export default function ModDetailModal({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isInstallComplete, setIsInstallComplete] = useState(false);
 
-  const characters = getAllCharacterNames(game.id);
+  const baseCharacters = getAllCharacterNames(game.id);
+  const characters = [...baseCharacters, "User Interface", "Miscellaneous"];
   const images = mod.allImages || [mod.thumbnailUrl].filter(Boolean);
 
   // Auto-select character based on GameBanana Category tag
   useEffect(() => {
-    if (!selectedCharacter && mod._aCategory?._sName) {
-      const categoryName = mod._aCategory._sName.toLowerCase();
-      const matchedChar = characters.find(
-        (c) => c.toLowerCase() === categoryName
-      );
-      if (matchedChar) {
-        setSelectedCharacter(matchedChar);
+    if (!selectedCharacter) {
+      // 1. Check Root Category first (Global categories)
+      const rootCat = mod._aRootCategory?._sName?.toLowerCase();
+      if (rootCat === "gui" || rootCat === "user interface" || rootCat === "hud") {
+        setSelectedCharacter("User Interface");
+        return;
+      }
+      if (rootCat === "scripts" || rootCat === "utilities" || rootCat === "tools" || rootCat === "fixes") {
+        setSelectedCharacter("Miscellaneous");
+        return;
+      }
+
+      // 2. Fallback to Sub-category matching (Characters)
+      if (mod._aCategory?._sName) {
+        const categoryName = mod._aCategory._sName.toLowerCase();
+        const matchedChar = characters.find(
+          (c) => c.toLowerCase() === categoryName
+        );
+        if (matchedChar) {
+          setSelectedCharacter(matchedChar);
+        }
       }
     }
   }, [mod, selectedCharacter, characters]);

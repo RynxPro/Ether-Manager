@@ -1,5 +1,5 @@
 import { cn } from "../lib/utils";
-import { User } from "lucide-react";
+import { User, Monitor, Box } from "lucide-react";
 import { getCharacterPortrait } from "../lib/portraits";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -10,7 +10,11 @@ const itemVariants = {
 };
 
 export default function CharacterCard({ character, game, onClick }) {
-  const portraitUrl = getCharacterPortrait(character.name, game.id);
+  const isUI = character.name === "User Interface";
+  const isMisc = character.name === "Miscellaneous";
+  const isGlobal = isUI || isMisc;
+
+  const portraitUrl = isGlobal ? null : getCharacterPortrait(character.name, game.id);
   const [imgLoaded, setImgLoaded] = useState(false);
   const hasMods = character.totalMods > 0;
 
@@ -50,8 +54,14 @@ export default function CharacterCard({ character, game, onClick }) {
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0f0f1a] via-[#0f0f1a]/60 to-transparent" />
           </>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <User size={64} className="text-white/5" />
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a]">
+            {isUI ? (
+              <Monitor size={80} className="text-(--active-accent) opacity-20" />
+            ) : isMisc ? (
+              <Box size={80} className="text-(--active-accent) opacity-20" />
+            ) : (
+              <User size={64} className="text-white/5" />
+            )}
           </div>
         )}
 
