@@ -156,7 +156,7 @@ export default function ModDetailModal({
                         key={i}
                         className={cn(
                           "w-1.5 h-1.5 rounded-full transition-all",
-                          i === currentImgIndex ? "bg-[var(--active-accent)] w-4" : "bg-white/30"
+                          i === currentImgIndex ? "bg-(--active-accent) w-4" : "bg-white/30"
                         )}
                       />
                     ))}
@@ -169,7 +169,7 @@ export default function ModDetailModal({
                 <button
                   onClick={handleSetThumbnail}
                   title="Use this image as the thumbnail in your library"
-                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 backdrop-blur text-white text-xs font-bold hover:bg-[var(--active-accent)] hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
+                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 backdrop-blur text-white text-xs font-bold hover:bg-(--active-accent) hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
                 >
                   <ImageIcon size={14} />
                   Set as Thumbnail

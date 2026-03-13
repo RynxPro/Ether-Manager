@@ -131,6 +131,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
             <CharacterCard
               key={char.name}
               character={char}
+              game={game}
               onClick={() => onSelectCharacter(char)}
             />
           ))}
