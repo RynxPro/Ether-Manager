@@ -17,7 +17,7 @@
   body {
     background-color: var(--background);
     color: var(--text-primary);
-    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
@@ -25,7 +25,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     letter-spacing: -0.02em;
   }
 
@@ -38,7 +38,7 @@
   .text-\[10px\].uppercase,
   .tracking-widest {
     letter-spacing: 0.08em !important;
-    font-family: "Space Grotesk", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
     font-weight: 600;
   }
 
