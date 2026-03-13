@@ -18,7 +18,17 @@
     background-color: var(--background);
     color: var(--text-primary);
     font-family: "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Outfit", sans-serif;
+  }
+
+  button, input, select, textarea {
+    font-family: inherit;
   }
 
   /* Custom scrollbar */
