@@ -14,7 +14,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
         const config = await window.electronConfig.getConfig();
         const importerPath = config[game.id];
         if (importerPath) {
-          const knownCharacters = getAllCharacterNames();
+          const knownCharacters = getAllCharacterNames(game.id);
           const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
           setMods(loadedMods);
         } else {
@@ -28,9 +28,10 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
   // Group mods by character
   const charactersMap = new Map();
   
-  // Pre-populate with all known characters for ZZMI
-  if (game.id === "ZZMI") {
-    getAllCharacterNames().forEach(name => {
+  // Pre-populate with all known characters for ZZZ and WW
+  const currentChars = getAllCharacterNames(game.id);
+  if (currentChars.length > 0) {
+    currentChars.forEach(name => {
       charactersMap.set(name, {
         name: name,
         totalMods: 0,

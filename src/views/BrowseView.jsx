@@ -169,7 +169,7 @@ export default function BrowseView({ game }) {
               className="pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--active-accent)] appearance-none w-64 cursor-pointer hover:bg-white/10 transition-colors"
             >
               <option value="">All Characters</option>
-              {getAllCharacterNames().map((name) => (
+              {getAllCharacterNames(game.id).map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
             </select>

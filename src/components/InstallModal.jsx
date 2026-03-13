@@ -19,7 +19,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
     }
   }, [mod._idRow]);
 
-  const characters = getAllCharacterNames();
+  const characters = getAllCharacterNames(game.id);
   const fileEntry = mod._aFiles && mod._aFiles[0];
 
   const handleInstall = async () => {

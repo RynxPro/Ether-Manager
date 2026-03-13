@@ -23,7 +23,7 @@ export default function ModDetailModal({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isInstallComplete, setIsInstallComplete] = useState(false);
 
-  const characters = getAllCharacterNames();
+  const characters = getAllCharacterNames(game.id);
   const images = mod.allImages || [mod.thumbnailUrl].filter(Boolean);
 
   // Auto-select character based on GameBanana Category tag

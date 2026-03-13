@@ -6,7 +6,7 @@ import ModDetailModal from "../components/ModDetailModal";
 import { getCharacterPortrait, getAllCharacterNames } from "../lib/portraits";
 
 export default function ModDetail({ game, character, onBack }) {
-  const portraitUrl = getCharacterPortrait(character.name);
+  const portraitUrl = getCharacterPortrait(character.name, game.id);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [gbDataMap, setGbDataMap] = useState({}); // { [gamebananaId]: { thumbnailUrl, hasUpdate, fullData } }
@@ -19,7 +19,7 @@ export default function ModDetail({ game, character, onBack }) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       if (importerPath) {
-        const knownCharacters = getAllCharacterNames();
+        const knownCharacters = getAllCharacterNames(game.id);
         const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
         const charMods = loadedMods.filter((m) => m.character === character.name);
         charMods.sort((a, b) => {
@@ -276,7 +276,7 @@ export default function ModDetail({ game, character, onBack }) {
               mod={mod}
               gbData={cardGbData}
               isUnassignedMode={character.name === "Unassigned"}
-              characters={getAllCharacterNames()}
+              characters={getAllCharacterNames(game.id)}
               onClick={() => {
                 if (gbData?.fullData) {
                   setSelectedMod({ 
