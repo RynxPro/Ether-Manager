@@ -569,11 +569,9 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
       let thumbnailUrl = null;
       if (images && images.length > 0) {
         const img = images[0];
-        thumbnailUrl = img._sFile220
-          ? `${img._sBaseUrl}/${img._sFile220}`
-          : img._sFile
-          ? `${img._sBaseUrl}/${img._sFile}`
-          : null;
+        // Prioritize higher resolution 530px file if available, then original, then small preview
+        const fileName = img._sFile530 || img._sFile || img._sFile220;
+        thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
       }
       return { ...mod, thumbnailUrl };
     });

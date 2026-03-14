@@ -92,14 +92,14 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
           <h3
             className={cn(
               "text-sm font-bold leading-tight line-clamp-2 min-h-10 transition-colors",
-              mod.isEnabled ? "text-white group-hover:text-(--active-accent)" : "text-gray-500 group-hover:text-white"
+              mod.isEnabled ? "text-white" : "text-gray-500 group-hover:text-white"
             )}
             title={mod.name}
           >
             {mod.name}
           </h3>
 
-          <div className="flex flex-col gap-1 mt-1 mb-4">
+          <div className="flex flex-col gap-1 mt-auto pb-2">
             {/* Version / Folder info */}
             <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-white/30 truncate">
               <FileText size={10} className="shrink-0" />
@@ -110,7 +110,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
 
         {/* Action Bar */}
         <div
-          className="flex items-center justify-between mt-auto pt-3 border-t border-white/5 relative z-10"
+          className="flex items-center justify-between mt-3 relative z-10"
           onClick={(e) => e.stopPropagation()}
         >
           {isUnassignedMode ? (
