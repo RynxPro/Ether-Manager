@@ -80,8 +80,8 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
         <div className="flex-1">
           {mod.category && 
            !hideCategoryTag &&
-           mod.category !== "Character Skins" && 
-           mod.category !== "NPC Skins" && (
+           !mod.category.toLowerCase().includes("skin") && 
+           !mod.category.toLowerCase().includes("character") && (
             <div className="mb-1 flex">
               <span className="px-1.5 py-0.5 rounded-sm bg-white/5 text-(--active-accent) text-[9px] font-black uppercase tracking-widest border border-(--active-accent)/20">
                 {mod.category === "User Interface" || mod.category === "UI" ? "UI" 

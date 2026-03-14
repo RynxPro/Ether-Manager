@@ -9,9 +9,15 @@ const wwPortraits = import.meta.glob(
   { eager: true, import: "default" },
 );
 
+const genshinPortraits = import.meta.glob(
+  "../assets/Genshin Splash Art/*.{png,jpg,jpeg,webp}",
+  { eager: true, import: "default" },
+);
+
 const portraits = {
   zzmi: {},
-  wwmi: {}
+  wwmi: {},
+  gimi: {}
 };
 
 export const GLOBAL_CATEGORIES = ["User Interface", "Miscellaneous"];
@@ -47,7 +53,15 @@ const processPortraits = (modules, gameId, prefixToRemove = "", suffixesToRemove
     
     // Final cleanup of extension and formatting
     cleanName = cleanName
-      .replace(/\.(webp|png|jpg|jpeg)$/i, "")
+      .replace(/\.(webp|png|jpg|jpeg)$/i, "");
+
+    // If name contains " - ", it's usually flavor text (e.g. "Amber - 5-Star Outrider")
+    // Keep only the part before the dash for cleaner cards
+    if (cleanName.includes(" - ")) {
+      cleanName = cleanName.split(" - ")[0];
+    }
+
+    cleanName = cleanName
       .replace(/[-_]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -63,6 +77,7 @@ const processPortraits = (modules, gameId, prefixToRemove = "", suffixesToRemove
 
 processPortraits(zzzPortraits, "zzmi", "Agent_", ["_Portrait"]);
 processPortraits(wwPortraits, "wwmi", "", ["_Full_Sprite", "_Model"]);
+processPortraits(genshinPortraits, "gimi", "", []);
 
 export function getAllCharacterNames(gameId) {
   const gId = (gameId || "").toLowerCase();
