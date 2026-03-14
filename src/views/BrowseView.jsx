@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid } from "lucide-react";
 import BrowseModCard from "../components/BrowseModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import { getAllCharacterNames } from "../lib/portraits";
+import { cn } from "../lib/utils";
+import { motion } from "framer-motion";
+
+const TABS = [
+  { id: "all", label: "All", icon: LayoutGrid },
+  { id: "characters", label: "Characters", icon: User },
+  { id: "ui", label: "User Interface", icon: Monitor },
+  { id: "misc", label: "Miscellaneous", icon: Box },
+];
 
 const SORT_OPTIONS = [
   { label: "Latest", value: "" },
@@ -24,6 +33,7 @@ export default function BrowseView({ game }) {
   const [installTarget, setInstallTarget] = useState(null);
   const [importerPath, setImporterPath] = useState(null);
 
+  const [activeTab, setActiveTab] = useState("all");
   const [characterFilter, setCharacterFilter] = useState("");
 
   // Load importer path once
@@ -74,13 +84,15 @@ export default function BrowseView({ game }) {
     }
     setLoading(true);
     setError(null);
+    const searchTarget = activeTab === "all" ? "" : activeTab === "ui" ? "UI" : activeTab === "misc" ? "Misc" : characterFilter;
+
     try {
       const result = await window.electronMods.browseGbMods({
         gbGameId: game.gbGameId,
         page,
         perPage: PER_PAGE,
         sort,
-        search: characterFilter,
+        search: searchTarget,
       });
       if (result.success) {
         setMods(result.records);
@@ -93,7 +105,7 @@ export default function BrowseView({ game }) {
     } finally {
       setLoading(false);
     }
-  }, [game.gbGameId, page, sort, characterFilter]);
+  }, [game.gbGameId, page, sort, characterFilter, activeTab]);
 
   useEffect(() => {
     fetchMods();
@@ -123,7 +135,7 @@ export default function BrowseView({ game }) {
   };
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const isFiltering = characterFilter.length > 0;
+  const isFiltering = activeTab === "all" ? false : activeTab === "ui" ? true : activeTab === "misc" ? true : characterFilter.length > 0;
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -131,7 +143,11 @@ export default function BrowseView({ game }) {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-4xl font-bold text-white mb-1">
-            {isFiltering ? `${characterFilter} Mods` : "Browse Mods"}
+            {activeTab === "all" 
+              ? "All Mods" 
+              : activeTab === "characters" 
+                ? (isFiltering ? `${characterFilter} Mods` : "Browse Character Mods")
+                : activeTab === "ui" ? "User Interface Mods" : "Miscellaneous Mods"}
           </h1>
           <p className="text-gray-400 text-sm">
             {loading
@@ -140,12 +156,41 @@ export default function BrowseView({ game }) {
               ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} on GameBanana`
               : `${Math.max(0, total).toLocaleString()} mods on GameBanana`}
           </p>
+
+          {/* Category Tabs */}
+          <nav className="flex items-center gap-6 mt-6">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setPage(1); }}
+                  className={cn(
+                    "group relative pb-2 flex items-center gap-2 transition-all",
+                    isActive ? "text-(--active-accent)" : "text-gray-500 hover:text-white"
+                  )}
+                >
+                  <Icon size={16} />
+                  <span className="text-sm font-bold uppercase tracking-widest">{tab.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="browseTab"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--active-accent)"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Sort */}
-          <div className="relative flex items-center">
+          {/* Controls Container */}
+          <div className="flex items-center gap-3 flex-wrap ml-auto self-end">
+            {/* Sort */}
+            <div className="relative flex items-center">
             <SlidersHorizontal
               size={14}
               className="absolute left-3 text-gray-500 pointer-events-none"
@@ -153,7 +198,7 @@ export default function BrowseView({ game }) {
             <select
               value={sort}
               onChange={(e) => { setSort(e.target.value); setPage(1); }}
-              className="pl-8 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--active-accent)] appearance-none"
+              className="pl-8 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) appearance-none"
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -161,21 +206,23 @@ export default function BrowseView({ game }) {
             </select>
           </div>
 
-          {/* Character Filter */}
-          <div className="relative flex items-center">
-            <select
-              value={characterFilter}
-              onChange={(e) => { setCharacterFilter(e.target.value); setPage(1); }}
-              className="pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--active-accent)] appearance-none w-64 cursor-pointer hover:bg-white/10 transition-colors"
-            >
-              <option value="">All Characters</option>
-              {getAllCharacterNames(game.id).map((name) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 text-gray-500 pointer-events-none" />
+            {/* Character Filter */}
+            {activeTab === "characters" && (
+              <div className="relative flex items-center">
+                <select
+                  value={characterFilter}
+                  onChange={(e) => { setCharacterFilter(e.target.value); setPage(1); }}
+                  className="pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) appearance-none w-64 cursor-pointer hover:bg-white/10 transition-colors"
+                >
+                  <option value="">All Characters</option>
+                  {getAllCharacterNames(game.id).map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 text-gray-500 pointer-events-none" />
+              </div>
+            )}
           </div>
-        </div>
       </div>
 
       {/* Error state */}
@@ -185,7 +232,7 @@ export default function BrowseView({ game }) {
           <p className="text-gray-400 text-sm max-w-sm">{error}</p>
           <button
             onClick={fetchMods}
-            className="mt-2 px-4 py-2 text-sm rounded-xl bg-[var(--active-accent)] text-black font-semibold hover:brightness-110"
+            className="mt-2 px-4 py-2 text-sm rounded-xl bg-(--active-accent) text-black font-semibold hover:brightness-110"
           >
             Retry
           </button>

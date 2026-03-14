@@ -483,8 +483,17 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
     
     // Auto-discover the character category ID to enable native Mod/Index sorting
     async function resolveCharCategory(gameId, charName) {
-      const cacheKey = `${gameId}_${charName.toLowerCase()}`;
+      const searchLower = charName.toLowerCase();
+      const cacheKey = `${gameId}_${searchLower}`;
       if (characterCategoryCache[cacheKey]) return characterCategoryCache[cacheKey];
+
+      // Fast-path exact root categories for UI and Misc to avoid fuzzy search inaccuracies
+      if (searchLower === "ui" || searchLower.includes("interface")) {
+        if (gameId == 19567) return 30395; // ZZZ UI
+      }
+      if (searchLower === "misc" || searchLower === "miscellaneous") {
+        if (gameId == 19567) return 29874; // ZZZ Other/Misc
+      }
 
       try {
         const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
@@ -496,10 +505,33 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
           const mData = await fetchFromGB(`${GB_API}/Mod/${mod._idRow}?_csvProperties=_aRootCategory,_aCategory`);
           if (mData._aCategory && mData._aRootCategory) {
             const rootName = (mData._aRootCategory._sName || "").toLowerCase();
+            const catName = (mData._aCategory._sName || "").toLowerCase();
+            
+            // If it's a character/skin
             if (rootName.includes("skin") || rootName.includes("character")) {
                const catId = mData._aCategory._idRow;
                characterCategoryCache[cacheKey] = catId;
                return catId;
+            }
+            
+            // If it's UI/GUI
+            if (searchLower.includes("interface") || searchLower === "ui") {
+              if (rootName.includes("ui") || rootName.includes("gui") || rootName.includes("interface") ||
+                  catName.includes("ui") || catName.includes("gui") || catName.includes("interface")) {
+                const catId = mData._aRootCategory._idRow; // Usually UI is a root category, but fallback to sub
+                characterCategoryCache[cacheKey] = catId;
+                return catId;
+              }
+            }
+
+            // If it's Miscellaneous
+            if (searchLower.includes("misc")) {
+              if (rootName.includes("misc") || rootName.includes("other") || 
+                  catName.includes("misc") || catName.includes("other")) {
+                const catId = mData._aRootCategory._idRow;
+                characterCategoryCache[cacheKey] = catId;
+                return catId;
+              }
             }
           }
         }
