@@ -21,7 +21,6 @@ function App() {
   const handleGameSelect = (gameId) => {
     setActiveGame(gameId);
     setSelectedCharacter(null); // Reset detail view when switching games
-    setActiveView("mods");      // Reset to My Mods when switching games
   };
 
   const game = GAME_CONFIG[activeGame];
