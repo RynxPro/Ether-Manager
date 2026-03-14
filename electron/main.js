@@ -470,7 +470,7 @@ const characterCategoryCache = {}; // Cache to map character name -> GameBanana 
 
 // Fetch a page of mods from GameBanana for a given game
 // Dual-mode: keyword search via Util/Search/Results, general browse via Mod/Index
-ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "", search = "" }) => {
+ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "", context = "", search = "" }) => {
   try {
     const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
 
@@ -482,8 +482,6 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
     };
     const sortStr = sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
 
-    let url;
-    
     // Auto-discover the character category ID to enable native Mod/Index sorting
     async function resolveCharCategory(gameId, charName) {
       const searchLower = charName.toLowerCase();
@@ -544,23 +542,33 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
       return null;
     }
 
-    if (search && search.trim().length >= 2) {
-      const charName = search.trim();
+    let url;
+    
+    const hasManualSearch = search && search.trim().length >= 1;
+    const hasCategoryContext = context && context.trim().length >= 1;
+
+    if (hasManualSearch) {
+      // MANUAL SEARCH MODE: Combine context and search for fuzzy string results
+      // We skip category resolution here to prevent "hijacking" by unrelated categories
+      const combinedQuery = [context, search].filter(Boolean).join(" ");
+      url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
+    } else if (hasCategoryContext) {
+      // BROWSING MODE: Pure character/category selection
+      // Use high-precision category ID if possible for perfect sorting
+      const charName = context.trim();
       const catId = await resolveCharCategory(gbGameId, charName);
       
       if (catId) {
-        // We found their explicit category! Use Mod/Index to get perfect sorting & pagination.
-        // Omit Generic_Game here because providing both game and category filters causes an empty response bug in apiv10.
         url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
       } else {
-        // Fallback: full-text search endpoint (Warning: GameBanana ignores _sSort parameter here)
-        url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}`;
+        url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
       }
     } else {
-      // General browse
+      // GLOBAL HOME MODE
       url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
     }
 
+    console.log("GB API Request URL:", url);
     const data = await fetchFromGB(url);
 
     // Add constructed thumbnail URLs

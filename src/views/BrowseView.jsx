@@ -36,6 +36,14 @@ export default function BrowseView({ game }) {
 
   const [activeTab, setActiveTab] = useState("all");
   const [characterFilter, setCharacterFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Load importer path once
   useEffect(() => {
@@ -85,7 +93,7 @@ export default function BrowseView({ game }) {
     }
     setLoading(true);
     setError(null);
-    const searchTarget = activeTab === "all" ? "" : activeTab === "ui" ? "UI" : activeTab === "misc" ? "Misc" : characterFilter;
+    const categoryTarget = activeTab === "all" ? "" : activeTab === "ui" ? "UI" : activeTab === "misc" ? "Misc" : characterFilter;
 
     try {
       const result = await window.electronMods.browseGbMods({
@@ -93,7 +101,8 @@ export default function BrowseView({ game }) {
         page,
         perPage: PER_PAGE,
         sort,
-        search: searchTarget,
+        context: categoryTarget,
+        search: debouncedSearch,
       });
       if (result.success) {
         setMods(result.records);
@@ -106,11 +115,11 @@ export default function BrowseView({ game }) {
     } finally {
       setLoading(false);
     }
-  }, [game.gbGameId, page, sort, characterFilter, activeTab]);
+  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearch]);
 
   useEffect(() => {
     fetchMods();
-  }, [fetchMods]);
+  }, [fetchMods, debouncedSearch]);
 
   const handleInstall = async ({ characterName, gbModId, fileUrl, fileName, category }) => {
     if (!importerPath) throw new Error("No importer path configured. Go to Settings first.");
@@ -137,7 +146,11 @@ export default function BrowseView({ game }) {
   };
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const isFiltering = activeTab === "all" ? false : activeTab === "ui" ? true : activeTab === "misc" ? true : characterFilter.length > 0;
+  const isFiltering = activeTab !== "all" || !!debouncedSearch;
+  const activeSearchLabel = [
+    activeTab === "ui" ? "User Interface" : activeTab === "misc" ? "Miscellaneous" : characterFilter,
+    debouncedSearch
+  ].filter(Boolean).join(" + ");
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -189,9 +202,21 @@ export default function BrowseView({ game }) {
         </div>
 
         {/* Controls */}
-          {/* Controls Container */}
-          <div className="flex items-center gap-3 flex-wrap ml-auto self-end">
-            {/* Sort */}
+        {/* Controls Container */}
+        <div className="flex items-center gap-3 flex-wrap ml-auto self-end">
+          {/* Global Search */}
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+            <input
+              type="text"
+              placeholder="Search GameBanana..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              className="w-full pl-10 pr-4 py-2 bg-(--bg-input) border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) focus:ring-1 focus:ring-(--active-accent)/20 transition-all"
+            />
+          </div>
+
+          {/* Sort */}
             <div className="w-48">
               <SearchableDropdown
                 items={SORT_OPTIONS}
@@ -267,7 +292,7 @@ export default function BrowseView({ game }) {
             ))}
             {mods.length === 0 && (
               <div className="col-span-full py-16 text-center text-gray-500">
-                {isFiltering ? `No results for ${characterFilter}` : "No mods found."}
+                {isFiltering ? `No results for "${activeSearchLabel}"` : "No mods found."}
               </div>
             )}
           </div>
