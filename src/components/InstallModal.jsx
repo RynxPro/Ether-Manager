@@ -52,15 +52,13 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-md bg-[#0f0f1a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-[var(--active-accent)]/10">
+      className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-(--bg-overlay) border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-(--active-accent)/10">
         {/* Thumbnail header */}
         {mod.thumbnailUrl && (
-          <div className="relative h-40 w-full overflow-hidden">
-            <img src={mod.thumbnailUrl} alt={mod._sName} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f1a] to-transparent" />
+          <div className="relative h-48 bg-(--bg-base)">
+            <img src={mod._sScreenshot} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-(--bg-overlay) to-transparent" />
           </div>
         )}
 

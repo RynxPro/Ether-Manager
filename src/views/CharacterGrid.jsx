@@ -166,7 +166,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
             placeholder={activeTab === "characters" ? "Search characters..." : "Search mods..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) focus:bg-white/10 transition-all w-64"
+            className="pl-10 pr-4 py-2.5 bg-(--bg-input) border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) focus:bg-white/10 transition-all w-64"
           />
         </div>
       </div>

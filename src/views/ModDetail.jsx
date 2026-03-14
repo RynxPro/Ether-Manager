@@ -326,7 +326,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
               initial={{ scale: 0.9, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 10 }}
-              className="w-full max-w-sm bg-[#12121a] border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
+              className="w-full max-w-sm bg-(--bg-overlay) border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500 shadow-inner shadow-red-500/20">

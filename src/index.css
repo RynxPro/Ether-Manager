@@ -5,9 +5,15 @@
 }
 @layer base {
   :root {
-    --background: #0a0a0f;
-    --navbar: #0d0d15;
-    --card: #0f0f1a;
+    --bg-base: #07070a;
+    --bg-surface: #0d0d15;
+    --bg-card: #0f0f1a;
+    --bg-overlay: #161625;
+    --bg-input: #1a1a2e;
+    
+    --background: var(--bg-base);
+    --navbar: var(--bg-surface);
+    --card: var(--bg-card);
     --text-primary: #ffffff;
     --text-secondary: #8c8c9a;
     --border: rgba(255, 255, 255, 0.06);

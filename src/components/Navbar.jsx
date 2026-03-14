@@ -9,7 +9,7 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
 
   return (
     <>
-      <nav className="w-full h-[60px] shrink-0 bg-[#0d0d15]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-6 pl-20 z-20 titlebar-drag sticky top-0">
+      <nav className="w-full h-[60px] shrink-0 bg-(--bg-surface) border-b border-white/5 flex items-center justify-between px-6 pl-20 z-20 titlebar-drag sticky top-0">
         {/* Logo */}
         <div className="flex items-center gap-2 w-48 no-drag">
           <Zap size={20} className="text-white fill-white" />
@@ -42,7 +42,7 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 w-48 no-drag">
           {/* My Mods / Browse toggle */}
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-full p-1 relative">
+          <div className="flex items-center bg-(--bg-input) border border-white/10 rounded-full p-1 relative">
             <motion.div
               layout
               transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}

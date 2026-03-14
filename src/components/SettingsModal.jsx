@@ -52,7 +52,7 @@ export default function SettingsModal({ onClose, games }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm no-drag">
-      <div className="bg-[#0f0f1a] border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-(--bg-overlay) border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <h2 className="text-xl font-semibold text-white">Settings</h2>

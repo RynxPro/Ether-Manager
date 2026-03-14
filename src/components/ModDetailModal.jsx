@@ -139,12 +139,12 @@ export default function ModDetailModal({
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-5xl bg-[#0f0f1a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px]"
+        className="w-full max-w-5xl bg-(--bg-overlay) border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px]"
       >
         {/* Left Side: Media Carousel */}
-        <div className="md:w-[55%] bg-black relative flex flex-col group h-64 md:h-auto border-r border-white/5">
+        <div className="md:w-[55%] bg-(--bg-base) relative flex flex-col group h-64 md:h-auto border-r border-white/5">
           {images.length > 0 ? (
-            <div className="relative flex-1 overflow-hidden bg-[#05050a]">
+            <div className="relative flex-1 overflow-hidden bg-(--bg-base)">
               <img
                 key={currentImgIndex}
                 src={images[currentImgIndex]}
@@ -218,8 +218,8 @@ export default function ModDetailModal({
           )}
         </div>
 
-        {/* Right Side: Details & Actions */}
-        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-gradient-to-b from-[#161625] to-[#0f0f1a] overflow-hidden">
+        {/* Right Side: Info Area */}
+        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-gradient-to-b from-(--bg-overlay) to-(--bg-card) overflow-hidden">
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
               <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
@@ -323,6 +323,7 @@ export default function ModDetailModal({
                 onChange={setSelectedCharacter}
                 placeholder="Select a target folder..."
                 gameId={game.id}
+                direction="up"
               />
             </div>
 

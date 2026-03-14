@@ -5,6 +5,7 @@ import ModDetailModal from "../components/ModDetailModal";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
+import SearchableDropdown from "../components/SearchableDropdown";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -191,36 +192,28 @@ export default function BrowseView({ game }) {
           {/* Controls Container */}
           <div className="flex items-center gap-3 flex-wrap ml-auto self-end">
             {/* Sort */}
-            <div className="relative flex items-center">
-            <SlidersHorizontal
-              size={14}
-              className="absolute left-3 text-gray-500 pointer-events-none"
-            />
-            <select
-              value={sort}
-              onChange={(e) => { setSort(e.target.value); setPage(1); }}
-              className="pl-8 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) appearance-none"
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
+            <div className="w-48">
+              <SearchableDropdown
+                items={SORT_OPTIONS}
+                value={sort}
+                onChange={(val) => { setSort(val); setPage(1); }}
+                placeholder="Sort by..."
+              />
+            </div>
 
             {/* Character Filter */}
             {activeTab === "characters" && (
-              <div className="relative flex items-center">
-                <select
-                  value={characterFilter}
-                  onChange={(e) => { setCharacterFilter(e.target.value); setPage(1); }}
-                  className="pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) appearance-none w-64 cursor-pointer hover:bg-white/10 transition-colors"
-                >
-                  <option value="">All Characters</option>
-                  {getAllCharacterNames(game.id).map((name) => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 text-gray-500 pointer-events-none" />
+              <div className="w-64">
+                <SearchableDropdown
+                  items={["All Characters", ...getAllCharacterNames(game.id)]}
+                  value={characterFilter || "All Characters"}
+                  onChange={(val) => { 
+                    setCharacterFilter(val === "All Characters" ? "" : val); 
+                    setPage(1); 
+                  }}
+                  placeholder="All Characters"
+                  gameId={game.id}
+                />
               </div>
             )}
           </div>

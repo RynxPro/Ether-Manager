@@ -17,7 +17,7 @@ export default function BrowseModCard({ mod, isInstalled, onInstall }) {
       onClick={onInstall}
       className={cn(
         "rounded-2xl overflow-hidden group transition-all duration-300 relative flex flex-col will-change-transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50",
-        "bg-[#0f0f1a] border-[#1a1a2e] cursor-pointer"
+        "bg-(--bg-card) border-white/5 cursor-pointer shadow-lg shadow-black/20"
       )}
     >
       {/* Thumbnail */}
@@ -39,7 +39,7 @@ export default function BrowseModCard({ mod, isInstalled, onInstall }) {
             />
           </>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-[#1a1a2e] to-[#0f0f1a]">
+          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--bg-input) to-(--bg-card)">
             <span className="text-5xl font-black text-white/5 select-none uppercase">
               {mod._sName?.[0] || "?"}
             </span>
@@ -54,8 +54,8 @@ export default function BrowseModCard({ mod, isInstalled, onInstall }) {
         )}
       </div>
 
-      {/* Info Section */}
-      <div className="flex flex-col flex-1 p-4 bg-[#0f0f1a] min-h-32">
+      {/* Info Area */}
+      <div className="flex flex-col flex-1 p-4 bg-(--bg-card) min-h-32">
         <h3
           className="text-sm font-bold text-white line-clamp-2 leading-tight mb-1 min-h-10 transition-colors group-hover:text-(--active-accent)"
           title={mod._sName}

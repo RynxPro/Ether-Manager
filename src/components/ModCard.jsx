@@ -15,14 +15,14 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
         "rounded-2xl overflow-hidden group transition-all duration-300 relative flex flex-col will-change-transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50",
         onClick ? "cursor-pointer" : "",
         mod.isEnabled
-          ? "bg-[#0f0f1a] border-[#1a1a2e]"
+          ? "bg-(--bg-card) border-white/5"
           : "bg-white/2 border-white/5 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
         mod.isEnabled && "border-(--active-accent)/20 shadow-lg shadow-(--active-accent)/5"
       )}
     >
       {/* Thumbnail strip (shown only when GB data available) */}
       {thumbnailUrl ? (
-        <div className="relative h-40 w-full shrink-0 overflow-hidden bg-[#0d0d16]">
+        <div className="relative h-40 w-full shrink-0 overflow-hidden bg-(--bg-base)">
           {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
           
           <img
@@ -55,7 +55,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
           </div>
         </div>
       ) : (
-        <div className="relative h-40 w-full bg-linear-to-br from-[#1a1a2e] to-[#0f0f1a] overflow-hidden shrink-0 flex items-center justify-center">
+        <div className="relative h-40 w-full bg-linear-to-br from-(--bg-input) to-(--bg-card) overflow-hidden shrink-0 flex items-center justify-center">
           <span className="text-5xl font-black text-white/5 select-none uppercase">
             {mod.name?.[0] || "?"}
           </span>
@@ -76,7 +76,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
       )}
 
       {/* Info Section */}
-      <div className="p-4 flex flex-col flex-1 bg-[#0f0f1a] min-h-32">
+      <div className="p-4 flex flex-col flex-1 bg-(--bg-card) min-h-32">
         <div className="flex-1">
           {mod.category && 
            !hideCategoryTag &&
@@ -122,6 +122,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
                 onChange={(val) => onAssign(val)}
                 placeholder="Assign..."
                 gameId={gameId}
+                direction="up"
               />
             </div>
           ) : (
