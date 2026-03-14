@@ -6,7 +6,6 @@ const GB_GAME_IDS = {
   ZZMI: 19567,  // Zenless Zone Zero
   SRMI: 18366,  // Honkai: Star Rail
   HIMI: 10349,   // Honkai Impact 3rd
-  EFMI: null,   // Eternal Frontier — no dedicated GB page yet
 };
 
 export const GAME_CONFIG = {
@@ -44,12 +43,5 @@ export const GAME_CONFIG = {
     accentColor: "#ff2d78",
     folderHint: "HIMI",
     gbGameId: GB_GAME_IDS.HIMI,
-  },
-  EFMI: {
-    id: "EFMI",
-    name: "Eternal Frontier",
-    accentColor: "#39ff14",
-    folderHint: "EFMI",
-    gbGameId: GB_GAME_IDS.EFMI,
   },
 };
