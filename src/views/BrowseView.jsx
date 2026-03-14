@@ -271,25 +271,41 @@ export default function BrowseView({ game }) {
       {!loading && !error && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {mods.map((mod) => (
-              <BrowseModCard
-                key={mod._idRow}
-                mod={mod}
-                isInstalled={!!installedModsInfo[mod._idRow]}
-                onInstall={async () => {
-                  try {
-                    const result = await window.electronMods.fetchGbMod(mod._idRow);
-                    if (result.success && result.data) {
-                      setInstallTarget(result.data);
-                    } else {
+            {mods.map((mod) => {
+              const installedInfo = installedModsInfo[mod._idRow];
+              const isInstalled = !!installedInfo;
+              let hasUpdate = false;
+              
+              if (isInstalled && installedInfo.installedFiles.length > 0) {
+                // If ANY installed file from this mod is older than the GB record's last update
+                hasUpdate = installedInfo.installedFiles.some(f => {
+                  if (!f.installedAt) return false;
+                  const installedDate = new Date(f.installedAt).getTime() / 1000;
+                  return mod._tsDateUpdated > installedDate + 60;
+                });
+              }
+
+              return (
+                <BrowseModCard
+                  key={mod._idRow}
+                  mod={mod}
+                  isInstalled={isInstalled}
+                  hasUpdate={hasUpdate}
+                  onInstall={async () => {
+                    try {
+                      const result = await window.electronMods.fetchGbMod(mod._idRow);
+                      if (result.success && result.data) {
+                        setInstallTarget(result.data);
+                      } else {
+                        setError("Failed to fetch mod details.");
+                      }
+                    } catch {
                       setError("Failed to fetch mod details.");
                     }
-                  } catch {
-                    setError("Failed to fetch mod details.");
-                  }
-                }}
-              />
-            ))}
+                  }}
+                />
+              );
+            })}
             {mods.length === 0 && (
               <div className="col-span-full py-16 text-center text-gray-500">
                 {isFiltering ? `No results for "${activeSearchLabel}"` : "No mods found."}

@@ -49,9 +49,14 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             >
               {mod.isEnabled ? "Active" : "Disabled"}
             </div>
-            {gbData?.hasUpdate && (
+            {gbData?.hasUpdate ? (
               <UpdateBadge />
-            )}
+            ) : gbData ? (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-green-500/20 text-green-400 border border-green-500/30 text-[9px] font-black uppercase tracking-widest">
+                <Check size={10} strokeWidth={3} />
+                Latest
+              </div>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -71,6 +76,14 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             >
               {mod.isEnabled ? "Active" : "Disabled"}
             </div>
+            {gbData?.hasUpdate ? (
+              <UpdateBadge />
+            ) : gbData ? (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-green-500/20 text-green-400 border border-green-500/30 text-[9px] font-black uppercase tracking-widest">
+                <Check size={10} strokeWidth={3} />
+                Latest
+              </div>
+            ) : null}
           </div>
         </div>
       )}

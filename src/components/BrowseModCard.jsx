@@ -9,7 +9,7 @@ function formatCount(n) {
   return String(n);
 }
 
-export default function BrowseModCard({ mod, isInstalled, onInstall }) {
+export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
@@ -50,6 +50,11 @@ export default function BrowseModCard({ mod, isInstalled, onInstall }) {
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500 text-black text-[10px] font-black shadow-lg shadow-green-500/20 uppercase tracking-widest">
             <Check size={12} strokeWidth={3} />
             Installed
+          </div>
+        )}
+        {isInstalled && hasUpdate && (
+          <div className="absolute top-12 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-500 text-black text-[10px] font-black shadow-lg shadow-yellow-500/20 uppercase tracking-widest animate-pulse">
+            Update
           </div>
         )}
       </div>
