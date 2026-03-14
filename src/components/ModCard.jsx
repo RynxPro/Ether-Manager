@@ -2,8 +2,9 @@ import { useState } from "react";
 import { FileText, FolderOpen, Check, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
+import SearchableDropdown from "./SearchableDropdown";
 
-export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false }) {
+export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false, gameId }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
@@ -114,16 +115,15 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
           onClick={(e) => e.stopPropagation()}
         >
           {isUnassignedMode ? (
-            <select
-              onChange={(e) => { if (e.target.value) onAssign(e.target.value); }}
-              className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-(--active-accent)"
-              defaultValue=""
-            >
-              <option value="" disabled>Assign Character...</option>
-              {characters.map(char => (
-                <option key={char} value={char}>{char}</option>
-              ))}
-            </select>
+            <div className="flex-1 max-w-[200px]">
+              <SearchableDropdown
+                items={characters}
+                value=""
+                onChange={(val) => onAssign(val)}
+                placeholder="Assign..."
+                gameId={gameId}
+              />
+            </div>
           ) : (
             <label className="flex items-center cursor-pointer relative">
               <input

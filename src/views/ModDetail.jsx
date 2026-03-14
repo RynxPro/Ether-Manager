@@ -283,6 +283,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
               gbData={cardGbData}
               isUnassignedMode={character.name === "Unassigned"}
               characters={getAllCharacterNames(game.id)}
+              gameId={game.id}
               onClick={() => {
                 if (gbData?.fullData) {
                   setSelectedMod({ 

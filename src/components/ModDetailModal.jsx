@@ -3,6 +3,7 @@ import { X, Download, Heart, Eye, ChevronLeft, ChevronRight, Check, ChevronDown,
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
+import SearchableDropdown from "./SearchableDropdown";
 
 export default function ModDetailModal({ 
   mod, 
@@ -315,21 +316,14 @@ export default function ModDetailModal({
 
           {/* Installation Zone (Fixed at bottom) */}
           <div className="pt-6 border-t border-white/5 shrink-0">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-              Assign to Folder
-            </label>
-            <div className="relative mb-6">
-              <select
+            <div className="mb-6">
+              <SearchableDropdown
+                items={characters}
                 value={selectedCharacter}
-                onChange={(e) => setSelectedCharacter(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-[var(--active-accent)] appearance-none cursor-pointer hover:bg-white/10 transition-all"
-              >
-                <option value="" disabled>Select a target folder...</option>
-                {characters.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                onChange={setSelectedCharacter}
+                placeholder="Select a target folder..."
+                gameId={game.id}
+              />
             </div>
 
             {error && <p className="text-red-400 text-xs mb-4">{error}</p>}
