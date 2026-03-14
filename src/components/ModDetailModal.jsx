@@ -24,7 +24,7 @@ export default function ModDetailModal({
   const [isInstallComplete, setIsInstallComplete] = useState(false);
 
   const baseCharacters = getAllCharacterNames(game.id);
-  const characters = [...baseCharacters, "User Interface", "Miscellaneous"];
+  const characters = ["User Interface", "Miscellaneous", ...baseCharacters];
   const images = mod.allImages || [mod.thumbnailUrl].filter(Boolean);
 
   // Auto-select character based on GameBanana Category tag
@@ -32,11 +32,11 @@ export default function ModDetailModal({
     if (!selectedCharacter) {
       // 1. Check Root Category first (Global categories)
       const rootCat = mod._aRootCategory?._sName?.toLowerCase();
-      if (rootCat === "gui" || rootCat === "user interface" || rootCat === "hud") {
+      if (rootCat === "gui" || rootCat === "user interface" || rootCat === "hud" || rootCat === "ui") {
         setSelectedCharacter("User Interface");
         return;
       }
-      if (rootCat === "scripts" || rootCat === "utilities" || rootCat === "tools" || rootCat === "fixes") {
+      if (rootCat === "scripts" || rootCat === "utilities" || rootCat === "tools" || rootCat === "fixes" || rootCat === "other/misc" || rootCat === "miscellaneous" || rootCat === "audio") {
         setSelectedCharacter("Miscellaneous");
         return;
       }
@@ -74,7 +74,7 @@ export default function ModDetailModal({
 
   const handleInstall = async () => {
     if (!selectedCharacter) {
-      setError("Please select a character first.");
+      setError("Please assign a categorization folder first.");
       return;
     }
     if (!selectedFile) {
@@ -91,6 +91,7 @@ export default function ModDetailModal({
         gbModId: mod._idRow,
         fileUrl: selectedFile._sDownloadUrl,
         fileName: selectedFile._sFile,
+        category: mod._aRootCategory?._sName || mod._aCategory?._sName || "Unknown",
       });
       setIsInstallComplete(true);
     } catch (err) {
@@ -315,7 +316,7 @@ export default function ModDetailModal({
           {/* Installation Zone (Fixed at bottom) */}
           <div className="pt-6 border-t border-white/5 shrink-0">
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-              Target Character
+              Assign to Folder
             </label>
             <div className="relative mb-6">
               <select
@@ -323,7 +324,7 @@ export default function ModDetailModal({
                 onChange={(e) => setSelectedCharacter(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-[var(--active-accent)] appearance-none cursor-pointer hover:bg-white/10 transition-all"
               >
-                <option value="" disabled>Select a character...</option>
+                <option value="" disabled>Select a target folder...</option>
                 {characters.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}

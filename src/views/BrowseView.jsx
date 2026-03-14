@@ -111,7 +111,7 @@ export default function BrowseView({ game }) {
     fetchMods();
   }, [fetchMods]);
 
-  const handleInstall = async ({ characterName, gbModId, fileUrl, fileName }) => {
+  const handleInstall = async ({ characterName, gbModId, fileUrl, fileName, category }) => {
     if (!importerPath) throw new Error("No importer path configured. Go to Settings first.");
     const result = await window.electronMods.installGbMod({
       importerPath,
@@ -119,6 +119,7 @@ export default function BrowseView({ game }) {
       gbModId,
       fileUrl,
       fileName,
+      category,
     });
     if (!result.success) throw new Error(result.error || "Installation failed.");
     setInstalledModsInfo((prev) => {

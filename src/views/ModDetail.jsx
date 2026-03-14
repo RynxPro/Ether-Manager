@@ -3,9 +3,10 @@ import { ArrowLeft, User, Plus, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ModCard from "../components/ModCard";
 import ModDetailModal from "../components/ModDetailModal";
-import { getCharacterPortrait, getAllCharacterNames } from "../lib/portraits";
+import { getCharacterPortrait, getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
+import { cn } from "../lib/utils";
 
-export default function ModDetail({ game, character, onBack }) {
+export default function ModDetail({ game, character, onBack, hideHeader = false, searchQuery = "" }) {
   const portraitUrl = getCharacterPortrait(character.name, game.id);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -20,7 +21,8 @@ export default function ModDetail({ game, character, onBack }) {
       const importerPath = config[game.id];
       if (importerPath) {
         const knownCharacters = getAllCharacterNames(game.id);
-        const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
+        const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
+        const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames);
         const charMods = loadedMods.filter((m) => m.character === character.name);
         charMods.sort((a, b) => {
           if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
@@ -198,66 +200,70 @@ export default function ModDetail({ game, character, onBack }) {
   const disabledCount = mods.length - enabledCount;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-8 duration-300">
-      {/* Breadcrumb row */}
-      <div className="flex items-center gap-2 text-sm text-[var(--active-accent)] mb-6">
-        <button
-          onClick={onBack}
-          className="flex items-center hover:underline focus:outline-none"
-        >
-          <ArrowLeft size={16} className="mr-1" />
-          {game.name}
-        </button>
-        <span className="text-gray-600">/</span>
-        <span className="text-gray-400">{character.name}</span>
-      </div>
-
-      {/* Header section */}
-      <div className="flex items-end justify-between mb-8 pb-6 border-b border-white/5 relative">
-        <div className="flex items-center gap-6">
-          <div
-            className="w-24 h-24 shrink-0 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 overflow-hidden relative"
-          >
-            {portraitUrl ? (
-              <img 
-                src={portraitUrl} 
-                alt={character.name}
-                onLoad={() => setImgLoaded(true)}
-                className={`absolute inset-0 w-full h-full object-cover object-top scale-125 translate-y-3 transition-opacity duration-700 ease-out ${
-                  imgLoaded ? "opacity-100" : "opacity-0"
-                }`}
-              />
-            ) : (
-              <User size={32} className="text-white/30" />
-            )}
+    <div className={cn("flex flex-col h-full", !hideHeader && "animate-in fade-in slide-in-from-right-8 duration-300")}>
+      {!hideHeader && (
+        <>
+          {/* Breadcrumb row */}
+          <div className="flex items-center gap-2 text-sm text-[var(--active-accent)] mb-6">
+            <button
+              onClick={onBack}
+              className="flex items-center hover:underline focus:outline-none"
+            >
+              <ArrowLeft size={16} className="mr-1" />
+              {game.name}
+            </button>
+            <span className="text-gray-600">/</span>
+            <span className="text-gray-400">{character.name}</span>
           </div>
-          <div>
-            <h1 className="text-4xl font-bold text-white tracking-tight mb-2">
-              {character.name}
-            </h1>
-            <p className="text-gray-400 font-medium">
-              {mods.length} mods <span className="mx-1.5">•</span>
-              <span className="text-white relative z-10">
-                {enabledCount} enabled
-              </span>{" "}
-              <span className="mx-1.5">•</span>
-              {disabledCount} disabled
-            </p>
-          </div>
-        </div>
 
-        <button 
-          onClick={handleImport}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[var(--active-accent)] text-black font-semibold rounded-lg hover:brightness-110 active:brightness-90 transition-all shadow-lg shadow-[var(--active-accent)]/20"
-        >
-          <Plus size={18} />
-          Add Mod
-        </button>
-      </div>
+          {/* Header section */}
+          <div className="flex items-end justify-between mb-8 pb-6 border-b border-white/5 relative">
+            <div className="flex items-center gap-6">
+              <div
+                className="w-24 h-24 shrink-0 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 overflow-hidden relative"
+              >
+                {portraitUrl ? (
+                  <img 
+                    src={portraitUrl} 
+                    alt={character.name}
+                    onLoad={() => setImgLoaded(true)}
+                    className={`absolute inset-0 w-full h-full object-cover object-top scale-125 translate-y-3 transition-opacity duration-700 ease-out ${
+                      imgLoaded ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                ) : (
+                  <User size={32} className="text-white/30" />
+                )}
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white tracking-tight mb-2">
+                  {character.name}
+                </h1>
+                <p className="text-gray-400 font-medium">
+                  {mods.length} mods <span className="mx-1.5">•</span>
+                  <span className="text-white relative z-10">
+                    {enabledCount} enabled
+                  </span>{" "}
+                  <span className="mx-1.5">•</span>
+                  {disabledCount} disabled
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleImport}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[var(--active-accent)] text-black font-semibold rounded-lg hover:brightness-110 active:brightness-90 transition-all shadow-lg shadow-[var(--active-accent)]/20"
+            >
+              <Plus size={18} />
+              Add Mod
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Mods Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
-        {mods.map((mod) => {
+        {mods.filter(m => !searchQuery || m.name.toLowerCase().includes(searchQuery.toLowerCase())).map((mod) => {
           const gbData = mod.gamebananaId ? gbDataMap[mod.gamebananaId] : undefined;
           let hasUpdate = false;
           
@@ -290,6 +296,7 @@ export default function ModDetail({ game, character, onBack }) {
               onOpenFolder={() => handleOpenFolder(mod.path)}
               onAssign={(newCharName) => handleAssign(mod, newCharName)}
               onDelete={setModToDelete}
+              hideCategoryTag={hideHeader}
             />
           );
         })}

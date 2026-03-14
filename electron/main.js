@@ -208,6 +208,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
       let installedAt = null;
       let installedFile = null;
       let customThumbnail = null;
+      let category = null;
       try {
         const aetherJsonPath = path.join(folderPath, "aether.json");
         if (fs.existsSync(aetherJsonPath)) {
@@ -216,6 +217,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
           installedAt = aetherData.installedAt || null;
           installedFile = aetherData.installedFile || null;
           customThumbnail = aetherData.customThumbnail || null;
+          category = aetherData.category || null;
         }
       } catch (err) { /* ignore parse errors */ }
 
@@ -224,6 +226,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
         originalFolderName: folderName,
         name: realName.replace(/_/g, " "),
         character,
+        category,
         isEnabled,
         iniCount,
         path: folderPath,
@@ -583,7 +586,7 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
 });
 
 // Download and install a mod from GameBanana
-ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gbModId, fileUrl, fileName }) => {
+ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gbModId, fileUrl, fileName, category }) => {
   const tmpPath = path.join(app.getPath("temp"), `aether_${Date.now()}_${fileName}`);
   
   try {
@@ -686,6 +689,7 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
         gamebananaId: gbModId,
         installedAt: new Date().toISOString(),
         installedFile: fileName,
+        category: category || null
       };
       fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
       renamedFolders.push(targetName);

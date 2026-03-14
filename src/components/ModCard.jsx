@@ -3,7 +3,7 @@ import { FileText, FolderOpen, Check, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 
-export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick }) {
+export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
@@ -87,6 +87,18 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
       {/* Info Section */}
       <div className="p-4 flex flex-col flex-1">
         <div className="flex-1">
+          {mod.category && 
+           !hideCategoryTag &&
+           mod.category !== "Character Skins" && 
+           mod.category !== "NPC Skins" && (
+            <div className="mb-1.5 flex">
+              <span className="px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/70 text-[9px] font-bold uppercase tracking-wider border border-white/10">
+                {mod.category === "User Interface" || mod.category === "UI" ? "UI" 
+                 : mod.category === "Other/Misc" || mod.category === "Miscellaneous" ? "MISC" 
+                 : mod.category}
+              </span>
+            </div>
+          )}
           <h3
             className="text-sm font-bold text-white mb-2 line-clamp-2 leading-snug min-h-[2.5rem]"
             title={mod.name}

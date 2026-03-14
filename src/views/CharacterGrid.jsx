@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, User, Monitor, Box } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
+import ModDetail from "./ModDetail";
 import { getAllCharacterNames, GLOBAL_CATEGORIES, isGlobalCategory } from "../lib/portraits";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
@@ -23,7 +24,8 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
         const importerPath = config[game.id];
         if (importerPath) {
           const knownCharacters = getAllCharacterNames(game.id);
-          const loadedMods = await window.electronMods.getMods(importerPath, knownCharacters);
+          const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
+          const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames);
           setMods(loadedMods);
         } else {
           setMods([]);
@@ -53,15 +55,20 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
     });
 
     mods.forEach(mod => {
-      if (mod.character === "User Interface") {
+      // Check if it's a global UI/Misc mod or a true character mod
+      const isGlobalUI = mod.character === "User Interface" || (mod.character === "Unassigned" && mod.category === "User Interface");
+      const isGlobalMisc = mod.character === "Miscellaneous" || (mod.character === "Unassigned" && (mod.category === "Other/Misc" || mod.category === "Audio" || mod.category === "Miscellaneous"));
+
+      if (isGlobalUI) {
         globalMods.ui.totalMods++;
         globalMods.ui.mods.push(mod);
         if (mod.isEnabled) globalMods.ui.enabledMods++;
-      } else if (mod.character === "Miscellaneous") {
+      } else if (isGlobalMisc) {
         globalMods.misc.totalMods++;
         globalMods.misc.mods.push(mod);
         if (mod.isEnabled) globalMods.misc.enabledMods++;
       } else {
+        // Character Bound
         if (!charactersMap.has(mod.character)) {
           charactersMap.set(mod.character, { name: mod.character, totalMods: 0, enabledMods: 0, mods: [] });
         }
@@ -87,9 +94,9 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
       items = globalMods.misc.totalMods > 0 ? [globalMods.misc] : [];
     }
 
-    const filteredItems = items.filter(item => 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredItems = items.filter(item => {
+      return item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     return { 
       displayItems: filteredItems,
@@ -173,31 +180,41 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
           transition={{ duration: 0.2 }}
           className="flex-1"
         >
-          {displayItems.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-white/5 border border-white/5 rounded-3xl border-dashed">
-              <h3 className="text-xl font-medium text-white mb-2">No {activeTab} mods found</h3>
-              <p className="text-gray-400 max-w-sm">
-                {searchQuery 
-                  ? `No results matching "${searchQuery}" in this category.`
-                  : `You haven't installed any ${activeTab} mods yet.`}
-              </p>
-            </div>
+          {activeTab === "characters" ? (
+            displayItems.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-white/5 border border-white/5 rounded-3xl border-dashed">
+                <h3 className="text-xl font-medium text-white mb-2">No {activeTab} mods found</h3>
+                <p className="text-gray-400 max-w-sm">
+                  {searchQuery 
+                    ? `No results matching "${searchQuery}" in this category.`
+                    : `You haven't installed any ${activeTab} mods yet.`}
+                </p>
+              </div>
+            ) : (
+              <motion.div
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12"
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+              >
+                {displayItems.map((item) => (
+                  <CharacterCard
+                    key={item.name}
+                    character={item}
+                    game={game}
+                    onClick={() => onSelectCharacter(item)}
+                  />
+                ))}
+              </motion.div>
+            )
           ) : (
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12"
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-            >
-              {displayItems.map((item) => (
-                <CharacterCard
-                  key={item.name}
-                  character={item}
-                  game={game}
-                  onClick={() => onSelectCharacter(item)}
-                />
-              ))}
-            </motion.div>
+             <ModDetail 
+               game={game} 
+               character={{ name: activeTab === "ui" ? "User Interface" : "Miscellaneous" }} 
+               hideHeader={true} 
+               searchQuery={searchQuery} 
+               onBack={() => {}} 
+             />
           )}
         </motion.div>
       </AnimatePresence>
