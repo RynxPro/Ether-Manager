@@ -610,6 +610,29 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
       ? characterName.replace(/\s+/g, "")
       : null;
 
+    // --- CLEAN UPDATE STRATEGY ---
+    // If updating, find any existing folders with the same gamebananaId and remove them
+    // to avoid ENOTEMPTY and name collision errors.
+    const modFolders = fs.readdirSync(modsPath, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    for (const folder of modFolders) {
+      const ajsonPath = path.join(modsPath, folder, "aether.json");
+      if (fs.existsSync(ajsonPath)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(ajsonPath, "utf-8"));
+          if (data.gamebananaId === gbModId) {
+            console.log(`Cleaning up old mod version at: ${folder}`);
+            fs.rmSync(path.join(modsPath, folder), { recursive: true, force: true });
+          }
+        } catch (e) {
+          console.error(`Failed to read aether.json in ${folder} during cleanup`, e);
+        }
+      }
+    }
+    // ----------------------------
+
     // Download the zip file
     const res = await fetch(fileUrl, { headers: { "User-Agent": "AetherManager/1.0.0" } });
     if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
