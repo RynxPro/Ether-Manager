@@ -3,21 +3,26 @@ import { FileText, FolderOpen, Check, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 import SearchableDropdown from "./SearchableDropdown";
+import { motion } from "framer-motion";
 
 export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false, gameId }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -6, scale: 1.01 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={cn(
-        "rounded-2xl overflow-hidden group transition-all duration-300 relative flex flex-col will-change-transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50",
+        "rounded-2xl overflow-hidden group relative flex flex-col shadow-lg shadow-black/20",
         onClick ? "cursor-pointer" : "",
         mod.isEnabled
-          ? "bg-(--bg-card) border-white/5"
-          : "bg-white/2 border-white/5 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
-        mod.isEnabled && "border-(--active-accent)/20 shadow-lg shadow-(--active-accent)/5"
+          ? "bg-(--bg-card) border border-white/5"
+          : "bg-white/2 border border-white/5 opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
+        mod.isEnabled && "border-(--active-accent)/20 shadow-(--active-accent)/5"
       )}
     >
       {/* Thumbnail strip (shown only when GB data available) */}
@@ -190,6 +195,6 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

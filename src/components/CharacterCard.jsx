@@ -22,11 +22,13 @@ export default function CharacterCard({ character, game, onClick }) {
     <motion.div
       variants={itemVariants}
       onClick={onClick}
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={cn(
-        "rounded-2xl overflow-hidden group transition-all duration-300 relative",
-        "bg-(--bg-card) border border-white/5 cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50",
-        !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:border-white/20 transition-all duration-500",
-        hasMods && "border-(--active-accent)/20 shadow-lg shadow-(--active-accent)/5"
+        "rounded-2xl overflow-hidden group relative",
+        "bg-(--bg-card) border border-white/5 cursor-pointer shadow-lg shadow-black/20",
+        !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
+        hasMods && "border-(--active-accent)/20 shadow-(--active-accent)/5"
       )}
       style={{ contain: "layout paint" }}
     >

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, Heart, Eye, Check } from "lucide-react";
 import { cn } from "../lib/utils";
+import { motion } from "framer-motion";
 
 function formatCount(n) {
   if (!n) return "0";
@@ -13,11 +14,15 @@ export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <div
+    <motion.div
       onClick={onInstall}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ y: -6, scale: 1.01 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={cn(
-        "rounded-2xl overflow-hidden group transition-all duration-300 relative flex flex-col will-change-transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-(--active-accent)/20 hover:border-(--active-accent)/50",
-        "bg-(--bg-card) border-white/5 cursor-pointer shadow-lg shadow-black/20"
+        "rounded-2xl overflow-hidden group relative flex flex-col shadow-lg shadow-black/20",
+        "bg-(--bg-card) border border-white/5 cursor-pointer"
       )}
     >
       {/* Thumbnail */}
@@ -111,6 +116,6 @@ export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }
           )}
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -60,7 +60,7 @@ export default function BrowseView({ game }) {
   useEffect(() => {
     const loadInstalled = async () => {
       if (!importerPath || !window.electronMods) return;
-      const allMods = await window.electronMods.getMods(importerPath, getAllCharacterNames());
+      const allMods = await window.electronMods.getMods(importerPath, getAllCharacterNames(game.id), game.id);
       const infoMap = {}; // gbId -> { installedFiles: { fileName: string, installedAt: string }[] }
       allMods.forEach((m) => {
         if (m.gamebananaId != null) {
@@ -130,6 +130,7 @@ export default function BrowseView({ game }) {
       fileUrl,
       fileName,
       category,
+      gameId: game.id,
     });
     if (!result.success) throw new Error(result.error || "Installation failed.");
     setInstalledModsInfo((prev) => {

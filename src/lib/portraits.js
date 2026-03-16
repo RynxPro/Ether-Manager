@@ -17,7 +17,9 @@ const genshinPortraits = import.meta.glob(
 const portraits = {
   zzmi: {},
   wwmi: {},
-  gimi: {}
+  gimi: {},
+  srmi: {},
+  himi: {}
 };
 
 export const GLOBAL_CATEGORIES = ["User Interface", "Miscellaneous"];

@@ -132,8 +132,8 @@ ipcMain.handle("choose-folder", async (event) => {
 });
 
 // Mods management
-ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
-  console.log("Fetching mods for path:", importerPath);
+ipcMain.handle("get-mods", (event, importerPath, knownCharacters = [], expectedGameId = null) => {
+  console.log("Fetching mods for path:", importerPath, "Expected Game ID:", expectedGameId);
   if (!importerPath) return [];
 
   let modsPath = importerPath;
@@ -209,6 +209,7 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
       let installedFile = null;
       let customThumbnail = null;
       let category = null;
+      let gameId = null;
       try {
         const aetherJsonPath = path.join(folderPath, "aether.json");
         if (fs.existsSync(aetherJsonPath)) {
@@ -218,8 +219,16 @@ ipcMain.handle("get-mods", (event, importerPath, knownCharacters = []) => {
           installedFile = aetherData.installedFile || null;
           customThumbnail = aetherData.customThumbnail || null;
           category = aetherData.category || null;
+          gameId = aetherData.gameId || null;
         }
       } catch (err) { /* ignore parse errors */ }
+
+      // STRICT GAME ISOLATION FILTERING
+      // If we have an expectedGameId and the mod has a different gameId, skip it.
+      // Exception: if the mod has NO gameId, we show it to maintain backward compatibility.
+      if (expectedGameId && gameId && gameId !== expectedGameId) {
+        return;
+      }
 
       mods.push({
         id: realName,
@@ -280,7 +289,7 @@ ipcMain.handle("open-folder", (event, folderPath) => {
 });
 
 // Import Mod Flow
-ipcMain.handle("import-mod", async (event, { importerPath, characterName }) => {
+ipcMain.handle("import-mod", async (event, { importerPath, characterName, gameId }) => {
   try {
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(win || mainWindow, {
@@ -327,6 +336,13 @@ ipcMain.handle("import-mod", async (event, { importerPath, characterName }) => {
 
     // Copy folder recursively
     fs.cpSync(sourcePath, targetPath, { recursive: true });
+
+    // Write aether.json for manual imports too to track game isolation
+    const aetherJson = {
+      installedAt: new Date().toISOString(),
+      gameId: gameId || null
+    };
+    fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
 
     return { success: true, newFolderName: targetFolderName };
   } catch (err) {
@@ -592,7 +608,7 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
 });
 
 // Download and install a mod from GameBanana
-ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gbModId, fileUrl, fileName, category }) => {
+ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gbModId, fileUrl, fileName, category, gameId }) => {
   const tmpPath = path.join(app.getPath("temp"), `aether_${Date.now()}_${fileName}`);
   
   try {
@@ -718,7 +734,8 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
         gamebananaId: gbModId,
         installedAt: new Date().toISOString(),
         installedFile: fileName,
-        category: category || null
+        category: category || null,
+        gameId: gameId || null
       };
       fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
       renamedFolders.push(targetName);

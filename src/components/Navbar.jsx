@@ -1,10 +1,10 @@
-import { Zap, Search, Settings } from "lucide-react";
+import { Zap, Search, Settings, HelpCircle } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import SettingsModal from "./SettingsModal";
 
-export default function Navbar({ games, activeGame, onSelectGame, activeView, onSelectView }) {
+export default function Navbar({ games, activeGame, onSelectGame, activeView, onSelectView, onShowHelp }) {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
@@ -71,6 +71,14 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
               Browse
             </button>
           </div>
+
+          <button
+            onClick={onShowHelp}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            title="Show Guide"
+          >
+            <HelpCircle size={18} />
+          </button>
 
           <button
             onClick={() => setShowSettings(true)}

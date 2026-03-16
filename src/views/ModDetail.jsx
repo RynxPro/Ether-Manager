@@ -22,7 +22,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
       if (importerPath) {
         const knownCharacters = getAllCharacterNames(game.id);
         const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-        const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames);
+        const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames, game.id);
         const charMods = loadedMods.filter((m) => m.character === character.name);
         charMods.sort((a, b) => {
           if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
@@ -113,7 +113,8 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
 
       const result = await window.electronMods.importMod({
         importerPath,
-        characterName: character.name
+        characterName: character.name,
+        gameId: game.id
       });
 
       if (result && result.success) {
@@ -136,6 +137,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
         gbModId,
         fileUrl,
         fileName,
+        gameId: game.id,
       });
 
       if (!result.success) throw new Error(result.error || "Installation failed.");

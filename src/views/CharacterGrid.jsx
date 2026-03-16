@@ -25,7 +25,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
         if (importerPath) {
           const knownCharacters = getAllCharacterNames(game.id);
           const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-          const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames);
+          const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames, game.id);
           setMods(loadedMods);
         } else {
           setMods([]);
