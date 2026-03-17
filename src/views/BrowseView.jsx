@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid, Rocket, Download } from "lucide-react";
 import BrowseModCard from "../components/BrowseModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import { getAllCharacterNames } from "../lib/portraits";
@@ -172,6 +172,62 @@ export default function BrowseView({ game }) {
               ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} on GameBanana`
               : `${Math.max(0, total).toLocaleString()} mods on GameBanana`}
           </p>
+
+          {!loading && mods.length > 0 && activeTab === "all" && !debouncedSearch && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative w-full h-80 rounded-4xl overflow-hidden bg-(--bg-card) border border-white/5 shadow-2xl mt-8 group cursor-pointer"
+              onClick={() => {
+                window.electronMods.fetchGbMod(mods[0]._idRow).then(res => {
+                  if (res.success) setInstallTarget(res.data);
+                });
+              }}
+            >
+              <div 
+                className="absolute inset-0 opacity-40"
+                style={{
+                  background: `radial-gradient(circle at 70% 30%, var(--active-accent) 0%, transparent 60%), 
+                               linear-gradient(to right, rgba(0,0,0,0.9) 0%, transparent 70%)`
+                }}
+              />
+              {mods[0].thumbnailUrl && (
+                <img 
+                  src={mods[0].thumbnailUrl} 
+                  className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-30 group-hover:scale-105 transition-transform duration-1000"
+                  alt=""
+                />
+              )}
+              {mods[0].thumbnailUrl && (
+                <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden">
+                   <img 
+                    src={mods[0].thumbnailUrl} 
+                    className="h-full w-full object-contain object-right scale-110 translate-x-12 translate-y-12 drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]"
+                    alt="" 
+                  />
+                </div>
+              )}
+              <div className="absolute inset-0 p-12 flex flex-col justify-end items-start z-10">
+                <div className="flex items-center gap-2 mb-3 bg-(--active-accent) text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]">
+                  <Rocket size={12} strokeWidth={3} />
+                  Trending Mod
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 max-w-lg drop-shadow-2xl">
+                  {mods[0]._sName}
+                </h2>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2 text-white/60 font-medium bg-white/5 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-md">
+                    <User size={14} className="text-(--active-accent)" />
+                    {mods[0]._aSubmitter?._sName}
+                  </div>
+                  <div className="flex items-center gap-2 text-white/80 font-bold bg-(--active-accent)/20 border border-(--active-accent)/30 px-4 py-2 rounded-xl">
+                    <Download size={14} className="text-(--active-accent)" />
+                    {mods[0]._nDownloadCount?.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Category Tabs */}
           <nav className="flex items-center gap-6 mt-6">

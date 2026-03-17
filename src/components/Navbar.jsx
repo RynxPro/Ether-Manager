@@ -9,17 +9,20 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
 
   return (
     <>
-      <nav className="w-full h-[60px] shrink-0 bg-(--bg-surface) border-b border-white/5 flex items-center justify-between px-6 pl-20 z-20 titlebar-drag sticky top-0">
+      <nav className="w-full h-[70px] shrink-0 bg-(--bg-surface)/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-8 pl-24 z-20 titlebar-drag sticky top-0">
         {/* Logo */}
-        <div className="flex items-center gap-2 w-48 no-drag">
-          <Zap size={20} className="text-white fill-white" />
-          <span className="text-white font-bold tracking-widest text-lg">
-            AETHER
-          </span>
+        <div className="flex items-center gap-3 w-64 no-drag group">
+          <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center transition-all group-hover:bg-(--active-accent)/20 group-hover:border-(--active-accent)/40 group-hover:shadow-[0_0_20px_var(--active-accent)]/20 shadow-2xl">
+            <Zap size={22} className="text-white fill-white transition-colors group-hover:text-(--active-accent) group-hover:fill-(--active-accent)" />
+          </div>
+          <div>
+            <span className="text-white font-black tracking-[0.3em] text-lg block leading-none">AETHER</span>
+            <span className="text-[9px] text-white/30 font-black tracking-[0.2em] uppercase mt-1 block">Mod Manager</span>
+          </div>
         </div>
 
         {/* Game Tabs */}
-        <div className="flex items-center gap-2 no-drag">
+        <div className="flex items-center gap-1.5 no-drag bg-white/5 p-1.5 rounded-3xl border border-white/5">
           {games.map((game) => {
             const isActive = activeGame === game.id;
             return (
@@ -27,65 +30,74 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
                 key={game.id}
                 onClick={() => onSelectGame(game.id)}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300",
+                  "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 relative overflow-hidden",
                   isActive
-                    ? "nav-pill-active"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-white/5",
+                    ? "text-white bg-white/10 shadow-lg"
+                    : "text-white/30 hover:text-white/60 hover:bg-white/2",
                 )}
               >
-                [{game.id}]
+                {isActive && (
+                  <motion.div 
+                    layoutId="navbarGameGlow"
+                    className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-(--active-accent) shadow-[0_0_10px_var(--active-accent)]" 
+                  />
+                )}
+                {game.id}
               </button>
             );
           })}
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 w-48 no-drag">
-          {/* My Mods / Browse toggle */}
-          <div className="flex items-center bg-(--bg-input) border border-white/10 rounded-full p-1 relative">
+        <div className="flex items-center justify-end gap-5 w-64 no-drag">
+          {/* Navigation Toggle */}
+          <div className="flex items-center bg-black/40 border border-white/5 rounded-2xl p-1 relative shadow-inner">
             <motion.div
               layout
-              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-              className="absolute h-[calc(100%-8px)] rounded-full bg-[var(--active-accent)] z-0 shadow-lg shadow-[var(--active-accent)]/20"
+              transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
+              className="absolute h-[calc(100%-8px)] rounded-xl bg-(--active-accent) z-0 shadow-[0_0_20px_var(--active-accent)]/40"
               style={{
-                width: activeView === "mods" ? "calc(50% - 4px)" : "calc(50% - 4px)",
+                width: "calc(50% - 4px)",
                 left: activeView === "mods" ? "4px" : "calc(50%)",
               }}
             />
             <button
               onClick={() => onSelectView("mods")}
               className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-bold transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[75px]",
-                activeView === "mods" ? "text-black" : "text-gray-400 hover:text-gray-200"
+                "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[85px]",
+                activeView === "mods" ? "text-black" : "text-white/30 hover:text-white/60"
               )}
             >
-              My Mods
+              Library
             </button>
             <button
               onClick={() => onSelectView("browse")}
               className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-bold transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[75px]",
-                activeView === "browse" ? "text-black" : "text-gray-400 hover:text-gray-200"
+                "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[85px]",
+                activeView === "browse" ? "text-black" : "text-white/30 hover:text-white/60"
               )}
             >
               Browse
             </button>
           </div>
 
-          <button
-            onClick={onShowHelp}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-            title="Show Guide"
-          >
-            <HelpCircle size={18} />
-          </button>
+          <div className="flex items-center gap-2 border-l border-white/10 pl-5">
+            <button
+              onClick={onShowHelp}
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
+              title="Show Guide"
+            >
+              <HelpCircle size={20} />
+            </button>
 
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-          >
-            <Settings size={18} />
-          </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
+              title="Settings"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </div>
       </nav>
 

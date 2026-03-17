@@ -22,18 +22,24 @@ export default function CharacterCard({ character, game, onClick }) {
     <motion.div
       variants={itemVariants}
       onClick={onClick}
-      whileHover={{ y: -8, scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      whileHover={{ 
+        y: -10, 
+        scale: 1.01,
+        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5), 0 0 10px color-mix(in srgb, var(--active-accent), transparent 80%)"
+      }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl overflow-hidden group relative",
-        "bg-(--bg-card) border border-white/5 cursor-pointer shadow-lg shadow-black/20",
+        "rounded-3xl overflow-hidden group relative transition-all duration-300",
+        "bg-(--bg-card) border border-white/5 cursor-pointer shadow-2xl",
         !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
-        hasMods && "border-(--active-accent)/20 shadow-(--active-accent)/5"
+        hasMods && "border-(--active-accent)/20 hover:border-(--active-accent)/40"
       )}
-      style={{ contain: "layout paint" }}
+      style={{ 
+        contain: "layout paint"
+      }}
     >
       {/* Portrait Area — tall card, image pinned to top */}
-      <div className="relative h-56 w-full bg-(--bg-base) overflow-hidden">
+      <div className="relative h-60 w-full bg-(--bg-base) overflow-hidden">
         {portraitUrl ? (
           <>
             {!imgLoaded && (
@@ -44,14 +50,15 @@ export default function CharacterCard({ character, game, onClick }) {
               alt={character.name}
               onLoad={() => setImgLoaded(true)}
               className={cn(
-                "absolute inset-0 w-full h-full object-cover object-top transition-all duration-700",
+                "absolute inset-0 w-full h-full object-cover object-top transition-all duration-1000",
                 imgLoaded ? "opacity-100" : "opacity-0",
                 !hasMods && "scale-105 group-hover:scale-100"
               )}
               loading="lazy"
             />
             {/* Vignette/Gradient overlay */}
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-(--bg-card) via-(--bg-card)/60 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-(--bg-card) via-transparent to-transparent opacity-60" />
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-(--bg-card) via-(--bg-card)/80 to-transparent" />
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--bg-input) to-(--bg-card)">
@@ -62,42 +69,55 @@ export default function CharacterCard({ character, game, onClick }) {
             ) : (
               <User size={64} className="text-white/5" />
             )}
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-(--bg-card) to-transparent" />
           </div>
         )}
 
         {/* Mod count badge - only if has mods */}
         {hasMods && (
-          <div className="absolute top-3 right-3 z-10 min-w-[24px] h-6 px-2 rounded-full text-[10px] font-black text-black bg-(--active-accent) shadow-lg shadow-(--active-accent)/20 flex items-center justify-center transition-transform group-hover:scale-110">
-            {character.totalMods}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--active-accent) text-black shadow-[0_0_15px_var(--active-accent)]/30 transition-transform group-hover:scale-110">
+            <span className="text-[10px] font-black tracking-tighter">{character.totalMods}</span>
           </div>
         )}
       </div>
 
       {/* Info Area */}
-      <div className="px-4 py-4 relative bg-(--bg-card)">
+      <div className="px-5 py-5 relative bg-(--bg-card) z-10">
+        <div className="flex items-center gap-2 mb-1.5 opacity-30 group-hover:opacity-100 transition-opacity">
+           <div className="w-1 h-3 bg-(--active-accent) rounded-full shadow-[0_0_5px_var(--active-accent)]" />
+           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white">Character Unit</span>
+        </div>
         <h3 className={cn(
-          "text-sm font-bold leading-tight truncate transition-colors",
-          hasMods ? "text-white" : "text-gray-500 group-hover:text-white"
+          "text-base font-black leading-tight truncate transition-colors tracking-tight",
+          hasMods ? "text-white" : "text-white/20 group-hover:text-white"
         )}>
           {character.name}
         </h3>
         
         {hasMods ? (
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-(--active-accent)">
-              {character.totalMods} MODS
-            </span>
-            <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span className="text-[10px] uppercase tracking-wider font-bold text-white/40">
-              {character.enabledMods} ACTIVE
-            </span>
+          <div className="flex items-center gap-3 mt-3">
+            <div className="flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-(--active-accent)" />
+              <span className="text-[9px] uppercase tracking-widest font-black text-white/40">
+                {character.totalMods} Total
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-green-500" />
+              <span className="text-[9px] uppercase tracking-widest font-black text-white/40">
+                {character.enabledMods} Active
+              </span>
+            </div>
           </div>
         ) : (
-          <p className="text-[10px] uppercase tracking-wider font-bold text-gray-600 mt-1">
-            No Mods
+          <p className="text-[9px] uppercase tracking-[0.2em] font-black text-white/10 mt-3 group-hover:text-white/30 transition-colors">
+            Standby Mode
           </p>
         )}
       </div>
+      
+      {/* Bloom Effect Ring (External Glow) */}
+      <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none" />
     </motion.div>
   );
 }

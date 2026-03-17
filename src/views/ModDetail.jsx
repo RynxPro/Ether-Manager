@@ -202,65 +202,108 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
   const disabledCount = mods.length - enabledCount;
 
   return (
-    <div className={cn("flex flex-col h-full", !hideHeader && "animate-in fade-in slide-in-from-right-8 duration-300")}>
+    <div className={cn("flex flex-col h-full", !hideHeader && "animate-in fade-in duration-700")}>
       {!hideHeader && (
-        <>
-          {/* Breadcrumb row */}
-          <div className="flex items-center gap-2 text-sm text-[var(--active-accent)] mb-6">
+        <div className="relative mb-12 group">
+          {/* Breadcrumb row - Floats over banner */}
+          <div className="absolute top-0 left-0 z-30 flex items-center gap-2 text-sm text-(--active-accent)/80 drop-shadow-md">
             <button
               onClick={onBack}
-              className="flex items-center hover:underline focus:outline-none"
+              className="flex items-center hover:text-(--active-accent) transition-colors focus:outline-none"
             >
               <ArrowLeft size={16} className="mr-1" />
               {game.name}
             </button>
-            <span className="text-gray-600">/</span>
-            <span className="text-gray-400">{character.name}</span>
+            <span className="text-white/20">/</span>
+            <span className="text-white/60 font-medium">{character.name}</span>
           </div>
 
-          {/* Header section */}
-          <div className="flex items-end justify-between mb-8 pb-6 border-b border-white/5 relative">
-            <div className="flex items-center gap-6">
-              <div
-                className="w-24 h-24 shrink-0 rounded-full bg-gradient-to-tr from-[var(--active-accent)] to-black flex items-center justify-center shadow-lg shadow-[var(--active-accent)]/20 border-2 border-[var(--active-accent)]/50 overflow-hidden relative"
-              >
-                {portraitUrl ? (
+          {/* Premium Hero Banner */}
+          <div className="relative h-64 md:h-80 w-full rounded-4xl overflow-hidden bg-(--bg-card) border border-white/5 shadow-2xl mt-8">
+            {/* Background Glow/Mesh */}
+            <div 
+              className="absolute inset-0 opacity-20 transition-opacity duration-1000 group-hover:opacity-30"
+              style={{
+                background: `radial-gradient(circle at 30% 50%, var(--active-accent) 0%, transparent 70%), 
+                             linear-gradient(to right, rgba(0,0,0,0.8) 0%, transparent 100%)`
+              }}
+            />
+            
+            {/* The Artwork */}
+            <AnimatePresence>
+              {portraitUrl && (
+                <motion.div
+                  initial={{ opacity: 0, x: -40, scale: 1.05 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="absolute inset-0 z-10 pointer-events-none"
+                >
                   <img 
                     src={portraitUrl} 
                     alt={character.name}
                     onLoad={() => setImgLoaded(true)}
-                    className={`absolute inset-0 w-full h-full object-cover object-top scale-125 translate-y-3 transition-opacity duration-700 ease-out ${
-                      imgLoaded ? "opacity-100" : "opacity-0"
-                    }`}
+                    className={cn(
+                      "h-full w-auto object-contain object-left scale-150 md:scale-125 translate-x-4 md:translate-x-12 translate-y-6 transition-all duration-700",
+                      imgLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"
+                    )}
                   />
-                ) : (
-                  <User size={32} className="text-white/30" />
-                )}
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-white tracking-tight mb-2">
+                  {/* Bottom Vignette for text legibility */}
+                  <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-r from-black/60 via-transparent to-transparent" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Banner Content */}
+            <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col justify-end items-start">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                   <div className="w-1.5 h-6 bg-(--active-accent) rounded-full shadow-[0_0_12px_var(--active-accent)]" />
+                   <span className="text-xs font-black uppercase tracking-[0.3em] text-white/40">Character Library</span>
+                </div>
+                <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-4 drop-shadow-2xl">
                   {character.name}
                 </h1>
-                <p className="text-gray-400 font-medium">
-                  {mods.length} mods <span className="mx-1.5">•</span>
-                  <span className="text-white relative z-10">
-                    {enabledCount} enabled
-                  </span>{" "}
-                  <span className="mx-1.5">•</span>
-                  {disabledCount} disabled
-                </p>
-              </div>
-            </div>
+                
+                <div className="flex items-center gap-6 text-sm font-bold">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                    <span className="text-(--active-accent)">{mods.length}</span>
+                    <span className="text-white/40 uppercase tracking-widest text-[10px]">Total Mods</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_8px_var(--active-accent)]" />
+                    <span className="text-white/80">{enabledCount} Active</span>
+                  </div>
+                  
+                  {disabledCount > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-white/20" />
+                      <span className="text-white/40">{disabledCount} Stashed</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
 
-            <button 
-              onClick={handleImport}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[var(--active-accent)] text-black font-semibold rounded-lg hover:brightness-110 active:brightness-90 transition-all shadow-lg shadow-[var(--active-accent)]/20"
-            >
-              <Plus size={18} />
-              Add Mod
-            </button>
+              {/* Action Button */}
+              <motion.button 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleImport}
+                className="absolute right-8 md:right-12 bottom-8 md:bottom-12 flex items-center gap-3 px-8 py-4 bg-(--active-accent) text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-xl shadow-(--active-accent)/20 uppercase tracking-wider text-sm"
+              >
+                <Plus size={20} strokeWidth={3} />
+                Import Mod
+              </motion.button>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Mods Grid */}

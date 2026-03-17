@@ -139,8 +139,15 @@ export default function ModDetailModal({
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-5xl bg-(--bg-overlay) border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px]"
+        className="w-full max-w-5xl bg-(--bg-overlay) border border-white/10 rounded-4xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px] relative"
       >
+        {/* Cinematic Backdrop Glow (floats behind everything) */}
+        <div 
+          className="absolute inset-x-0 top-0 h-64 opacity-20 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at 50% -20%, var(--active-accent) 0%, transparent 70%)`
+          }}
+        />
         {/* Left Side: Media Carousel */}
         <div className="md:w-[55%] bg-(--bg-base) relative flex flex-col group h-64 md:h-auto border-r border-white/5">
           {images.length > 0 ? (
@@ -201,14 +208,14 @@ export default function ModDetailModal({
           
           {/* Thumbnails row (desktop) */}
           {images.length > 1 && (
-            <div className="h-20 bg-white/5 border-t border-white/5 flex items-center gap-2 p-3 overflow-x-auto scroller-hidden hidden md:flex">
+            <div className="h-20 bg-white/5 border-t border-white/5 items-center gap-2 p-3 overflow-x-auto scroller-hidden hidden md:flex">
               {images.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentImgIndex(i)}
                   className={cn(
                     "h-full aspect-video rounded-md overflow-hidden border-2 transition-all shrink-0",
-                    i === currentImgIndex ? "border-[var(--active-accent)]" : "border-transparent opacity-50 hover:opacity-100"
+                    i === currentImgIndex ? "border-(--active-accent)" : "border-transparent opacity-50 hover:opacity-100"
                   )}
                 >
                   <img src={img} className="w-full h-full object-cover" />
@@ -219,12 +226,12 @@ export default function ModDetailModal({
         </div>
 
         {/* Right Side: Info Area */}
-        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-gradient-to-b from-(--bg-overlay) to-(--bg-card) overflow-hidden">
+        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-linear-to-b from-(--bg-overlay) to-(--bg-card) overflow-hidden">
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
               <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
               <p className="text-gray-400 text-sm truncate">
-                by <span className="text-[var(--active-accent)]">{mod._aSubmitter?._sName || "Unknown"}</span>
+                by <span className="text-(--active-accent)">{mod._aSubmitter?._sName || "Unknown"}</span>
               </p>
             </div>
             <button
@@ -242,7 +249,7 @@ export default function ModDetailModal({
             <span className="flex items-center gap-1.5">
               <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
             </span>
-            <span className="flex items-center gap-1.5 text-[var(--active-accent)]">
+            <span className="flex items-center gap-1.5 text-(--active-accent)">
               <Download size={14} /> {mod._nDownloadCount?.toLocaleString() || 0}
             </span>
           </div>
@@ -281,7 +288,7 @@ export default function ModDetailModal({
                       className={cn(
                         "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
                         selectedFile?._idRow === file._idRow
-                          ? "bg-[var(--active-accent)]/10 border-[var(--active-accent)]/50 text-white"
+                          ? "bg-(--active-accent)/10 border-(--active-accent)/50 text-white"
                           : "bg-white/5 border-white/5 text-gray-400 hover:border-white/10 hover:text-gray-300"
                       )}
                     >
@@ -303,7 +310,7 @@ export default function ModDetailModal({
                         <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
                       </div>
                       {selectedFile?._idRow === file._idRow && (
-                        <div className="p-1 rounded-full bg-[var(--active-accent)] text-black">
+                        <div className="p-1 rounded-full bg-(--active-accent) text-black">
                           <Check size={12} />
                         </div>
                       )}
@@ -350,7 +357,7 @@ export default function ModDetailModal({
                   "w-full relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
                   isLibraryContext && !isUpdating
                     ? "bg-white/5 text-gray-600 cursor-not-allowed"
-                    : "bg-[var(--active-accent)] text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                    : "bg-(--active-accent) text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
                 {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (

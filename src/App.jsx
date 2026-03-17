@@ -52,14 +52,25 @@ function App() {
   const game = GAME_CONFIG[activeGame];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--background)] relative">
+    <div className="min-h-screen flex flex-col bg-(--bg-base) relative overflow-hidden">
       {/* Background radial gradient corresponding to game color */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-5 z-0"
+        className="fixed inset-0 pointer-events-none z-0"
         style={{
-          background: `radial-gradient(circle at top, ${game.accentColor} 0%, transparent 60%)`,
+          background: `radial-gradient(circle at 50% -20%, var(--active-accent) 0%, transparent 60%)`,
+          opacity: 0.1
         }}
       />
+      
+      {/* Dynamic Texture/Depth Layer */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03] mix-blend-overlay">
+        <svg xmlns='http://www.w3.org/2000/svg' width='100%' height='100%'>
+          <filter id='n' x='0' y='0'>
+            <feTurbulence type='fractalNoise' baseFrequency='0.65' stitchTiles='stitch'/>
+          </filter>
+          <rect width='100%' height='100%' filter='url(#n)'/>
+        </svg>
+      </div>
 
       <Navbar
         games={Object.values(GAME_CONFIG)}
@@ -70,14 +81,14 @@ function App() {
         onShowHelp={handleShowHelp}
       />
 
-      <main className="flex-1 w-full max-w-[1400px] mx-auto px-8 py-6 relative z-10">
+      <main className="flex-1 w-full max-w-[1500px] mx-auto px-10 py-8 relative z-10 overflow-y-auto scroller-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeView + (selectedCharacter ? selectedCharacter.name : "")}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            key={activeView + (selectedCharacter ? selectedCharacter.name : "") + activeGame}
+            initial={{ opacity: 0, y: 15, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -15, scale: 1.02 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             className="w-full h-full"
           >
             {activeView === "browse" ? (
