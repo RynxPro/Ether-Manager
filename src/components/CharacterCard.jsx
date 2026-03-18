@@ -2,14 +2,14 @@ import { cn } from "../lib/utils";
 import { User, Monitor, Box } from "lucide-react";
 import { getCharacterPortrait } from "../lib/portraits";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, memo } from "react";
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
 };
 
-export default function CharacterCard({ character, game, onClick }) {
+const CharacterCard = memo(function CharacterCard({ character, game, onClick }) {
   const isUI = character.name === "User Interface";
   const isMisc = character.name === "Miscellaneous";
   const isGlobal = isUI || isMisc;
@@ -21,11 +21,10 @@ export default function CharacterCard({ character, game, onClick }) {
   return (
     <motion.div
       variants={itemVariants}
-      onClick={onClick}
+      onClick={() => onClick(character)}
       whileHover={{ 
         y: -10, 
-        scale: 1.01,
-        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5), 0 0 10px color-mix(in srgb, var(--active-accent), transparent 80%)"
+        scale: 1.01
       }}
       transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
@@ -118,6 +117,11 @@ export default function CharacterCard({ character, game, onClick }) {
       
       {/* Bloom Effect Ring (External Glow) */}
       <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none" />
+      
+      {/* Optimized Box Shadow Hover Layer */}
+      <div className="absolute inset-0 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--active-accent),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </motion.div>
   );
-}
+});
+
+export default CharacterCard;

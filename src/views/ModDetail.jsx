@@ -15,7 +15,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
   const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFiles: string[] }
   const [modToDelete, setModToDelete] = useState(null);
 
-  const loadMods = async () => {
+  const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
@@ -72,14 +72,14 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
           });
           setInstalledModsInfo(infoMap);
         }
-      }
-    };
+    }
+  }, [game.id, character.name]); // Include essential deps here if needed in the future
 
   useEffect(() => {
     loadMods();
-  }, [game.id, character.name]);
+  }, [loadMods]);
 
-  const handleToggle = async (mod, enable) => {
+  const handleToggle = useCallback(async (mod, enable) => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
@@ -91,20 +91,19 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
       });
 
       if (result.success) {
-        // Reload mods to get updated state
         loadMods();
       } else {
         console.error("Failed to toggle mod:", result.error);
         alert(`Failed to toggle mod: ${result.error}`);
       }
     }
-  };
+  }, [game.id, loadMods]);
 
-  const handleOpenFolder = async (path) => {
+  const handleOpenFolder = useCallback(async (mod) => {
     if (window.electronMods) {
-      await window.electronMods.openFolder(path);
+      await window.electronMods.openFolder(mod.path);
     }
-  };
+  }, []);
 
   const handleImport = async () => {
     if (window.electronConfig && window.electronMods) {
@@ -160,7 +159,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
     }
   };
 
-  const handleAssign = async (mod, newCharacterName) => {
+  const handleAssign = useCallback(async (mod, newCharacterName) => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
@@ -177,9 +176,9 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
         alert(result.error || "Failed to assign mod.");
       }
     }
-  };
+  }, [game.id, loadMods]);
 
-  const handleDelete = async (mod) => {
+  const handleDelete = useCallback(async (mod) => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
@@ -195,7 +194,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
         alert(result?.error || "Failed to delete mod.");
       }
     }
-  };
+  }, [game.id, loadMods]);
 
   if (!character) return null;
   const enabledCount = mods.filter((m) => m.isEnabled).length;
@@ -338,9 +337,9 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                   });
                 }
               }}
-              onToggle={(enable) => handleToggle(mod, enable)}
-              onOpenFolder={() => handleOpenFolder(mod.path)}
-              onAssign={(newCharName) => handleAssign(mod, newCharName)}
+              onToggle={handleToggle}
+              onOpenFolder={handleOpenFolder}
+              onAssign={handleAssign}
               onDelete={setModToDelete}
               hideCategoryTag={hideHeader}
             />

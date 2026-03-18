@@ -81,34 +81,67 @@ function App() {
         onShowHelp={handleShowHelp}
       />
 
-      <main className="flex-1 w-full relative z-10 overflow-y-scroll overflow-x-hidden scroller-hidden">
-        <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full flex flex-col relative grid-stack">
-          <AnimatePresence mode="popLayout" initial={false}>
+      <main className="flex-1 w-full relative z-10 overflow-hidden">
+        
+        {/* BROWSE VIEW VIEWPORT */}
+        <motion.div
+          initial={false}
+          animate={{ 
+            opacity: activeView === "browse" ? 1 : 0,
+            y: activeView === "browse" ? 0 : 15,
+            scale: activeView === "browse" ? 1 : 0.98,
+            pointerEvents: activeView === "browse" ? "auto" : "none",
+            zIndex: activeView === "browse" ? 20 : 0
+          }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
+        >
+          <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
+            <BrowseView game={game} />
+          </div>
+        </motion.div>
+
+        {/* LIBRARY ALL CHARACTERS VIEWPORT */}
+        <motion.div
+          initial={false}
+          animate={{ 
+            opacity: activeView === "mods" && !selectedCharacter ? 1 : 0,
+            y: activeView === "mods" && !selectedCharacter ? 0 : 15,
+            scale: activeView === "mods" && !selectedCharacter ? 1 : 0.98,
+            pointerEvents: activeView === "mods" && !selectedCharacter ? "auto" : "none",
+            zIndex: activeView === "mods" && !selectedCharacter ? 20 : 0
+          }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
+        >
+          <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
+            <CharacterGrid game={game} onSelectCharacter={setSelectedCharacter} />
+          </div>
+        </motion.div>
+
+        {/* MOD DETAIL VIEWPORT (conditionally rendered to save memory when inactive) */}
+        <AnimatePresence>
+          {activeView === "mods" && selectedCharacter && (
             <motion.div
-              key={activeView + (selectedCharacter ? selectedCharacter.name : "") + activeGame}
+              key="mod-detail"
               initial={{ opacity: 0, y: 15, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -15, scale: 1.02 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="flex-1 w-full h-full"
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
+              style={{ zIndex: 30 }}
             >
-              {activeView === "browse" ? (
-                <BrowseView game={game} />
-              ) : selectedCharacter ? (
-                <ModDetail
-                  game={game}
-                  character={selectedCharacter}
-                  onBack={() => setSelectedCharacter(null)}
+              <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
+                <ModDetail 
+                  game={game} 
+                  character={selectedCharacter} 
+                  onBack={() => setSelectedCharacter(null)} 
                 />
-              ) : (
-                <CharacterGrid
-                  game={game}
-                  onSelectCharacter={setSelectedCharacter}
-                />
-              )}
+              </div>
             </motion.div>
-          </AnimatePresence>
-        </div>
+          )}
+        </AnimatePresence>
+
       </main>
       <OnboardingModal 
         isOpen={showOnboarding} 

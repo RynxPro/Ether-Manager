@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Download, Heart, Eye, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
@@ -10,18 +10,17 @@ function formatCount(n) {
   return String(n);
 }
 
-export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }) {
+const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <motion.div
-      onClick={onInstall}
+      onClick={() => onInstall(mod)}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       whileHover={{ 
         y: -10, 
-        scale: 1.01,
-        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5), 0 0 10px color-mix(in srgb, var(--active-accent), transparent 80%)"
+        scale: 1.01
       }}
       transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
@@ -114,7 +113,7 @@ export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onInstall();
+            onInstall(mod);
           }}
           disabled={isInstalled}
           className={cn(
@@ -137,7 +136,12 @@ export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }
       </div>
       
       {/* External Bloom Ring */}
-      <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none z-20" />
+      
+      {/* Optimized Shadow Layer (animating opacity instead of box-shadow is virtually free for the GPU) */}
+      <div className="absolute inset-0 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--active-accent),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </motion.div>
   );
-}
+});
+
+export default BrowseModCard;

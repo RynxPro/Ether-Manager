@@ -1,23 +1,22 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { FileText, FolderOpen, Check, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 import SearchableDropdown from "./SearchableDropdown";
 import { motion } from "framer-motion";
 
-export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false, gameId }) {
+const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false, gameId }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
   return (
     <motion.div
-      onClick={onClick}
+      onClick={() => onClick && onClick(mod)}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ 
         y: -8, 
-        scale: 1.01,
-        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5), 0 0 10px color-mix(in srgb, var(--active-accent), transparent 85%)"
+        scale: 1.01
       }}
       transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
@@ -155,7 +154,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
                 type="checkbox"
                 className="sr-only toggle-checkbox"
                 checked={mod.isEnabled}
-                onChange={(e) => onToggle(e.target.checked)}
+                onChange={(e) => onToggle(mod, e.target.checked)}
               />
               <div
                 className={cn(
@@ -209,6 +208,11 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
       
       {/* Bloom Effect Ring */}
       <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none" />
+      
+      {/* Optimized Box Shadow Hover Layer */}
+      <div className="absolute inset-0 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--active-accent),transparent_85%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </motion.div>
   );
-}
+});
+
+export default ModCard;

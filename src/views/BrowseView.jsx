@@ -176,6 +176,19 @@ export default function BrowseView({ game }) {
     });
   };
 
+  const handleCardInstallClick = useCallback(async (mod) => {
+    try {
+      const result = await window.electronMods.fetchGbMod(mod._idRow);
+      if (result.success && result.data) {
+        setInstallTarget(result.data);
+      } else {
+        setError("Failed to fetch mod details.");
+      }
+    } catch {
+      setError("Failed to fetch mod details.");
+    }
+  }, []);
+
   const totalPages = Math.ceil(total / PER_PAGE);
   const isFiltering = activeTab !== "all" || !!debouncedSearch;
   const activeSearchLabel = [
@@ -465,18 +478,7 @@ export default function BrowseView({ game }) {
                   mod={mod}
                   isInstalled={isInstalled}
                   hasUpdate={hasUpdate}
-                  onInstall={async () => {
-                    try {
-                      const result = await window.electronMods.fetchGbMod(mod._idRow);
-                      if (result.success && result.data) {
-                        setInstallTarget(result.data);
-                      } else {
-                        setError("Failed to fetch mod details.");
-                      }
-                    } catch {
-                      setError("Failed to fetch mod details.");
-                    }
-                  }}
+                  onInstall={handleCardInstallClick}
                 />
               );
             })}
