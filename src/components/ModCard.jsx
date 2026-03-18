@@ -60,7 +60,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
             {gbData?.hasUpdate ? (
               <UpdateBadge />
             ) : gbData ? (
-              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10 backdrop-blur-md">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10">
                 <Check size={10} strokeWidth={4} />
                 Latest
               </div>
@@ -88,7 +88,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
             {gbData?.hasUpdate ? (
               <UpdateBadge />
             ) : gbData ? (
-              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10 backdrop-blur-md">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10">
                 <Check size={10} strokeWidth={4} />
                 Latest
               </div>
@@ -116,7 +116,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
           <h3
             className={cn(
               "text-base font-black leading-tight line-clamp-2 min-h-12 transition-colors tracking-tight",
-              mod.isEnabled ? "text-white group-hover:text-(--active-accent)" : "text-white/20 group-hover:text-white"
+              mod.isEnabled ? "text-white group-hover:text-(--active-accent)" : "text-(--text-muted) group-hover:text-white"
             )}
             title={mod.name}
           >
@@ -125,7 +125,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
 
           <div className="flex flex-col gap-1 mt-2 mb-4">
             {/* Version / Folder info */}
-            <div className="flex items-center gap-2 text-[9px] uppercase font-bold tracking-widest text-white/20 truncate group-hover:text-white/40 transition-colors">
+            <div className="flex items-center gap-2 text-[9px] uppercase font-bold tracking-widest text-(--text-muted) truncate group-hover:text-(--text-body) transition-colors">
               <FileText size={10} className="shrink-0" />
               <span className="truncate">{mod.originalFolderName}</span>
             </div>
@@ -176,7 +176,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
               <span
                 className={cn(
                   "ml-3 text-[10px] font-black uppercase tracking-widest transition-colors duration-300",
-                  mod.isEnabled ? "text-white" : "text-white/20",
+                  mod.isEnabled ? "text-white" : "text-(--text-muted)",
                 )}
               >
                 {mod.isEnabled ? "Active" : "Off"}
@@ -198,7 +198,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
             <button
               onClick={onOpenFolder}
               title="Open Folder"
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/0 text-white/20 hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/0 text-(--text-muted) hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
             >
               <FolderOpen size={16} />
             </button>

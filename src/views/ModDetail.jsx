@@ -269,9 +269,9 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                 </h1>
                 
                 <div className="flex items-center gap-6 text-sm font-bold">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
                     <span className="text-(--active-accent)">{mods.length}</span>
-                    <span className="text-white/40 uppercase tracking-widest text-[10px]">Total Mods</span>
+                    <span className="text-(--text-muted) uppercase tracking-widest text-[10px]">Total Mods</span>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -373,11 +373,11 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
               className="w-full max-w-sm bg-(--bg-overlay) border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500 shadow-inner shadow-red-500/20">
+              <div className="w-12 h-12 rounded-full bg-(--color-danger)/10 flex items-center justify-center mb-4 text-(--color-danger) shadow-inner shadow-(--color-danger)/20">
                 <Trash2 size={24} />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Delete Mod?</h3>
-              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+              <p className="text-(--text-body) text-sm mb-6 leading-relaxed">
                 Are you sure you want to delete <strong className="text-white">{modToDelete.name}</strong>?<br/>
                 This will move the folder to your computer's Recycle Bin.
               </p>
@@ -394,7 +394,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     await handleDelete(modToDelete);
                     setModToDelete(null);
                   }}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all shadow-[0_0_15px_rgba(239,68,68,0)] hover:shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                  className="flex-1 py-2.5 rounded-lg font-bold text-(--color-danger) bg-(--color-danger)/10 hover:bg-(--color-danger)/20 border border-(--color-danger)/20 transition-all shadow-[0_0_15px_rgba(255,68,85,0)] hover:shadow-[0_0_15px_rgba(255,68,85,0.15)]"
                 >
                   Confirm Delete
                 </button>

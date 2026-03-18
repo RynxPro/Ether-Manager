@@ -16,6 +16,10 @@
     --card: var(--bg-card);
     --text-primary: #ffffff;
     --text-secondary: #8c8c9a;
+    --text-body: rgba(255, 255, 255, 0.65);
+    --text-muted: rgba(255, 255, 255, 0.35);
+    --color-danger: #ff4455;
+    --color-warning: #ffb347;
     --border: rgba(255, 255, 255, 0.06);
     --active-accent: #00f5cc; /* Default to GIMI */
   }

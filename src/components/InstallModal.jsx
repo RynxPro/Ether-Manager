@@ -88,17 +88,17 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
             </button>
 
             <h2 className="text-xl font-bold text-white mb-1 pr-8">{mod._sName}</h2>
-            <p className="text-sm text-gray-400 mb-5">
+            <p className="text-sm text-(--text-muted) mb-5">
               by {mod._aSubmitter?._sName || "Unknown"}
               {fileEntry && (
-                <span className="ml-2 text-gray-500 text-xs">
+                <span className="ml-2 text-(--text-muted) text-xs">
                   · {(fileEntry._nFilesize / 1024 / 1024).toFixed(1)} MB
                 </span>
               )}
             </p>
 
             {/* Character select */}
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-(--text-body) mb-2">
               Install for character
             </label>
             <div className="relative mb-6">
@@ -112,15 +112,15 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-muted) pointer-events-none" />
             </div>
 
             {error && (
-              <p className="text-red-400 text-sm mb-4">{error}</p>
+              <p className="text-(--color-danger) text-sm mb-4">{error}</p>
             )}
 
             {isInstallComplete && (
-              <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-(--active-accent)/10 border border-(--active-accent)/20 text-(--active-accent) shadow-[0_0_20px_var(--active-accent)]/10 backdrop-blur-md">
+              <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-(--active-accent)/10 border border-(--active-accent)/20 text-(--active-accent) shadow-[0_0_20px_var(--active-accent)]/10">
                 <CheckCircle size={28} className="mb-2" />
                 <p className="font-semibold text-sm">Download Complete!</p>
                 <p className="text-xs opacity-80 mt-1 text-center">Mod installed successfully.</p>
@@ -139,7 +139,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
                 <>
                   <button
                     onClick={onClose}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-(--text-muted) hover:text-white hover:border-white/20 transition-all text-sm font-medium"
                   >
                     Cancel
                   </button>

@@ -208,7 +208,7 @@ export default function BrowseView({ game }) {
               ? (isFiltering ? `${characterFilter} Mods` : "Browse Character Mods")
               : activeTab === "ui" ? "User Interface Mods" : "Miscellaneous Mods"}
         </h1>
-        <p className="text-gray-400 font-medium">
+        <p className="text-(--text-muted) font-medium">
           {loading
             ? "Loading..."
             : isFiltering
@@ -216,6 +216,26 @@ export default function BrowseView({ game }) {
             : `${Math.max(0, total).toLocaleString()} mods on GameBanana`}
         </p>
       </div>
+
+      {/* Featured Hero Loading Skeleton to strictly prevent layout shifting & bouncing frames */}
+      {activeTab === "all" && !debouncedSearch && loadingFeatured && (
+        <div className="mb-4 w-full">
+          <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
+            <Rocket className="text-(--text-muted)" size={20} />
+            <div className="w-32 h-6 bg-white/10 rounded-xl animate-pulse" />
+          </div>
+          <div className="w-full h-[400px] rounded-[2.5rem] bg-[rgba(255,255,255,0.02)] border border-white/5 overflow-hidden relative group">
+             {/* Simple structural hints */}
+             <div className="absolute left-12 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+               <div className="w-24 h-5 bg-white/5 rounded-full animate-pulse" />
+               <div className="w-80 h-16 bg-white/10 rounded-2xl animate-pulse" />
+               <div className="w-64 h-8 bg-white/5 rounded-xl animate-pulse" />
+             </div>
+             <div className="absolute right-12 top-1/2 -translate-y-1/2 w-[45%] aspect-video rounded-3xl bg-white/5 shadow-2xl animate-pulse border border-white/10" />
+             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/50 to-transparent opacity-50" />
+          </div>
+        </div>
+      )}
 
       {/* Featured Hero Carousel (Now spans full width) */}
       {!loadingFeatured && featuredMods.length > 0 && activeTab === "all" && !debouncedSearch && (() => {
@@ -270,7 +290,7 @@ export default function BrowseView({ game }) {
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap mt-6">
-                      <div className="flex items-center gap-2 text-gray-300 text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 transition-colors px-4 py-2.5 rounded-xl backdrop-blur-md">
+                      <div className="flex items-center gap-2 text-(--text-muted) text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 transition-colors px-4 py-2.5 rounded-xl">
                         {mod._aSubmitter?._sAvatarUrl ? (
                           <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-5 h-5 rounded-full object-cover shadow-sm" />
                         ) : (
@@ -333,11 +353,11 @@ export default function BrowseView({ game }) {
                     e.stopPropagation();
                     setCurrentHeroIndex((prev) => (prev > 0 ? prev - 1 : featuredMods.length - 1));
                   }}
-                  className="text-gray-400 hover:text-white hover:-translate-x-0.5 transition-all outline-none"
+                  className="text-(--text-muted) hover:text-white hover:-translate-x-0.5 transition-all outline-none"
                 >
                   <ChevronLeft size={20} strokeWidth={3} />
                 </button>
-                <div className="text-[11px] font-black text-gray-400 tracking-[0.2em] uppercase select-none">
+                <div className="text-[11px] font-black text-(--text-muted) tracking-[0.2em] uppercase select-none">
                   <span className="text-white mx-1">{currentHeroIndex + 1}</span> / <span className="mx-1">{featuredMods.length}</span>
                 </div>
                 <button 
@@ -345,7 +365,7 @@ export default function BrowseView({ game }) {
                     e.stopPropagation();
                     setCurrentHeroIndex((prev) => (prev < featuredMods.length - 1 ? prev + 1 : 0));
                   }}
-                  className="text-gray-400 hover:text-white hover:translate-x-0.5 transition-all outline-none"
+                  className="text-(--text-muted) hover:text-white hover:translate-x-0.5 transition-all outline-none"
                 >
                   <ChevronRight size={20} strokeWidth={3} />
                 </button>
@@ -368,7 +388,7 @@ export default function BrowseView({ game }) {
                 onClick={() => { setActiveTab(tab.id); setPage(1); }}
                 className={cn(
                   "group relative pb-4 flex items-center gap-2 transition-all",
-                  isActive ? "text-(--active-accent)" : "text-gray-500 hover:text-white"
+                  isActive ? "text-(--active-accent)" : "text-(--text-muted) hover:text-white"
                 )}
               >
                 <Icon size={16} className={cn(isActive && "drop-shadow-[0_0_8px_var(--active-accent)]")} />
@@ -389,13 +409,13 @@ export default function BrowseView({ game }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 w-full z-20 relative">
         {/* Global Search */}
         <div className="relative w-full sm:max-w-md xl:max-w-lg shrink">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-(--text-muted)" size={16} />
           <input
             type="text"
             placeholder="Search GameBanana..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-            className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-gray-500"
+            className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-(--text-muted)"
           />
         </div>
 
@@ -435,7 +455,7 @@ export default function BrowseView({ game }) {
         {error && !loading && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-12 bg-white/5 border border-white/5 rounded-2xl border-dashed">
           <p className="text-white font-medium">Could not load mods</p>
-          <p className="text-gray-400 text-sm max-w-sm">{error}</p>
+          <p className="text-(--text-muted) text-sm max-w-sm">{error}</p>
           <button
             onClick={fetchMods}
             className="mt-2 px-4 py-2 text-sm rounded-xl bg-(--active-accent) text-black font-semibold hover:brightness-110"

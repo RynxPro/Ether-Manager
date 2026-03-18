@@ -193,7 +193,7 @@ export default function ModDetailModal({
                 <button
                   onClick={handleSetThumbnail}
                   title="Use this image as the thumbnail in your library"
-                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 backdrop-blur text-white text-xs font-bold hover:bg-(--active-accent) hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
+                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-(--active-accent) hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
                 >
                   <ImageIcon size={14} />
                   Set as Thumbnail
@@ -230,19 +230,19 @@ export default function ModDetailModal({
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
               <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
-              <p className="text-gray-400 text-sm truncate">
+              <p className="text-(--text-muted) text-sm truncate">
                 by <span className="text-(--active-accent)">{mod._aSubmitter?._sName || "Unknown"}</span>
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors shrink-0"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-(--text-muted) hover:text-white transition-colors shrink-0"
             >
               <X size={20} />
             </button>
           </div>
 
-          <div className="flex items-center gap-4 text-gray-400 text-xs mb-6 shrink-0">
+          <div className="flex items-center gap-4 text-(--text-muted) text-xs mb-6 shrink-0">
             <span className="flex items-center gap-1.5">
               <Heart size={14} className="text-(--active-accent)" /> {mod._nLikeCount?.toLocaleString() || 0}
             </span>
@@ -258,16 +258,16 @@ export default function ModDetailModal({
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8 mb-6">
             {/* Description */}
             <div>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">About this mod</h3>
+              <h3 className="text-xs font-bold text-(--text-muted) uppercase tracking-widest mb-3">About this mod</h3>
               <div 
-                className="text-sm text-gray-300 leading-relaxed gb-description"
+                className="text-sm text-(--text-body) leading-relaxed gb-description"
                 dangerouslySetInnerHTML={{ __html: mod._sText || mod._sDescription || "No description provided." }}
               />
             </div>
 
             {/* Files Selector */}
             <div>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Files / Versions</h3>
+              <h3 className="text-xs font-bold text-(--text-muted) uppercase tracking-widest mb-3">Files / Versions</h3>
               <div className="space-y-2">
                 {mod._aFiles?.map((file) => {
                   const installedData = installedFileInfo?.installedFiles?.find(f => f.fileName === file._sFile);
@@ -289,7 +289,7 @@ export default function ModDetailModal({
                         "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
                         selectedFile?._idRow === file._idRow
                           ? "bg-(--active-accent)/10 border-(--active-accent)/50 text-white"
-                          : "bg-white/5 border-white/5 text-gray-400 hover:border-white/10 hover:text-gray-300"
+                          : "bg-white/5 border-white/5 text-(--text-muted) hover:border-white/10 hover:text-(--text-body)"
                       )}
                     >
                       <div className="flex-1 min-w-0 mr-3">
@@ -334,11 +334,11 @@ export default function ModDetailModal({
               />
             </div>
 
-            {error && <p className="text-red-400 text-xs mb-4">{error}</p>}
+            {error && <p className="text-(--color-danger) text-xs mb-4">{error}</p>}
 
             {isInstallComplete ? (
               <div className="flex flex-col items-center gap-3">
-                 <div className="flex items-center gap-2 text-(--active-accent) font-semibold bg-(--active-accent)/10 w-full justify-center py-3 rounded-xl border border-(--active-accent)/20 shadow-[0_0_20px_var(--active-accent)]/10 backdrop-blur-md">
+                 <div className="flex items-center gap-2 text-(--active-accent) font-semibold bg-(--active-accent)/10 w-full justify-center py-3 rounded-xl border border-(--active-accent)/20 shadow-[0_0_20px_var(--active-accent)]/10">
                    <CheckCircle size={18} />
                    <span>Installed Successfully</span>
                  </div>

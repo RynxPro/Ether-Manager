@@ -181,8 +181,8 @@ export default function SettingsModal({ onClose, games }) {
                         </li>
                       </ul>
                     ) : (
-                      <div className="text-xs text-orange-400/60 p-4 border border-orange-400/20 rounded-xl bg-orange-400/5 flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                      <div className="text-xs text-(--color-warning) p-4 border border-(--color-warning)/30 rounded-xl bg-(--color-warning)/10 flex items-center gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-(--color-warning) animate-pulse shadow-[0_0_5px_var(--color-warning)]" />
                         No path configured for this client
                       </div>
                     )}

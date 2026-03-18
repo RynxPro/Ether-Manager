@@ -67,7 +67,7 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
             </div>
           )}
           {isInstalled && hasUpdate && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[10px] font-black shadow-[0_0_15px_var(--active-accent)]/20 uppercase tracking-widest animate-pulse backdrop-blur-md">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[10px] font-black shadow-[0_0_15px_var(--active-accent)]/20 uppercase tracking-widest">
               Update Available
             </div>
           )}

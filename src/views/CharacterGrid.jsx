@@ -134,7 +134,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "group relative pb-2 flex items-center gap-2 transition-all",
-                    isActive ? "text-(--active-accent)" : "text-gray-500 hover:text-white"
+                    isActive ? "text-(--active-accent)" : "text-(--text-muted) hover:text-white"
                   )}
                 >
                   <Icon size={16} />
@@ -142,7 +142,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
                   {count > 0 && (
                     <span className={cn(
                       "text-[10px] px-1.5 py-0.5 rounded-full font-black",
-                      isActive ? "bg-(--active-accent) text-black" : "bg-white/10 text-gray-400 group-hover:bg-white/20"
+                      isActive ? "bg-(--active-accent) text-black" : "bg-white/10 text-(--text-muted) group-hover:bg-white/20"
                     )}>
                       {count}
                     </span>
@@ -159,14 +159,14 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
           </nav>
         </div>
 
-        <div className="relative self-end mb-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+        <div className="relative self-end mb-1 w-full sm:w-72 mt-4 sm:mt-0 xl:w-80">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-(--text-muted)" size={16} />
           <input
             type="text"
             placeholder={activeTab === "characters" ? "Search characters..." : "Search mods..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2.5 bg-(--bg-input) border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent) focus:bg-white/10 transition-all w-64"
+            className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-(--text-muted)"
           />
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
             displayItems.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-white/5 border border-white/5 rounded-3xl border-dashed">
                 <h3 className="text-xl font-medium text-white mb-2">No {activeTab} mods found</h3>
-                <p className="text-gray-400 max-w-sm">
+                <p className="text-(--text-muted) max-w-sm">
                   {searchQuery 
                     ? `No results matching "${searchQuery}" in this category.`
                     : `You haven't installed any ${activeTab} mods yet.`}
