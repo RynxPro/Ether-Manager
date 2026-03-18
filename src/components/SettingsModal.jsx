@@ -71,9 +71,9 @@ export default function SettingsModal({ onClose, games }) {
         >
           {/* Cinematic Background Glow */}
           <div 
-            className="absolute inset-x-0 top-0 h-64 opacity-20 pointer-events-none"
+            className="absolute inset-0 opacity-20 pointer-events-none"
             style={{
-              background: `radial-gradient(circle at 30% -20%, var(--active-accent) 0%, transparent 70%)`
+              background: `radial-gradient(ellipse at 30% -20%, var(--active-accent) 0%, transparent 60%)`
             }}
           />
 
