@@ -143,9 +143,9 @@ export default function ModDetailModal({
       >
         {/* Cinematic Backdrop Glow (floats behind everything) */}
         <div 
-          className="absolute inset-x-0 top-0 h-64 opacity-20 pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[500px] opacity-15 pointer-events-none"
           style={{
-            background: `radial-gradient(circle at 50% -20%, var(--active-accent) 0%, transparent 70%)`
+            background: `radial-gradient(circle at 50% 0%, var(--active-accent) 0%, transparent 60%)`
           }}
         />
         {/* Left Side: Media Carousel */}
@@ -226,7 +226,7 @@ export default function ModDetailModal({
         </div>
 
         {/* Right Side: Info Area */}
-        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-linear-to-b from-(--bg-overlay) to-(--bg-card) overflow-hidden">
+        <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-transparent overflow-hidden relative z-10">
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
               <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
@@ -244,7 +244,7 @@ export default function ModDetailModal({
 
           <div className="flex items-center gap-4 text-gray-400 text-xs mb-6 shrink-0">
             <span className="flex items-center gap-1.5">
-              <Heart size={14} className="text-pink-500/80" /> {mod._nLikeCount?.toLocaleString() || 0}
+              <Heart size={14} className="text-(--active-accent)" /> {mod._nLikeCount?.toLocaleString() || 0}
             </span>
             <span className="flex items-center gap-1.5">
               <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
@@ -301,7 +301,7 @@ export default function ModDetailModal({
                                 Update Available
                               </span>
                             ) : (
-                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 uppercase tracking-tighter shrink-0">
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/30 uppercase tracking-tighter shrink-0 backdrop-blur-md shadow-[0_0_10px_var(--active-accent)]/20">
                                 Stored
                               </span>
                             )
@@ -338,7 +338,7 @@ export default function ModDetailModal({
 
             {isInstallComplete ? (
               <div className="flex flex-col items-center gap-3">
-                 <div className="flex items-center gap-2 text-green-400 font-semibold bg-green-500/10 w-full justify-center py-3 rounded-xl border border-green-500/20">
+                 <div className="flex items-center gap-2 text-(--active-accent) font-semibold bg-(--active-accent)/10 w-full justify-center py-3 rounded-xl border border-(--active-accent)/20 shadow-[0_0_20px_var(--active-accent)]/10 backdrop-blur-md">
                    <CheckCircle size={18} />
                    <span>Installed Successfully</span>
                  </div>

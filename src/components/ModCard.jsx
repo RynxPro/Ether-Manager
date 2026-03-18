@@ -61,7 +61,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             {gbData?.hasUpdate ? (
               <UpdateBadge />
             ) : gbData ? (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500 text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10 backdrop-blur-md">
                 <Check size={10} strokeWidth={4} />
                 Latest
               </div>
@@ -89,7 +89,7 @@ export default function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpe
             {gbData?.hasUpdate ? (
               <UpdateBadge />
             ) : gbData ? (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500 text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10 backdrop-blur-md">
                 <Check size={10} strokeWidth={4} />
                 Latest
               </div>

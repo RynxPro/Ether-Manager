@@ -52,7 +52,7 @@ function App() {
   const game = GAME_CONFIG[activeGame];
 
   return (
-    <div className="min-h-screen flex flex-col bg-(--bg-base) relative overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-(--bg-base) relative overflow-hidden">
       {/* Background radial gradient corresponding to game color */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -81,32 +81,34 @@ function App() {
         onShowHelp={handleShowHelp}
       />
 
-      <main className="flex-1 w-full max-w-[1500px] mx-auto px-10 py-8 relative z-10 overflow-y-auto scroller-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeView + (selectedCharacter ? selectedCharacter.name : "") + activeGame}
-            initial={{ opacity: 0, y: 15, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 1.02 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full h-full"
-          >
-            {activeView === "browse" ? (
-              <BrowseView game={game} />
-            ) : selectedCharacter ? (
-              <ModDetail
-                game={game}
-                character={selectedCharacter}
-                onBack={() => setSelectedCharacter(null)}
-              />
-            ) : (
-              <CharacterGrid
-                game={game}
-                onSelectCharacter={setSelectedCharacter}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+      <main className="flex-1 w-full relative z-10 overflow-y-scroll overflow-x-hidden scroller-hidden">
+        <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full flex flex-col relative grid-stack">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={activeView + (selectedCharacter ? selectedCharacter.name : "") + activeGame}
+              initial={{ opacity: 0, y: 15, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -15, scale: 1.02 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="flex-1 w-full h-full"
+            >
+              {activeView === "browse" ? (
+                <BrowseView game={game} />
+              ) : selectedCharacter ? (
+                <ModDetail
+                  game={game}
+                  character={selectedCharacter}
+                  onBack={() => setSelectedCharacter(null)}
+                />
+              ) : (
+                <CharacterGrid
+                  game={game}
+                  onSelectCharacter={setSelectedCharacter}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </main>
       <OnboardingModal 
         isOpen={showOnboarding} 

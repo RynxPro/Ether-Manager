@@ -395,7 +395,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     await handleDelete(modToDelete);
                     setModToDelete(null);
                   }}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                  className="flex-1 py-2.5 rounded-lg font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all shadow-[0_0_15px_rgba(239,68,68,0)] hover:shadow-[0_0_15px_rgba(239,68,68,0.15)]"
                 >
                   Confirm Delete
                 </button>

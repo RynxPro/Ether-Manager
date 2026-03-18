@@ -68,7 +68,7 @@ export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }
             </div>
           )}
           {isInstalled && hasUpdate && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400 text-black text-[10px] font-black shadow-lg shadow-yellow-400/30 uppercase tracking-widest animate-pulse">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[10px] font-black shadow-[0_0_15px_var(--active-accent)]/20 uppercase tracking-widest animate-pulse backdrop-blur-md">
               Update Available
             </div>
           )}
@@ -95,16 +95,16 @@ export default function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }
         {/* Stats row */}
         <div className="flex items-center gap-4 text-white/20 mb-5 mt-auto border-t border-white/5 pt-4">
           <div className="flex items-center gap-1.5 group/stat">
-            <Heart size={12} className="text-red-500/40 group-hover/stat:text-red-500 transition-colors" />
+            <Heart size={12} className="text-white/30 group-hover/stat:text-(--active-accent) transition-colors" />
             <span className="text-[10px] font-black text-white/40 tracking-tighter group-hover:text-white transition-colors">{formatCount(mod._nLikeCount)}</span>
           </div>
           <div className="flex items-center gap-1.5 group/stat">
-            <Eye size={12} className="text-blue-500/40 group-hover/stat:text-blue-500 transition-colors" />
+            <Eye size={12} className="text-white/30 group-hover/stat:text-(--active-accent) transition-colors" />
             <span className="text-[10px] font-black text-white/40 tracking-tighter group-hover:text-white transition-colors">{formatCount(mod._nViewCount)}</span>
           </div>
           {mod._nDownloadCount != null && (
             <div className="flex items-center gap-1.5 group/stat">
-              <Download size={12} className="text-green-500/40 group-hover/stat:text-green-500 transition-colors" />
+              <Download size={12} className="text-white/30 group-hover/stat:text-(--active-accent) transition-colors" />
               <span className="text-[10px] font-black text-white/40 tracking-tighter group-hover:text-white transition-colors">{formatCount(mod._nDownloadCount)}</span>
             </div>
           )}

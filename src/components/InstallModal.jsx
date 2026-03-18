@@ -105,7 +105,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
               <select
                 value={selectedCharacter}
                 onChange={(e) => setSelectedCharacter(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-[var(--active-accent)] appearance-none"
+                className="flex-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-(--active-accent) transition-colors"
               >
                 <option value="" disabled>Select a character...</option>
                 {characters.map((c) => (
@@ -120,7 +120,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
             )}
 
             {isInstallComplete && (
-              <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400">
+              <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-(--active-accent)/10 border border-(--active-accent)/20 text-(--active-accent) shadow-[0_0_20px_var(--active-accent)]/10 backdrop-blur-md">
                 <CheckCircle size={28} className="mb-2" />
                 <p className="font-semibold text-sm">Download Complete!</p>
                 <p className="text-xs opacity-80 mt-1 text-center">Mod installed successfully.</p>
@@ -146,7 +146,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
                   <button
                     onClick={handleInstall}
                     disabled={isInstalling || !selectedCharacter}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--active-accent)] text-black font-semibold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-(--active-accent) text-black font-bold hover:brightness-110 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
                   >
                     {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
                        <div 

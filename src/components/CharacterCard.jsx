@@ -103,7 +103,7 @@ export default function CharacterCard({ character, game, onClick }) {
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-green-500" />
+              <span className="w-1 h-1 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_8px_var(--active-accent)]" />
               <span className="text-[9px] uppercase tracking-widest font-black text-white/40">
                 {character.enabledMods} Active
               </span>

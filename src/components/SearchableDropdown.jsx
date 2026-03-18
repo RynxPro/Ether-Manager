@@ -44,10 +44,10 @@ export default function SearchableDropdown({
     
     if (label === "user interface") return <Monitor size={size} />;
     if (label === "miscellaneous") return <Box size={size} />;
-    if (label === "latest") return <Clock size={size} className="text-blue-400/70" />;
-    if (label === "most liked") return <Heart size={size} className="text-red-400/70" />;
-    if (label === "most downloaded") return <Download size={size} className="text-green-400/70" />;
-    if (label === "most viewed") return <Eye size={size} className="text-purple-400/70" />;
+    if (label === "latest") return <Clock size={size} className="text-white/40" />;
+    if (label === "most liked") return <Heart size={size} className="text-white/40" />;
+    if (label === "most downloaded") return <Download size={size} className="text-white/40" />;
+    if (label === "most viewed") return <Eye size={size} className="text-white/40" />;
     
     const portrait = getCharacterPortrait(item, gameId);
     if (portrait) {
@@ -67,8 +67,7 @@ export default function SearchableDropdown({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border transition-all text-sm",
-          "bg-(--bg-input) border-white/10 hover:bg-white/10 hover:border-white/20",
+          "w-full flex items-center justify-between px-4 py-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm transition-all focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 hover:bg-black/60 shadow-inner",
           isOpen ? "border-(--active-accent) ring-1 ring-(--active-accent)/20" : "",
           selectedLabel === null ? "text-white/40" : "text-white font-medium"
         )}
@@ -91,12 +90,12 @@ export default function SearchableDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: direction === "down" ? -4 : 4, scale: 0.98 }}
             className={cn(
-              "absolute z-100 left-0 right-0 bg-(--bg-overlay) border border-white/10 rounded-2xl shadow-2xl overflow-hidden shadow-black/80",
+              "absolute z-100 left-0 right-0 bg-[#0d0d14]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden",
               direction === "down" ? "top-full mt-2" : "bottom-full mb-2"
             )}
           >
             {/* Search Input */}
-            <div className="p-3 border-b border-white/5 flex items-center gap-2 sticky top-0 bg-(--bg-input) z-10">
+            <div className="p-3 border-b border-white/5 flex items-center gap-2 sticky top-0 bg-black/40 shadow-inner z-10">
               <Search size={14} className="text-gray-500" />
               <input
                 autoFocus
@@ -126,10 +125,10 @@ export default function SearchableDropdown({
                         setSearch("");
                       }}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all text-left",
                         isSelected
-                          ? "bg-(--active-accent) text-black shadow-lg shadow-(--active-accent)/20"
-                          : "text-gray-400 hover:bg-white/5 hover:text-white"
+                          ? "bg-(--active-accent)/20 text-(--active-accent) border border-(--active-accent)/30 shadow-[0_0_15px_var(--active-accent)]/20"
+                          : "text-gray-400 hover:bg-white/5 hover:text-white border border-transparent"
                       )}
                     >
                       <span className={cn("shrink-0", isSelected ? "text-black" : "text-white/50")}>
