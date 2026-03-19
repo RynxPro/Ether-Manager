@@ -1,5 +1,5 @@
 import { useState, memo } from "react";
-import { Download, Heart, Eye, Check, Bookmark } from "lucide-react";
+import { Download, Heart, Eye, Check, Bookmark, User } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
 
@@ -107,23 +107,39 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
         >
           {mod._sName}
         </h3>
-        {mod._aSubmitter ? (
-          <button 
-            type="button"
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              onCreatorClick?.(mod._aSubmitter); 
-            }}
-            className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 mb-4 truncate hover:text-(--active-accent) transition-colors text-left"
-            title={`View profile for ${mod._aSubmitter._sName}`}
-          >
-            BY {mod._aSubmitter._sName}
-          </button>
-        ) : (
-          <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 mb-4 truncate group-hover:text-white/40 transition-colors">
-            BY UNKNOWN
-          </p>
-        )}
+        <div className="mb-4">
+          {mod._aSubmitter ? (
+            <button 
+              type="button"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                onCreatorClick?.(mod._aSubmitter); 
+              }}
+              className="flex items-center gap-2 text-left group/creator hover:bg-white/5 p-1 -ml-1 rounded-lg transition-colors w-fit pr-3"
+              title={`View profile for ${mod._aSubmitter._sName}`}
+            >
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10 border border-white/5 shrink-0 flex items-center justify-center shadow-[0_0_10px_rgba(255,255,255,0.05)]">
+                {mod._aSubmitter._sAvatarUrl ? (
+                  <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-full h-full object-cover" />
+                ) : (
+                  <User size={10} className="text-white/30" />
+                )}
+              </div>
+              <span className="text-[9px] uppercase font-black tracking-[0.2em] text-white/40 truncate group-hover/creator:text-(--active-accent) transition-colors">
+                by {mod._aSubmitter._sName}
+              </span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 p-1 -ml-1 h-7">
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-white/5 border border-white/5 shrink-0 flex items-center justify-center">
+                <User size={10} className="text-white/20" />
+              </div>
+              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 truncate">
+                by unknown
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Stats row */}
         <div className="flex items-center gap-4 text-white/20 mb-5 mt-auto border-t border-white/5 pt-4">

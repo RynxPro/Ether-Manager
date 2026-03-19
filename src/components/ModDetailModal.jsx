@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Download, X, AlertCircle, Calendar, Tag, ChevronDown, Check, Monitor, LayoutGrid, Bookmark, Heart, Eye, ChevronLeft, ChevronRight, CheckCircle, ImageIcon } from "lucide-react";
+import { Download, X, AlertCircle, Calendar, Tag, ChevronDown, Check, Monitor, LayoutGrid, Bookmark, Heart, Eye, ChevronLeft, ChevronRight, CheckCircle, ImageIcon, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
@@ -232,18 +231,34 @@ export default function ModDetailModal({
         <div className="md:w-[45%] p-6 md:p-8 flex flex-col h-full bg-transparent overflow-hidden relative z-10">
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
-              <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
+              <h2 className="text-2xl font-bold text-white mb-2 truncate" title={mod._sName}>{mod._sName}</h2>
               <div className="text-(--text-muted) text-sm truncate flex items-center gap-1">
-                by {mod._aSubmitter ? (
+                {mod._aSubmitter ? (
                   <button 
                     onClick={() => onCreatorClick?.(mod._aSubmitter)}
-                    className="text-(--active-accent) hover:underline font-semibold"
+                    className="flex items-center gap-2 group/creator transition-colors hover:bg-white/5 p-1 -ml-1 pr-3 rounded-lg w-fit"
                     title={`View profile for ${mod._aSubmitter._sName}`}
                   >
-                    {mod._aSubmitter._sName}
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.05)]">
+                      {mod._aSubmitter._sAvatarUrl ? (
+                        <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={12} className="text-white/30" />
+                      )}
+                    </div>
+                    <span>
+                      by <span className="text-(--active-accent) font-semibold group-hover/creator:underline">{mod._aSubmitter._sName}</span>
+                    </span>
                   </button>
                 ) : (
-                  <span className="text-(--active-accent)">Unknown</span>
+                  <div className="flex items-center gap-2 p-1 -ml-1">
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
+                      <User size={12} className="text-white/20" />
+                    </div>
+                    <span>
+                      by <span className="text-(--active-accent)">Unknown</span>
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
