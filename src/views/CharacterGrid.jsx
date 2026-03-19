@@ -12,7 +12,7 @@ const TABS = [
   { id: "misc", label: "Miscellaneous", icon: Box },
 ];
 
-export default function CharacterGrid({ game, onSelectCharacter }) {
+export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
   const [mods, setMods] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
@@ -34,8 +34,10 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
   }, [game.id]);
 
   useEffect(() => {
-    loadMods();
-  }, [loadMods]);
+    if (isActive !== false) {
+      loadMods();
+    }
+  }, [loadMods, isActive]);
 
   const handleDisableAllGame = useCallback(async () => {
     const enabledMods = mods.filter((m) => m.isEnabled);

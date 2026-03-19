@@ -115,7 +115,11 @@ function App() {
           className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
         >
           <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-            <CharacterGrid game={game} onSelectCharacter={setSelectedCharacter} />
+            <CharacterGrid 
+              game={game} 
+              isActive={activeView === "mods" && !selectedCharacter}
+              onSelectCharacter={setSelectedCharacter} 
+            />
           </div>
         </motion.div>
 

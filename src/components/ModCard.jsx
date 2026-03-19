@@ -196,7 +196,10 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
               <Trash2 size={16} />
             </button>
             <button
-              onClick={onOpenFolder}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenFolder) onOpenFolder(mod);
+              }}
               title="Open Folder"
               className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/0 text-(--text-muted) hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
             >
