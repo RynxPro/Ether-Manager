@@ -43,6 +43,7 @@ export default function BrowseView({ game }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [bookmarks, setBookmarks] = useState({});
+  const [bookmarkedCreators, setBookmarkedCreators] = useState([]);
 
   const [featuredMods, setFeaturedMods] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
@@ -87,6 +88,7 @@ export default function BrowseView({ game }) {
         const config = await window.electronConfig.getConfig();
         setImporterPath(config[game.id] || null);
         setBookmarks(config.bookmarks || {});
+        setBookmarkedCreators(config.bookmarkedCreators || []);
       }
     };
     loadConfigAndPath();
@@ -112,6 +114,25 @@ export default function BrowseView({ game }) {
       return newBookmarks;
     });
   }, [game.id]);
+
+  const handleToggleCreatorBookmark = useCallback((creator) => {
+    setBookmarkedCreators(prev => {
+      const index = prev.findIndex(c => c._idRow === creator._idRow);
+      let newList;
+      if (index >= 0) {
+        newList = [
+          ...prev.slice(0, index),
+          ...prev.slice(index + 1)
+        ];
+      } else {
+        newList = [creator, ...prev];
+      }
+      if (window.electronConfig) {
+        window.electronConfig.setConfig({ bookmarkedCreators: newList });
+      }
+      return newList;
+    });
+  }, []);
 
   // Load already-installed mod IDs from the Mods folder
   useEffect(() => {
@@ -532,6 +553,36 @@ export default function BrowseView({ game }) {
       {/* Mod grid */}
       {!loading && !error && (
         <>
+          {/* Saved Creators Section */}
+          {activeTab === "saved" && bookmarkedCreators.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Bookmark className="text-(--active-accent)" size={20} /> Saved Creators
+              </h3>
+              <div className="flex gap-4 overflow-x-auto scroller-hidden pb-4">
+                {bookmarkedCreators.map((creator) => (
+                  <button
+                    key={creator._idRow}
+                    onClick={() => handleCreatorClick(creator)}
+                    className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all min-w-[120px] group/savedcreator shrink-0"
+                  >
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.05)] group-hover/savedcreator:shadow-[0_0_20px_var(--active-accent)]/20 transition-all">
+                      {creator._sAvatarUrl ? (
+                        <img src={creator._sAvatarUrl} alt={creator._sName} className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={24} className="text-white/30 group-hover/savedcreator:text-white/50 transition-colors" />
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-white text-center w-full truncate group-hover/savedcreator:text-(--active-accent) transition-colors">
+                      {creator._sName}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="w-full h-px bg-white/10 my-6" />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {mods.map((mod) => {
               const installedInfo = installedModsInfo[mod._idRow];
@@ -603,6 +654,8 @@ export default function BrowseView({ game }) {
           installedModsInfo={installedModsInfo}
           bookmarks={bookmarks}
           onToggleBookmark={handleToggleBookmark}
+          isCreatorBookmarked={bookmarkedCreators.some(c => c._idRow === activeCreatorProfile._idRow)}
+          onToggleCreatorBookmark={handleToggleCreatorBookmark}
           onModClick={handleCardInstallClick}
           onClose={() => setActiveCreatorProfile(null)}
         />

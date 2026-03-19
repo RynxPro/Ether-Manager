@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Activity } from "lucide-react";
+import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Activity, Bookmark, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import BrowseModCard from "./BrowseModCard";
 import { cn } from "../lib/utils";
@@ -13,6 +13,8 @@ export default function CreatorProfileModal({
   installedModsInfo,
   bookmarks,
   onToggleBookmark,
+  isCreatorBookmarked,
+  onToggleCreatorBookmark,
   onModClick,
 }) {
   const [mods, setMods] = useState([]);
@@ -80,7 +82,33 @@ export default function CreatorProfileModal({
           </div>
           
           <div className="relative z-10 flex-1">
-            <h2 className="text-3xl font-black text-white tracking-tight">{creator._sName}</h2>
+            <div className="flex items-center gap-4">
+              <h2 className="text-3xl font-black text-white tracking-tight">{creator._sName}</h2>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleCreatorBookmark?.(creator);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all border",
+                  isCreatorBookmarked 
+                    ? "bg-(--active-accent)/20 text-(--active-accent) border-(--active-accent)/40 hover:bg-(--active-accent)/30 focus:ring-2 focus:ring-(--active-accent)/50" 
+                    : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white focus:ring-2 focus:ring-white/20"
+                )}
+              >
+                {isCreatorBookmarked ? (
+                  <>
+                    <Check size={14} strokeWidth={3} className="text-(--active-accent)" />
+                    Saved
+                  </>
+                ) : (
+                  <>
+                    <Bookmark size={14} strokeWidth={2.5} />
+                    Save Profile
+                  </>
+                )}
+              </button>
+            </div>
             <div className="flex items-center gap-4 mt-2">
               <span className="flex items-center gap-1.5 text-sm text-(--active-accent) font-medium px-3 py-1 rounded-full bg-(--active-accent)/10 border border-(--active-accent)/20">
                 <LayoutGrid size={14} />
