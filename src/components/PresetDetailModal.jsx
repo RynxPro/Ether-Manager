@@ -4,6 +4,18 @@ import { X, Zap, Edit3, Check, Plus, Trash2, Search, Loader2, Share2, Copy, Aler
 import { cn } from "../lib/utils";
 import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import ApplyPresetModal from "./ApplyPresetModal";
+const ACCENT_COLORS = [
+  { label: "Violet", value: "#7c3aed" },
+  { label: "Cyan", value: "#06b6d4" },
+  { label: "Rose", value: "#f43f5e" },
+  { label: "Amber", value: "#f59e0b" },
+  { label: "Emerald", value: "#10b981" },
+  { label: "Blue", value: "#3b82f6" },
+  { label: "Orange", value: "#f97316" },
+  { label: "Pink", value: "#ec4899" },
+  { label: "Lime", value: "#84cc16" },
+  { label: "White", value: "#e2e8f0" },
+];
 
 export default function PresetDetailModal({ preset: initialPreset, game, importerPath, onClose, onUpdated, onDeleted }) {
   const [preset, setPreset] = useState(initialPreset);
@@ -19,6 +31,7 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
   // Edit mode state
   const [editName, setEditName] = useState(preset.name);
   const [editDescription, setEditDescription] = useState(preset.description || "");
+  const [editColor, setEditColor] = useState(preset.color);
   const [editMods, setEditMods] = useState([...preset.mods]);
 
   // Add mods panel state
@@ -134,6 +147,7 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
           ...preset,
           name: editName.trim() || preset.name,
           description: editDescription.trim(),
+          color: editColor,
           mods: editMods,
           updatedAt: new Date().toISOString(),
         };
@@ -149,6 +163,7 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
       // Enter edit mode
       setEditName(preset.name);
       setEditDescription(preset.description || "");
+      setEditColor(preset.color);
       setEditMods([...preset.mods]);
       setIsEditMode(true);
       loadLibrary();
@@ -251,7 +266,24 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
             <div className="absolute inset-0 p-6 flex items-center justify-between gap-6 z-10">
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 12px ${preset.color}80` }} />
+                  {isEditMode ? (
+                     <div className="flex items-center gap-1.5 mr-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
+                        {ACCENT_COLORS.map(c => (
+                           <button
+                             key={c.value}
+                             onClick={() => setEditColor(c.value)}
+                             title={c.label}
+                             className={cn(
+                               "w-4 h-4 rounded-full transition-all hover:scale-125 border border-white/10",
+                               editColor === c.value ? "ring-2 ring-white scale-110 shadow-lg" : "scale-100"
+                             )}
+                             style={{ backgroundColor: c.value }}
+                           />
+                        ))}
+                     </div>
+                  ) : (
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 12px ${preset.color}80` }} />
+                  )}
                   <span className="text-[9px] font-black uppercase tracking-[0.3em] text-(--text-muted)">Loadout · {game.id}</span>
                 </div>
                 {isEditMode ? (

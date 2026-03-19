@@ -197,65 +197,92 @@ export default function PresetsView({ game }) {
 }
 
 function PresetCard({ preset, index, onClick, gbData }) {
-  // Find the first mod that has a thumbnail (local path or GB ID in our map)
-  const heroThumb = preset.mods.reduce((acc, mod) => {
-    if (acc) return acc;
-    if (mod.customThumbnail) return { type: "local", src: `file://${mod.customThumbnail}` };
-    if (gbData?.[mod.gamebananaId]?.thumbnailUrl) return { type: "remote", src: gbData[mod.gamebananaId].thumbnailUrl };
+  // Get first 4 thumbnails for the strip
+  const thumbs = preset.mods.slice(0, 4).map(mod => {
+    if (mod.customThumbnail) return `file://${mod.customThumbnail}`;
+    if (gbData?.[mod.gamebananaId]?.thumbnailUrl) return gbData[mod.gamebananaId].thumbnailUrl;
     return null;
-  }, null);
+  }).filter(Boolean);
+
+  const heroThumb = thumbs[0];
 
   return (
     <motion.button
       custom={index}
       variants={cardVariants}
       onClick={onClick}
-      className="relative rounded-3xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-300 text-left group h-52 flex flex-col"
-      style={{ background: `linear-gradient(145deg, ${preset.color}15 0%, #0a0a0f 70%)` }}
+      className="relative rounded-4xl overflow-hidden border border-white/5 hover:border-white/10 transition-all duration-500 text-left group h-64 flex flex-col shadow-2xl"
+      style={{ background: "#0c0c12" }}
     >
-      {/* Background image */}
+      {/* Background Hero Image */}
       {heroThumb && (
         <div className="absolute inset-0">
           <img 
-            src={heroThumb.src} 
+            src={heroThumb} 
             alt="" 
-            className="w-full h-full object-cover opacity-10 group-hover:opacity-25 transition-opacity duration-500 scale-105 group-hover:scale-100" 
+            className="w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700 blur-[2px] group-hover:blur-0 scale-110 group-hover:scale-100" 
           />
-          <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent" />
         </div>
       )}
 
-      {/* Accent left border */}
-      <div className="absolute left-0 inset-y-0 w-0.5 rounded-r-full transition-all group-hover:w-1" style={{ backgroundColor: preset.color }} />
+      {/* Hover Radiant Glow */}
+      <div 
+        className="absolute -inset-20 opacity-0 group-hover:opacity-10 transition-opacity duration-700 pointer-events-none"
+        style={{ background: `radial-gradient(circle at 50% 50%, ${preset.color}, transparent 70%)` }}
+      />
 
-      {/* Apply hover button */}
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: preset.color + "dd", color: "#000" }}>
-          <Zap size={10} strokeWidth={3} />
-          View
+      {/* Top Section: Thumbnail Strip */}
+      <div className="relative p-6 flex-1">
+        <div className="flex -space-x-3 mb-4">
+          {thumbs.map((src, i) => (
+            <motion.div
+              key={i}
+              initial={{ x: -10, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.2 + i * 0.1 }}
+              className="w-12 h-12 rounded-xl border-2 border-[#0c0c12] overflow-hidden shadow-lg relative z-10"
+            >
+              <img src={src} alt="" className="w-full h-full object-cover" />
+            </motion.div>
+          ))}
+          {preset.mods.length > thumbs.length && (
+            <div className="w-12 h-12 rounded-xl border-2 border-[#0c0c12] bg-white/5 backdrop-blur-md flex items-center justify-center text-[10px] font-black text-white/40 shadow-lg relative z-0">
+              +{preset.mods.length - thumbs.length}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="absolute inset-0 p-5 flex flex-col justify-end">
+      {/* Bottom Section: Info Card */}
+      <div className="relative p-6 bg-linear-to-t from-black via-black/40 to-transparent backdrop-blur-xs">
+        {/* Accent strip */}
+        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: preset.color }} />
+        
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: preset.color, boxShadow: `0 0 8px ${preset.color}80` }} />
-          <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">{preset.gameId}</span>
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 10px ${preset.color}` }} />
+          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40">{preset.gameId}</span>
         </div>
-        <h3 className="text-lg font-black text-white tracking-tight leading-tight mb-1.5">{preset.name}</h3>
-        {preset.description && (
-          <p className="text-xs text-white/40 mb-3 line-clamp-1">{preset.description}</p>
-        )}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-white/40 uppercase tracking-wider">
-              <span className="text-white/70">{preset.mods.length}</span> mods
-            </span>
-            <span className="text-[10px] font-black text-white/40 uppercase tracking-wider">
-              <span className="text-white/70">{new Set(preset.mods.map(m => m.character)).size}</span> chars
-            </span>
-          </div>
-          <ChevronRight size={14} className="text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all" />
+        
+        <h3 className="text-xl font-black text-white tracking-tight leading-tight group-hover:text-(--active-accent) transition-colors duration-300">
+          {preset.name}
+        </h3>
+        
+        <div className="mt-4 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+              <div className="flex flex-col">
+                <span className="text-white font-black text-xs leading-none">{preset.mods.length}</span>
+                <span className="text-[8px] uppercase font-black tracking-widest text-white/20 mt-1">Mods</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-white font-black text-xs leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
+                <span className="text-[8px] uppercase font-black tracking-widest text-white/20 mt-1">Chars</span>
+              </div>
+           </div>
+           
+           <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-white/20 group-hover:text-black group-hover:bg-(--active-accent) group-hover:border-(--active-accent) transition-all duration-500 group-hover:rotate-45">
+             <ChevronRight size={16} strokeWidth={3} />
+           </div>
         </div>
       </div>
     </motion.button>

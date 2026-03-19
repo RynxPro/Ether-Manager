@@ -362,22 +362,21 @@ export default function BrowseView({ game }) {
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap mt-6">
-                      <div className="flex items-center gap-2 text-(--text-muted) text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 transition-colors px-4 py-2.5 rounded-xl">
+                      <button 
+                        onClick={() => handleCreatorClick(mod._aSubmitter)}
+                        className="flex items-center gap-4 text-white text-base font-black bg-white/5 border border-white/10 hover:bg-white/10 hover:border-(--active-accent)/30 transition-all px-6 py-3.5 rounded-3xl group/creator"
+                      >
                         {mod._aSubmitter?._sAvatarUrl ? (
-                          <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-5 h-5 rounded-full object-cover shadow-sm" />
+                          <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-10 h-10 rounded-full object-cover shadow-xl border-2 border-white/10 group-hover/creator:border-(--active-accent)/50 transition-all" />
                         ) : (
-                          <User size={15} className="text-(--active-accent)" />
+                          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border-2 border-white/10 group-hover/creator:border-(--active-accent)/50 transition-all">
+                            <User size={24} className="text-(--active-accent)" />
+                          </div>
                         )}
-                        {mod._aSubmitter?._sName}
-                      </div>
-                      <div className="flex items-center gap-2 text-white text-sm font-bold bg-(--active-accent)/20 border border-(--active-accent)/30 px-4 py-2.5 rounded-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-                        <Download size={15} className="text-(--active-accent)" />
-                        {mod._nDownloadCount?.toLocaleString()}
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-400 text-sm font-semibold bg-white/5 border border-white/5 px-4 py-2.5 rounded-xl backdrop-blur-md">
-                        <LayoutGrid size={15} />
-                        {mod._aCategory?._sName || "Mod"}
-                      </div>
+                        <span className="tracking-tight group-hover/creator:text-(--active-accent) transition-colors">
+                          {mod._aSubmitter?._sName}
+                        </span>
+                      </button>
                     </div>
                   </div>
 
