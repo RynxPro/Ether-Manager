@@ -1,10 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Activity, Bookmark, Check } from "lucide-react";
+import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Activity, Bookmark, Check, ExternalLink, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import BrowseModCard from "./BrowseModCard";
 import { cn } from "../lib/utils";
 
 const PER_PAGE = 20;
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 },
+  },
+};
 
 export default function CreatorProfileModal({
   creator,
@@ -55,175 +63,223 @@ export default function CreatorProfileModal({
   }, [fetchMods]);
 
   const totalPages = Math.ceil(total / PER_PAGE);
+  const heroImage = mods.length > 0 ? mods[0].thumbnailUrl : null;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-8"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 sm:p-12 overflow-hidden"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-7xl bg-(--bg-overlay) border border-white/10 rounded-4xl overflow-hidden shadow-2xl flex flex-col h-full max-h-[85vh] relative"
+        initial={{ scale: 0.95, opacity: 0, y: 30 }}
+        animate={{ scale: 1, opacity: 1, y: 35 }}
+        className="w-full max-w-7xl bg-(--bg-base) border border-white/10 rounded-[40px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[84vh] relative"
       >
-        {/* Header - Creator Info */}
-        <div className="flex items-center gap-6 p-8 border-b border-white/5 relative overflow-hidden shrink-0">
-          <div className="absolute inset-0 bg-linear-to-r from-(--active-accent)/20 to-transparent opacity-20 pointer-events-none" />
-          
-          <div className="relative z-10 w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-[0_0_30px_var(--active-accent)]/20">
-            {creator._sAvatarUrl ? (
-              <img 
-                src={creator._sAvatarUrl} 
-                alt={creator._sName} 
-                className="w-full h-full object-cover" 
-                style={{ imageRendering: "pixelated" }}
-              />
-            ) : (
-              <User size={40} className="text-white/30" />
-            )}
+        {/* Immersive Hero Header */}
+        <div className="relative h-44 shrink-0 overflow-hidden">
+          {/* Background Layer (Blurred Image) */}
+          <div className="absolute inset-0">
+             {heroImage ? (
+                <div className="relative w-full h-full">
+                  <img src={heroImage} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-40" />
+                  <div className="absolute inset-0 bg-linear-to-t from-(--bg-base) via-(--bg-base)/60 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-r from-(--bg-base) via-transparent to-transparent opacity-80" />
+                </div>
+             ) : (
+                <div className="w-full h-full bg-linear-to-br from-(--active-accent)/20 via-transparent to-transparent opacity-50" />
+             )}
           </div>
-          
-          <div className="relative z-10 flex-1">
-            <div className="flex items-center gap-4">
-              <h2 className="text-3xl font-black text-white tracking-tight">{creator._sName}</h2>
+
+          <div className="absolute inset-0 p-6 flex items-center justify-between gap-6 z-10">
+            <div className="flex items-center gap-5">
+              {/* Creator Avatar with Premium Border */}
+              <div className="relative w-20 h-20 group">
+                 <div className="absolute inset-0 rounded-full bg-(--active-accent) blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
+                 <div className="relative w-full h-full rounded-full border border-white/10 p-1 bg-(--bg-overlay) shadow-2xl overflow-hidden">
+                    {creator._sAvatarUrl ? (
+                      <img 
+                        src={creator._sAvatarUrl} 
+                        alt={creator._sName} 
+                        className="w-full h-full rounded-full object-cover" 
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center">
+                        <User size={30} className="text-white/20" />
+                      </div>
+                    )}
+                 </div>
+              </div>
+
+              {/* Identity & Global Stats */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-2xl">{creator._sName}</h2>
+                </div>
+                
+                <div className="flex items-center gap-6">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-(--text-muted)">Portfolio</span>
+                    <span className="text-lg font-black text-white">{total > 0 ? total : "—"} <span className="text-[10px] font-medium opacity-40 uppercase tracking-widest">Mods</span></span>
+                  </div>
+                  <div className="w-px h-6 bg-white/10" />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-(--text-muted)">Current Game</span>
+                    <span className="text-lg font-black text-white">{game.name}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions Bar */}
+            <div className="flex flex-col gap-2.5 items-end">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleCreatorBookmark?.(creator);
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all border",
+                  "flex items-center gap-2.5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-xl relative overflow-hidden group/btn",
                   isCreatorBookmarked 
-                    ? "bg-(--active-accent)/20 text-(--active-accent) border-(--active-accent)/40 hover:bg-(--active-accent)/30 focus:ring-2 focus:ring-(--active-accent)/50" 
-                    : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white focus:ring-2 focus:ring-white/20"
+                    ? "bg-(--active-accent)/10 text-(--active-accent) border-(--active-accent)/30 hover:bg-(--active-accent)/20" 
+                    : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
                 )}
               >
                 {isCreatorBookmarked ? (
                   <>
-                    <Check size={14} strokeWidth={3} className="text-(--active-accent)" />
+                    <Check size={14} strokeWidth={4} />
                     Saved
                   </>
                 ) : (
                   <>
                     <Bookmark size={14} strokeWidth={2.5} />
-                    Save Profile
+                    Follow
                   </>
                 )}
               </button>
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-              <span className="flex items-center gap-1.5 text-sm text-(--active-accent) font-medium px-3 py-1 rounded-full bg-(--active-accent)/10 border border-(--active-accent)/20">
-                <LayoutGrid size={14} />
-                {total > 0 ? total : "Loading"} Mods
-              </span>
-              {creator._sProfileUrl && (
-                <a 
-                  href={creator._sProfileUrl} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors"
-                >
-                  <Activity size={14} />
-                  View GameBanana Profile
-                </a>
-              )}
+
+              <div className="flex items-center gap-2.5">
+                 {creator._sProfileUrl && (
+                    <a 
+                      href={creator._sProfileUrl} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/50 hover:text-white transition-all shadow-lg group/link"
+                      title="View GameBanana Profile"
+                    >
+                      <ExternalLink size={18} className="group-hover/link:scale-110 transition-transform" />
+                    </a>
+                 )}
+                 <button
+                    onClick={onClose}
+                    className="p-2.5 bg-white/5 hover:bg-black text-white/50 hover:text-(--color-danger) border border-white/10 hover:border-(--color-danger)/30 rounded-xl transition-all shadow-lg"
+                 >
+                    <X size={18} />
+                 </button>
+              </div>
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all backdrop-blur-md border border-white/5 z-10"
-          >
-            <X size={24} />
-          </button>
         </div>
 
-        {/* Content - Mod Grid */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          {error && !loading && (
-            <div className="flex flex-col items-center justify-center gap-3 text-center py-16 bg-white/5 border border-white/5 rounded-2xl border-dashed">
-              <p className="text-white font-medium">Could not load mods for {creator._sName}</p>
-              <p className="text-(--text-muted) text-sm max-w-sm">{error}</p>
-              <button onClick={fetchMods} className="mt-2 px-4 py-2 text-sm rounded-xl bg-(--active-accent) text-black font-semibold hover:brightness-110">
-                Retry
-              </button>
-            </div>
-          )}
-
-          {loading && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="rounded-xl bg-white/5 border border-white/5 h-56 animate-pulse" />
-              ))}
-            </div>
-          )}
-
-          {!loading && !error && (
-            <div className="flex flex-col gap-8">
-              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {mods.map((mod) => {
-                  const installedInfo = installedModsInfo[mod._idRow];
-                  const isInstalled = !!installedInfo;
-                  let hasUpdate = false;
-                  
-                  if (isInstalled && installedInfo.installedFiles.length > 0) {
-                    hasUpdate = installedInfo.installedFiles.some(f => {
-                      if (!f.installedAt) return false;
-                      const installedDate = new Date(f.installedAt).getTime() / 1000;
-                      return mod._tsDateUpdated > installedDate + 60;
-                    });
-                  }
-                  
-                  const isBookmarked = (bookmarks[game.id] || []).some(m => m._idRow === mod._idRow);
-
-                  return (
-                    <BrowseModCard
-                      key={mod._idRow}
-                      mod={mod}
-                      isInstalled={isInstalled}
-                      hasUpdate={hasUpdate}
-                      onInstall={() => onModClick(mod)}
-                      isBookmarked={isBookmarked}
-                      onToggleBookmark={() => onToggleBookmark?.(mod)}
-                    />
-                  );
-                })}
-              </div>
-              
-              {mods.length === 0 && (
-                <div className="col-span-full py-16 text-center text-gray-500">
-                  This creator has no public mods for this game.
-                </div>
-              )}
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-3 mt-4 pb-4">
+        {/* Content Body */}
+        <div className="flex-1 flex flex-col min-h-0 bg-linear-to-b from-(--bg-base) to-black/40">
+           {/* Section Label */}
+           <div className="px-10 py-5 border-b border-white/5 flex items-center justify-between shrink-0">
+             <div className="flex items-center gap-3">
+                <LayoutGrid size={14} className="text-(--active-accent)" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-(--text-muted)">Public Release Catalog</h3>
+             </div>
+             
+             {totalPages > 1 && (
+                <div className="flex items-center gap-4 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+                    className="text-white/50 hover:text-white disabled:opacity-20 transition-colors"
                   >
-                    <ChevronLeft size={18} />
+                    <ChevronLeft size={14} />
                   </button>
-                  <span className="text-sm text-gray-400">
-                    Page <span className="text-white font-medium">{page}</span> of{" "}
-                    <span className="text-white font-medium">{totalPages}</span>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-white/40">
+                    Page <span className="text-white">{page}</span> / {totalPages}
                   </span>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+                    className="text-white/50 hover:text-white disabled:opacity-20 transition-colors"
                   >
-                    <ChevronRight size={18} />
+                    <ChevronRight size={14} />
                   </button>
                 </div>
+             )}
+           </div>
+
+           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="rounded-3xl bg-white/5 border border-white/5 h-64 animate-pulse shadow-inner" />
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+                  <div className="p-3 rounded-full bg-(--color-danger)/10 border border-(--color-danger)/20 text-(--color-danger)">
+                    <Globe size={32} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-black uppercase tracking-widest text-base">Network Interruption</h4>
+                    <p className="text-(--text-muted) max-w-sm mt-1 text-xs">{error}</p>
+                  </div>
+                  <button onClick={fetchMods} className="px-5 py-2 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-xl hover:scale-105 transition-transform active:scale-95">
+                    Retry Sync
+                  </button>
+                </div>
+              ) : (
+                <motion.div 
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-8"
+                >
+                  {mods.map((mod) => {
+                    const installedInfo = installedModsInfo[mod._idRow];
+                    const isInstalled = !!installedInfo;
+                    let hasUpdate = false;
+                    
+                    if (isInstalled && installedInfo.installedFiles.length > 0) {
+                      hasUpdate = installedInfo.installedFiles.some(f => {
+                        if (!f.installedAt) return false;
+                        const installedDate = new Date(f.installedAt).getTime() / 1000;
+                        return mod._tsDateUpdated > installedDate + 300; // Consistent with CharacterGrid
+                      });
+                    }
+                    
+                    const isBookmarked = (bookmarks[game.id] || []).some(m => m._idRow === mod._idRow);
+
+                    return (
+                      <BrowseModCard
+                        key={mod._idRow}
+                        mod={mod}
+                        isInstalled={isInstalled}
+                        hasUpdate={hasUpdate}
+                        onInstall={() => onModClick(mod)}
+                        isBookmarked={isBookmarked}
+                        onToggleBookmark={() => onToggleBookmark?.(mod)}
+                      />
+                    );
+                  })}
+                  
+                  {mods.length === 0 && (
+                    <div className="col-span-full py-20 text-center">
+                      <div className="text-3xl opacity-20 mb-3 uppercase font-black tracking-tighter">Empty</div>
+                      <p className="text-(--text-muted) uppercase tracking-widest font-black text-[10px]">No public data for {game.name}</p>
+                    </div>
+                  )}
+                </motion.div>
               )}
-            </div>
-          )}
+           </div>
         </div>
       </motion.div>
     </motion.div>
