@@ -17,6 +17,7 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
   const [disablingAll, setDisablingAll] = useState(false);
+  const [updatesMap, setUpdatesMap] = useState({});
 
   const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
@@ -38,6 +39,61 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
       loadMods();
     }
   }, [loadMods, isActive]);
+
+  useEffect(() => {
+    const checkUpdates = async () => {
+      if (!mods || mods.length === 0 || !window.electronMods?.fetchGbModsBatch) return;
+
+      const modsWithId = mods.filter(m => m.gamebananaId);
+      console.log(`Checking updates for ${modsWithId.length} mods with GB IDs`);
+      const gbIds = [...new Set(modsWithId.map(m => m.gamebananaId))];
+      if (gbIds.length === 0) return;
+
+      try {
+        const result = await window.electronMods.fetchGbModsBatch(gbIds);
+        console.log("Batch fetch result:", result);
+        if (result.success && result.data) {
+          const newUpdatesMap = {};
+          
+          // Map fetched data for quick lookup
+          const latestDates = {};
+          result.data.forEach(m => {
+            if (m._idRow) latestDates[String(m._idRow)] = m._tsDateUpdated;
+          });
+          console.log("Latest dates map:", latestDates);
+
+          // Check each mod
+          mods.forEach(mod => {
+            const gbId = mod.gamebananaId ? String(mod.gamebananaId) : null;
+            if (gbId && mod.installedAt && latestDates[gbId]) {
+              const installedDate = new Date(mod.installedAt).getTime() / 1000;
+              const gbDate = latestDates[gbId];
+              
+              // Use a 5-minute buffer (300s) to account for slight clock skews
+              if (gbDate > installedDate + 300) {
+                console.log(`Update found for mod ${mod.name} (Char: ${mod.character}). GB: ${gbDate}, Local: ${installedDate}`);
+                newUpdatesMap[mod.character] = true;
+                
+                // Also handle cases where mod is assigned to a category but shows in a tab
+                const isGlobalUI = mod.character === "User Interface" || (mod.character === "Unassigned" && mod.category === "User Interface");
+                const isGlobalMisc = mod.character === "Miscellaneous" || (mod.character === "Unassigned" && (mod.category === "Other/Misc" || mod.category === "Audio" || mod.category === "Miscellaneous"));
+                
+                if (isGlobalUI) newUpdatesMap["ui"] = true;
+                else if (isGlobalMisc) newUpdatesMap["misc"] = true;
+                else newUpdatesMap["characters"] = true;
+              }
+            }
+          });
+          console.log("New updates map generated:", newUpdatesMap);
+          setUpdatesMap(newUpdatesMap);
+        }
+      } catch (err) {
+        console.error("Failed to check character updates:", err);
+      }
+    };
+
+    checkUpdates();
+  }, [mods]);
 
   const handleDisableAllGame = useCallback(async () => {
     const enabledMods = mods.filter((m) => m.isEnabled);
@@ -155,6 +211,7 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               const count = counts[tab.id];
+              const hasUpdate = updatesMap[tab.id];
 
               return (
                 <button
@@ -167,6 +224,9 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
                 >
                   <Icon size={16} />
                   <span className="text-sm font-bold uppercase tracking-widest">{tab.label}</span>
+                  {hasUpdate && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-(--color-update) shadow-[0_0_8px_var(--color-update)]" />
+                  )}
                   {count > 0 && (
                     <span className={cn(
                       "text-[10px] px-1.5 py-0.5 rounded-full font-black",
@@ -257,6 +317,7 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
                     key={item.name}
                     character={item}
                     game={game}
+                    hasUpdate={updatesMap[item.name]}
                     onClick={() => onSelectCharacter(item)}
                   />
                 ))}

@@ -482,6 +482,37 @@ ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
   }
 });
 
+// Fetch multiple mods in a single batch (useful for update checks)
+ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
+  try {
+    if (!ids || ids.length === 0) return { success: true, data: [] };
+    
+    console.log(`[BatchUpdate] Parallel fetching ${ids.length} mods...`);
+    
+    // Using individual fetches in parallel is more reliable than the batch API
+    // which can be temperamental with V10.
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          // We only need the update timestamp
+          const data = await fetchFromGB(`${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated`);
+          return data;
+        } catch (e) {
+          console.error(`[BatchUpdate] Failed to fetch mod ${id}:`, e.message);
+          return null;
+        }
+      })
+    );
+    
+    const validData = results.filter(r => r !== null);
+    console.log(`[BatchUpdate] Successfully fetched ${validData.length}/${ids.length} mods`);
+    return { success: true, data: validData };
+  } catch (err) {
+    console.error("[BatchUpdate] Fatal error in parallel fetch:", err);
+    return { success: false, error: err.message };
+  }
+});
+
 const characterCategoryCache = {}; // Cache to map character name -> GameBanana subcategory ID
 
 // Fetch a page of mods from GameBanana for a given game

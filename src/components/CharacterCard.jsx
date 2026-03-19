@@ -9,7 +9,7 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
 };
 
-const CharacterCard = memo(function CharacterCard({ character, game, onClick }) {
+const CharacterCard = memo(function CharacterCard({ character, game, onClick, hasUpdate = false }) {
   const isUI = character.name === "User Interface";
   const isMisc = character.name === "Miscellaneous";
   const isGlobal = isUI || isMisc;
@@ -74,8 +74,15 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick }) 
 
         {/* Mod count badge - only if has mods */}
         {hasMods && (
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--active-accent) text-black shadow-[0_0_15px_var(--active-accent)]/30 transition-transform group-hover:scale-110">
-            <span className="text-[10px] font-black tracking-tighter">{character.totalMods}</span>
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            {hasUpdate && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-(--color-update) text-black shadow-[0_0_15px_var(--color-update)]/40 transition-transform group-hover:scale-110">
+                <span className="text-[8px] font-black tracking-widest uppercase leading-none">Update</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--active-accent) text-black shadow-[0_0_15px_var(--active-accent)]/30 transition-transform group-hover:scale-110">
+              <span className="text-[10px] font-black tracking-tighter">{character.totalMods}</span>
+            </div>
           </div>
         )}
       </div>
