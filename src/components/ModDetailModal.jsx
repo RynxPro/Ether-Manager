@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Download, X, AlertCircle, Calendar, Tag, ChevronDown, Check, Monitor, LayoutGrid, Bookmark, Heart, Eye, ChevronLeft, ChevronRight, CheckCircle, ImageIcon, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
