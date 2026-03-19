@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ChevronRight, ChevronLeft, Zap, Palette, Check, Loader2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
-import { getAllCharacterNames } from "../lib/portraits";
+import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 
 const ACCENT_COLORS = [
   { label: "Violet", value: "#7c3aed" },
@@ -40,7 +40,7 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
     try {
       const mods = await window.electronMods.getMods(
         importerPath,
-        getAllCharacterNames(game.id),
+        [...getAllCharacterNames(game.id), ...getGlobalCategories()],
         game.id
       );
       setAllMods(mods);
@@ -77,7 +77,7 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
     try {
       const mods = await window.electronMods.getMods(
         importerPath,
-        getAllCharacterNames(game.id),
+        [...getAllCharacterNames(game.id), ...getGlobalCategories()],
         game.id
       );
       setAllMods(mods);
@@ -159,10 +159,18 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
     m.character.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by character
+  // Group by character / category
   const grouped = filteredMods.reduce((acc, mod) => {
-    if (!acc[mod.character]) acc[mod.character] = [];
-    acc[mod.character].push(mod);
+    // Match the logic in CharacterGrid.jsx
+    const isGlobalUI = mod.character === "User Interface" || (mod.character === "Unassigned" && mod.category === "User Interface");
+    const isGlobalMisc = mod.character === "Miscellaneous" || (mod.character === "Unassigned" && (mod.category === "Other/Misc" || mod.category === "Audio" || mod.category === "Miscellaneous"));
+
+    let groupName = mod.character;
+    if (isGlobalUI) groupName = "User Interface";
+    else if (isGlobalMisc) groupName = "Miscellaneous";
+
+    if (!acc[groupName]) acc[groupName] = [];
+    acc[groupName].push(mod);
     return acc;
   }, {});
 

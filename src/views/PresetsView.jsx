@@ -56,6 +56,12 @@ export default function PresetsView({ game }) {
     loadPresets();
   }, [loadPresets]);
 
+  // Reset modal state when switching games
+  useEffect(() => {
+    setShowCreate(false);
+    setActivePreset(null);
+  }, [game.id]);
+
   const handlePresetSaved = (preset) => {
     setPresets(prev => {
       const idx = prev.findIndex(p => p.id === preset.id);

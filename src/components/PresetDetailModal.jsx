@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Zap, Edit3, Check, Plus, Trash2, Search, Loader2, Share2, Copy, AlertTriangle, Info, Package } from "lucide-react";
 import { cn } from "../lib/utils";
-import { getAllCharacterNames } from "../lib/portraits";
+import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import ApplyPresetModal from "./ApplyPresetModal";
 
 export default function PresetDetailModal({ preset: initialPreset, game, importerPath, onClose, onUpdated, onDeleted }) {
@@ -33,7 +33,7 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
     try {
       const mods = await window.electronMods.getMods(
         importerPath,
-        getAllCharacterNames(game.id),
+        [...getAllCharacterNames(game.id), ...getGlobalCategories()],
         game.id
       );
       setAllLibraryMods(mods);
@@ -41,11 +41,27 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
       // SELF-HEALING: If preset mods are missing gamebananaId, try to find them in the loaded library
       let needsUpdate = false;
       const healedMods = preset.mods.map(pm => {
-        if (!pm.gamebananaId) {
+        if (!pm.gamebananaId || pm.character === "Unassigned") {
           const libraryMod = mods.find(m => m.id === pm.modId);
-          if (libraryMod?.gamebananaId) {
-            needsUpdate = true;
-            return { ...pm, gamebananaId: libraryMod.gamebananaId };
+          if (libraryMod) {
+            let updated = { ...pm };
+            let changed = false;
+            
+            if (!pm.gamebananaId && libraryMod.gamebananaId) {
+              updated.gamebananaId = libraryMod.gamebananaId;
+              changed = true;
+            }
+            
+            // Fix character if it was incorrectly "Unassigned"
+            if (pm.character === "Unassigned" && libraryMod.character !== "Unassigned") {
+              updated.character = libraryMod.character;
+              changed = true;
+            }
+            
+            if (changed) {
+              needsUpdate = true;
+              return updated;
+            }
           }
         }
         return pm;
