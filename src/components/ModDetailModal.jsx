@@ -13,6 +13,7 @@ export default function ModDetailModal({
   installedFileInfo,
   isBookmarked = false,
   onToggleBookmark,
+  onCreatorClick,
   preSelectedCharacter = "",
   isUpdating = false,
   isLibraryContext = false,
@@ -232,9 +233,19 @@ export default function ModDetailModal({
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
               <h2 className="text-2xl font-bold text-white mb-1 truncate" title={mod._sName}>{mod._sName}</h2>
-              <p className="text-(--text-muted) text-sm truncate">
-                by <span className="text-(--active-accent)">{mod._aSubmitter?._sName || "Unknown"}</span>
-              </p>
+              <div className="text-(--text-muted) text-sm truncate flex items-center gap-1">
+                by {mod._aSubmitter ? (
+                  <button 
+                    onClick={() => onCreatorClick?.(mod._aSubmitter)}
+                    className="text-(--active-accent) hover:underline font-semibold"
+                    title={`View profile for ${mod._aSubmitter._sName}`}
+                  >
+                    {mod._aSubmitter._sName}
+                  </button>
+                ) : (
+                  <span className="text-(--active-accent)">Unknown</span>
+                )}
+              </div>
             </div>
             <button
               onClick={onClose}

@@ -486,7 +486,7 @@ const characterCategoryCache = {}; // Cache to map character name -> GameBanana 
 
 // Fetch a page of mods from GameBanana for a given game
 // Dual-mode: keyword search via Util/Search/Results, general browse via Mod/Index
-ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "", context = "", search = "" }) => {
+ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "", context = "", search = "", submitterId = null }) => {
   try {
     const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
 
@@ -563,7 +563,10 @@ ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 2
     const hasManualSearch = search && search.trim().length >= 1;
     const hasCategoryContext = context && context.trim().length >= 1;
 
-    if (hasManualSearch) {
+    if (submitterId) {
+      // CREATOR PROFILE MODE
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+    } else if (hasManualSearch) {
       // MANUAL SEARCH MODE: Combine context and search for fuzzy string results
       // We skip category resolution here to prevent "hijacking" by unrelated categories
       const combinedQuery = [context, search].filter(Boolean).join(" ");

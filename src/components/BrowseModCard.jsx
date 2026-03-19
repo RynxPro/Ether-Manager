@@ -10,7 +10,7 @@ function formatCount(n) {
   return String(n);
 }
 
-const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall, isBookmarked = false, onToggleBookmark }) {
+const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall, isBookmarked = false, onToggleBookmark, onCreatorClick }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
@@ -107,9 +107,23 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
         >
           {mod._sName}
         </h3>
-        <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 mb-4 truncate group-hover:text-white/40 transition-colors">
-          BY {mod._aSubmitter?._sName || "UNKNOWN"}
-        </p>
+        {mod._aSubmitter ? (
+          <button 
+            type="button"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              onCreatorClick?.(mod._aSubmitter); 
+            }}
+            className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 mb-4 truncate hover:text-(--active-accent) transition-colors text-left"
+            title={`View profile for ${mod._aSubmitter._sName}`}
+          >
+            BY {mod._aSubmitter._sName}
+          </button>
+        ) : (
+          <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 mb-4 truncate group-hover:text-white/40 transition-colors">
+            BY UNKNOWN
+          </p>
+        )}
 
         {/* Stats row */}
         <div className="flex items-center gap-4 text-white/20 mb-5 mt-auto border-t border-white/5 pt-4">

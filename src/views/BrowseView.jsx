@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid, Rocket, Download, Bookmark } from "lucide-react";
 import BrowseModCard from "../components/BrowseModCard";
 import ModDetailModal from "../components/ModDetailModal";
+import CreatorProfileModal from "../components/CreatorProfileModal";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +34,7 @@ export default function BrowseView({ game }) {
   const [page, setPage] = useState(1);
   const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFile }
   const [installTarget, setInstallTarget] = useState(null);
+  const [activeCreatorProfile, setActiveCreatorProfile] = useState(null);
   const [importerPath, setImporterPath] = useState(null);
 
   const [activeTab, setActiveTab] = useState("all");
@@ -223,6 +225,11 @@ export default function BrowseView({ game }) {
       };
     });
   };
+
+  const handleCreatorClick = useCallback((submitter) => {
+    setActiveCreatorProfile(submitter);
+    setInstallTarget(null); // Close the mod detail modal if it's currently open
+  }, []);
 
   const handleCardInstallClick = useCallback(async (mod) => {
     try {
@@ -550,6 +557,7 @@ export default function BrowseView({ game }) {
                   onInstall={handleCardInstallClick}
                   isBookmarked={isBookmarked}
                   onToggleBookmark={() => handleToggleBookmark(mod)}
+                  onCreatorClick={handleCreatorClick}
                 />
               );
             })}
@@ -587,6 +595,19 @@ export default function BrowseView({ game }) {
       )}
       </div>
 
+      {/* Creator Profile Modal */}
+      {activeCreatorProfile && (
+        <CreatorProfileModal
+          creator={activeCreatorProfile}
+          game={game}
+          installedModsInfo={installedModsInfo}
+          bookmarks={bookmarks}
+          onToggleBookmark={handleToggleBookmark}
+          onModClick={handleCardInstallClick}
+          onClose={() => setActiveCreatorProfile(null)}
+        />
+      )}
+
       {/* Mod detail modal */}
       {installTarget && (
         <ModDetailModal
@@ -597,6 +618,7 @@ export default function BrowseView({ game }) {
           onInstall={handleInstall}
           isBookmarked={(bookmarks[game.id] || []).some(m => m._idRow === installTarget._idRow)}
           onToggleBookmark={() => handleToggleBookmark(installTarget)}
+          onCreatorClick={handleCreatorClick}
         />
       )}
     </div>
