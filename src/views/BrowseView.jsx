@@ -496,7 +496,7 @@ export default function BrowseView({ game }) {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3 max-w-full overflow-x-auto scroller-hidden pb-1 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap relative z-30">
           {/* Character Filter */}
           {activeTab === "characters" && (
             <div className="w-48 sm:w-64 shrink-0">
