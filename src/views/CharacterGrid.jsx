@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, User, Monitor, Box } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
 import ModDetail from "./ModDetail";
 import { getAllCharacterNames, GLOBAL_CATEGORIES, isGlobalCategory } from "../lib/portraits";
@@ -16,24 +16,50 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
   const [mods, setMods] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
+  const [disablingAll, setDisablingAll] = useState(false);
 
-  useEffect(() => {
-    async function loadMods() {
-      if (window.electronConfig && window.electronMods) {
-        const config = await window.electronConfig.getConfig();
-        const importerPath = config[game.id];
-        if (importerPath) {
-          const knownCharacters = getAllCharacterNames(game.id);
-          const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-          const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames, game.id);
-          setMods(loadedMods);
-        } else {
-          setMods([]);
-        }
+  const loadMods = useCallback(async () => {
+    if (window.electronConfig && window.electronMods) {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+      if (importerPath) {
+        const knownCharacters = getAllCharacterNames(game.id);
+        const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
+        const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames, game.id);
+        setMods(loadedMods);
+      } else {
+        setMods([]);
       }
     }
-    loadMods();
   }, [game.id]);
+
+  useEffect(() => {
+    loadMods();
+  }, [loadMods]);
+
+  const handleDisableAllGame = useCallback(async () => {
+    const enabledMods = mods.filter((m) => m.isEnabled);
+    if (enabledMods.length === 0) return;
+    setDisablingAll(true);
+    try {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+      await Promise.all(
+        enabledMods.map((mod) =>
+          window.electronMods.toggleMod({
+            importerPath,
+            originalFolderName: mod.originalFolderName,
+            enable: false,
+          })
+        )
+      );
+      await loadMods();
+    } finally {
+      setDisablingAll(false);
+    }
+  }, [mods, game.id, loadMods]);
+
+  const totalEnabledMods = useMemo(() => mods.filter((m) => m.isEnabled).length, [mods]);
 
   // Group and Filter logic
   const { displayItems, counts } = useMemo(() => {
@@ -119,7 +145,7 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
         <div>
           <h1 className="text-4xl font-bold text-white mb-2">{game.name}</h1>
           <nav className="flex items-center gap-6 mt-4">
@@ -159,15 +185,42 @@ export default function CharacterGrid({ game, onSelectCharacter }) {
           </nav>
         </div>
 
-        <div className="relative self-end mb-1 w-full sm:w-72 mt-4 sm:mt-0 xl:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-(--text-muted)" size={16} />
-          <input
-            type="text"
-            placeholder={activeTab === "characters" ? "Search characters..." : "Search mods..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-(--text-muted)"
-          />
+        <div className="flex items-end gap-3 mt-4 sm:mt-0 flex-wrap self-end justify-end">
+          {/* Global Disable All Button */}
+          {totalEnabledMods > 0 && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleDisableAllGame}
+              disabled={disablingAll}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-(--text-muted) hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+              title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
+            >
+              {disablingAll ? (
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                </svg>
+              ) : (
+                <EyeOff size={15} />
+              )}
+              {disablingAll ? "Disabling…" : `Disable All (${totalEnabledMods})`}
+            </motion.button>
+          )}
+
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64 xl:w-72">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-(--text-muted)" size={16} />
+            <input
+              type="text"
+              placeholder={activeTab === "characters" ? "Search characters..." : "Search mods..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-(--text-muted)"
+            />
+          </div>
         </div>
       </div>
 

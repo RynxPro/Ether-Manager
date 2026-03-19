@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, User, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, User, Plus, Trash2, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ModCard from "../components/ModCard";
 import ModDetailModal from "../components/ModDetailModal";
@@ -10,10 +10,11 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
   const portraitUrl = getCharacterPortrait(character.name, game.id);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const [gbDataMap, setGbDataMap] = useState({}); // { [gamebananaId]: { thumbnailUrl, hasUpdate, fullData } }
-  const [selectedMod, setSelectedMod] = useState(null); // Full GB data of clicked mod
-  const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFiles: string[] }
+  const [gbDataMap, setGbDataMap] = useState({});
+  const [selectedMod, setSelectedMod] = useState(null);
+  const [installedModsInfo, setInstalledModsInfo] = useState({});
   const [modToDelete, setModToDelete] = useState(null);
+  const [disablingAll, setDisablingAll] = useState(false);
 
   const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
@@ -98,6 +99,28 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
       }
     }
   }, [game.id, loadMods]);
+
+  const handleDisableAll = useCallback(async () => {
+    const enabledMods = mods.filter((m) => m.isEnabled);
+    if (enabledMods.length === 0) return;
+    setDisablingAll(true);
+    try {
+      const config = await window.electronConfig.getConfig();
+      const importerPath = config[game.id];
+      await Promise.all(
+        enabledMods.map((mod) =>
+          window.electronMods.toggleMod({
+            importerPath,
+            originalFolderName: mod.originalFolderName,
+            enable: false,
+          })
+        )
+      );
+      await loadMods();
+    } finally {
+      setDisablingAll(false);
+    }
+  }, [mods, game.id, loadMods]);
 
   const handleOpenFolder = useCallback(async (mod) => {
     if (window.electronMods) {
@@ -218,12 +241,24 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
           </div>
 
           {/* Premium Hero Banner */}
-          <div className="relative h-64 md:h-80 w-full rounded-4xl overflow-hidden bg-(--bg-card) border border-white/5 shadow-2xl mt-8">
-            {/* Background Glow/Mesh */}
+          <div className="relative h-72 md:h-[340px] w-full rounded-4xl overflow-hidden bg-[#09090b] border border-white/10 shadow-2xl mt-8">
+            
+            {/* Massive Background Text Watermark */}
+            <div className="absolute -right-8 -bottom-12 text-[140px] md:text-[200px] font-black text-white/2 leading-none tracking-tighter pointer-events-none select-none z-0 whitespace-nowrap truncate max-w-full">
+              {character.name.toUpperCase()}
+            </div>
+
+            {/* High-Tech Grid Pattern */}
             <div 
-              className="absolute inset-0 opacity-20 transition-opacity duration-1000 group-hover:opacity-30"
+              className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
+              style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} 
+            />
+
+            {/* Background Glow */}
+            <div 
+              className="absolute inset-0 transition-opacity duration-1000 z-0 opacity-20"
               style={{
-                background: `radial-gradient(circle at 30% 50%, var(--active-accent) 0%, transparent 70%), 
+                background: `radial-gradient(circle at 20% 50%, var(--active-accent) 0%, transparent 60%), 
                              linear-gradient(to right, rgba(0,0,0,0.8) 0%, transparent 100%)`
               }}
             />
@@ -247,59 +282,103 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     )}
                   />
                   {/* Bottom Vignette for text legibility */}
-                  <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="absolute inset-0 bg-linear-to-r from-black/60 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-[#09090b]/90 via-[#09090b]/20 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-r from-[#09090b]/80 via-transparent to-transparent" />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Banner Content */}
-            <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col justify-end items-start">
+            {/* Banner Content Layout */}
+            <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col md:flex-row md:items-end justify-between">
+              
+              {/* Left: Title & Action */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
+                className="flex flex-col justify-end h-full md:h-auto"
               >
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-3">
                    <div className="w-1.5 h-6 bg-(--active-accent) rounded-full shadow-[0_0_12px_var(--active-accent)]" />
-                   <span className="text-xs font-black uppercase tracking-[0.3em] text-white/40">Character Library</span>
+                   <span className="text-xs font-black uppercase tracking-[0.3em] text-white/50">{game.name}</span>
                 </div>
-                <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-4 drop-shadow-2xl">
+                <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-8 drop-shadow-2xl">
                   {character.name}
                 </h1>
                 
-                <div className="flex items-center gap-6 text-sm font-bold">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-                    <span className="text-(--active-accent)">{mods.length}</span>
-                    <span className="text-(--text-muted) uppercase tracking-widest text-[10px]">Total Mods</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_8px_var(--active-accent)]" />
-                    <span className="text-white/80">{enabledCount} Active</span>
-                  </div>
-                  
-                  {disabledCount > 0 && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-white/20" />
-                      <span className="text-white/40">{disabledCount} Stashed</span>
-                    </div>
+                {/* Button Row */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Import Button */}
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleImport}
+                    className="flex w-max items-center gap-3 px-8 py-3.5 bg-(--active-accent) text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-[0_0_20px_var(--active-accent)]/20 uppercase tracking-widest text-xs border border-transparent hover:border-white/50"
+                  >
+                    <Plus size={18} strokeWidth={3} />
+                    Import Mod
+                  </motion.button>
+
+                  {/* Disable All Button — only shown when there are active mods */}
+                  {mods.some((m) => m.isEnabled) && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleDisableAll}
+                      disabled={disablingAll}
+                      className="flex w-max items-center gap-3 px-6 py-3.5 bg-white/5 text-white/70 hover:text-white font-black rounded-2xl hover:bg-white/10 transition-all uppercase tracking-widest text-xs border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {disablingAll ? (
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        </svg>
+                      ) : (
+                        <EyeOff size={16} />
+                      )}
+                      {disablingAll ? "Disabling…" : "Disable All"}
+                    </motion.button>
                   )}
                 </div>
               </motion.div>
 
-              {/* Action Button */}
-              <motion.button 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleImport}
-                className="absolute right-8 md:right-12 bottom-8 md:bottom-12 flex items-center gap-3 px-8 py-4 bg-(--active-accent) text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-xl shadow-(--active-accent)/20 uppercase tracking-wider text-sm"
+              {/* Right: Glassmorphic Stats Dashboard */}
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="hidden md:flex items-end gap-4"
               >
-                <Plus size={20} strokeWidth={3} />
-                Import Mod
-              </motion.button>
+                {/* Stat Box 1: Total */}
+                <div className="flex flex-col items-end justify-center px-8 py-5 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl">
+                   <span className="text-[10px] font-black tracking-[0.2em] text-(--text-muted) uppercase mb-1">Total Installed</span>
+                   <div className="flex items-baseline gap-2">
+                     <span className="text-5xl font-black text-white leading-none tracking-tighter">{mods.length}</span>
+                     <span className="text-sm font-bold text-white/20 uppercase tracking-widest">Mods</span>
+                   </div>
+                </div>
+
+                {/* Stat Box 2: Status */}
+                <div className="flex flex-col gap-2 p-4 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[180px]">
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_8px_var(--active-accent)]" />
+                      <span className="text-xs font-bold text-white tracking-widest uppercase">Active</span>
+                    </div>
+                    <span className="text-sm font-black text-white">{enabledCount}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-white/20" />
+                      <span className="text-xs font-bold text-(--text-muted) tracking-widest uppercase">Stashed</span>
+                    </div>
+                    <span className="text-sm font-black text-white/60">{disabledCount}</span>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </div>
