@@ -140,28 +140,16 @@ export default function BrowseView({ game }) {
 
 
 
-  // Fetch mods from GameBanana when params change
+  // Fetch mods from GameBanana when params change (API Tabs ONLY)
   const fetchMods = useCallback(async () => {
+    if (activeTab === "saved") return;
+
     if (!game.gbGameId) {
       setError("GameBanana integration is not yet available for this game.");
       return;
     }
     setLoading(true);
     setError(null);
-
-    // Handle "Saved" tab locally without API calls
-    if (activeTab === "saved") {
-      const savedMods = bookmarks[game.id] || [];
-      const searchTarget = debouncedSearch.toLowerCase();
-      const filtered = searchTarget 
-        ? savedMods.filter(m => m._sName.toLowerCase().includes(searchTarget))
-        : savedMods;
-      
-      setTotal(filtered.length);
-      setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
-      setLoading(false);
-      return;
-    }
 
     const categoryTarget = activeTab === "all" ? "" : activeTab === "ui" ? "UI" : activeTab === "misc" ? "Misc" : characterFilter;
 
@@ -185,11 +173,31 @@ export default function BrowseView({ game }) {
     } finally {
       setLoading(false);
     }
-  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearch, bookmarks, game.id]);
+  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearch]);
 
+  // Trigger API fetch for non-saved tabs
   useEffect(() => {
-    fetchMods();
-  }, [fetchMods, debouncedSearch]);
+    if (activeTab !== "saved") {
+      fetchMods();
+    } else {
+      setLoading(false); // Instantly ensure no skeletons when switching to saved tab
+    }
+  }, [fetchMods, activeTab, debouncedSearch]);
+
+  // Handle local Saved tab filtering
+  useEffect(() => {
+    if (activeTab === "saved") {
+      setLoading(false); // Instantly ensure no skeletons
+      const savedMods = bookmarks[game.id] || [];
+      const searchTarget = debouncedSearch.toLowerCase();
+      const filtered = searchTarget 
+        ? savedMods.filter(m => m._sName.toLowerCase().includes(searchTarget))
+        : savedMods;
+      
+      setTotal(filtered.length);
+      setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
+    }
+  }, [activeTab, bookmarks, game.id, debouncedSearch, page]);
 
   const handleInstall = async ({ characterName, gbModId, fileUrl, fileName, category }) => {
     if (!importerPath) throw new Error("No importer path configured. Go to Settings first.");
