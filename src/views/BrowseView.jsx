@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid, Rocket, Download } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid, Rocket, Download, Bookmark } from "lucide-react";
 import BrowseModCard from "../components/BrowseModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import { getAllCharacterNames } from "../lib/portraits";
@@ -12,6 +12,7 @@ const TABS = [
   { id: "characters", label: "Characters", icon: User },
   { id: "ui", label: "User Interface", icon: Monitor },
   { id: "misc", label: "Miscellaneous", icon: Box },
+  { id: "saved", label: "Saved", icon: Bookmark },
 ];
 
 const SORT_OPTIONS = [
@@ -38,6 +39,8 @@ export default function BrowseView({ game }) {
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [bookmarks, setBookmarks] = useState({});
 
   const [featuredMods, setFeaturedMods] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
@@ -75,15 +78,37 @@ export default function BrowseView({ game }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load importer path once
+  // Load importer path and bookmarks once
   useEffect(() => {
-    const loadPath = async () => {
+    const loadConfigAndPath = async () => {
       if (window.electronConfig) {
         const config = await window.electronConfig.getConfig();
         setImporterPath(config[game.id] || null);
+        setBookmarks(config.bookmarks || {});
       }
     };
-    loadPath();
+    loadConfigAndPath();
+  }, [game.id]);
+
+  const handleToggleBookmark = useCallback((mod) => {
+    setBookmarks(prev => {
+      const gameBookmarks = prev[game.id] || [];
+      const index = gameBookmarks.findIndex(m => m._idRow === mod._idRow);
+      let newGameBookmarks;
+      if (index >= 0) {
+        newGameBookmarks = [
+          ...gameBookmarks.slice(0, index),
+          ...gameBookmarks.slice(index + 1)
+        ];
+      } else {
+        newGameBookmarks = [mod, ...gameBookmarks]; // Add new at top
+      }
+      const newBookmarks = { ...prev, [game.id]: newGameBookmarks };
+      if (window.electronConfig) {
+        window.electronConfig.setConfig({ bookmarks: newBookmarks });
+      }
+      return newBookmarks;
+    });
   }, [game.id]);
 
   // Load already-installed mod IDs from the Mods folder
@@ -123,6 +148,21 @@ export default function BrowseView({ game }) {
     }
     setLoading(true);
     setError(null);
+
+    // Handle "Saved" tab locally without API calls
+    if (activeTab === "saved") {
+      const savedMods = bookmarks[game.id] || [];
+      const searchTarget = debouncedSearch.toLowerCase();
+      const filtered = searchTarget 
+        ? savedMods.filter(m => m._sName.toLowerCase().includes(searchTarget))
+        : savedMods;
+      
+      setTotal(filtered.length);
+      setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
+      setLoading(false);
+      return;
+    }
+
     const categoryTarget = activeTab === "all" ? "" : activeTab === "ui" ? "UI" : activeTab === "misc" ? "Misc" : characterFilter;
 
     try {
@@ -145,7 +185,7 @@ export default function BrowseView({ game }) {
     } finally {
       setLoading(false);
     }
-  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearch]);
+  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearch, bookmarks, game.id]);
 
   useEffect(() => {
     fetchMods();
@@ -491,6 +531,7 @@ export default function BrowseView({ game }) {
                   return mod._tsDateUpdated > installedDate + 60;
                 });
               }
+              const isBookmarked = (bookmarks[game.id] || []).some(m => m._idRow === mod._idRow);
 
               return (
                 <BrowseModCard
@@ -499,6 +540,8 @@ export default function BrowseView({ game }) {
                   isInstalled={isInstalled}
                   hasUpdate={hasUpdate}
                   onInstall={handleCardInstallClick}
+                  isBookmarked={isBookmarked}
+                  onToggleBookmark={() => handleToggleBookmark(mod)}
                 />
               );
             })}
@@ -544,6 +587,8 @@ export default function BrowseView({ game }) {
           installedFileInfo={installedModsInfo[installTarget._idRow]}
           onClose={() => setInstallTarget(null)}
           onInstall={handleInstall}
+          isBookmarked={(bookmarks[game.id] || []).some(m => m._idRow === installTarget._idRow)}
+          onToggleBookmark={() => handleToggleBookmark(installTarget)}
         />
       )}
     </div>

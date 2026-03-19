@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { X, Download, Heart, Eye, ChevronLeft, ChevronRight, Check, ChevronDown, CheckCircle, ImageIcon } from "lucide-react";
+import { Download, X, AlertCircle, Calendar, Tag, ChevronDown, Check, Monitor, LayoutGrid, Bookmark, Heart, Eye, ChevronLeft, ChevronRight, CheckCircle, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import SearchableDropdown from "./SearchableDropdown";
 
-export default function ModDetailModal({ 
-  mod, 
-  game, 
-  onClose, 
-  onInstall, 
+export default function ModDetailModal({
+  mod,
+  game,
+  onClose,
+  onInstall,
   installedFileInfo,
+  isBookmarked = false,
+  onToggleBookmark,
   preSelectedCharacter = "",
   isUpdating = false,
   isLibraryContext = false,
@@ -347,41 +349,59 @@ export default function ModDetailModal({
                    className="w-full py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all text-sm"
                  >
                    Return to Browse
-                 </button>
+                </button>
               </div>
             ) : (
-              <button
-                onClick={handleInstall}
-                disabled={isInstalling || !selectedCharacter || (isLibraryContext && !isUpdating)}
-                className={cn(
-                  "w-full relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
-                  isLibraryContext && !isUpdating
-                    ? "bg-white/5 text-gray-600 cursor-not-allowed"
-                    : "bg-(--active-accent) text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
-                  <motion.div 
-                    className="absolute left-0 top-0 bottom-0 bg-black/10" 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${downloadProgress}%` }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  {isInstalling ? (
-                    <>
-                      {downloadProgress > 0 && downloadProgress < 100 
-                        ? `Downloading ${downloadProgress}%` 
-                        : "Preparing..."}
-                    </>
-                  ) : (
-                    <>
-                      <Download size={20} />
-                      {isLibraryContext ? "Update" : "Install Now"}
-                    </>
+              <div className="flex items-center gap-3 w-full">
+                <button
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     onToggleBookmark?.(mod);
+                   }}
+                   className={cn(
+                     "flex shrink-0 items-center justify-center p-4 rounded-xl transition-all border",
+                     isBookmarked 
+                       ? "bg-(--active-accent)/20 border-(--active-accent)/50 text-(--active-accent) hover:bg-(--active-accent)/30" 
+                       : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                   )}
+                   title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
+                >
+                  <Bookmark size={20} className={cn(isBookmarked && "fill-(--active-accent)")} />
+                </button>
+
+                <button
+                  onClick={handleInstall}
+                  disabled={isInstalling || !selectedCharacter || (isLibraryContext && !isUpdating)}
+                  className={cn(
+                    "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
+                    isLibraryContext && !isUpdating
+                      ? "bg-white/5 text-gray-600 cursor-not-allowed"
+                      : "bg-(--active-accent) text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
-                </span>
-              </button>
+                >
+                  {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
+                    <motion.div 
+                      className="absolute left-0 top-0 bottom-0 bg-black/10" 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${downloadProgress}%` }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-2">
+                    {isInstalling ? (
+                      <>
+                        {downloadProgress > 0 && downloadProgress < 100 
+                          ? `Downloading ${downloadProgress}%` 
+                          : "Preparing..."}
+                      </>
+                    ) : (
+                      <>
+                        <Download size={20} />
+                        {isLibraryContext ? "Update" : "Install Now"}
+                      </>
+                    )}
+                  </span>
+                </button>
+              </div>
             )}
           </div>
         </div>

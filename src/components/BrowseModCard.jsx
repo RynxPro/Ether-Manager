@@ -1,5 +1,5 @@
 import { useState, memo } from "react";
-import { Download, Heart, Eye, Check } from "lucide-react";
+import { Download, Heart, Eye, Check, Bookmark } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
 
@@ -10,7 +10,7 @@ function formatCount(n) {
   return String(n);
 }
 
-const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall }) {
+const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall, isBookmarked = false, onToggleBookmark }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
@@ -58,6 +58,26 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
         {/* Overlays */}
         <div className="absolute inset-0 bg-linear-to-t from-(--bg-card) to-transparent opacity-60" />
         
+        {/* Bookmark Action */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleBookmark?.(mod);
+          }}
+          className={cn(
+            "absolute top-4 left-4 z-20 p-2 rounded-2xl backdrop-blur-md transition-all shadow-2xl border group/bookmark",
+            isBookmarked 
+              ? "bg-(--active-accent)/20 border-(--active-accent)/50 text-(--active-accent) hover:bg-(--active-accent)/30" 
+              : "bg-black/40 border-white/10 text-white/50 hover:bg-black/70 hover:text-white hover:border-white/30"
+          )}
+          title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
+        >
+          <Bookmark size={18} strokeWidth={isBookmarked ? 3 : 2} className={cn(
+            "transition-all duration-300",
+            isBookmarked ? "fill-(--active-accent)" : "group-hover/bookmark:scale-110"
+          )} />
+        </button>
+
         {/* High-Tech Badges */}
         <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
           {isInstalled && (
