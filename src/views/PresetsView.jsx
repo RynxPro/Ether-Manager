@@ -18,6 +18,7 @@ export default function PresetsView({ game }) {
   const [showCreate, setShowCreate] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [gbData, setGbData] = useState({});
 
   const loadPresets = useCallback(async () => {
     setLoading(true);
@@ -28,6 +29,22 @@ export default function PresetsView({ game }) {
       ]);
       setImporterPath(config[game.id] || null);
       setPresets(data || []);
+
+      // Fetch GB data for thumbnails in the grid
+      const allModIds = [...new Set(data.flatMap(p => p.mods).map(m => m.gamebananaId).filter(Boolean))];
+      if (allModIds.length > 0) {
+        const result = await window.electronMods.fetchGbModsBatch(allModIds);
+        if (result.success && result.data) {
+          const dataMap = {};
+          result.data.forEach(item => {
+            const thumb = item._aPreviewMedia?._aImages?.[0];
+            dataMap[item._idRow] = {
+              thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
+            };
+          });
+          setGbData(dataMap);
+        }
+      }
     } catch (err) {
       console.error("PresetsView: load error", err);
     } finally {
@@ -128,6 +145,7 @@ export default function PresetsView({ game }) {
               preset={preset}
               index={i}
               onClick={() => setActivePreset(preset)}
+              gbData={gbData}
             />
           ))}
         </motion.div>
@@ -172,8 +190,14 @@ export default function PresetsView({ game }) {
   );
 }
 
-function PresetCard({ preset, index, onClick }) {
-  const firstThumb = preset.mods.find(m => m.customThumbnail)?.customThumbnail;
+function PresetCard({ preset, index, onClick, gbData }) {
+  // Find the first mod that has a thumbnail (local path or GB ID in our map)
+  const heroThumb = preset.mods.reduce((acc, mod) => {
+    if (acc) return acc;
+    if (mod.customThumbnail) return { type: "local", src: `file://${mod.customThumbnail}` };
+    if (gbData?.[mod.gamebananaId]?.thumbnailUrl) return { type: "remote", src: gbData[mod.gamebananaId].thumbnailUrl };
+    return null;
+  }, null);
 
   return (
     <motion.button
@@ -181,13 +205,17 @@ function PresetCard({ preset, index, onClick }) {
       variants={cardVariants}
       onClick={onClick}
       className="relative rounded-3xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-300 text-left group h-52 flex flex-col"
-      style={{ background: `linear-gradient(145deg, ${preset.color}10 0%, #0a0a0f 60%)` }}
+      style={{ background: `linear-gradient(145deg, ${preset.color}15 0%, #0a0a0f 70%)` }}
     >
       {/* Background image */}
-      {firstThumb && (
+      {heroThumb && (
         <div className="absolute inset-0">
-          <img src={`file://${firstThumb}`} alt="" className="w-full h-full object-cover opacity-15 group-hover:opacity-25 transition-opacity duration-500" />
-          <div className="absolute inset-0 bg-linear-to-t from-black/80 to-transparent" />
+          <img 
+            src={heroThumb.src} 
+            alt="" 
+            className="w-full h-full object-cover opacity-10 group-hover:opacity-25 transition-opacity duration-500 scale-105 group-hover:scale-100" 
+          />
+          <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
         </div>
       )}
 
