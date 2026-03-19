@@ -326,11 +326,11 @@ export default function ModDetailModal({
                           <p className="text-sm font-medium truncate">{file._sFile}</p>
                           {isInstalled && (
                             isOutdated ? (
-                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 uppercase tracking-tighter shrink-0">
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-(--color-update)/10 text-(--color-update) border border-(--color-update)/20 uppercase tracking-tighter shrink-0 backdrop-blur-md">
                                 Update Available
                               </span>
                             ) : (
-                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/30 uppercase tracking-tighter shrink-0 backdrop-blur-md shadow-[0_0_10px_var(--active-accent)]/20">
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-(--color-success)/10 text-(--color-success) border border-(--color-success)/20 uppercase tracking-tighter shrink-0 backdrop-blur-md shadow-[0_0_10px_rgba(74,222,128,0.1)]">
                                 Stored
                               </span>
                             )

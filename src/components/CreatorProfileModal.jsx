@@ -73,9 +73,14 @@ export default function CreatorProfileModal({
         <div className="flex items-center gap-6 p-8 border-b border-white/5 relative overflow-hidden shrink-0">
           <div className="absolute inset-0 bg-linear-to-r from-(--active-accent)/20 to-transparent opacity-20 pointer-events-none" />
           
-          <div className="relative z-10 w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-[0_0_30px_var(--active-accent)]/20">
+          <div className="relative z-10 w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-[0_0_30px_var(--active-accent)]/20">
             {creator._sAvatarUrl ? (
-              <img src={creator._sAvatarUrl} alt={creator._sName} className="w-full h-full object-cover" />
+              <img 
+                src={creator._sAvatarUrl} 
+                alt={creator._sName} 
+                className="w-full h-full object-cover" 
+                style={{ imageRendering: "pixelated" }}
+              />
             ) : (
               <User size={40} className="text-white/30" />
             )}

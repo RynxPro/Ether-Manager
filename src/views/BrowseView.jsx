@@ -134,32 +134,32 @@ export default function BrowseView({ game }) {
     });
   }, []);
 
-  // Load already-installed mod IDs from the Mods folder
-  useEffect(() => {
-    const loadInstalled = async () => {
-      if (!importerPath || !window.electronMods) return;
-      const allMods = await window.electronMods.getMods(importerPath, getAllCharacterNames(game.id), game.id);
-      const infoMap = {}; // gbId -> { installedFiles: { fileName: string, installedAt: string }[] }
-      allMods.forEach((m) => {
-        if (m.gamebananaId != null) {
-          if (!infoMap[m.gamebananaId]) {
-            infoMap[m.gamebananaId] = { installedFiles: [] };
-          }
-          if (m.installedFile) {
-            const exists = infoMap[m.gamebananaId].installedFiles.find(f => f.fileName === m.installedFile);
-            if (!exists) {
-              infoMap[m.gamebananaId].installedFiles.push({
-                fileName: m.installedFile,
-                installedAt: m.installedAt
-              });
-            }
+  const refreshInstalledModsInfo = useCallback(async () => {
+    if (!importerPath || !window.electronMods) return;
+    const allMods = await window.electronMods.getMods(importerPath, getAllCharacterNames(game.id), game.id);
+    const infoMap = {};
+    allMods.forEach((m) => {
+      if (m.gamebananaId != null) {
+        if (!infoMap[m.gamebananaId]) {
+          infoMap[m.gamebananaId] = { installedFiles: [] };
+        }
+        if (m.installedFile) {
+          const exists = infoMap[m.gamebananaId].installedFiles.find(f => f.fileName === m.installedFile);
+          if (!exists) {
+            infoMap[m.gamebananaId].installedFiles.push({
+              fileName: m.installedFile,
+              installedAt: m.installedAt
+            });
           }
         }
-      });
-      setInstalledModsInfo(infoMap);
-    };
-    loadInstalled();
-  }, [importerPath]);
+      }
+    });
+    setInstalledModsInfo(infoMap);
+  }, [importerPath, game.id]);
+
+  useEffect(() => {
+    refreshInstalledModsInfo();
+  }, [refreshInstalledModsInfo]);
 
 
 
@@ -234,17 +234,7 @@ export default function BrowseView({ game }) {
       gameId: game.id,
     });
     if (!result.success) throw new Error(result.error || "Installation failed.");
-    setInstalledModsInfo((prev) => {
-      const current = prev[gbModId] || { installedFiles: [] };
-      if (current.installedFiles.find(f => f.fileName === fileName)) return prev;
-      return {
-        ...prev,
-        [gbModId]: { 
-          ...current,
-          installedFiles: [...current.installedFiles, { fileName, installedAt: new Date().toISOString() }] 
-        }
-      };
-    });
+    await refreshInstalledModsInfo();
   };
 
   const handleCreatorClick = useCallback((submitter) => {

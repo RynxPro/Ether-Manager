@@ -60,7 +60,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
             {gbData?.hasUpdate ? (
               <UpdateBadge />
             ) : gbData ? (
-              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--color-success)/10 text-(--color-success) border border-(--color-success)/20 text-[9px] font-black uppercase tracking-widest backdrop-blur-md shadow-[0_0_15px_rgba(74,222,128,0.1)]">
                 <Check size={10} strokeWidth={4} />
                 Latest
               </div>
@@ -88,7 +88,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
             {gbData?.hasUpdate ? (
               <UpdateBadge />
             ) : gbData ? (
-              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[9px] font-black uppercase tracking-widest shadow-[0_0_15px_var(--active-accent)]/10">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--color-success)/10 text-(--color-success) border border-(--color-success)/20 text-[9px] font-black uppercase tracking-widest backdrop-blur-md shadow-[0_0_15px_rgba(74,222,128,0.1)]">
                 <Check size={10} strokeWidth={4} />
                 Latest
               </div>

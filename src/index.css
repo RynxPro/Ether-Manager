@@ -20,6 +20,8 @@
     --text-muted: rgba(255, 255, 255, 0.35);
     --color-danger: #ff4455;
     --color-warning: #ffb347;
+    --color-success: #4ade80;
+    --color-update: #facc15;
     --border: rgba(255, 255, 255, 0.06);
     --active-accent: #00f5cc; /* Default to GIMI */
   }
