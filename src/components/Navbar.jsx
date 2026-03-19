@@ -11,7 +11,7 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
     <>
       <nav className="w-full h-[70px] shrink-0 bg-(--bg-surface)/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-8 pl-24 z-20 titlebar-drag sticky top-0">
         {/* Logo */}
-        <div className="flex items-center gap-3 w-64 no-drag group">
+        <div className="flex items-center gap-3 w-80 no-drag group">
           <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center transition-all group-hover:bg-(--active-accent)/20 group-hover:border-(--active-accent)/40 group-hover:shadow-[0_0_20px_var(--active-accent)]/20 shadow-2xl">
             <Zap size={22} className="text-white fill-white transition-colors group-hover:text-(--active-accent) group-hover:fill-(--active-accent)" />
           </div>
@@ -49,7 +49,7 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-5 w-64 no-drag">
+        <div className="flex items-center justify-end gap-5 w-80 no-drag">
           {/* Navigation Toggle */}
           <div className="flex items-center bg-black/40 border border-white/5 rounded-2xl p-1 relative shadow-inner">
             <motion.div
