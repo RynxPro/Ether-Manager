@@ -272,11 +272,17 @@ export default function BrowseView({ game }) {
             ? "All Mods" 
             : activeTab === "characters" 
               ? (isFiltering ? `${characterFilter} Mods` : "Browse Character Mods")
-              : activeTab === "ui" ? "User Interface Mods" : "Miscellaneous Mods"}
+              : activeTab === "ui" 
+                ? "User Interface Mods" 
+                : activeTab === "saved"
+                  ? "Saved Mods"
+                  : "Miscellaneous Mods"}
         </h1>
         <p className="text-(--text-muted) font-medium">
           {loading
             ? "Loading..."
+            : activeTab === "saved"
+            ? `${Math.max(0, total).toLocaleString()} mod${total !== 1 ? "s" : ""} in your saved list`
             : isFiltering
             ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} on GameBanana`
             : `${Math.max(0, total).toLocaleString()} mods on GameBanana`}
