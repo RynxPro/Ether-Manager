@@ -45,13 +45,11 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
       if (!mods || mods.length === 0 || !window.electronMods?.fetchGbModsBatch) return;
 
       const modsWithId = mods.filter(m => m.gamebananaId);
-      console.log(`Checking updates for ${modsWithId.length} mods with GB IDs`);
       const gbIds = [...new Set(modsWithId.map(m => m.gamebananaId))];
       if (gbIds.length === 0) return;
 
       try {
         const result = await window.electronMods.fetchGbModsBatch(gbIds);
-        console.log("Batch fetch result:", result);
         if (result.success && result.data) {
           const newUpdatesMap = {};
           
@@ -60,7 +58,6 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
           result.data.forEach(m => {
             if (m._idRow) latestDates[String(m._idRow)] = m._tsDateUpdated;
           });
-          console.log("Latest dates map:", latestDates);
 
           // Check each mod
           mods.forEach(mod => {
@@ -71,7 +68,6 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
               
               // Use a 5-minute buffer (300s) to account for slight clock skews
               if (gbDate > installedDate + 300) {
-                console.log(`Update found for mod ${mod.name} (Char: ${mod.character}). GB: ${gbDate}, Local: ${installedDate}`);
                 newUpdatesMap[mod.character] = true;
                 
                 // Also handle cases where mod is assigned to a category but shows in a tab
@@ -84,7 +80,6 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
               }
             }
           });
-          console.log("New updates map generated:", newUpdatesMap);
           setUpdatesMap(newUpdatesMap);
         }
       } catch (err) {

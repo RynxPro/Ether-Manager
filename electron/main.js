@@ -482,15 +482,12 @@ ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
   }
 });
 
-// Fetch multiple mods in a single batch (useful for update checks)
+// Fetch multiple mods in parallel for update checks
 ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
   try {
     if (!ids || ids.length === 0) return { success: true, data: [] };
     
-    console.log(`[BatchUpdate] Parallel fetching ${ids.length} mods...`);
-    
-    // Using individual fetches in parallel is more reliable than the batch API
-    // which can be temperamental with V10.
+    // Using individual fetches in parallel is more reliable than the V10 batch API
     const results = await Promise.all(
       ids.map(async (id) => {
         try {
@@ -505,7 +502,6 @@ ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
     );
     
     const validData = results.filter(r => r !== null);
-    console.log(`[BatchUpdate] Successfully fetched ${validData.length}/${ids.length} mods`);
     return { success: true, data: validData };
   } catch (err) {
     console.error("[BatchUpdate] Fatal error in parallel fetch:", err);
