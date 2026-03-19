@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import CharacterGrid from "./views/CharacterGrid";
 import ModDetail from "./views/ModDetail";
 import BrowseView from "./views/BrowseView";
+import PresetsView from "./views/PresetsView";
 import OnboardingModal from "./components/OnboardingModal";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -98,6 +99,24 @@ function App() {
         >
           <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
             <BrowseView game={game} />
+          </div>
+        </motion.div>
+
+        {/* PRESETS / LOADOUTS VIEWPORT */}
+        <motion.div
+          initial={false}
+          animate={{ 
+            opacity: activeView === "presets" ? 1 : 0,
+            y: activeView === "presets" ? 0 : 15,
+            scale: activeView === "presets" ? 1 : 0.98,
+            pointerEvents: activeView === "presets" ? "auto" : "none",
+            zIndex: activeView === "presets" ? 20 : 0
+          }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
+        >
+          <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
+            <PresetsView game={game} />
           </div>
         </motion.div>
 

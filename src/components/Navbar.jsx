@@ -51,34 +51,33 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
         {/* Actions */}
         <div className="flex items-center justify-end gap-5 w-80 no-drag">
           {/* Navigation Toggle */}
+          {/* Navigation Toggle — 3 options */}
           <div className="flex items-center bg-black/40 border border-white/5 rounded-2xl p-1 relative shadow-inner">
             <motion.div
               layout
               transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
               className="absolute h-[calc(100%-8px)] rounded-xl bg-(--active-accent) z-0 shadow-[0_0_20px_var(--active-accent)]/40"
               style={{
-                width: "calc(50% - 4px)",
-                left: activeView === "mods" ? "4px" : "calc(50%)",
+                width: "calc(33.333% - 2.67px)",
+                left: activeView === "mods" ? "4px" : activeView === "browse" ? "calc(33.333%)" : "calc(66.666%)",
               }}
             />
-            <button
-              onClick={() => onSelectView("mods")}
-              className={cn(
-                "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[85px]",
-                activeView === "mods" ? "text-black" : "text-white/30 hover:text-white/60"
-              )}
-            >
-              Library
-            </button>
-            <button
-              onClick={() => onSelectView("browse")}
-              className={cn(
-                "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[85px]",
-                activeView === "browse" ? "text-black" : "text-white/30 hover:text-white/60"
-              )}
-            >
-              Browse
-            </button>
+            {[
+              { id: "mods", label: "Library" },
+              { id: "browse", label: "Browse" },
+              { id: "presets", label: "Loadouts" },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => onSelectView(id)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors duration-300 relative z-10 whitespace-nowrap min-w-[75px]",
+                  activeView === id ? "text-black" : "text-white/30 hover:text-white/60"
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-2 border-l border-white/10 pl-5">

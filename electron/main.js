@@ -491,8 +491,8 @@ ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
     const results = await Promise.all(
       ids.map(async (id) => {
         try {
-          // We only need the update timestamp
-          const data = await fetchFromGB(`${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated`);
+          // We need the update timestamp for status and preview media for thumbnails
+          const data = await fetchFromGB(`${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated,_aPreviewMedia`);
           return data;
         } catch (e) {
           console.error(`[BatchUpdate] Failed to fetch mod ${id}:`, e.message);
@@ -782,3 +782,198 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
     return { success: false, error: err.message };
   }
 });
+
+// ─────────────────────────────────────────────
+//  PRESETS / LOADOUTS
+// ─────────────────────────────────────────────
+
+/** Helper to resolve the Mods directory from an importer path (same logic used everywhere) */
+function resolveModsPath(importerPath) {
+  let modsPath = importerPath;
+  if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
+    modsPath = path.join(modsPath, "Mods");
+  }
+  return modsPath;
+}
+
+/** Read all presets for a game from config */
+ipcMain.handle("get-presets", (event, gameId) => {
+  try {
+    const configPath = getConfigPath();
+    if (!fs.existsSync(configPath)) return [];
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    return (config.presets || {})[gameId] || [];
+  } catch (err) {
+    console.error("get-presets error:", err);
+    return [];
+  }
+});
+
+/** Create or update a preset (identified by preset.id) */
+ipcMain.handle("save-preset", (event, preset) => {
+  try {
+    const configPath = getConfigPath();
+    let config = {};
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    }
+    if (!config.presets) config.presets = {};
+    const gameId = preset.gameId;
+    if (!config.presets[gameId]) config.presets[gameId] = [];
+
+    const index = config.presets[gameId].findIndex(p => p.id === preset.id);
+    if (index >= 0) {
+      config.presets[gameId][index] = preset;
+    } else {
+      config.presets[gameId].unshift(preset); // newest first
+    }
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    return { success: true };
+  } catch (err) {
+    console.error("save-preset error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+/** Delete a preset by id */
+ipcMain.handle("delete-preset", (event, gameId, presetId) => {
+  try {
+    const configPath = getConfigPath();
+    if (!fs.existsSync(configPath)) return { success: true };
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    if (config.presets && config.presets[gameId]) {
+      config.presets[gameId] = config.presets[gameId].filter(p => p.id !== presetId);
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    return { success: true };
+  } catch (err) {
+    console.error("delete-preset error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+/**
+ * Apply a preset: enables all mods in the preset, disables all others.
+ * Returns a diff object so the UI can show a preview BEFORE applying (dryRun mode).
+ */
+ipcMain.handle("apply-preset", (event, { importerPath, preset, dryRun = false }) => {
+  try {
+    const modsPath = resolveModsPath(importerPath);
+    if (!fs.existsSync(modsPath)) return { success: false, error: "Mods directory not found." };
+
+    // Build a Set of folder names that should be ENABLED after applying the preset
+    const presetFolderNames = new Set(
+      preset.mods.map(m => {
+        // The stored originalFolderName might have DISABLED_ prefix if it was disabled when saved
+        // Normalise: always use the non-DISABLED version as the canonical name
+        return m.originalFolderName.replace(/^DISABLED_/, "");
+      })
+    );
+
+    const allEntries = fs.readdirSync(modsPath, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    const willEnable = [];
+    const willDisable = [];
+    const notFound = [];
+
+    // Check which preset mods are missing from disk entirely
+    for (const m of preset.mods) {
+      const base = m.originalFolderName.replace(/^DISABLED_/, "");
+      const enabledExists = fs.existsSync(path.join(modsPath, base));
+      const disabledExists = fs.existsSync(path.join(modsPath, `DISABLED_${base}`));
+      if (!enabledExists && !disabledExists) {
+        notFound.push(m);
+      }
+    }
+
+    for (const folderName of allEntries) {
+      const isCurrentlyEnabled = !folderName.startsWith("DISABLED_");
+      const baseName = folderName.replace(/^DISABLED_/, "");
+      const shouldBeEnabled = presetFolderNames.has(baseName);
+
+      if (shouldBeEnabled && !isCurrentlyEnabled) {
+        // Enriched metadata for better UI preview
+        const aetherPath = path.join(modsPath, folderName, "aether.json");
+        let metadata = { folderName, baseName, name: baseName, character: "Misc", gamebananaId: null };
+        if (fs.existsSync(aetherPath)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
+            metadata.gamebananaId = data.gamebananaId || null;
+            metadata.character = data.character || "Misc";
+          } catch (e) {}
+        }
+        willEnable.push(metadata);
+      } else if (!shouldBeEnabled && isCurrentlyEnabled) {
+        // Enriched metadata for better UI preview
+        const aetherPath = path.join(modsPath, folderName, "aether.json");
+        let metadata = { folderName, baseName, name: baseName, character: "Misc", gamebananaId: null };
+        if (fs.existsSync(aetherPath)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
+            metadata.gamebananaId = data.gamebananaId || null;
+            metadata.character = data.character || "Misc";
+          } catch (e) {}
+        }
+        willDisable.push(metadata);
+      }
+    }
+
+    // If dry run, just return the diff
+    if (dryRun) {
+      return { success: true, dryRun: true, willEnable, willDisable, notFound };
+    }
+
+    // Apply changes on disk
+    for (const { folderName, baseName } of willEnable) {
+      fs.renameSync(path.join(modsPath, folderName), path.join(modsPath, baseName));
+    }
+    for (const { folderName, baseName } of willDisable) {
+      fs.renameSync(path.join(modsPath, folderName), path.join(modsPath, `DISABLED_${baseName}`));
+    }
+
+    return { success: true, dryRun: false, willEnable, willDisable, notFound };
+  } catch (err) {
+    console.error("apply-preset error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+/** Export preset to a .aether-preset file via Save dialog */
+ipcMain.handle("export-preset", async (event, preset) => {
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showSaveDialog(win || mainWindow, {
+      title: "Export Preset",
+      defaultPath: `${preset.name.replace(/[^a-z0-9]/gi, "_")}.aether-preset`,
+      filters: [{ name: "Aether Preset", extensions: ["aether-preset"] }],
+    });
+    if (result.canceled || !result.filePath) return { success: false, canceled: true };
+    fs.writeFileSync(result.filePath, JSON.stringify(preset, null, 2));
+    return { success: true };
+  } catch (err) {
+    console.error("export-preset error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+/** Import preset from a .aether-preset file via Open dialog */
+ipcMain.handle("import-preset", async (event) => {
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win || mainWindow, {
+      title: "Import Preset",
+      filters: [{ name: "Aether Preset", extensions: ["aether-preset"] }],
+      properties: ["openFile"],
+    });
+    if (result.canceled || result.filePaths.length === 0) return { success: false, canceled: true };
+    const data = JSON.parse(fs.readFileSync(result.filePaths[0], "utf-8"));
+    return { success: true, preset: data };
+  } catch (err) {
+    console.error("import-preset error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
