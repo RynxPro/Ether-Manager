@@ -116,7 +116,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
           <h3
             className={cn(
               "text-base font-black leading-tight line-clamp-2 min-h-12 transition-colors tracking-tight",
-              mod.isEnabled ? "text-white group-hover:text-(--active-accent)" : "text-(--text-muted) group-hover:text-white"
+              mod.isEnabled ? "text-white group-hover:text-primary" : "text-text-muted group-hover:text-white"
             )}
             title={mod.name}
           >
@@ -125,7 +125,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
 
           <div className="flex flex-col gap-1 mt-2 mb-4">
             {/* Version / Folder info */}
-            <div className="flex items-center gap-2 text-[9px] uppercase font-bold tracking-widest text-(--text-muted) truncate group-hover:text-(--text-body) transition-colors">
+            <div className="flex items-center gap-2 text-[9px] uppercase font-bold tracking-widest text-text-muted truncate group-hover:text-text-primary transition-colors">
               <FileText size={10} className="shrink-0" />
               <span className="truncate">{mod.originalFolderName}</span>
             </div>
@@ -176,7 +176,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
               <span
                 className={cn(
                   "ml-3 text-[10px] font-black uppercase tracking-widest transition-colors duration-300",
-                  mod.isEnabled ? "text-white" : "text-(--text-muted)",
+                  mod.isEnabled ? "text-white" : "text-text-muted",
                 )}
               >
                 {mod.isEnabled ? "Active" : "Off"}
