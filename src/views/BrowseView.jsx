@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronDown, User, Monitor, Box, LayoutGrid, Rocket, Download, Bookmark } from "lucide-react";
-import BrowseModCard from "../components/BrowseModCard";
+import GbModCard from "../components/GbModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import CreatorProfileModal from "../components/CreatorProfileModal";
 import { getAllCharacterNames } from "../lib/portraits";
@@ -589,7 +589,7 @@ export default function BrowseView({ game }) {
               const isBookmarked = (bookmarks[game.id] || []).some(m => m._idRow === mod._idRow);
 
               return (
-                <BrowseModCard
+                <GbModCard
                   key={mod._idRow}
                   mod={mod}
                   gameId={game.id}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Activity, Bookmark, Check, ExternalLink, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import BrowseModCard from "./BrowseModCard";
+import GbModCard from "./GbModCard";
 import { cn } from "../lib/utils";
 
 const PER_PAGE = 20;
@@ -259,12 +259,13 @@ export default function CreatorProfileModal({
                     const isBookmarked = (bookmarks[game.id] || []).some(m => m._idRow === mod._idRow);
 
                     return (
-                      <BrowseModCard
+                      <GbModCard
                         key={mod._idRow}
                         mod={mod}
                         isInstalled={isInstalled}
                         hasUpdate={hasUpdate}
-                        onInstall={() => onModClick(mod)}
+                        onClick={onModClick}
+                        onInstall={onModClick}
                         isBookmarked={isBookmarked}
                         onToggleBookmark={() => onToggleBookmark?.(mod)}
                       />

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { GAME_CONFIG } from "./gameConfig";
 import Navbar from "./components/Navbar";
-import CharacterGrid from "./views/CharacterGrid";
-import ModDetail from "./views/ModDetail";
+import LibraryView from "./views/LibraryView";
+import CharacterDetail from "./views/CharacterDetail";
 import BrowseView from "./views/BrowseView";
 import PresetsView from "./views/PresetsView";
 import OnboardingModal from "./components/OnboardingModal";
@@ -134,7 +134,7 @@ function App() {
           className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
         >
           <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-            <CharacterGrid 
+            <LibraryView 
               game={game} 
               isActive={activeView === "mods" && !selectedCharacter}
               onSelectCharacter={setSelectedCharacter} 
@@ -155,7 +155,7 @@ function App() {
               style={{ zIndex: 30 }}
             >
               <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-                <ModDetail 
+                <CharacterDetail 
                   game={game} 
                   character={selectedCharacter} 
                   onBack={() => setSelectedCharacter(null)} 

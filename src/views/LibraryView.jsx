@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
-import ModDetail from "./ModDetail";
+import CharacterDetail from "./CharacterDetail";
 import { getAllCharacterNames, GLOBAL_CATEGORIES, isGlobalCategory } from "../lib/portraits";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
@@ -13,7 +13,7 @@ const TABS = [
   { id: "misc", label: "Miscellaneous", icon: Box },
 ];
 
-export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
+export default function LibraryView({ game, isActive, onSelectCharacter }) {
   const [mods, setMods] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
@@ -318,7 +318,7 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
               </motion.div>
             )
           ) : (
-             <ModDetail 
+             <CharacterDetail 
                game={game} 
                character={{ name: activeTab === "ui" ? "User Interface" : "Miscellaneous" }} 
                hideHeader={true} 

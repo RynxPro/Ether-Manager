@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, User, Plus, Trash2, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import ModCard from "../components/ModCard";
+import LibraryModCard from "../components/LibraryModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import { getCharacterPortrait, getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
 import { cn } from "../lib/utils";
 
-export default function ModDetail({ game, character, onBack, hideHeader = false, searchQuery = "" }) {
+export default function CharacterDetail({ game, character, onBack, hideHeader = false, searchQuery = "" }) {
   const portraitUrl = getCharacterPortrait(character.name, game.id);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -351,18 +351,9 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
-                className="hidden md:flex items-end gap-4"
+                className="hidden md:flex items-stretch gap-4"
               >
-                {/* Stat Box 1: Total */}
-                <div className="flex flex-col items-end justify-center px-8 py-5 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl">
-                   <span className="text-[10px] font-black tracking-[0.2em] text-text-muted uppercase mb-1">Total Installed</span>
-                   <div className="flex items-baseline gap-2">
-                     <span className="text-5xl font-black text-white leading-none tracking-tighter">{mods.length}</span>
-                     <span className="text-sm font-bold text-white/20 uppercase tracking-widest">Mods</span>
-                   </div>
-                </div>
-
-                {/* Stat Box 2: Status */}
+                {/* Stat Box 1: Status (Now on the left) */}
                 <div className="flex flex-col gap-2 p-4 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[180px]">
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-2">
@@ -379,6 +370,15 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     </div>
                     <span className="text-sm font-black text-white/60">{disabledCount}</span>
                   </div>
+                </div>
+
+                {/* Stat Box 2: Total (Now on the right) */}
+                <div className="flex flex-col items-center justify-center px-8 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[160px]">
+                   <span className="text-[10px] font-black tracking-[0.2em] text-text-muted uppercase mb-1">Total Mods</span>
+                   <div className="flex items-baseline gap-2">
+                     <span className="text-5xl font-black text-white leading-none tracking-tighter">{mods.length}</span>
+                     <span className="text-xs font-bold text-white/20 uppercase tracking-[0.2em]">Installed</span>
+                   </div>
                 </div>
               </motion.div>
             </div>
@@ -402,7 +402,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
           const cardGbData = gbData ? { ...gbData, hasUpdate } : undefined;
 
           return (
-            <ModCard
+            <LibraryModCard
               key={mod.originalFolderName}
               mod={mod}
               gbData={cardGbData}
