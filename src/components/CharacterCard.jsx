@@ -54,6 +54,7 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
                 !hasMods && "scale-105 group-hover:scale-100"
               )}
               loading="lazy"
+              decoding="async"
             />
             {/* Vignette/Gradient overlay */}
             <div className="absolute inset-0 bg-linear-to-t from-(--bg-card) via-transparent to-transparent opacity-60" />

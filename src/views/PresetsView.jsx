@@ -220,6 +220,8 @@ function PresetCard({ preset, index, onClick, gbData }) {
           <img 
             src={heroThumb} 
             alt="" 
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700 blur-[2px] group-hover:blur-0 scale-110 group-hover:scale-100" 
           />
           <div className="absolute inset-0 bg-linear-to-t from-card via-card/60 to-transparent" />
@@ -243,7 +245,7 @@ function PresetCard({ preset, index, onClick, gbData }) {
               transition={{ delay: 0.2 + i * 0.1 }}
               className="w-12 h-12 rounded-xl border-2 border-card overflow-hidden shadow-lg relative z-10"
             >
-              <img src={src} alt="" className="w-full h-full object-cover" />
+              <img src={src} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
             </motion.div>
           ))}
           {preset.mods.length > thumbs.length && (

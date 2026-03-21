@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import React, { useState } from "react";
 import { Download, Heart, Eye, Check, Bookmark, User } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
@@ -10,16 +10,27 @@ function formatCount(n) {
   return String(n);
 }
 
-const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate, onInstall, isBookmarked = false, onToggleBookmark, onCreatorClick }) {
+const BrowseModCard = React.memo(function BrowseModCard({
+  mod,
+  gameId,
+  onClick,
+  onInstall,
+  isInstalled,
+  installedFiles,
+  hasUpdate,
+  isBookmarked = false,
+  onToggleBookmark,
+  onCreatorClick
+}) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <motion.div
-      onClick={() => onInstall(mod)}
+      onClick={() => onClick?.(mod)}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ 
-        y: -10, 
+      whileHover={{
+        y: -10,
         scale: 1.01
       }}
       transition={{ duration: 0.15, ease: "easeOut" }}
@@ -34,17 +45,17 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
         {mod.thumbnailUrl ? (
           <>
             {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
-            
+
             <img
               src={mod.thumbnailUrl}
               alt={mod._sName}
+              loading="lazy"
+              decoding="async"
               onLoad={() => setImgLoaded(true)}
               className={cn(
                 "absolute inset-0 w-full h-full object-cover transition-all duration-1000",
                 imgLoaded ? "opacity-100" : "opacity-0"
               )}
-              loading="lazy"
-              decoding="async"
             />
           </>
         ) : (
@@ -54,10 +65,10 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
             </span>
           </div>
         )}
-        
+
         {/* Overlays */}
         <div className="absolute inset-0 bg-linear-to-t from-(--bg-card) to-transparent opacity-60" />
-        
+
         {/* Bookmark Action */}
         <button
           onClick={(e) => {
@@ -66,8 +77,8 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
           }}
           className={cn(
             "absolute top-4 left-4 z-20 p-2 rounded-2xl backdrop-blur-md transition-all shadow-2xl border group/bookmark",
-            isBookmarked 
-              ? "bg-(--active-accent)/20 border-(--active-accent)/50 text-(--active-accent) hover:bg-(--active-accent)/30" 
+            isBookmarked
+              ? "bg-(--active-accent)/20 border-(--active-accent)/50 text-(--active-accent) hover:bg-(--active-accent)/30"
               : "bg-black/40 border-white/10 text-white/50 hover:bg-black/70 hover:text-white hover:border-white/30"
           )}
           title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
@@ -100,7 +111,7 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
            <div className="w-1 h-3 bg-(--active-accent) rounded-full shadow-[0_0_5px_var(--active-accent)]" />
            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white">MOD LISTING</span>
         </div>
-        
+
         <h3
           className="text-base font-black text-white line-clamp-2 leading-tight mb-1 min-h-12 transition-colors group-hover:text-(--active-accent) tracking-tight"
           title={mod._sName}
@@ -109,11 +120,11 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
         </h3>
         <div className="mb-4">
           {mod._aSubmitter ? (
-            <button 
+            <button
               type="button"
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                onCreatorClick?.(mod._aSubmitter); 
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreatorClick?.(mod._aSubmitter);
               }}
               className="flex items-center gap-2 text-left group/creator hover:bg-white/5 p-1 -ml-1 rounded-lg transition-colors w-fit pr-3"
               title={`View profile for ${mod._aSubmitter._sName}`}

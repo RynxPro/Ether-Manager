@@ -276,6 +276,8 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     src={portraitUrl} 
                     alt={character.name}
                     onLoad={() => setImgLoaded(true)}
+                    loading="lazy"
+                    decoding="async"
                     className={cn(
                       "h-full w-auto object-contain object-left scale-150 md:scale-125 translate-x-4 md:translate-x-12 translate-y-6 transition-all duration-700",
                       imgLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"

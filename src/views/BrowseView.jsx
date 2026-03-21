@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import SearchableDropdown from "../components/SearchableDropdown";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
+import { useDebounce } from "../hooks/useDebounce";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -42,7 +43,7 @@ export default function BrowseView({ game }) {
   const [activeTab, setActiveTab] = useState("all");
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
 
   const [bookmarks, setBookmarks] = useState({});
   const [bookmarkedCreators, setBookmarkedCreators] = useState([]);
@@ -76,12 +77,6 @@ export default function BrowseView({ game }) {
     };
     fetchFeatured();
   }, [game.gbGameId]);
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Load importer path and bookmarks once
   useEffect(() => {
@@ -185,7 +180,7 @@ export default function BrowseView({ game }) {
         perPage: PER_PAGE,
         sort,
         context: categoryTarget,
-        search: debouncedSearch,
+        search: debouncedSearchQuery,
       });
       if (result.success) {
         setMods(result.records);
@@ -198,7 +193,7 @@ export default function BrowseView({ game }) {
     } finally {
       setLoading(false);
     }
-  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearch]);
+  }, [game.gbGameId, page, sort, characterFilter, activeTab, debouncedSearchQuery]);
 
   // Trigger API fetch for non-saved tabs
   useEffect(() => {
@@ -207,14 +202,14 @@ export default function BrowseView({ game }) {
     } else {
       setLoading(false); // Instantly ensure no skeletons when switching to saved tab
     }
-  }, [fetchMods, activeTab, debouncedSearch]);
+  }, [fetchMods, activeTab, debouncedSearchQuery]);
 
   // Handle local Saved tab filtering
   useEffect(() => {
     if (activeTab === "saved") {
       setLoading(false); // Instantly ensure no skeletons
       const savedMods = bookmarks[game.id] || [];
-      const searchTarget = debouncedSearch.toLowerCase();
+      const searchTarget = debouncedSearchQuery.toLowerCase();
       const filtered = searchTarget 
         ? savedMods.filter(m => m._sName.toLowerCase().includes(searchTarget))
         : savedMods;
@@ -222,9 +217,9 @@ export default function BrowseView({ game }) {
       setTotal(filtered.length);
       setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
     }
-  }, [activeTab, bookmarks, game.id, debouncedSearch, page]);
+  }, [activeTab, bookmarks, game.id, debouncedSearchQuery, page]);
 
-  const handleInstall = async ({ characterName, gbModId, fileUrl, fileName, category }) => {
+  const handleInstall = useCallback(async ({ characterName, gbModId, fileUrl, fileName, category }) => {
     if (!importerPath) throw new Error("No importer path configured. Go to Settings first.");
     const result = await window.electronMods.installGbMod({
       importerPath,
@@ -237,7 +232,21 @@ export default function BrowseView({ game }) {
     });
     if (!result.success) throw new Error(result.error || "Installation failed.");
     await refreshInstalledModsInfo();
-  };
+  }, [importerPath, game.id, refreshInstalledModsInfo]);
+
+  const handleCardInstall = useCallback(async (mod, fileUrl, fileName, category) => {
+    try {
+      await handleInstall({
+        characterName: "N/A",
+        gbModId: mod._idRow,
+        fileUrl,
+        fileName,
+        category
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [handleInstall]);
 
   const handleCreatorClick = useCallback((submitter) => {
     setActiveCreatorProfile(submitter);
@@ -258,10 +267,10 @@ export default function BrowseView({ game }) {
   }, []);
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const isFiltering = activeTab !== "all" || !!debouncedSearch;
+  const isFiltering = activeTab !== "all" || !!debouncedSearchQuery;
   const activeSearchLabel = [
     activeTab === "ui" ? "User Interface" : activeTab === "misc" ? "Miscellaneous" : characterFilter,
-    debouncedSearch
+    debouncedSearchQuery
   ].filter(Boolean).join(" + ");
 
   return (
@@ -292,7 +301,7 @@ export default function BrowseView({ game }) {
       </div>
 
       {/* Featured Hero Loading Skeleton to strictly prevent layout shifting & bouncing frames */}
-      {activeTab === "all" && !debouncedSearch && loadingFeatured && (
+      {activeTab === "all" && !debouncedSearchQuery && loadingFeatured && (
         <div className="mb-4 w-full">
           <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
             <Rocket className="text-(--text-muted)" size={20} />
@@ -312,7 +321,7 @@ export default function BrowseView({ game }) {
       )}
 
       {/* Featured Hero Carousel (Now spans full width) */}
-      {!loadingFeatured && featuredMods.length > 0 && activeTab === "all" && !debouncedSearch && (() => {
+      {!loadingFeatured && featuredMods.length > 0 && activeTab === "all" && !debouncedSearchQuery && (() => {
         const timeframes = [
           { label: "Mod of All Time", color: "from-amber-500 to-orange-600", shadow: "shadow-amber-500/50" },
           { label: "Mod of the Year", color: "from-purple-500 to-pink-600", shadow: "shadow-purple-500/50" },
@@ -596,10 +605,13 @@ export default function BrowseView({ game }) {
                 <BrowseModCard
                   key={mod._idRow}
                   mod={mod}
+                  gameId={game.id}
                   isInstalled={isInstalled}
+                  installedFiles={installedInfo?.installedFiles}
                   hasUpdate={hasUpdate}
-                  onInstall={handleCardInstallClick}
                   isBookmarked={isBookmarked}
+                  onClick={handleCardInstallClick}
+                  onInstall={handleCardInstall}
                   onToggleBookmark={() => handleToggleBookmark(mod)}
                   onCreatorClick={handleCreatorClick}
                 />
