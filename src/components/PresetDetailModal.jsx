@@ -248,119 +248,144 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
           className="w-full max-w-5xl bg-surface border border-border rounded-[40px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[84vh]"
         >
           {/* Hero Header */}
-          <div className="relative h-40 shrink-0 overflow-hidden">
-            {/* Background */}
-            <div className="absolute inset-0">
-              {heroImage ? (
-                <>
-                  <img src={`file://${heroImage}`} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-30" />
-                  <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/60 to-transparent" />
-                </>
-              ) : (
-                <div className="w-full h-full" style={{ background: `radial-gradient(ellipse at 30% 50%, ${preset.color}25, transparent 70%)` }} />
-              )}
-              {/* Accent left border glow */}
-              <div className="absolute left-0 inset-y-0 w-1" style={{ backgroundColor: preset.color }} />
+          <div className="relative h-64 shrink-0 overflow-hidden bg-background border-b border-white/5">
+            {/* Background Layer: Mod Mosaic */}
+            <div className="absolute inset-0 z-0 opacity-60 pointer-events-none overflow-hidden">
+              <div className="absolute inset-x-0 inset-y-0 grid grid-cols-3 md:grid-cols-4 gap-4 scale-100 blur-none">
+                {displayMods.slice(0, 8).map((m, i) => (
+                  <div key={`${m.modId}-${i}`} className="aspect-video rounded-[24px] overflow-hidden border border-white/10 bg-white/5 shadow-2xl">
+                    {(m.customThumbnail || gbData[m.gamebananaId]?.thumbnailUrl) ? (
+                      <img 
+                        src={m.customThumbnail ? `file://${m.customThumbnail}` : gbData[m.gamebananaId]?.thumbnailUrl} 
+                        className="w-full h-full object-cover opacity-80 transition-all duration-1000" 
+                        alt=""
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-white/2" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/40 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-r from-surface/40 via-transparent to-surface/40 shadow-inner" />
             </div>
 
-            <div className="absolute inset-0 p-6 flex items-center justify-between gap-6 z-10">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
+            {/* Accent Glow (Replacing the side line) */}
+            <div 
+              className="absolute top-0 left-0 right-0 h-1 opacity-50 shadow-[0_5px_40px_var(--color)] animate-pulse" 
+              style={{ backgroundColor: preset.color, '--color': preset.color }} 
+            />
+            <div 
+              className="absolute -left-20 -top-20 w-64 h-64 blur-[100px] opacity-20"
+              style={{ backgroundColor: preset.color }}
+            />
+
+            <div className="absolute inset-0 p-8 flex items-end justify-between gap-8 z-10">
+              <div className="flex flex-col gap-2 max-w-2xl">
+                <div className="flex items-center gap-3 mb-1">
                   {isEditMode ? (
-                     <div className="flex items-center gap-1.5 mr-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
+                     <div className="flex items-center gap-2 bg-black/40 p-2 rounded-2xl border border-white/10 backdrop-blur-md">
                         {ACCENT_COLORS.map(c => (
                            <button
                              key={c.value}
                              onClick={() => setEditColor(c.value)}
                              title={c.label}
                              className={cn(
-                               "w-4 h-4 rounded-full transition-all hover:scale-125 border border-white/10",
-                               editColor === c.value ? "ring-2 ring-white scale-110 shadow-lg" : "scale-100"
+                               "w-5 h-5 rounded-full transition-all hover:scale-125 border border-white/10",
+                               editColor === c.value ? "ring-2 ring-white scale-110 shadow-lg" : "scale-100 opacity-50 hover:opacity-100"
                              )}
                              style={{ backgroundColor: c.value }}
                            />
                         ))}
                      </div>
                   ) : (
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 12px ${preset.color}80` }} />
+                    <div className="w-3 h-3 rounded-full shadow-[0_0_15px_var(--color)]" style={{ backgroundColor: preset.color, '--color': preset.color }} />
                   )}
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-text-muted">Loadout · {game.id}</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">LOADOUT · {game.id}</span>
                 </div>
+
                 {isEditMode ? (
                   <input
                     type="text"
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
-                    className="text-3xl font-bold text-text-primary tracking-tight bg-transparent border-b border-light focus:border-primary focus:outline-none pb-1 min-w-0"
+                    className="text-4xl font-black text-white tracking-tighter bg-transparent border-b-2 border-primary/30 focus:border-primary focus:outline-none pb-2 min-w-0"
+                    placeholder="Preset Name"
                   />
                 ) : (
-                  <h2 className="text-3xl font-bold text-text-primary tracking-tight">{preset.name}</h2>
+                  <h2 className="text-4xl font-black text-white tracking-tighter leading-none">{preset.name}</h2>
                 )}
+
                 {isEditMode ? (
                   <input
                     type="text"
                     value={editDescription}
                     onChange={e => setEditDescription(e.target.value)}
-                    placeholder="Add a description..."
-                    className="text-sm text-text-muted bg-transparent border-b border-border focus:border-white/30 focus:outline-none pb-0.5 placeholder:text-white/20 w-full max-w-md"
+                    placeholder="Add a subtle description for this preset..."
+                    className="text-sm text-text-secondary bg-transparent border-b border-white/10 focus:border-white/30 focus:outline-none py-2 placeholder:text-white/10 w-full"
                   />
                 ) : (
-                  preset.description && <p className="text-sm text-text-muted">{preset.description}</p>
+                  preset.description && <p className="text-sm text-text-secondary font-medium leading-relaxed max-w-xl line-clamp-2">{preset.description}</p>
                 )}
-                <div className="flex items-center gap-4 mt-1">
-                  <span className="text-xs font-black text-white/40 uppercase tracking-wider">{displayMods.length} mods</span>
-                  <span className="text-white/20">·</span>
-                  <span className="text-xs font-black text-white/40 uppercase tracking-wider">{characters.length} characters</span>
+
+                <div className="flex items-center gap-5 mt-2">
+                  <div className="flex flex-col">
+                    <span className="text-white font-black text-xs leading-none">{displayMods.length}</span>
+                    <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Total Mods</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-white font-black text-xs leading-none">{characters.length}</span>
+                    <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Characters</span>
+                  </div>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col gap-2 items-end shrink-0">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 items-end shrink-0">
+                <div className="flex items-center gap-3">
                   {!isEditMode && (
                     <button
                       onClick={() => setShowApply(true)}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all"
-                      style={{ backgroundColor: preset.color, color: "#000", borderColor: "transparent" }}
+                      className="group flex items-center gap-3 px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl"
+                      style={{ backgroundColor: preset.color, color: "#000" }}
                     >
-                      <Zap size={13} strokeWidth={3} /> Apply
+                      <Zap size={15} strokeWidth={3} className="group-hover:animate-pulse" /> Apply Loadout
                     </button>
                   )}
                   <button
                     onClick={handleToggleEdit}
                     disabled={saving}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                      "flex items-center gap-3 px-6 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest border transition-all hover:scale-[1.02] active:scale-[0.98]",
                       isEditMode
                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                        : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
+                        : "bg-surface/80 border-white/10 text-white hover:bg-surface hover:border-white/20"
                     )}
                   >
-                    {saving ? <Loader2 size={13} className="animate-spin" /> : isEditMode ? <><Check size={13} strokeWidth={3} /> Save</> : <><Edit3 size={13} /> Edit</>}
+                    {saving ? <Loader2 size={15} className="animate-spin" /> : isEditMode ? <><Check size={15} strokeWidth={3} /> Save Changes</> : <><Edit3 size={15} /> Edit</>}
                   </button>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!isEditMode && (
+                  {!isEditMode ? (
                     <>
-                      <button onClick={handleDuplicate} title="Duplicate" className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/40 hover:text-white transition-all">
-                        <Copy size={16} />
+                      <button onClick={handleDuplicate} title="Duplicate Loadout" className="p-3 bg-surface/80 hover:bg-surface border border-white/10 rounded-2xl text-white/40 hover:text-white transition-all shadow-xl group/dupe">
+                        <Copy size={18} className="group-hover/dupe:scale-110 transition-transform" />
                       </button>
-                      <button onClick={handleExport} disabled={exporting} title="Export" className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/40 hover:text-white transition-all disabled:opacity-50">
-                        {exporting ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+                      <button onClick={handleExport} disabled={exporting} title="Export Package" className="p-3 bg-surface/80 hover:bg-surface border border-white/10 rounded-2xl text-white/40 hover:text-white transition-all shadow-xl disabled:opacity-50 group/export">
+                        {exporting ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} className="group-hover/export:scale-110 transition-transform" />}
                       </button>
-                      <button onClick={() => setShowDeleteConfirm(true)} title="Delete" className="p-2.5 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-white/40 hover:text-red-400 transition-all">
-                        <Trash2 size={16} />
+                      <button onClick={() => setShowDeleteConfirm(true)} title="Delete Forever" className="p-3 bg-surface/80 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 rounded-2xl text-white/40 hover:text-red-400 transition-all shadow-xl group/delete">
+                        <Trash2 size={18} className="group-hover/delete:scale-110 transition-transform" />
                       </button>
                     </>
-                  )}
-                  {isEditMode && (
-                    <button onClick={() => { setIsEditMode(false); setShowAddPanel(false); }} className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/40 hover:text-white transition-all">
-                      <X size={16} />
+                  ) : (
+                    <button onClick={() => { setIsEditMode(false); setShowAddPanel(false); }} className="p-3 bg-surface/80 hover:bg-red-500/10 border border-white/10 rounded-2xl text-white/40 hover:text-red-400 transition-all shadow-xl">
+                      <X size={18} />
                     </button>
                   )}
-                  <button onClick={onClose} className="p-2.5 bg-white/5 hover:bg-black text-white/40 hover:text-red-400 border border-white/10 hover:border-red-500/30 rounded-xl transition-all">
-                    <X size={16} />
+                  <button onClick={onClose} className="p-3 bg-red-500/10 hover:bg-red-500 border border-red-500/20 hover:border-red-400 rounded-2xl text-red-500 hover:text-white transition-all shadow-xl">
+                    <X size={18} strokeWidth={3} />
                   </button>
                 </div>
               </div>
@@ -398,33 +423,34 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {displayMods.map((mod) => (
                       <div
                         key={mod.modId}
-                        className="relative flex items-center gap-3 p-3 rounded-2xl bg-background border border-border hover:border-white/20 transition-all group"
+                        className="relative flex items-center gap-4 p-4 rounded-[20px] bg-background border border-white/5 hover:border-white/20 transition-all duration-300 group shadow-sm hover:shadow-xl"
                       >
-                        <div className="w-20 h-12 rounded-xl overflow-hidden bg-background border border-border shrink-0 relative">
+                        <div className="w-24 h-14 rounded-xl overflow-hidden bg-surface border border-white/5 shrink-0 relative shadow-inner">
                           {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
                             <img 
                               src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
                               alt="" 
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center italic text-[9px] text-white/10 font-black">NO IMG</div>
+                            <div className="w-full h-full flex items-center justify-center bg-white/5 italic text-[10px] text-white/10 font-black tracking-tighter">NO IMAGE</div>
                           )}
+                          <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent pointer-events-none" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-text-primary truncate group-hover:text-primary transition-colors">{mod.name}</p>
-                          <p className="text-[10px] text-text-muted uppercase tracking-wider font-medium">{mod.character}</p>
+                          <p className="text-[13px] font-black text-white/90 truncate group-hover:text-primary transition-colors tracking-tight leading-tight">{mod.name}</p>
+                          <p className="text-[9px] text-text-secondary uppercase tracking-[0.15em] font-black mt-1 opacity-60">{mod.character}</p>
                         </div>
                         {isEditMode && (
                           <button
                             onClick={() => handleRemoveMod(mod.modId)}
-                            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/40"
+                            className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-red-500/10 backdrop-blur-md border border-red-500/30 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-xl z-20"
                           >
-                            <X size={10} strokeWidth={3} />
+                            <X size={12} strokeWidth={3} />
                           </button>
                         )}
                       </div>
@@ -435,14 +461,14 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
                       <button
                         onClick={() => setShowAddPanel(p => !p)}
                         className={cn(
-                          "flex items-center justify-center gap-2 p-3 rounded-2xl border border-dashed transition-all text-xs font-black uppercase tracking-widest h-[70px]",
+                          "group flex flex-col items-center justify-center gap-2 p-4 rounded-[20px] border-2 border-dashed transition-all duration-300 h-[86px]",
                           showAddPanel
-                            ? "border-primary/40 text-primary bg-primary/5"
-                            : "border-white/10 text-white/30 hover:border-white/20 hover:text-white/60"
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-white/5 text-white/20 hover:border-white/20 hover:text-white/40 hover:bg-white/5"
                         )}
                       >
-                        <Plus size={16} />
-                        {showAddPanel ? "Hide Panel" : "Add Mods"}
+                        <Plus size={20} strokeWidth={3} className={cn("transition-transform duration-500", showAddPanel ? "rotate-45" : "group-hover:scale-125")} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{showAddPanel ? "Close Panel" : "Add More Mods"}</span>
                       </button>
                     )}
                   </div>
@@ -452,55 +478,61 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
                 <AnimatePresence>
                   {showAddPanel && isEditMode && (
                     <motion.div
-                      initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                      animate={{ opacity: 1, height: "auto", marginTop: 20 }}
-                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                      className="overflow-hidden"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="mt-6"
                     >
-                      <div className="rounded-2xl border border-border bg-background overflow-hidden">
-                        <div className="p-4 border-b border-border">
-                          <div className="relative">
-                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <div className="rounded-3xl border border-white/10 bg-background/50 backdrop-blur-md overflow-hidden shadow-2xl">
+                        <div className="p-5 border-b border-white/5">
+                          <div className="relative group">
+                            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary group-focus-within:text-primary transition-colors" />
                             <input
                               type="text"
                               value={addSearch}
                               onChange={e => setAddSearch(e.target.value)}
-                              placeholder="Search library..."
-                              className="w-full pl-8 pr-4 py-2 bg-surface border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-muted font-medium transition-all"
+                              placeholder="Search your library for mods to add..."
+                              className="w-full pl-11 pr-4 py-3 bg-surface/50 border border-white/5 rounded-2xl text-sm text-white focus:outline-none focus:border-primary/50 placeholder:text-white/10 font-medium transition-all"
                             />
                           </div>
                         </div>
-                        <div className="max-h-48 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-1">
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-3 flex flex-col gap-1.5">
                           {loadingLibrary ? (
-                            <div className="flex items-center justify-center py-8 text-text-muted gap-2">
-                              <Loader2 size={16} className="animate-spin" />
-                              <span className="text-xs">Loading mods...</span>
+                            <div className="flex flex-col items-center justify-center py-12 text-text-secondary gap-3 opacity-50">
+                              <Loader2 size={24} className="animate-spin text-primary" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Indexing Library...</span>
                             </div>
                           ) : availableLibraryMods.length === 0 ? (
-                            <p className="text-center text-text-muted py-6 text-xs">No mods available to add.</p>
+                            <div className="flex flex-col items-center justify-center py-12 text-text-secondary opacity-30 italic">
+                               <Package size={24} className="mb-2" />
+                               <p className="text-xs font-black uppercase tracking-widest">No matching mods found</p>
+                            </div>
                           ) : (
                             availableLibraryMods.map(mod => (
                               <button
                                 key={mod.id}
                                 onClick={() => handleAddMod(mod)}
-                                className="flex items-center gap-4 px-3 py-2.5 rounded-xl hover:bg-white/5 text-left transition-all group/add"
+                                className="flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-white/5 text-left transition-all group/add border border-transparent hover:border-white/5"
                               >
-                                <div className="w-16 h-10 rounded-lg overflow-hidden bg-surface border border-border shrink-0 relative">
+                                <div className="w-20 h-11 rounded-lg overflow-hidden bg-surface border border-white/10 shrink-0 relative shadow-md">
                                   {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
                                     <img 
                                       src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
                                       alt="" 
-                                      className="w-full h-full object-cover group-hover/add:scale-110 transition-transform duration-500" 
+                                      className="w-full h-full object-cover group-hover/add:scale-110 transition-transform duration-700" 
                                     />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center italic text-[8px] text-white/10 font-black">NO IMG</div>
+                                    <div className="w-full h-full flex items-center justify-center bg-white/5 italic text-[8px] text-white/5 font-black tracking-tighter">PREVIEW</div>
                                   )}
+                                  <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-text-primary truncate group-hover/add:text-primary transition-colors">{mod.name}</p>
-                                  <p className="text-[9px] text-text-muted">{mod.character}</p>
+                                  <p className="text-[13px] font-black text-white/80 truncate group-hover/add:text-primary transition-colors tracking-tight leading-none">{mod.name}</p>
+                                  <p className="text-[9px] text-text-secondary uppercase tracking-widest font-black mt-1 opacity-40">{mod.character}</p>
                                 </div>
-                                <Plus size={14} className="text-white/20 group-hover/add:text-primary transition-colors shrink-0" />
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover/add:bg-primary group-hover/add:text-black transition-all">
+                                   <Plus size={16} strokeWidth={3} />
+                                </div>
                               </button>
                             ))
                           )}
@@ -513,13 +545,19 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
             )}
 
             {activeTab === "info" && (
-              <div className="p-8 flex flex-col gap-6">
+              <div className="p-10 flex flex-col gap-2">
+                <InfoRow label="Title" value={preset.name} />
                 <InfoRow label="Game" value={game.name || game.id} />
-                <InfoRow label="Total Mods" value={`${preset.mods.length}`} />
-                <InfoRow label="Characters Covered" value={`${characters.length}`} />
-                <InfoRow label="Created" value={new Date(preset.createdAt).toLocaleDateString()} />
-                {preset.updatedAt && <InfoRow label="Last Modified" value={new Date(preset.updatedAt).toLocaleDateString()} />}
-                {preset.description && <InfoRow label="Description" value={preset.description} />}
+                <InfoRow label="Total Mods" value={`${preset.mods.length} items`} />
+                <InfoRow label="Characters" value={`${characters.length} characters`} />
+                <InfoRow label="Created" value={new Date(preset.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })} />
+                {preset.updatedAt && <InfoRow label="Last Modified" value={new Date(preset.updatedAt).toLocaleDateString(undefined, { dateStyle: 'long' })} />}
+                {preset.description && (
+                  <div className="mt-8 p-6 rounded-3xl bg-white/2 border border-white/5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary block mb-3 opacity-50">Description</span>
+                    <p className="text-sm text-white/70 leading-relaxed font-medium">{preset.description}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -535,29 +573,33 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
               className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm"
             >
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-surface border border-red-500/20 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl"
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                className="bg-surface border border-white/10 rounded-[32px] p-10 max-w-sm w-full mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20">
-                    <AlertTriangle size={20} className="text-red-400" />
+                <div className="flex flex-col items-center text-center">
+                  <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 mb-6 shadow-xl">
+                    <AlertTriangle size={32} className="text-red-500" strokeWidth={2.5} />
                   </div>
-                  <h3 className="text-lg font-black text-white">Delete Preset?</h3>
+                  <h3 className="text-2xl font-black text-white tracking-tighter mb-3">Delete Preset?</h3>
+                  <p className="text-text-secondary text-sm font-medium leading-relaxed mb-8">
+                    The preset <span className="text-white font-bold">"{preset.name}"</span> will be permanently removed. Your installed mods will not be affected.
+                  </p>
                 </div>
-                <p className="text-text-muted text-sm mb-6">
-                  <span className="text-white font-semibold">"{preset.name}"</span> will be permanently deleted. This won't affect your installed mods.
-                </p>
-                <div className="flex gap-3">
-                  <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-white/50 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all">
-                    Cancel
-                  </button>
+                
+                <div className="flex flex-col gap-3">
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-white bg-red-500/80 hover:bg-red-500 border border-red-500/50 transition-all disabled:opacity-50"
+                    className="w-full py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] bg-red-500 text-white hover:bg-red-400 border border-red-400/50 transition-all shadow-xl disabled:opacity-50"
                   >
-                    {deleting ? "Deleting..." : "Delete"}
+                    {deleting ? "Deleting..." : "Permanently Delete"}
+                  </button>
+                  <button 
+                    onClick={() => setShowDeleteConfirm(false)} 
+                    className="w-full py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+                  >
+                    Keep Preset
                   </button>
                 </div>
               </motion.div>

@@ -198,96 +198,90 @@ export default function PresetsView({ game }) {
 }
 
 function PresetCard({ preset, index, onClick, gbData }) {
-  // Get first 4 thumbnails for the strip
+  // Get first 4 thumbnails for the grid
   const thumbs = preset.mods.slice(0, 4).map(mod => {
     if (mod.customThumbnail) return `file://${mod.customThumbnail}`;
     if (gbData?.[mod.gamebananaId]?.thumbnailUrl) return gbData[mod.gamebananaId].thumbnailUrl;
     return null;
-  }).filter(Boolean);
-
-  const heroThumb = thumbs[0];
+  });
 
   return (
-    <motion.button
+    <motion.div
       custom={index}
       variants={cardVariants}
       onClick={onClick}
-      className="relative rounded-2xl overflow-hidden border border-border hover:border-white/20 transition-all duration-500 text-left group h-64 flex flex-col shadow-card hover:shadow-surface bg-surface"
+      whileHover={{ y: -10, scale: 1.01 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
+      className="rounded-2xl overflow-hidden group relative flex flex-col shadow-card hover:shadow-surface bg-surface border border-border cursor-pointer transition-all duration-300"
     >
-      {/* Background Hero Image */}
-      {heroThumb && (
-        <div className="absolute inset-0">
-          <img 
-            src={heroThumb} 
-            alt="" 
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700 blur-[2px] group-hover:blur-0 scale-110 group-hover:scale-100" 
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/60 to-transparent" />
-        </div>
-      )}
-
-      {/* Hover Radiant Glow */}
-      <div 
-        className="absolute -inset-20 opacity-0 group-hover:opacity-10 transition-opacity duration-700 pointer-events-none"
-        style={{ background: `radial-gradient(circle at 50% 50%, ${preset.color}, transparent 70%)` }}
-      />
-
-      {/* Top Section: Thumbnail Strip */}
-      <div className="relative p-6 flex-1">
-        <div className="flex -space-x-3 mb-4">
-          {thumbs.map((src, i) => (
-            <motion.div
-              key={i}
-              initial={{ x: -10, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.2 + i * 0.1 }}
-              className="w-12 h-12 rounded-xl border-2 border-card overflow-hidden shadow-lg relative z-10"
-            >
-              <img src={src} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-            </motion.div>
-          ))}
-          {preset.mods.length > thumbs.length && (
-            <div className="w-12 h-12 rounded-xl border-2 border-surface bg-surface backdrop-blur-md flex items-center justify-center text-[10px] font-black text-text-secondary shadow-lg relative z-0">
-              +{preset.mods.length - thumbs.length}
+      {/* Thumbnail Area (Matches GbModCard h-44) */}
+      <div className="relative h-44 w-full bg-background overflow-hidden shrink-0 grid grid-cols-2 gap-px border-b border-border">
+        {thumbs.length > 0 ? (
+          thumbs.map((src, i) => (
+            <div key={i} className="relative bg-surface overflow-hidden">
+              {src ? (
+                <img src={src} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-white/5">
+                  <Package size={16} className="text-white/10" />
+                </div>
+              )}
             </div>
-          )}
+          ))
+        ) : (
+          <div className="col-span-2 row-span-2 flex items-center justify-center bg-surface">
+            <Package size={40} className="text-white/5" />
+          </div>
+        )}
+        
+        {/* Preset Color Badge */}
+        <div className="absolute top-4 right-4 z-10">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[9px] font-black uppercase tracking-widest text-white shadow-xl">
+             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 10px ${preset.color}` }} />
+             Preset
+          </div>
         </div>
+        
+        {/* Subtle overlay */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent pointer-events-none" />
       </div>
 
-      {/* Bottom Section: Info Card */}
-      <div className="relative p-6 bg-linear-to-t from-black via-black/40 to-transparent backdrop-blur-xs">
-        {/* Accent strip */}
-        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: preset.color }} />
-        
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 10px ${preset.color}` }} />
-          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40">{preset.gameId}</span>
+      {/* Info Area (Matches GbModCard min-h-36) */}
+      <div className="flex flex-col flex-1 p-5 bg-surface min-h-36 relative z-10">
+        <div className="flex items-center gap-2 mb-2 opacity-30 group-hover:opacity-100 transition-opacity">
+           <div className="w-1 h-3 rounded-full shadow-[0_0_5px_var(--color-primary)]" style={{ backgroundColor: preset.color || 'var(--color-primary)' }} />
+           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">PRESET PACKAGE</span>
         </div>
-        
-        <h3 className="text-xl font-bold text-text-primary tracking-tight leading-tight group-hover:text-primary transition-colors duration-300">
+
+        <h3 className="text-base font-bold text-text-primary line-clamp-2 leading-tight mb-4 transition-colors group-hover:text-primary tracking-tight">
           {preset.name}
         </h3>
         
-        <div className="mt-4 flex items-center justify-between">
-           <div className="flex items-center gap-4">
-              <div className="flex flex-col">
-                <span className="text-text-primary font-bold text-xs leading-none">{preset.mods.length}</span>
-                <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1">Mods</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-text-primary font-bold text-xs leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
-                <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1">Chars</span>
-              </div>
+        <div className="flex items-center gap-6 mb-6">
+           <div className="flex flex-col">
+             <span className="text-white font-black text-sm leading-none">{preset.mods.length}</span>
+             <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Mods</span>
            </div>
-           
-           <div className="w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center text-text-muted group-hover:text-black group-hover:bg-primary group-hover:border-primary transition-all duration-500 group-hover:rotate-45 shadow-sm">
-             <ChevronRight size={16} strokeWidth={3} />
+           <div className="flex flex-col">
+             <span className="text-white font-black text-sm leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
+             <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Chars</span>
            </div>
         </div>
+
+        {/* Action Button (Matches card style) */}
+        <div className="mt-auto">
+          <div className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-background border border-border text-[10px] font-black text-text-muted uppercase tracking-[0.2em] group-hover:border-primary/30 group-hover:text-primary transition-all duration-300">
+            View Details <ChevronRight size={14} strokeWidth={4} className="group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
       </div>
-    </motion.button>
+      
+      {/* External Bloom Ring */}
+      <div className="absolute inset-0 rounded-2xl border border-white/0 group-hover:border-primary/20 transition-all pointer-events-none z-20" />
+      
+      {/* Optimized Shadow Layer */}
+      <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_rgba(255,255,255,0.05)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
+    </motion.div>
   );
 }
 
