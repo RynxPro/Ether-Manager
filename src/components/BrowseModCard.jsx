@@ -3,6 +3,8 @@ import { Download, Heart, Eye, Check, Bookmark, User } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
 
+import UpdateBadge from "./UpdateBadge";
+
 function formatCount(n) {
   if (!n) return "0";
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -98,9 +100,7 @@ const BrowseModCard = React.memo(function BrowseModCard({
             </div>
           )}
           {isInstalled && hasUpdate && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-update/10 text-update border border-update/20 text-[10px] font-black shadow-[0_0_15px_rgba(250,204,21,0.1)] uppercase tracking-widest backdrop-blur-md">
-              Update Available
-            </div>
+            <UpdateBadge className="backdrop-blur-md">Update Available</UpdateBadge>
           )}
         </div>
       </div>

@@ -4,6 +4,8 @@ import { getCharacterPortrait } from "../lib/portraits";
 import { motion } from "framer-motion";
 import { useState, memo } from "react";
 
+import UpdateBadge from "./UpdateBadge";
+
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
@@ -76,11 +78,7 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
         {/* Mod count badge - only if has mods */}
         {hasMods && (
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-            {hasUpdate && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-update text-black shadow-[0_0_15px_var(--color-update)]/40 transition-transform group-hover:scale-110">
-                <span className="text-[8px] font-black tracking-widest uppercase leading-none">Update</span>
-              </div>
-            )}
+            {hasUpdate && <UpdateBadge className="transition-transform group-hover:scale-110 shadow-surface" />}
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/30 transition-transform group-hover:scale-110">
               <span className="text-[10px] font-black tracking-tighter">{character.totalMods}</span>
             </div>
