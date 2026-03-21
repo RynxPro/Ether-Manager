@@ -107,8 +107,8 @@ export default function PresetsView({ game }) {
       {/* Header */}
       <div className="mb-8 w-full px-2 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl md:text-[2.75rem] font-black text-white mb-2 tracking-tighter drop-shadow-xl">Loadouts</h1>
-          <p className="text-(--text-muted) font-medium">
+          <h1 className="text-4xl md:text-[2.75rem] font-bold text-text-primary mb-2 tracking-tighter drop-shadow-xl">Loadouts</h1>
+          <p className="text-text-secondary font-medium">
             {loading ? "Loading..." : `${presets.length} preset${presets.length !== 1 ? "s" : ""} for ${game.id}`}
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function PresetsView({ game }) {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-52 rounded-3xl bg-white/5 border border-white/5 animate-pulse" />
+            <div key={i} className="h-52 rounded-2xl bg-surface border border-border animate-pulse shadow-card" />
           ))}
         </div>
       ) : presets.length === 0 ? (
@@ -212,7 +212,7 @@ function PresetCard({ preset, index, onClick, gbData }) {
       custom={index}
       variants={cardVariants}
       onClick={onClick}
-      className="relative rounded-4xl overflow-hidden border border-border hover:border-neutral transition-all duration-500 text-left group h-64 flex flex-col shadow-2xl bg-card"
+      className="relative rounded-2xl overflow-hidden border border-border hover:border-white/20 transition-all duration-500 text-left group h-64 flex flex-col shadow-card hover:shadow-surface bg-surface"
     >
       {/* Background Hero Image */}
       {heroThumb && (
@@ -224,7 +224,7 @@ function PresetCard({ preset, index, onClick, gbData }) {
             decoding="async"
             className="w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700 blur-[2px] group-hover:blur-0 scale-110 group-hover:scale-100" 
           />
-          <div className="absolute inset-0 bg-linear-to-t from-card via-card/60 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/60 to-transparent" />
         </div>
       )}
 
@@ -249,7 +249,7 @@ function PresetCard({ preset, index, onClick, gbData }) {
             </motion.div>
           ))}
           {preset.mods.length > thumbs.length && (
-            <div className="w-12 h-12 rounded-xl border-2 border-card bg-white/5 backdrop-blur-md flex items-center justify-center text-[10px] font-black text-white/40 shadow-lg relative z-0">
+            <div className="w-12 h-12 rounded-xl border-2 border-surface bg-surface backdrop-blur-md flex items-center justify-center text-[10px] font-black text-text-secondary shadow-lg relative z-0">
               +{preset.mods.length - thumbs.length}
             </div>
           )}
@@ -266,23 +266,23 @@ function PresetCard({ preset, index, onClick, gbData }) {
           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40">{preset.gameId}</span>
         </div>
         
-        <h3 className="text-xl font-black text-white tracking-tight leading-tight group-hover:text-(--active-accent) transition-colors duration-300">
+        <h3 className="text-xl font-bold text-text-primary tracking-tight leading-tight group-hover:text-primary transition-colors duration-300">
           {preset.name}
         </h3>
         
         <div className="mt-4 flex items-center justify-between">
            <div className="flex items-center gap-4">
               <div className="flex flex-col">
-                <span className="text-white font-black text-xs leading-none">{preset.mods.length}</span>
-                <span className="text-[8px] uppercase font-black tracking-widest text-white/20 mt-1">Mods</span>
+                <span className="text-text-primary font-bold text-xs leading-none">{preset.mods.length}</span>
+                <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1">Mods</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-white font-black text-xs leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
-                <span className="text-[8px] uppercase font-black tracking-widest text-white/20 mt-1">Chars</span>
+                <span className="text-text-primary font-bold text-xs leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
+                <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1">Chars</span>
               </div>
            </div>
            
-           <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-white/20 group-hover:text-black group-hover:bg-(--active-accent) group-hover:border-(--active-accent) transition-all duration-500 group-hover:rotate-45">
+           <div className="w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center text-text-muted group-hover:text-black group-hover:bg-primary group-hover:border-primary transition-all duration-500 group-hover:rotate-45 shadow-sm">
              <ChevronRight size={16} strokeWidth={3} />
            </div>
         </div>
@@ -295,17 +295,17 @@ function EmptyState({ onCreateClick }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 py-20">
       <div className="relative">
-        <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center">
-          <Package size={36} className="text-white/20" />
+        <div className="w-20 h-20 rounded-2xl bg-surface border border-border flex items-center justify-center shadow-surface">
+          <Package size={36} className="text-text-secondary" />
         </div>
         <div
-          className="absolute -inset-3 rounded-4xl blur-2xl opacity-20 pointer-events-none"
-          style={{ background: "var(--active-accent)" }}
+          className="absolute -inset-3 rounded-full blur-2xl opacity-20 pointer-events-none"
+          style={{ background: "var(--color-primary)" }}
         />
       </div>
       <div className="text-center">
-        <h2 className="text-2xl font-black text-white tracking-tight mb-2">No Loadouts Yet</h2>
-        <p className="text-(--text-muted) max-w-sm text-sm">
+        <h2 className="text-2xl font-bold text-text-primary tracking-tight mb-2">No Loadouts Yet</h2>
+        <p className="text-text-secondary max-w-sm text-sm">
           Create a preset to save and apply groups of mods with a single click.
         </p>
       </div>

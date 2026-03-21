@@ -1,51 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  --color-active-accent: var(--active-accent);
-  /* Design System Colors */
-  --color-primary: var(--active-accent);
-  --color-secondary: var(--bg-surface);
-  --color-card: var(--bg-card);
-  --color-base: var(--bg-base);
+  /* Strict 2-Color System */
+  --color-primary: var(--color-primary);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  
   --color-neutral: rgba(255, 255, 255, 0.1);
   
   /* Text & Borders */
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-  --color-border: var(--border);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-border: var(--color-border);
+
+  /* Unified Shadows */
+  --shadow-surface: 0 8px 30px rgba(0,0,0,0.5);
+  --shadow-card: 0 4px 20px rgba(0,0,0,0.4);
 
   /* Unified Typography */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
 }
 @layer base {
   :root {
-    /* Base Palette */
-    --bg-base: #07070a;
-    --bg-surface: #0d0d15;
-    --bg-card: #0f0f1a;
-    --bg-overlay: #161625;
-    --bg-input: #1a1a2e;
+    /* Base Strict Palette */
+    --color-background: #000000;
+    --color-surface: #0a0a0a;
     
-    --background: var(--bg-base);
-    --navbar: var(--bg-surface);
-    --card: var(--bg-card);
+    /* Variables mapped backwards for Tailwind legacy compliance if needed */
+    --background: var(--color-background);
     
     /* Text */
-    --text-primary: #ffffff;
-    --text-secondary: #8c8c9a;
-    --text-body: rgba(255, 255, 255, 0.65);
-    --text-muted: rgba(255, 255, 255, 0.35);
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #a1a1aa;
+    --color-text-muted: #71717a;
     
     /* Status */
-    --color-danger: #ff4455;
-    --color-warning: #ffb347;
-    --color-success: #4ade80;
-    --color-update: #facc15;
+    --color-danger: #ef4444;
+    --color-warning: #f59e0b;
+    --color-success: #10b981;
+    --color-update: #eab308;
     
     /* UI Lines */
-    --border: rgba(255, 255, 255, 0.08); /* slightly stronger border for consistency */
-    --active-accent: #00f5cc; /* Default to GIMI */
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-primary: #00f5cc; /* Default to GIMI Accent */
   }
 
   body {
@@ -123,7 +121,7 @@
     position: absolute;
     inset: -1px;
     border-radius: inherit;
-    background: var(--active-accent);
+    background: var(--color-primary);
     opacity: 0;
     transition: opacity 0.3s ease;
     z-index: -1;
@@ -134,26 +132,26 @@
 
   /* Pill navigation active state */
   .nav-pill-active {
-    background-color: color-mix(in srgb, var(--active-accent) 15%, transparent);
-    color: var(--active-accent);
-    border: 1px solid color-mix(in srgb, var(--active-accent) 30%, transparent);
+    background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
     box-shadow: 0 0 12px
-      color-mix(in srgb, var(--active-accent) 20%, transparent);
+      color-mix(in srgb, var(--color-primary) 20%, transparent);
   }
 
   /* Toggle switch */
   .toggle-checkbox:checked {
     right: 0;
-    border-color: var(--active-accent);
+    border-color: var(--color-primary);
   }
   .toggle-checkbox:checked + .toggle-label {
-    background-color: var(--active-accent);
+    background-color: var(--color-primary);
   }
 }
 
 /* GameBanana HTML Descriptions */
 .gb-description a {
-  color: var(--active-accent);
+  color: var(--color-primary);
   text-decoration: none;
 }
 

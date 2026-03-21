@@ -67,18 +67,18 @@ export default function SearchableDropdown({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-full flex items-center justify-between px-4 py-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm transition-all focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 hover:bg-black/60 shadow-inner",
-          isOpen ? "border-(--active-accent) ring-1 ring-(--active-accent)/20" : "",
-          selectedLabel === null ? "text-white/40" : "text-white font-medium"
+          "w-full flex items-center justify-between px-4 py-2 bg-surface backdrop-blur-md border border-border rounded-xl text-sm transition-all focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 hover:bg-white/5 align-middle",
+          isOpen ? "border-primary ring-1 ring-primary/20" : "",
+          selectedLabel === null ? "text-text-muted" : "text-text-primary font-medium"
         )}
       >
         <div className="flex items-center gap-2 truncate">
-          {selectedLabel && <span className="text-(--active-accent) shrink-0">{renderIcon(selectedLabel, 14)}</span>}
+          {selectedLabel && <span className="text-primary shrink-0">{renderIcon(selectedLabel, 14)}</span>}
           <span className="truncate">{selectedLabel || placeholder}</span>
         </div>
         <ChevronDown 
           size={16} 
-          className={cn("text-white/40 transition-transform duration-300", isOpen && "rotate-180")} 
+          className={cn("text-text-muted transition-transform duration-300", isOpen && "rotate-180")} 
         />
       </button>
 
@@ -90,20 +90,20 @@ export default function SearchableDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: direction === "down" ? -4 : 4, scale: 0.98 }}
             className={cn(
-              "absolute z-100 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden",
+              "absolute z-100 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-border rounded-2xl shadow-surface overflow-hidden",
               direction === "down" ? "top-full mt-2" : "bottom-full mb-2"
             )}
           >
             {/* Search Input */}
-            <div className="p-3 border-b border-white/5 flex items-center gap-2 sticky top-0 bg-black/40 shadow-inner z-10">
-              <Search size={14} className="text-gray-500" />
+            <div className="p-3 border-b border-border flex items-center gap-2 sticky top-0 bg-surface shadow-inner z-10">
+              <Search size={14} className="text-text-muted" />
               <input
                 autoFocus
                 type="text"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent border-none text-xs text-white focus:outline-none placeholder:text-gray-600"
+                className="flex-1 bg-transparent border-none text-xs text-text-primary focus:outline-none placeholder:text-text-muted"
               />
             </div>
 
@@ -127,11 +127,11 @@ export default function SearchableDropdown({
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all text-left",
                         isSelected
-                          ? "bg-(--active-accent)/20 text-(--active-accent) border border-(--active-accent)/30 shadow-[0_0_15px_var(--active-accent)]/20"
-                          : "text-gray-400 hover:bg-white/5 hover:text-white border border-transparent"
+                          ? "bg-primary/20 text-primary border border-primary/30 shadow-[0_0_15px_var(--color-primary)]/20"
+                          : "text-text-muted hover:bg-white/5 hover:text-text-primary border border-transparent"
                       )}
                     >
-                      <span className={cn("shrink-0", isSelected ? "text-black" : "text-white/50")}>
+                      <span className={cn("shrink-0", isSelected ? "text-primary" : "text-text-muted")}>
                         {renderIcon(itemLabel, 14)}
                       </span>
                       <span className="truncate flex-1 font-medium">{itemLabel}</span>
@@ -139,7 +139,7 @@ export default function SearchableDropdown({
                   );
                 })
               ) : (
-                <div className="p-8 text-center text-xs text-gray-600 italic">
+                <div className="p-8 text-center text-xs text-text-muted italic">
                   No matching items
                 </div>
               )}

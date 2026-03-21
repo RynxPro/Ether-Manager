@@ -10,11 +10,11 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
 
   return (
     <>
-      <nav className="w-full h-[70px] shrink-0 bg-(--bg-surface)/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-8 pl-24 z-20 titlebar-drag sticky top-0">
+      <nav className="w-full h-[70px] shrink-0 bg-surface/80 backdrop-blur-2xl border-b border-border flex items-center justify-between px-8 pl-24 z-20 titlebar-drag sticky top-0 transition-colors duration-300">
         {/* Logo */}
-        <div className="flex items-center gap-3 w-[450px] no-drag group">
-          <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center transition-all group-hover:bg-(--active-accent)/20 group-hover:border-(--active-accent)/40 group-hover:shadow-[0_0_20px_var(--active-accent)]/20 shadow-2xl">
-            <Zap size={22} className="text-white fill-white transition-colors group-hover:text-(--active-accent) group-hover:fill-(--active-accent)" />
+        <div className="flex items-center gap-3 w-[450px] no-drag group cursor-pointer">
+          <div className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center transition-all duration-300 group-hover:bg-primary/10 group-hover:border-primary/30 group-hover:shadow-[0_0_20px_var(--color-primary)]/20 shadow-surface">
+            <Zap size={22} className="text-text-primary fill-text-primary transition-colors duration-300 group-hover:text-primary group-hover:fill-primary" />
           </div>
           <div>
             <span className="text-white font-black tracking-[0.3em] text-lg block leading-none">AETHER</span>
@@ -23,7 +23,7 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
         </div>
 
         {/* Game Tabs */}
-        <div className="flex items-center gap-1.5 no-drag bg-white/5 p-1.5 rounded-3xl border border-white/5">
+        <div className="flex items-center gap-1.5 no-drag bg-background p-1.5 rounded-2xl border border-border shadow-inner">
           {games.map((game) => {
             const isActive = activeGame === game.id;
             return (
@@ -31,16 +31,16 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
                 key={game.id}
                 onClick={() => onSelectGame(game.id)}
                 className={cn(
-                  "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 relative overflow-hidden",
+                  "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all duration-300 relative overflow-hidden",
                   isActive
-                    ? "text-white bg-white/10 shadow-lg"
-                    : "text-white/30 hover:text-white/60 hover:bg-white/2",
+                    ? "text-text-primary bg-surface shadow-card"
+                    : "text-text-muted hover:text-text-primary hover:bg-white/5",
                 )}
               >
                 {isActive && (
                   <motion.div 
                     layoutId="navbarGameGlow"
-                    className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-(--active-accent) shadow-[0_0_10px_var(--active-accent)]" 
+                    className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]" 
                   />
                 )}
                 {game.id}
@@ -50,14 +50,13 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-5 w-[450px] no-drag">
-          {/* Navigation Toggle */}
+        <div className="flex items-center justify-end gap-6 w-[450px] no-drag">
           {/* Navigation Toggle — 3 equal columns */}
-          <div className="grid grid-cols-3 bg-black/40 border border-white/5 rounded-2xl p-1 relative shadow-inner overflow-hidden min-w-[280px]">
+          <div className="grid grid-cols-3 bg-background border border-border rounded-xl p-1 relative shadow-inner overflow-hidden min-w-[280px]">
             <motion.div
               layout
-              transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
-              className="absolute h-[calc(100%-8px)] rounded-xl bg-(--active-accent) z-0 shadow-[0_0_20px_var(--active-accent)]/40 top-[4px]"
+              transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+              className="absolute h-[calc(100%-8px)] rounded-lg bg-surface z-0 shadow-card border border-border top-[4px]"
               style={{
                 width: "calc(33.333% - 2.67px)",
                 left: activeView === "mods" ? "4px" : activeView === "browse" ? "33.333%" : "calc(66.666% + 1.33px)",
@@ -72,8 +71,8 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
                 key={id}
                 onClick={() => onSelectView(id)}
                 className={cn(
-                  "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors duration-300 relative z-10 w-full flex items-center justify-center no-drag",
-                  activeView === id ? "text-black" : "text-white/30 hover:text-white/60"
+                  "py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors duration-300 relative z-10 w-full flex items-center justify-center no-drag",
+                  activeView === id ? "text-text-primary" : "text-text-muted hover:text-text-primary"
                 )}
               >
                 {label}

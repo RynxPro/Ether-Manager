@@ -28,17 +28,17 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
       }}
       transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
-        "rounded-3xl overflow-hidden group relative transition-all duration-300",
-        "bg-(--bg-card) border border-white/5 cursor-pointer shadow-2xl",
+        "rounded-2xl overflow-hidden group relative transition-all duration-300",
+        "bg-surface border border-border cursor-pointer shadow-card hover:shadow-surface",
         !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
-        hasMods && "border-(--active-accent)/20 hover:border-(--active-accent)/40"
+        hasMods && "hover:border-primary/40"
       )}
       style={{ 
         contain: "layout paint"
       }}
     >
       {/* Portrait Area — tall card, image pinned to top */}
-      <div className="relative h-60 w-full bg-(--bg-base) overflow-hidden">
+      <div className="relative h-60 w-full bg-background overflow-hidden">
         {portraitUrl ? (
           <>
             {!imgLoaded && (
@@ -57,19 +57,19 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
               decoding="async"
             />
             {/* Vignette/Gradient overlay */}
-            <div className="absolute inset-0 bg-linear-to-t from-(--bg-card) via-transparent to-transparent opacity-60" />
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-(--bg-card) via-(--bg-card)/80 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-surface via-transparent to-transparent opacity-60" />
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-surface via-surface/80 to-transparent" />
           </>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--bg-input) to-(--bg-card)">
+          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-background to-surface">
             {isUI ? (
-              <Monitor size={80} className="text-(--active-accent) opacity-20" />
+              <Monitor size={80} className="text-primary opacity-20" />
             ) : isMisc ? (
-              <Box size={80} className="text-(--active-accent) opacity-20" />
+              <Box size={80} className="text-primary opacity-20" />
             ) : (
               <User size={64} className="text-white/5" />
             )}
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-(--bg-card) to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-surface to-transparent" />
           </div>
         )}
 
@@ -77,11 +77,11 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
         {hasMods && (
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
             {hasUpdate && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-(--color-update) text-black shadow-[0_0_15px_var(--color-update)]/40 transition-transform group-hover:scale-110">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-update text-black shadow-[0_0_15px_var(--color-update)]/40 transition-transform group-hover:scale-110">
                 <span className="text-[8px] font-black tracking-widest uppercase leading-none">Update</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--active-accent) text-black shadow-[0_0_15px_var(--active-accent)]/30 transition-transform group-hover:scale-110">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/30 transition-transform group-hover:scale-110">
               <span className="text-[10px] font-black tracking-tighter">{character.totalMods}</span>
             </div>
           </div>
@@ -89,14 +89,14 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
       </div>
 
       {/* Info Area */}
-      <div className="px-5 py-5 relative bg-(--bg-card) z-10">
+      <div className="px-5 py-5 relative bg-surface z-10">
         <div className="flex items-center gap-2 mb-1.5 opacity-30 group-hover:opacity-100 transition-opacity">
-           <div className="w-1 h-3 bg-(--active-accent) rounded-full shadow-[0_0_5px_var(--active-accent)]" />
-           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white">Character Unit</span>
+           <div className="w-1 h-3 bg-primary rounded-full shadow-primary/20" />
+           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">Character Unit</span>
         </div>
         <h3 className={cn(
-          "text-base font-black leading-tight truncate transition-colors tracking-tight",
-          hasMods ? "text-white" : "text-white/20 group-hover:text-white"
+          "text-base font-bold leading-tight truncate transition-colors tracking-tight",
+          hasMods ? "text-text-primary" : "text-text-secondary group-hover:text-text-primary"
         )}>
           {character.name}
         </h3>
@@ -104,30 +104,30 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
         {hasMods ? (
           <div className="flex items-center gap-3 mt-3">
             <div className="flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-(--active-accent)" />
-              <span className="text-[9px] uppercase tracking-widest font-black text-white/40">
+              <span className="w-1 h-1 rounded-full bg-primary" />
+              <span className="text-[9px] uppercase tracking-widest font-black text-text-secondary">
                 {character.totalMods} Total
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_8px_var(--active-accent)]" />
-              <span className="text-[9px] uppercase tracking-widest font-black text-white/40">
+              <span className="w-1 h-1 rounded-full bg-primary animate-pulse shadow-[0_0_8px_var(--color-primary)]" />
+              <span className="text-[9px] uppercase tracking-widest font-black text-text-secondary">
                 {character.enabledMods} Active
               </span>
             </div>
           </div>
         ) : (
-          <p className="text-[9px] uppercase tracking-[0.2em] font-black text-white/10 mt-3 group-hover:text-white/30 transition-colors">
+          <p className="text-[9px] uppercase tracking-[0.2em] font-black text-text-muted mt-3 group-hover:text-text-secondary transition-colors">
             Standby Mode
           </p>
         )}
       </div>
       
       {/* Bloom Effect Ring (External Glow) */}
-      <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none" />
+      <div className="absolute inset-0 rounded-2xl border border-white/0 group-hover:border-primary/20 transition-all pointer-events-none" />
       
       {/* Optimized Box Shadow Hover Layer */}
-      <div className="absolute inset-0 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--active-accent),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
+      <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </motion.div>
   );
 });

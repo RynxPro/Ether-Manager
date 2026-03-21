@@ -83,17 +83,17 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-lg bg-(--bg-base) border border-white/10 rounded-3xl overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
+        className="w-full max-w-lg bg-surface border border-border rounded-3xl overflow-hidden shadow-surface"
       >
         {/* Header */}
-        <div className="px-8 pt-8 pb-5 border-b border-white/5 flex items-start justify-between gap-4">
+        <div className="px-8 pt-8 pb-5 border-b border-border flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Zap size={16} className="text-(--active-accent)" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-(--text-muted)">Apply Loadout</span>
+              <Zap size={16} className="text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Apply Loadout</span>
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">{preset.name}</h2>
-            <p className="text-(--text-muted) text-xs mt-1">Review all changes before applying to disk.</p>
+            <h2 className="text-2xl font-bold text-text-primary tracking-tight">{preset.name}</h2>
+            <p className="text-text-muted text-xs mt-1">Review all changes before applying to disk.</p>
           </div>
           <button onClick={onClose} className="p-2 text-white/30 hover:text-white rounded-xl hover:bg-white/5 transition-all">
             <X size={18} />
@@ -103,14 +103,14 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
         {/* Body */}
         <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
           {loading && (
-            <div className="flex items-center justify-center py-16 gap-3 text-(--text-muted)">
+            <div className="flex items-center justify-center py-16 gap-3 text-text-muted">
               <Loader2 size={20} className="animate-spin" />
               <span className="text-sm font-medium">Calculating changes...</span>
             </div>
           )}
 
           {error && (
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-(--color-danger)/10 border border-(--color-danger)/20 text-(--color-danger) text-sm">
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
               <AlertTriangle size={18} className="shrink-0" />
               {error}
             </div>
@@ -153,7 +153,7 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
 
               {/* No changes */}
               {diff.willEnable.length === 0 && diff.willDisable.length === 0 && diff.notFound.length === 0 && (
-                <div className="text-center py-8 text-(--text-muted)">
+                <div className="text-center py-8 text-text-muted">
                   <CheckCircle size={32} className="mx-auto mb-3 text-emerald-400 opacity-60" />
                   <p className="font-medium">No changes needed</p>
                   <p className="text-xs mt-1">All mods in this preset are already in their correct state.</p>
@@ -164,7 +164,7 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
         </div>
 
         {/* Footer */}
-        <div className="px-8 pb-8 pt-4 flex items-center justify-end gap-3 border-t border-white/5">
+        <div className="px-8 pb-8 pt-4 flex items-center justify-end gap-3 border-t border-border">
           <button
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-white/50 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
@@ -176,7 +176,7 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
             disabled={loading || applying || !!error}
             className={cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border shadow-lg",
-              "bg-(--active-accent) text-black hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+              "bg-primary text-black hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
             )}
           >
             {applying ? (
@@ -207,8 +207,8 @@ function Section({ icon, label, color, items, gbData }) {
         {items.map((item, i) => {
           const thumb = item.customThumbnail || gbData[item.gamebananaId]?.thumbnailUrl;
           return (
-            <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-white/3 border border-white/5">
-              <div className="w-12 h-8 rounded-lg overflow-hidden bg-white/5 border border-white/10 shrink-0 relative">
+            <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-background border border-border">
+              <div className="w-12 h-8 rounded-lg overflow-hidden bg-surface border border-border shrink-0 relative">
                 {thumb ? (
                   <img src={item.customThumbnail ? `file://${item.customThumbnail}` : thumb} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -216,8 +216,8 @@ function Section({ icon, label, color, items, gbData }) {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-white truncate">{item.name || item.baseName || item.originalFolderName}</p>
-                <p className="text-[9px] text-(--text-muted) uppercase tracking-wider font-medium">{item.character || "Misc"}</p>
+                <p className="text-[11px] font-bold text-text-primary truncate">{item.name || item.baseName || item.originalFolderName}</p>
+                <p className="text-[9px] text-text-muted uppercase tracking-wider font-medium">{item.character || "Misc"}</p>
               </div>
             </div>
           );

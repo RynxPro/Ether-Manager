@@ -35,13 +35,13 @@ const BrowseModCard = React.memo(function BrowseModCard({
       }}
       transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
-        "rounded-3xl overflow-hidden group relative flex flex-col shadow-2xl transition-all duration-300",
-        "bg-(--bg-card) border border-white/5 cursor-pointer",
-        isInstalled && "border-(--active-accent)/20"
+        "rounded-2xl overflow-hidden group relative flex flex-col shadow-card hover:shadow-surface transition-all duration-300",
+        "bg-surface border border-border cursor-pointer",
+        isInstalled && "border-primary/20"
       )}
     >
       {/* Thumbnail */}
-      <div className="relative h-44 w-full bg-card overflow-hidden shrink-0">
+      <div className="relative h-44 w-full bg-surface overflow-hidden shrink-0">
         {mod.thumbnailUrl ? (
           <>
             {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
@@ -59,7 +59,7 @@ const BrowseModCard = React.memo(function BrowseModCard({
             />
           </>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--bg-input) to-(--bg-card)">
+          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-background to-surface">
             <span className="text-6xl font-black text-white/5 select-none uppercase">
               {mod._sName?.[0] || "?"}
             </span>
@@ -67,7 +67,7 @@ const BrowseModCard = React.memo(function BrowseModCard({
         )}
 
         {/* Overlays */}
-        <div className="absolute inset-0 bg-linear-to-t from-(--bg-card) to-transparent opacity-60" />
+        <div className="absolute inset-0 bg-linear-to-t from-surface to-transparent opacity-60" />
 
         {/* Bookmark Action */}
         <button
@@ -76,29 +76,29 @@ const BrowseModCard = React.memo(function BrowseModCard({
             onToggleBookmark?.(mod);
           }}
           className={cn(
-            "absolute top-4 left-4 z-20 p-2 rounded-2xl backdrop-blur-md transition-all shadow-2xl border group/bookmark",
+            "absolute top-4 left-4 z-20 p-2 rounded-xl backdrop-blur-md transition-all shadow-surface border group/bookmark",
             isBookmarked
-              ? "bg-(--active-accent)/20 border-(--active-accent)/50 text-(--active-accent) hover:bg-(--active-accent)/30"
-              : "bg-black/40 border-white/10 text-white/50 hover:bg-black/70 hover:text-white hover:border-white/30"
+              ? "bg-primary/20 border-primary/50 text-primary hover:bg-primary/30"
+              : "bg-surface border-border text-text-muted hover:bg-surface/80 hover:text-text-primary hover:border-white/30"
           )}
           title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
         >
           <Bookmark size={18} strokeWidth={isBookmarked ? 3 : 2} className={cn(
             "transition-all duration-300",
-            isBookmarked ? "fill-(--active-accent)" : "group-hover/bookmark:scale-110"
+            isBookmarked ? "fill-primary" : "group-hover/bookmark:scale-110"
           )} />
         </button>
 
         {/* High-Tech Badges */}
         <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
           {isInstalled && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-(--active-accent) text-black text-[10px] font-black shadow-lg shadow-(--active-accent)/20 uppercase tracking-widest transition-transform group-hover:scale-110">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary text-black text-[10px] font-black shadow-lg shadow-primary/20 uppercase tracking-widest transition-transform group-hover:scale-110">
               <Check size={12} strokeWidth={4} />
               Installed
             </div>
           )}
           {isInstalled && hasUpdate && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-(--color-update)/10 text-(--color-update) border border-(--color-update)/20 text-[10px] font-black shadow-[0_0_15px_rgba(250,204,21,0.1)] uppercase tracking-widest backdrop-blur-md">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-update/10 text-update border border-update/20 text-[10px] font-black shadow-[0_0_15px_rgba(250,204,21,0.1)] uppercase tracking-widest backdrop-blur-md">
               Update Available
             </div>
           )}
@@ -106,14 +106,14 @@ const BrowseModCard = React.memo(function BrowseModCard({
       </div>
 
       {/* Info Area */}
-      <div className="flex flex-col flex-1 p-5 bg-(--bg-card) min-h-36 relative z-10">
+      <div className="flex flex-col flex-1 p-5 bg-surface min-h-36 relative z-10">
         <div className="flex items-center gap-2 mb-2 opacity-30 group-hover:opacity-100 transition-opacity">
-           <div className="w-1 h-3 bg-(--active-accent) rounded-full shadow-[0_0_5px_var(--active-accent)]" />
-           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white">MOD LISTING</span>
+           <div className="w-1 h-3 bg-primary rounded-full shadow-[0_0_5px_var(--color-primary)]" />
+           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">MOD LISTING</span>
         </div>
 
         <h3
-          className="text-base font-black text-white line-clamp-2 leading-tight mb-1 min-h-12 transition-colors group-hover:text-(--active-accent) tracking-tight"
+          className="text-base font-bold text-text-primary line-clamp-2 leading-tight mb-1 min-h-12 transition-colors group-hover:text-primary tracking-tight"
           title={mod._sName}
         >
           {mod._sName}
@@ -129,23 +129,23 @@ const BrowseModCard = React.memo(function BrowseModCard({
               className="flex items-center gap-2 text-left group/creator hover:bg-white/5 p-1 -ml-1 rounded-lg transition-colors w-fit pr-3"
               title={`View profile for ${mod._aSubmitter._sName}`}
             >
-              <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10 border border-white/5 shrink-0 flex items-center justify-center shadow-[0_0_10px_rgba(255,255,255,0.05)]">
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-background border border-border shrink-0 flex items-center justify-center shadow-surface">
                 {mod._aSubmitter._sAvatarUrl ? (
                   <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-full h-full object-cover" />
                 ) : (
-                  <User size={10} className="text-white/30" />
+                  <User size={10} className="text-text-secondary" />
                 )}
               </div>
-              <span className="text-[9px] uppercase font-black tracking-[0.2em] text-white/40 truncate group-hover/creator:text-(--active-accent) transition-colors">
+              <span className="text-[9px] uppercase font-black tracking-[0.2em] text-text-secondary truncate group-hover/creator:text-primary transition-colors">
                 by {mod._aSubmitter._sName}
               </span>
             </button>
           ) : (
             <div className="flex items-center gap-2 p-1 -ml-1 h-7">
-              <div className="w-5 h-5 rounded-full overflow-hidden bg-white/5 border border-white/5 shrink-0 flex items-center justify-center">
-                <User size={10} className="text-white/20" />
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-background border border-border shrink-0 flex items-center justify-center">
+                <User size={10} className="text-text-muted" />
               </div>
-              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/20 truncate">
+              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-text-muted truncate">
                 by unknown
               </p>
             </div>
@@ -153,19 +153,19 @@ const BrowseModCard = React.memo(function BrowseModCard({
         </div>
 
         {/* Stats row */}
-        <div className="flex items-center gap-4 text-white/20 mb-5 mt-auto border-t border-white/5 pt-4">
+        <div className="flex items-center gap-4 text-text-secondary mb-5 mt-auto border-t border-border pt-4">
           <div className="flex items-center gap-1.5 group/stat">
-            <Heart size={12} className="text-white/30 group-hover/stat:text-(--active-accent) transition-colors" />
-            <span className="text-[10px] font-black text-white/40 tracking-tighter group-hover:text-white transition-colors">{formatCount(mod._nLikeCount)}</span>
+            <Heart size={12} className="text-text-secondary group-hover/stat:text-primary transition-colors" />
+            <span className="text-[10px] font-black text-text-muted tracking-tighter group-hover:text-text-primary transition-colors">{formatCount(mod._nLikeCount)}</span>
           </div>
           <div className="flex items-center gap-1.5 group/stat">
-            <Eye size={12} className="text-white/30 group-hover/stat:text-(--active-accent) transition-colors" />
-            <span className="text-[10px] font-black text-white/40 tracking-tighter group-hover:text-white transition-colors">{formatCount(mod._nViewCount)}</span>
+            <Eye size={12} className="text-text-secondary group-hover/stat:text-primary transition-colors" />
+            <span className="text-[10px] font-black text-text-muted tracking-tighter group-hover:text-text-primary transition-colors">{formatCount(mod._nViewCount)}</span>
           </div>
           {mod._nDownloadCount != null && (
             <div className="flex items-center gap-1.5 group/stat">
-              <Download size={12} className="text-white/30 group-hover/stat:text-(--active-accent) transition-colors" />
-              <span className="text-[10px] font-black text-white/40 tracking-tighter group-hover:text-white transition-colors">{formatCount(mod._nDownloadCount)}</span>
+              <Download size={12} className="text-text-secondary group-hover/stat:text-primary transition-colors" />
+              <span className="text-[10px] font-black text-text-muted tracking-tighter group-hover:text-text-primary transition-colors">{formatCount(mod._nDownloadCount)}</span>
             </div>
           )}
         </div>
@@ -178,10 +178,10 @@ const BrowseModCard = React.memo(function BrowseModCard({
           }}
           disabled={isInstalled}
           className={cn(
-            "w-full flex items-center justify-center gap-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group/btn",
+            "w-full flex items-center justify-center gap-3 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group/btn",
             isInstalled
-              ? "bg-white/5 text-white/10 cursor-not-allowed border border-white/5"
-              : "bg-(--active-accent) text-black hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-(--active-accent)/20"
+              ? "bg-background text-text-muted cursor-not-allowed border border-border"
+              : "bg-primary text-black hover:scale-[1.02] active:scale-[0.98] shadow-surface shadow-primary/20"
           )}
         >
           {isInstalled ? (
@@ -197,10 +197,10 @@ const BrowseModCard = React.memo(function BrowseModCard({
       </div>
       
       {/* External Bloom Ring */}
-      <div className="absolute inset-0 rounded-3xl border border-white/0 group-hover:border-(--active-accent)/20 transition-all pointer-events-none z-20" />
+      <div className="absolute inset-0 rounded-2xl border border-white/0 group-hover:border-primary/20 transition-all pointer-events-none z-20" />
       
       {/* Optimized Shadow Layer (animating opacity instead of box-shadow is virtually free for the GPU) */}
-      <div className="absolute inset-0 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--active-accent),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
+      <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </motion.div>
   );
 });

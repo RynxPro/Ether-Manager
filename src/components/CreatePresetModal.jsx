@@ -187,18 +187,18 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-2xl bg-(--bg-base) border border-white/10 rounded-3xl overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.7)] flex flex-col max-h-[88vh]"
+        className="w-full max-w-2xl bg-surface border border-border rounded-3xl overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.7)] flex flex-col max-h-[88vh]"
       >
         {/* Header */}
-        <div className="px-8 pt-8 pb-5 border-b border-white/5 flex items-center justify-between gap-4 shrink-0">
+        <div className="px-8 pt-8 pb-5 border-b border-border flex items-center justify-between gap-4 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Palette size={14} className="text-(--active-accent)" />
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-(--text-muted)">
+              <Palette size={14} className="text-primary" />
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-text-muted">
                 New Loadout — Step {step} of 3
               </span>
             </div>
-            <h2 className="text-xl font-black text-white tracking-tight">
+            <h2 className="text-xl font-bold text-text-primary tracking-tight">
               {step === 1 ? "Style Your Preset" : step === 2 ? "Pick Mods" : "Review & Save"}
             </h2>
           </div>
@@ -210,7 +210,7 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
                   key={s}
                   className={cn(
                     "h-1.5 rounded-full transition-all duration-300",
-                    s === step ? "w-6 bg-(--active-accent)" : s < step ? "w-3 bg-(--active-accent)/40" : "w-3 bg-white/10"
+                    s === step ? "w-6 bg-primary" : s < step ? "w-3 bg-primary/40" : "w-3 bg-white/10"
                   )}
                 />
               ))}
@@ -236,49 +236,49 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
                 <button
                   onClick={handleSnapshot}
                   disabled={loadingMods}
-                  className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-(--active-accent)/30 bg-(--active-accent)/5 hover:bg-(--active-accent)/10 transition-all text-left group"
+                  className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all text-left group"
                 >
                   {loadingMods ? (
-                    <Loader2 size={20} className="text-(--active-accent) animate-spin shrink-0" />
+                    <Loader2 size={20} className="text-primary animate-spin shrink-0" />
                   ) : (
-                    <Camera size={20} className="text-(--active-accent) shrink-0" />
+                    <Camera size={20} className="text-primary shrink-0" />
                   )}
                   <div>
-                    <p className="text-sm font-black text-(--active-accent) uppercase tracking-wide">
+                    <p className="text-sm font-bold text-primary uppercase tracking-wide">
                       Snapshot Current Loadout
                     </p>
-                    <p className="text-xs text-(--text-muted) mt-0.5">
+                    <p className="text-xs text-text-muted mt-0.5 font-medium">
                       Auto-select all currently active mods and skip to review
                     </p>
                   </div>
-                  <ChevronRight size={16} className="ml-auto text-(--active-accent)/50 group-hover:text-(--active-accent) transition-colors" />
+                  <ChevronRight size={16} className="ml-auto text-primary/50 group-hover:text-primary transition-colors" />
                 </button>
 
                 <div className="w-full h-px bg-white/5 flex items-center justify-center">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white/20 bg-(--bg-base) px-3">or build manually</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-text-muted bg-surface px-3">or build manually</span>
                 </div>
 
                 {/* Name */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-(--text-muted)">Preset Name *</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Preset Name *</label>
                   <input
                     type="text"
                     value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder="e.g. Tournament Mode"
-                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 placeholder:text-white/20 transition-all"
+                    className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm font-medium text-text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 placeholder:text-text-muted transition-all"
                   />
                 </div>
 
                 {/* Description */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-(--text-muted)">Description</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Description</label>
                   <textarea
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                     placeholder="What is this preset for?"
                     rows={2}
-                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 placeholder:text-white/20 transition-all resize-none"
+                    className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm font-medium text-text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 placeholder:text-text-muted transition-all resize-none"
                   />
                 </div>
 
@@ -312,18 +312,18 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
                 className="flex flex-col"
               >
                 {/* Search + counter */}
-                <div className="px-8 py-4 border-b border-white/5 sticky top-0 bg-(--bg-base) z-10 flex items-center gap-3">
+                <div className="px-8 py-4 border-b border-border sticky top-0 bg-surface z-10 flex items-center gap-3">
                   <div className="relative flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted)" />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                     <input
                       type="text"
                       value={search}
                       onChange={e => setSearch(e.target.value)}
                       placeholder="Search mods..."
-                      className="w-full pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-(--active-accent)/50 placeholder:text-white/20 transition-all font-medium"
+                      className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-muted transition-all font-medium"
                     />
                   </div>
-                  <span className="text-xs font-black text-(--active-accent) whitespace-nowrap">
+                  <span className="text-xs font-black text-primary whitespace-nowrap">
                     {selectedModIds.size} selected
                   </span>
                 </div>
@@ -350,12 +350,12 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
                                   className={cn(
                                     "flex items-center gap-4 px-4 py-3 rounded-2xl border transition-all text-left group/row",
                                     isSelected
-                                      ? "bg-(--active-accent)/10 border-(--active-accent)/30"
-                                      : "bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10"
+                                      ? "bg-primary/10 border-primary/30"
+                                      : "bg-background border-border hover:bg-white/5 hover:border-white/20"
                                   )}
                                 >
                                   {/* Thumbnail */}
-                                  <div className="w-24 h-14 rounded-xl overflow-hidden bg-white/5 border border-white/10 shrink-0 relative">
+                                  <div className="w-24 h-14 rounded-xl overflow-hidden bg-background border border-border shrink-0 relative">
                                     {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
                                       <img 
                                         src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
@@ -374,12 +374,12 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
                                     )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white truncate group-hover/row:text-(--active-accent) transition-colors">{mod.name}</p>
-                                    <p className="text-[10px] text-(--text-muted) font-medium uppercase tracking-wider">{mod.character}</p>
+                                    <p className="text-sm font-bold text-text-primary truncate group-hover/row:text-primary transition-colors">{mod.name}</p>
+                                    <p className="text-[10px] text-text-muted font-medium uppercase tracking-wider">{mod.character}</p>
                                   </div>
                                   <div className={cn(
                                     "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-                                    isSelected ? "bg-(--active-accent) border-(--active-accent) shadow-[0_0_10px_var(--active-accent)]/40" : "border-white/20 group-hover/row:border-white/40"
+                                    isSelected ? "bg-primary border-primary shadow-[0_0_10px_var(--color-primary)]/40" : "border-white/20 group-hover/row:border-white/40"
                                   )}>
                                     {isSelected && <Check size={12} strokeWidth={4} className="text-black" />}
                                   </div>
@@ -410,9 +410,9 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
                   <div className="absolute top-0 left-0 w-1 h-full rounded-l-3xl" style={{ backgroundColor: color }} />
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 12px ${color}80` }} />
-                    <h3 className="text-2xl font-black text-white tracking-tight">{name || "Untitled Preset"}</h3>
+                    <h3 className="text-2xl font-bold text-text-primary tracking-tight">{name || "Untitled Preset"}</h3>
                   </div>
-                  {description && <p className="text-(--text-muted) text-sm mb-4">{description}</p>}
+                  {description && <p className="text-text-muted text-sm mb-4">{description}</p>}
                   <div className="flex items-center gap-4">
                     <span className="text-xs font-black text-white/60 uppercase tracking-wider">
                       {selectedMods.length} mod{selectedMods.length !== 1 ? "s" : ""}
@@ -444,10 +444,10 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
         </div>
 
         {/* Footer */}
-        <div className="px-8 pb-8 pt-4 flex items-center justify-between gap-3 border-t border-white/5 shrink-0">
+        <div className="px-8 pb-8 pt-4 flex items-center justify-between gap-3 border-t border-border shrink-0">
           <button
             onClick={() => step > 1 ? setStep(s => s - 1) : onClose()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-white/50 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-text-muted hover:text-text-primary hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
           >
             <ChevronLeft size={14} />
             {step === 1 ? "Cancel" : "Back"}

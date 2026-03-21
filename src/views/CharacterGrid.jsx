@@ -5,6 +5,7 @@ import ModDetail from "./ModDetail";
 import { getAllCharacterNames, GLOBAL_CATEGORIES, isGlobalCategory } from "../lib/portraits";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
+import { Input } from "../components/ui/Input";
 
 const TABS = [
   { id: "characters", label: "Characters", icon: User },
@@ -214,18 +215,18 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "group relative pb-2 flex items-center gap-2 transition-all",
-                    isActive ? "text-(--active-accent)" : "text-(--text-muted) hover:text-white"
+                    isActive ? "text-primary" : "text-text-muted hover:text-text-primary"
                   )}
                 >
                   <Icon size={16} />
                   <span className="text-sm font-bold uppercase tracking-widest">{tab.label}</span>
                   {hasUpdate && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-(--color-update) shadow-[0_0_8px_var(--color-update)]" />
+                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-update shadow-[0_0_8px_var(--color-update)]" />
                   )}
                   {count > 0 && (
                     <span className={cn(
                       "text-[10px] px-1.5 py-0.5 rounded-full font-black",
-                      isActive ? "bg-(--active-accent) text-black" : "bg-white/10 text-(--text-muted) group-hover:bg-white/20"
+                      isActive ? "bg-primary text-black" : "bg-white/10 text-text-muted group-hover:bg-white/20"
                     )}>
                       {count}
                     </span>
@@ -233,7 +234,7 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
                   {isActive && (
                     <motion.div
                       layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--active-accent)"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
                     />
                   )}
                 </button>
@@ -252,7 +253,7 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
               whileTap={{ scale: 0.95 }}
               onClick={handleDisableAllGame}
               disabled={disablingAll}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-(--text-muted) hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-surface hover:bg-white/5 border border-border text-text-muted hover:text-text-primary rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
             >
               {disablingAll ? (
@@ -269,13 +270,11 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
 
           {/* Search Bar */}
           <div className="relative w-full sm:w-64 xl:w-72">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-(--text-muted)" size={16} />
-            <input
-              type="text"
+            <Input
+              icon={Search}
               placeholder={activeTab === "characters" ? "Search characters..." : "Search mods..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-(--text-muted)"
             />
           </div>
         </div>
@@ -292,9 +291,9 @@ export default function CharacterGrid({ game, isActive, onSelectCharacter }) {
         >
           {activeTab === "characters" ? (
             displayItems.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-white/5 border border-white/5 rounded-3xl border-dashed">
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-surface/50 border-2 border-border rounded-2xl border-dashed">
                 <h3 className="text-xl font-medium text-white mb-2">No {activeTab} mods found</h3>
-                <p className="text-(--text-muted) max-w-sm">
+                <p className="text-text-secondary max-w-sm">
                   {searchQuery 
                     ? `No results matching "${searchQuery}" in this category.`
                     : `You haven't installed any ${activeTab} mods yet.`}

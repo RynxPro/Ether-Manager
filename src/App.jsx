@@ -29,7 +29,7 @@ function App() {
   // Update accent color variable when game changes
   useEffect(() => {
     document.documentElement.style.setProperty(
-      "--active-accent",
+      "--color-primary",
       GAME_CONFIG[activeGame].accentColor,
     );
   }, [activeGame]);
@@ -53,12 +53,12 @@ function App() {
   const game = GAME_CONFIG[activeGame];
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-(--bg-base) relative overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-background text-text-primary relative overflow-hidden">
       {/* Background radial gradient corresponding to game color */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          background: `radial-gradient(circle at 50% -20%, var(--active-accent) 0%, transparent 60%)`,
+          background: `radial-gradient(circle at 50% -20%, var(--color-primary) 0%, transparent 60%)`,
           opacity: 0.1
         }}
       />

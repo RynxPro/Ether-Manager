@@ -69,13 +69,13 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className="relative w-full max-w-md bg-(--bg-overlay) border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-(--active-accent)/10"
+          className="relative w-full max-w-md bg-surface border border-border rounded-2xl overflow-hidden shadow-2xl shadow-primary/10"
         >
           {/* Thumbnail header */}
           {mod.thumbnailUrl && (
-            <div className="relative h-48 bg-(--bg-base)">
+            <div className="relative h-48 bg-background">
               <img src={mod._sScreenshot} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-linear-to-t from-(--bg-overlay) to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-surface to-transparent" />
             </div>
           )}
 
@@ -88,40 +88,40 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
               <X size={16} />
             </button>
 
-            <h2 className="text-xl font-bold text-white mb-1 pr-8">{mod._sName}</h2>
-            <p className="text-sm text-(--text-muted) mb-5">
+            <h2 className="text-xl font-bold text-text-primary mb-1 pr-8">{mod._sName}</h2>
+            <p className="text-sm text-text-muted mb-5">
               by {mod._aSubmitter?._sName || "Unknown"}
               {fileEntry && (
-                <span className="ml-2 text-(--text-muted) text-xs">
+                <span className="ml-2 text-text-muted text-xs">
                   · {(fileEntry._nFilesize / 1024 / 1024).toFixed(1)} MB
                 </span>
               )}
             </p>
 
             {/* Character select */}
-            <label className="block text-sm font-medium text-(--text-body) mb-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
               Install for character
             </label>
             <div className="relative mb-6">
               <select
                 value={selectedCharacter}
                 onChange={(e) => setSelectedCharacter(e.target.value)}
-                className="flex-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-(--active-accent) transition-colors"
+                className="flex-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-colors"
               >
                 <option value="" disabled>Select a character...</option>
                 {characters.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-muted) pointer-events-none" />
+              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
             </div>
 
             {error && (
-              <p className="text-(--color-danger) text-sm mb-4">{error}</p>
+              <p className="text-red-500 text-sm mb-4">{error}</p>
             )}
 
             {isInstallComplete && (
-              <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-(--active-accent)/10 border border-(--active-accent)/20 text-(--active-accent) shadow-[0_0_20px_var(--active-accent)]/10">
+              <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-primary/10 border border-primary/20 text-primary shadow-[0_0_20px_var(--color-primary)]/10">
                 <CheckCircle size={28} className="mb-2" />
                 <p className="font-semibold text-sm">Download Complete!</p>
                 <p className="text-xs opacity-80 mt-1 text-center">Mod installed successfully.</p>
@@ -132,7 +132,7 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
               {isInstallComplete ? (
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-all"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 text-text-primary font-semibold text-sm hover:bg-white/20 transition-all"
                 >
                   Close
                 </button>
@@ -140,14 +140,14 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
                 <>
                   <button
                     onClick={onClose}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-(--text-muted) hover:text-white hover:border-white/20 transition-all text-sm font-medium"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary hover:border-white/20 transition-all text-sm font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleInstall}
                     disabled={isInstalling || !selectedCharacter}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-(--active-accent) text-black font-bold hover:brightness-110 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-black font-bold hover:brightness-110 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
                   >
                     {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
                        <div 

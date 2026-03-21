@@ -278,7 +278,7 @@ export default function BrowseView({ game }) {
       
       {/* Header Title */}
       <div className="mb-6 w-full px-2">
-        <h1 className="text-4xl md:text-[2.75rem] font-black text-white mb-2 tracking-tighter drop-shadow-xl">
+        <h1 className="text-4xl md:text-[2.75rem] font-bold text-text-primary mb-2 tracking-tighter drop-shadow-xl">
           {activeTab === "all" 
             ? "All Mods" 
             : activeTab === "characters" 
@@ -289,7 +289,7 @@ export default function BrowseView({ game }) {
                   ? "Saved Mods"
                   : "Miscellaneous Mods"}
         </h1>
-        <p className="text-(--text-muted) font-medium">
+        <p className="text-text-secondary font-medium">
           {loading
             ? "Loading..."
             : activeTab === "saved"
@@ -304,10 +304,10 @@ export default function BrowseView({ game }) {
       {activeTab === "all" && !debouncedSearchQuery && loadingFeatured && (
         <div className="mb-4 w-full">
           <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
-            <Rocket className="text-(--text-muted)" size={20} />
+            <Rocket className="text-text-muted" size={20} />
             <div className="w-32 h-6 bg-white/10 rounded-xl animate-pulse" />
           </div>
-          <div className="w-full h-[400px] rounded-[2.5rem] bg-[rgba(255,255,255,0.02)] border border-white/5 overflow-hidden relative group">
+          <div className="w-full h-[400px] rounded-2xl bg-surface border border-border overflow-hidden relative group">
              {/* Simple structural hints */}
              <div className="absolute left-12 top-1/2 -translate-y-1/2 flex flex-col gap-4">
                <div className="w-24 h-5 bg-white/5 rounded-full animate-pulse" />
@@ -336,11 +336,11 @@ export default function BrowseView({ game }) {
         return (
           <div className="mb-4 w-full">
             <div className="flex items-center gap-2 mb-4 px-2">
-              <Rocket className="text-(--active-accent)" size={20} />
-              <h2 className="text-xl font-black text-white uppercase tracking-widest">Hall of Fame</h2>
+              <Rocket className="text-primary" size={20} />
+              <h2 className="text-xl font-bold text-text-primary uppercase tracking-widest">Hall of Fame</h2>
             </div>
             
-            <div className="relative w-full h-[400px] rounded-[2.5rem] bg-card border border-border shadow-2xl overflow-hidden flex group">
+            <div className="relative w-full h-[400px] rounded-2xl bg-surface border border-border shadow-surface overflow-hidden flex group">
               {/* High-Tech Grid Pattern */}
               <div 
                 className="absolute inset-0 opacity-[0.03] pointer-events-none" 
@@ -348,7 +348,7 @@ export default function BrowseView({ game }) {
               />
               
               {/* Epic Ambient Glow */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-(--active-accent) rounded-full blur-[150px] opacity-10 pointer-events-none transition-colors duration-1000" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary rounded-full blur-[150px] opacity-10 pointer-events-none transition-colors duration-1000" />
 
               <AnimatePresence initial={false}>
                 <motion.div 
@@ -361,13 +361,13 @@ export default function BrowseView({ game }) {
                 >
                   {/* LEFT: Editorial Content */}
                   <div className="w-[55%] h-full p-12 flex flex-col relative z-20">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-(--active-accent)/10 text-(--active-accent) border border-(--active-accent)/20 text-[10px] font-black uppercase tracking-widest mb-6 w-max shadow-lg">
-                      <span className="w-1.5 h-1.5 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_10px_var(--active-accent)]" />
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest mb-6 w-max shadow-lg">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_10px_var(--color-primary)]" />
                       {tf.label}
                     </div>
                     
                     <div className="flex-1 flex flex-col justify-center">
-                      <h2 className="text-5xl md:text-[3.5rem] font-black text-white tracking-tighter drop-shadow-2xl leading-[1.05] line-clamp-3">
+                      <h2 className="text-3xl md:text-[3.5rem] font-bold text-text-primary tracking-tighter drop-shadow-2xl leading-[1.05] line-clamp-3">
                         {mod._sName}
                       </h2>
                     </div>
@@ -375,16 +375,16 @@ export default function BrowseView({ game }) {
                     <div className="flex items-center gap-3 flex-wrap mt-6">
                       <button 
                         onClick={() => handleCreatorClick(mod._aSubmitter)}
-                        className="flex items-center gap-4 text-white text-base font-black bg-white/5 border border-white/10 hover:bg-white/10 hover:border-(--active-accent)/30 transition-all px-6 py-3.5 rounded-3xl group/creator"
+                        className="flex items-center gap-4 text-text-primary text-sm font-bold bg-surface border border-border hover:bg-white/5 hover:border-white/20 transition-all px-6 py-3.5 rounded-xl group/creator shadow-card"
                       >
                         {mod._aSubmitter?._sAvatarUrl ? (
-                          <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-10 h-10 rounded-full object-cover shadow-xl border-2 border-white/10 group-hover/creator:border-(--active-accent)/50 transition-all" />
+                          <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-10 h-10 rounded-full object-cover shadow-xl border-2 border-border group-hover/creator:border-primary/50 transition-all" />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border-2 border-white/10 group-hover/creator:border-(--active-accent)/50 transition-all">
-                            <User size={24} className="text-(--active-accent)" />
+                          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border-2 border-border group-hover/creator:border-primary/50 transition-all">
+                            <User size={24} className="text-primary" />
                           </div>
                         )}
-                        <span className="tracking-tight group-hover/creator:text-(--active-accent) transition-colors">
+                        <span className="tracking-tight group-hover/creator:text-primary transition-colors">
                           {mod._aSubmitter?._sName}
                         </span>
                       </button>
@@ -394,7 +394,7 @@ export default function BrowseView({ game }) {
                   {/* RIGHT: Image Showcase Card */}
                   <div className="w-[45%] relative z-20 flex items-center justify-center pr-12 pl-4">
                     <div 
-                      className="relative w-full aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] cursor-pointer group/card"
+                      className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] cursor-pointer group/card"
                       onClick={() => {
                         window.electronMods.fetchGbMod(mod._idRow).then(res => {
                           if (res.success) setInstallTarget(res.data);
@@ -419,7 +419,7 @@ export default function BrowseView({ game }) {
                       
                       {/* Hover Overlay */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-full bg-(--active-accent) flex items-center justify-center text-black shadow-[0_0_30px_var(--active-accent)] scale-90 group-hover/card:scale-100 transition-transform duration-300 ease-out">
+                        <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-black shadow-primary/20 scale-90 group-hover/card:scale-100 transition-transform duration-300 ease-out">
                           <Download size={24} strokeWidth={3} className="ml-0.5" />
                         </div>
                       </div>
@@ -429,25 +429,25 @@ export default function BrowseView({ game }) {
               </AnimatePresence>
 
               {/* Bottom Right Pill Navigator */}
-              <div className="absolute bottom-6 right-12 z-30 flex items-center gap-5 bg-black/60 backdrop-blur-xl border border-white/10 px-5 py-2.5 rounded-full shadow-2xl">
+              <div className="absolute bottom-6 right-12 z-30 flex items-center gap-5 bg-surface backdrop-blur-xl border border-border px-5 py-2.5 rounded-full shadow-surface">
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     setCurrentHeroIndex((prev) => (prev > 0 ? prev - 1 : featuredMods.length - 1));
                   }}
-                  className="text-(--text-muted) hover:text-white hover:-translate-x-0.5 transition-all outline-none"
+                  className="text-text-muted hover:text-text-primary hover:-translate-x-0.5 transition-all outline-none"
                 >
                   <ChevronLeft size={20} strokeWidth={3} />
                 </button>
-                <div className="text-[11px] font-black text-(--text-muted) tracking-[0.2em] uppercase select-none">
-                  <span className="text-white mx-1">{currentHeroIndex + 1}</span> / <span className="mx-1">{featuredMods.length}</span>
+                <div className="text-[11px] font-black text-text-muted tracking-[0.2em] uppercase select-none">
+                  <span className="text-text-primary mx-1">{currentHeroIndex + 1}</span> / <span className="mx-1">{featuredMods.length}</span>
                 </div>
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     setCurrentHeroIndex((prev) => (prev < featuredMods.length - 1 ? prev + 1 : 0));
                   }}
-                  className="text-(--text-muted) hover:text-white hover:translate-x-0.5 transition-all outline-none"
+                  className="text-text-muted hover:text-text-primary hover:translate-x-0.5 transition-all outline-none"
                 >
                   <ChevronRight size={20} strokeWidth={3} />
                 </button>
@@ -470,15 +470,15 @@ export default function BrowseView({ game }) {
                 onClick={() => { setActiveTab(tab.id); setPage(1); }}
                 className={cn(
                   "group relative pb-4 flex items-center gap-2 transition-all",
-                  isActive ? "text-(--active-accent)" : "text-(--text-muted) hover:text-white"
+                  isActive ? "text-primary" : "text-text-muted hover:text-text-primary"
                 )}
               >
-                <Icon size={16} className={cn(isActive && "drop-shadow-[0_0_8px_var(--active-accent)]")} />
+                <Icon size={16} className={cn(isActive && "drop-shadow-[0_0_8px_var(--color-primary)]")} />
                 <span className="text-[13px] font-black uppercase tracking-[0.15em]">{tab.label}</span>
                 {isActive && (
                   <motion.div
                     layoutId="browseTab"
-                    className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-(--active-accent) shadow-[0_-2px_10px_var(--active-accent)]"
+                    className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-primary shadow-[0_-2px_10px_var(--color-primary)]"
                   />
                 )}
               </button>
@@ -534,9 +534,9 @@ export default function BrowseView({ game }) {
       <div className="min-h-[60vh] relative w-full flex flex-col">
         {/* Error state */}
         {error && !loading && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-12 bg-white/5 border border-white/5 rounded-2xl border-dashed">
-          <p className="text-white font-medium">Could not load mods</p>
-          <p className="text-(--text-muted) text-sm max-w-sm">{error}</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-12 bg-surface/50 border border-border rounded-2xl border-dashed">
+          <p className="text-text-primary font-medium">Could not load mods</p>
+          <p className="text-text-secondary text-sm max-w-sm">{error}</p>
           <Button onClick={fetchMods} size="sm" className="mt-2">
             Retry
           </Button>
@@ -547,7 +547,7 @@ export default function BrowseView({ game }) {
       {loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {Array.from({ length: PER_PAGE }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-white/5 border border-white/5 h-56 animate-pulse" />
+            <div key={i} className="rounded-2xl bg-surface border border-border h-56 animate-pulse" />
           ))}
         </div>
       )}
@@ -558,30 +558,30 @@ export default function BrowseView({ game }) {
           {/* Saved Creators Section */}
           {activeTab === "saved" && bookmarkedCreators.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <Bookmark className="text-(--active-accent)" size={20} /> Saved Creators
+              <h3 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+                <Bookmark className="text-primary" size={20} /> Saved Creators
               </h3>
               <div className="flex gap-4 overflow-x-auto scroller-hidden pb-4">
                 {bookmarkedCreators.map((creator) => (
                   <button
                     key={creator._idRow}
                     onClick={() => handleCreatorClick(creator)}
-                    className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all min-w-[120px] group/savedcreator shrink-0"
+                    className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-surface border border-border hover:bg-surface/80 transition-all min-w-[120px] group/savedcreator shrink-0 shadow-card"
                   >
-                    <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.05)] group-hover/savedcreator:shadow-[0_0_20px_var(--active-accent)]/20 transition-all">
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-background border border-border flex items-center justify-center shadow-surface group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20 transition-all">
                       {creator._sAvatarUrl ? (
                         <img src={creator._sAvatarUrl} alt={creator._sName} className="w-full h-full object-cover" />
                       ) : (
-                        <User size={24} className="text-white/30 group-hover/savedcreator:text-white/50 transition-colors" />
+                        <User size={24} className="text-text-muted group-hover/savedcreator:text-text-secondary transition-colors" />
                       )}
                     </div>
-                    <span className="text-sm font-bold text-white text-center w-full truncate group-hover/savedcreator:text-(--active-accent) transition-colors">
+                    <span className="text-sm font-bold text-text-primary text-center w-full truncate group-hover/savedcreator:text-primary transition-colors">
                       {creator._sName}
                     </span>
                   </button>
                 ))}
               </div>
-              <div className="w-full h-px bg-white/10 my-6" />
+              <div className="w-full h-px bg-border my-6" />
             </div>
           )}
 
@@ -634,9 +634,9 @@ export default function BrowseView({ game }) {
                 icon={ChevronLeft}
                 className="w-10 h-10 p-0"
               />
-              <span className="text-sm text-gray-400">
-                Page <span className="text-white font-medium">{page}</span> of{" "}
-                <span className="text-white font-medium">{totalPages}</span>
+              <span className="text-sm text-text-muted">
+                Page <span className="text-text-primary font-medium">{page}</span> of{" "}
+                <span className="text-text-primary font-medium">{totalPages}</span>
               </span>
               <Button
                 variant="secondary"

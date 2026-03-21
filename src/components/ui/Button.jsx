@@ -3,10 +3,10 @@ import { cn } from '../../lib/utils';
 import { Loader2 } from 'lucide-react';
 
 const variants = {
-  primary: 'bg-primary text-black hover:brightness-110 shadow-[0_0_20px_var(--color-primary)]/20',
-  secondary: 'bg-secondary text-text-primary border border-border hover:bg-neutral hover:border-neutral',
-  ghost: 'bg-transparent text-text-muted hover:text-text-primary hover:bg-neutral',
-  danger: 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40',
+  primary: 'bg-primary text-black hover:brightness-110 shadow-card',
+  secondary: 'bg-surface text-text-primary border border-border hover:bg-white/5',
+  ghost: 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5',
+  danger: 'bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 hover:border-danger/40',
 };
 
 const sizes = {

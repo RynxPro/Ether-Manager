@@ -228,10 +228,10 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
       {!hideHeader && (
         <div className="relative mb-12 group">
           {/* Breadcrumb row - Floats over banner */}
-          <div className="absolute top-0 left-0 z-30 flex items-center gap-2 text-sm text-(--active-accent)/80 drop-shadow-md">
+          <div className="absolute top-0 left-0 z-30 flex items-center gap-2 text-sm text-primary/80 drop-shadow-md">
             <button
               onClick={onBack}
-              className="flex items-center hover:text-(--active-accent) transition-colors focus:outline-none"
+              className="flex items-center hover:text-primary transition-colors focus:outline-none"
             >
               <ArrowLeft size={16} className="mr-1" />
               {game.name}
@@ -258,7 +258,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
             <div 
               className="absolute inset-0 transition-opacity duration-1000 z-0 opacity-20"
               style={{
-                background: `radial-gradient(circle at 20% 50%, var(--active-accent) 0%, transparent 60%), 
+                background: `radial-gradient(circle at 20% 50%, var(--color-primary) 0%, transparent 60%), 
                              linear-gradient(to right, rgba(0,0,0,0.8) 0%, transparent 100%)`
               }}
             />
@@ -301,7 +301,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                 className="flex flex-col justify-end h-full md:h-auto"
               >
                 <div className="flex items-center gap-3 mb-3">
-                   <div className="w-1.5 h-6 bg-(--active-accent) rounded-full shadow-[0_0_12px_var(--active-accent)]" />
+                   <div className="w-1.5 h-6 bg-primary rounded-full shadow-[0_0_12px_var(--color-primary)]" />
                    <span className="text-xs font-black uppercase tracking-[0.3em] text-white/50">{game.name}</span>
                 </div>
                 <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-8 drop-shadow-2xl">
@@ -315,7 +315,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleImport}
-                    className="flex w-max items-center gap-3 px-8 py-3.5 bg-(--active-accent) text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-[0_0_20px_var(--active-accent)]/20 uppercase tracking-widest text-xs border border-transparent hover:border-white/50"
+                    className="flex w-max items-center gap-3 px-8 py-3.5 bg-primary text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-[0_0_20px_var(--color-primary)]/20 uppercase tracking-widest text-xs border border-transparent hover:border-white/50"
                   >
                     <Plus size={18} strokeWidth={3} />
                     Import Mod
@@ -355,7 +355,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
               >
                 {/* Stat Box 1: Total */}
                 <div className="flex flex-col items-end justify-center px-8 py-5 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl">
-                   <span className="text-[10px] font-black tracking-[0.2em] text-(--text-muted) uppercase mb-1">Total Installed</span>
+                   <span className="text-[10px] font-black tracking-[0.2em] text-text-muted uppercase mb-1">Total Installed</span>
                    <div className="flex items-baseline gap-2">
                      <span className="text-5xl font-black text-white leading-none tracking-tighter">{mods.length}</span>
                      <span className="text-sm font-bold text-white/20 uppercase tracking-widest">Mods</span>
@@ -366,7 +366,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                 <div className="flex flex-col gap-2 p-4 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[180px]">
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-(--active-accent) animate-pulse shadow-[0_0_8px_var(--active-accent)]" />
+                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_var(--color-primary)]" />
                       <span className="text-xs font-bold text-white tracking-widest uppercase">Active</span>
                     </div>
                     <span className="text-sm font-black text-white">{enabledCount}</span>
@@ -375,7 +375,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-white/20" />
-                      <span className="text-xs font-bold text-(--text-muted) tracking-widest uppercase">Stashed</span>
+                      <span className="text-xs font-bold text-text-muted tracking-widest uppercase">Stashed</span>
                     </div>
                     <span className="text-sm font-black text-white/60">{disabledCount}</span>
                   </div>
@@ -451,14 +451,14 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
               initial={{ scale: 0.9, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 10 }}
-              className="w-full max-w-sm bg-(--bg-overlay) border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
+              className="w-full max-w-sm bg-surface border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-12 rounded-full bg-(--color-danger)/10 flex items-center justify-center mb-4 text-(--color-danger) shadow-inner shadow-(--color-danger)/20">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500 shadow-inner shadow-red-500/20">
                 <Trash2 size={24} />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Delete Mod?</h3>
-              <p className="text-(--text-body) text-sm mb-6 leading-relaxed">
+              <p className="text-text-secondary text-sm mb-6 leading-relaxed">
                 Are you sure you want to delete <strong className="text-white">{modToDelete.name}</strong>?<br/>
                 This will move the folder to your computer's Recycle Bin.
               </p>
@@ -475,7 +475,7 @@ export default function ModDetail({ game, character, onBack, hideHeader = false,
                     await handleDelete(modToDelete);
                     setModToDelete(null);
                   }}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-(--color-danger) bg-(--color-danger)/10 hover:bg-(--color-danger)/20 border border-(--color-danger)/20 transition-all shadow-[0_0_15px_rgba(255,68,85,0)] hover:shadow-[0_0_15px_rgba(255,68,85,0.15)]"
+                  className="flex-1 py-2.5 rounded-lg font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all shadow-[0_0_15px_rgba(255,68,85,0)] hover:shadow-[0_0_15px_rgba(255,68,85,0.15)]"
                 >
                   Confirm Delete
                 </button>

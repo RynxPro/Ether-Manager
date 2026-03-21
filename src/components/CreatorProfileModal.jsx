@@ -76,7 +76,7 @@ export default function CreatorProfileModal({
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 30 }}
         animate={{ scale: 1, opacity: 1, y: 35 }}
-        className="w-full max-w-7xl bg-(--bg-base) border border-white/10 rounded-[40px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[84vh] relative"
+        className="w-full max-w-7xl bg-surface border border-border rounded-[40px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[84vh] relative"
       >
         {/* Immersive Hero Header */}
         <div className="relative h-44 shrink-0 overflow-hidden">
@@ -85,11 +85,11 @@ export default function CreatorProfileModal({
              {heroImage ? (
                 <div className="relative w-full h-full">
                   <img src={heroImage} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-40" />
-                  <div className="absolute inset-0 bg-linear-to-t from-(--bg-base) via-(--bg-base)/60 to-transparent" />
-                  <div className="absolute inset-0 bg-linear-to-r from-(--bg-base) via-transparent to-transparent opacity-80" />
+                  <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/60 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-r from-surface via-transparent to-transparent opacity-80" />
                 </div>
              ) : (
-                <div className="w-full h-full bg-linear-to-br from-(--active-accent)/20 via-transparent to-transparent opacity-50" />
+                <div className="w-full h-full bg-linear-to-br from-primary/20 via-transparent to-transparent opacity-50" />
              )}
           </div>
 
@@ -97,8 +97,8 @@ export default function CreatorProfileModal({
             <div className="flex items-center gap-5">
               {/* Creator Avatar with Premium Border */}
               <div className="relative w-20 h-20 group">
-                 <div className="absolute inset-0 rounded-full bg-(--active-accent) blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                 <div className="relative w-full h-full rounded-full border border-white/10 p-1 bg-(--bg-overlay) shadow-2xl overflow-hidden">
+                 <div className="absolute inset-0 rounded-full bg-primary blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
+                 <div className="relative w-full h-full rounded-full border border-border p-1 bg-surface shadow-2xl overflow-hidden">
                     {creator._sAvatarUrl ? (
                       <img 
                         src={creator._sAvatarUrl} 
@@ -122,12 +122,12 @@ export default function CreatorProfileModal({
                 
                 <div className="flex items-center gap-6">
                   <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-(--text-muted)">Portfolio</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted">Portfolio</span>
                     <span className="text-lg font-black text-white">{total > 0 ? total : "—"} <span className="text-[10px] font-medium opacity-40 uppercase tracking-widest">Mods</span></span>
                   </div>
                   <div className="w-px h-6 bg-white/10" />
                   <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-(--text-muted)">Current Game</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted">Current Game</span>
                     <span className="text-lg font-black text-white">{game.name}</span>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export default function CreatorProfileModal({
                 className={cn(
                   "flex items-center gap-2.5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-xl relative overflow-hidden group/btn",
                   isCreatorBookmarked 
-                    ? "bg-(--active-accent)/10 text-(--active-accent) border-(--active-accent)/30 hover:bg-(--active-accent)/20" 
+                    ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" 
                     : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
                 )}
               >
@@ -175,7 +175,7 @@ export default function CreatorProfileModal({
                  )}
                  <button
                     onClick={onClose}
-                    className="p-2.5 bg-white/5 hover:bg-black text-white/50 hover:text-(--color-danger) border border-white/10 hover:border-(--color-danger)/30 rounded-xl transition-all shadow-lg"
+                    className="p-2.5 bg-white/5 hover:bg-black text-white/50 hover:text-red-500 border border-white/10 hover:border-red-500/30 rounded-xl transition-all shadow-lg"
                  >
                     <X size={18} />
                  </button>
@@ -185,12 +185,12 @@ export default function CreatorProfileModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 flex flex-col min-h-0 bg-linear-to-b from-(--bg-base) to-black/40">
+        <div className="flex-1 flex flex-col min-h-0 bg-linear-to-b from-surface to-black/40">
            {/* Section Label */}
-           <div className="px-10 py-5 border-b border-white/5 flex items-center justify-between shrink-0">
+           <div className="px-10 py-5 border-b border-border flex items-center justify-between shrink-0">
              <div className="flex items-center gap-3">
-                <LayoutGrid size={14} className="text-(--active-accent)" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-(--text-muted)">Public Release Catalog</h3>
+                <LayoutGrid size={14} className="text-primary" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Public Release Catalog</h3>
              </div>
              
              {totalPages > 1 && (
@@ -225,12 +225,12 @@ export default function CreatorProfileModal({
                 </div>
               ) : error ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-                  <div className="p-3 rounded-full bg-(--color-danger)/10 border border-(--color-danger)/20 text-(--color-danger)">
+                  <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-500">
                     <Globe size={32} />
                   </div>
                   <div>
                     <h4 className="text-white font-black uppercase tracking-widest text-base">Network Interruption</h4>
-                    <p className="text-(--text-muted) max-w-sm mt-1 text-xs">{error}</p>
+                    <p className="text-text-muted max-w-sm mt-1 text-xs">{error}</p>
                   </div>
                   <button onClick={fetchMods} className="px-5 py-2 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-xl hover:scale-105 transition-transform active:scale-95">
                     Retry Sync
@@ -274,7 +274,7 @@ export default function CreatorProfileModal({
                   {mods.length === 0 && (
                     <div className="col-span-full py-20 text-center">
                       <div className="text-3xl opacity-20 mb-3 uppercase font-black tracking-tighter">Empty</div>
-                      <p className="text-(--text-muted) uppercase tracking-widest font-black text-[10px]">No public data for {game.name}</p>
+                      <p className="text-text-muted uppercase tracking-widest font-black text-[10px]">No public data for {game.name}</p>
                     </div>
                   )}
                 </motion.div>

@@ -91,7 +91,7 @@ export default function OnboardingModal({ isOpen, onClose }) {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-lg bg-(--bg-overlay) border border-white/5 rounded-4xl overflow-hidden shadow-2xl"
+          className="relative w-full max-w-lg bg-surface border border-border rounded-[32px] overflow-hidden shadow-2xl"
         >
           {/* Visual Area: Cinematic Background */}
           <div className="h-64 relative overflow-hidden flex items-center justify-center">
@@ -113,12 +113,12 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 ) : (
                   <div className="w-full h-full bg-linear-to-br from-indigo-500/20 to-purple-500/20" />
                 )}
-                <div className="absolute inset-0 bg-linear-to-t from-(--bg-overlay) via-(--bg-overlay)/40 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/40 to-transparent" />
               </motion.div>
             </AnimatePresence>
 
             {/* Glowing Accent */}
-            <div className="absolute inset-0 bg-radial-at-center from-(--active-accent)/20 to-transparent" />
+            <div className="absolute inset-0 bg-radial-at-center from-primary/20 to-transparent" />
 
             {/* Floating Icon */}
             <motion.div
@@ -148,10 +148,10 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <div className="flex items-center justify-center gap-2 mb-3">
-                   <div className="w-1 h-4 bg-(--active-accent) rounded-full shadow-[0_0_8px_var(--active-accent)]" />
-                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Getting Started</span>
+                   <div className="w-1 h-4 bg-primary rounded-full shadow-primary/20" />
+                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted/50">Getting Started</span>
                 </div>
-                <h2 className="text-3xl font-black text-white mb-4 tracking-tighter">
+                <h2 className="text-3xl font-bold text-text-primary mb-4 tracking-tighter">
                   {step.title}
                 </h2>
               </motion.div>
@@ -161,7 +161,7 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-white/50 leading-relaxed font-medium"
+                className="text-text-secondary leading-relaxed font-medium"
               >
                 {step.description}
               </motion.p>
@@ -174,7 +174,7 @@ export default function OnboardingModal({ isOpen, onClose }) {
                   key={i}
                   className={cn(
                     "h-1 rounded-full transition-all duration-500",
-                    i === currentStep ? "w-10 bg-(--active-accent) shadow-[0_0_8px_var(--active-accent)]" : "w-1.5 bg-white/10"
+                    i === currentStep ? "w-10 bg-primary shadow-primary/20" : "w-1.5 bg-white/10"
                   )}
                 />
               ))}
@@ -196,7 +196,7 @@ export default function OnboardingModal({ isOpen, onClose }) {
 
               <button
                 onClick={nextStep}
-                className="flex items-center gap-2 px-8 py-4 bg-(--active-accent) text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-(--active-accent)/20"
+                className="flex items-center gap-2 px-8 py-4 bg-primary text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/20"
               >
                 {currentStep === STEPS.length - 1 ? "Finish" : "Continue"}
                 {currentStep !== STEPS.length - 1 ? <ChevronRight size={18} strokeWidth={3} /> : <CheckCircle2 size={18} strokeWidth={3} />}

@@ -142,19 +142,19 @@ export default function ModDetailModal({
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-5xl bg-(--bg-overlay) border border-white/10 rounded-4xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px] relative"
+        className="w-full max-w-5xl bg-surface border border-border rounded-[40px] overflow-hidden shadow-surface flex flex-col md:flex-row h-full max-h-[700px] md:h-[700px] relative"
       >
         {/* Cinematic Backdrop Glow (floats behind everything) */}
         <div 
           className="absolute inset-x-0 top-0 h-[500px] opacity-15 pointer-events-none"
           style={{
-            background: `radial-gradient(circle at 50% 0%, var(--active-accent) 0%, transparent 60%)`
+            background: `radial-gradient(circle at 50% 0%, var(--color-primary) 0%, transparent 60%)`
           }}
         />
         {/* Left Side: Media Carousel */}
-        <div className="md:w-[55%] bg-(--bg-base) relative flex flex-col group h-64 md:h-auto border-r border-white/5">
+        <div className="md:w-[55%] bg-background relative flex flex-col group h-64 md:h-auto border-r border-border">
           {images.length > 0 ? (
-            <div className="relative flex-1 overflow-hidden bg-(--bg-base)">
+            <div className="relative flex-1 overflow-hidden bg-background">
               <img
                 key={currentImgIndex}
                 src={images[currentImgIndex]}
@@ -183,7 +183,7 @@ export default function ModDetailModal({
                         key={i}
                         className={cn(
                           "w-1.5 h-1.5 rounded-full transition-all",
-                          i === currentImgIndex ? "bg-(--active-accent) w-4" : "bg-white/30"
+                          i === currentImgIndex ? "bg-primary w-4" : "bg-white/30"
                         )}
                       />
                     ))}
@@ -196,7 +196,7 @@ export default function ModDetailModal({
                 <button
                   onClick={handleSetThumbnail}
                   title="Use this image as the thumbnail in your library"
-                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-(--active-accent) hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
+                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-primary hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
                 >
                   <ImageIcon size={14} />
                   Set as Thumbnail
@@ -218,7 +218,7 @@ export default function ModDetailModal({
                   onClick={() => setCurrentImgIndex(i)}
                   className={cn(
                     "h-full aspect-video rounded-md overflow-hidden border-2 transition-all shrink-0",
-                    i === currentImgIndex ? "border-(--active-accent)" : "border-transparent opacity-50 hover:opacity-100"
+                    i === currentImgIndex ? "border-primary" : "border-transparent opacity-50 hover:opacity-100"
                   )}
                 >
                   <img src={img} className="w-full h-full object-cover" />
@@ -233,7 +233,7 @@ export default function ModDetailModal({
           <div className="flex items-start justify-between mb-4 shrink-0">
             <div className="min-w-0 pr-4">
               <h2 className="text-2xl font-bold text-white mb-2 truncate" title={mod._sName}>{mod._sName}</h2>
-              <div className="text-(--text-muted) text-sm truncate flex items-center gap-1">
+              <div className="text-text-muted text-sm truncate flex items-center gap-1">
                 {mod._aSubmitter ? (
                   <button 
                     onClick={() => onCreatorClick?.(mod._aSubmitter)}
@@ -248,7 +248,7 @@ export default function ModDetailModal({
                       )}
                     </div>
                     <span>
-                      by <span className="text-(--active-accent) font-semibold group-hover/creator:underline">{mod._aSubmitter._sName}</span>
+                      by <span className="text-primary font-semibold group-hover/creator:underline">{mod._aSubmitter._sName}</span>
                     </span>
                   </button>
                 ) : (
@@ -257,7 +257,7 @@ export default function ModDetailModal({
                       <User size={12} className="text-white/20" />
                     </div>
                     <span>
-                      by <span className="text-(--active-accent)">Unknown</span>
+                      by <span className="text-primary">Unknown</span>
                     </span>
                   </div>
                 )}
@@ -265,20 +265,20 @@ export default function ModDetailModal({
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-(--text-muted) hover:text-white transition-colors shrink-0"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-text-muted hover:text-white transition-colors shrink-0"
             >
               <X size={20} />
             </button>
           </div>
 
-          <div className="flex items-center gap-4 text-(--text-muted) text-xs mb-6 shrink-0">
+          <div className="flex items-center gap-4 text-text-muted text-xs mb-6 shrink-0">
             <span className="flex items-center gap-1.5">
-              <Heart size={14} className="text-(--active-accent)" /> {mod._nLikeCount?.toLocaleString() || 0}
+              <Heart size={14} className="text-primary" /> {mod._nLikeCount?.toLocaleString() || 0}
             </span>
             <span className="flex items-center gap-1.5">
               <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
             </span>
-            <span className="flex items-center gap-1.5 text-(--active-accent)">
+            <span className="flex items-center gap-1.5 text-primary">
               <Download size={14} /> {mod._nDownloadCount?.toLocaleString() || 0}
             </span>
           </div>
@@ -287,16 +287,16 @@ export default function ModDetailModal({
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8 mb-6">
             {/* Description */}
             <div>
-              <h3 className="text-xs font-bold text-(--text-muted) uppercase tracking-widest mb-3">About this mod</h3>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">About this mod</h3>
               <div 
-                className="text-sm text-(--text-body) leading-relaxed gb-description"
+                className="text-sm text-text-secondary leading-relaxed gb-description"
                 dangerouslySetInnerHTML={{ __html: mod._sText || mod._sDescription || "No description provided." }}
               />
             </div>
 
             {/* Files Selector */}
             <div>
-              <h3 className="text-xs font-bold text-(--text-muted) uppercase tracking-widest mb-3">Files / Versions</h3>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">Files / Versions</h3>
               <div className="space-y-2">
                 {mod._aFiles?.map((file) => {
                   const installedData = installedFileInfo?.installedFiles?.find(f => f.fileName === file._sFile);
@@ -317,8 +317,8 @@ export default function ModDetailModal({
                       className={cn(
                         "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
                         selectedFile?._idRow === file._idRow
-                          ? "bg-(--active-accent)/10 border-(--active-accent)/50 text-white"
-                          : "bg-white/5 border-white/5 text-(--text-muted) hover:border-white/10 hover:text-(--text-body)"
+                          ? "bg-primary/10 border-primary/50 text-text-primary"
+                          : "bg-background border-border text-text-muted hover:border-white/20 hover:text-text-secondary"
                       )}
                     >
                       <div className="flex-1 min-w-0 mr-3">
@@ -339,7 +339,7 @@ export default function ModDetailModal({
                         <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
                       </div>
                       {selectedFile?._idRow === file._idRow && (
-                        <div className="p-1 rounded-full bg-(--active-accent) text-black">
+                        <div className="p-1 rounded-full bg-primary text-black">
                           <Check size={12} />
                         </div>
                       )}
@@ -351,7 +351,7 @@ export default function ModDetailModal({
           </div>
 
           {/* Installation Zone (Fixed at bottom) */}
-          <div className="pt-6 border-t border-white/5 shrink-0">
+          <div className="pt-6 border-t border-border shrink-0">
             <div className="mb-6">
               <SearchableDropdown
                 items={characters}
@@ -363,11 +363,11 @@ export default function ModDetailModal({
               />
             </div>
 
-            {error && <p className="text-(--color-danger) text-xs mb-4">{error}</p>}
+            {error && <p className="text-red-500 text-xs mb-4">{error}</p>}
 
             {isInstallComplete ? (
               <div className="flex flex-col items-center gap-3">
-                 <div className="flex items-center gap-2 text-(--active-accent) font-semibold bg-(--active-accent)/10 w-full justify-center py-3 rounded-xl border border-(--active-accent)/20 shadow-[0_0_20px_var(--active-accent)]/10">
+                 <div className="flex items-center gap-2 text-primary font-semibold bg-primary/10 w-full justify-center py-3 rounded-xl border border-primary/20 shadow-[0_0_20px_var(--color-primary)]/10">
                    <CheckCircle size={18} />
                    <span>Installed Successfully</span>
                  </div>
@@ -388,12 +388,12 @@ export default function ModDetailModal({
                    className={cn(
                      "flex shrink-0 items-center justify-center p-4 rounded-xl transition-all border",
                      isBookmarked 
-                       ? "bg-(--active-accent)/20 border-(--active-accent)/50 text-(--active-accent) hover:bg-(--active-accent)/30" 
+                       ? "bg-primary/20 border-primary/50 text-primary hover:bg-primary/30" 
                        : "bg-white/5 border-white/10 text-white hover:bg-white/10"
                    )}
                    title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
                 >
-                  <Bookmark size={20} className={cn(isBookmarked && "fill-(--active-accent)")} />
+                  <Bookmark size={20} className={cn(isBookmarked && "fill-primary")} />
                 </button>
 
                 <button
@@ -403,7 +403,7 @@ export default function ModDetailModal({
                     "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
                     isLibraryContext && !isUpdating
                       ? "bg-white/5 text-gray-600 cursor-not-allowed"
-                      : "bg-(--active-accent) text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      : "bg-primary text-black hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
                 >
                   {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
