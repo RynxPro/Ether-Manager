@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 import { getAllCharacterNames } from "../lib/portraits";
 import PresetDetailModal from "../components/PresetDetailModal";
 import CreatePresetModal from "../components/CreatePresetModal";
+import { Button } from "../components/ui/Button";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -112,21 +113,21 @@ export default function PresetsView({ game }) {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button
+          <Button
+            variant="secondary"
             onClick={handleImport}
             disabled={importing}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all disabled:opacity-50"
+            icon={Upload}
           >
-            {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
             Import
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all bg-(--active-accent) text-black hover:brightness-110 shadow-[0_0_20px_var(--active-accent)]/30"
+            icon={Plus}
           >
-            <Plus size={14} strokeWidth={3} />
             New Preset
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -211,8 +212,7 @@ function PresetCard({ preset, index, onClick, gbData }) {
       custom={index}
       variants={cardVariants}
       onClick={onClick}
-      className="relative rounded-4xl overflow-hidden border border-white/5 hover:border-white/10 transition-all duration-500 text-left group h-64 flex flex-col shadow-2xl"
-      style={{ background: "#0c0c12" }}
+      className="relative rounded-4xl overflow-hidden border border-border hover:border-neutral transition-all duration-500 text-left group h-64 flex flex-col shadow-2xl bg-card"
     >
       {/* Background Hero Image */}
       {heroThumb && (
@@ -222,7 +222,7 @@ function PresetCard({ preset, index, onClick, gbData }) {
             alt="" 
             className="w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700 blur-[2px] group-hover:blur-0 scale-110 group-hover:scale-100" 
           />
-          <div className="absolute inset-0 bg-linear-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-card via-card/60 to-transparent" />
         </div>
       )}
 
@@ -241,13 +241,13 @@ function PresetCard({ preset, index, onClick, gbData }) {
               initial={{ x: -10, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.2 + i * 0.1 }}
-              className="w-12 h-12 rounded-xl border-2 border-[#0c0c12] overflow-hidden shadow-lg relative z-10"
+              className="w-12 h-12 rounded-xl border-2 border-card overflow-hidden shadow-lg relative z-10"
             >
               <img src={src} alt="" className="w-full h-full object-cover" />
             </motion.div>
           ))}
           {preset.mods.length > thumbs.length && (
-            <div className="w-12 h-12 rounded-xl border-2 border-[#0c0c12] bg-white/5 backdrop-blur-md flex items-center justify-center text-[10px] font-black text-white/40 shadow-lg relative z-0">
+            <div className="w-12 h-12 rounded-xl border-2 border-card bg-white/5 backdrop-blur-md flex items-center justify-center text-[10px] font-black text-white/40 shadow-lg relative z-0">
               +{preset.mods.length - thumbs.length}
             </div>
           )}
@@ -308,12 +308,9 @@ function EmptyState({ onCreateClick }) {
         </p>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          onClick={onCreateClick}
-          className="flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-(--active-accent) text-black hover:brightness-110 transition-all shadow-[0_0_25px_var(--active-accent)]/30"
-        >
-          <Plus size={14} strokeWidth={3} /> Create First Preset
-        </button>
+        <Button onClick={onCreateClick} icon={Plus}>
+          Create First Preset
+        </Button>
       </div>
     </div>
   );

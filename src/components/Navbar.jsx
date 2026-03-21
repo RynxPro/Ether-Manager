@@ -3,6 +3,7 @@ import { cn } from "../lib/utils";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import SettingsModal from "./SettingsModal";
+import { Button } from "./ui/Button";
 
 export default function Navbar({ games, activeGame, onSelectGame, activeView, onSelectView, onShowHelp }) {
   const [showSettings, setShowSettings] = useState(false);
@@ -81,21 +82,20 @@ export default function Navbar({ games, activeGame, onSelectGame, activeView, on
           </div>
 
           <div className="flex items-center gap-2 border-l border-white/10 pl-5">
-            <button
+            <Button
+              variant="ghost"
               onClick={onShowHelp}
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
+              icon={HelpCircle}
+              className="text-white/30 hover:text-white w-10 h-10 p-0 hover:bg-white/5"
               title="Show Guide"
-            >
-              <HelpCircle size={20} />
-            </button>
-
-            <button
+            />
+            <Button
+              variant="ghost"
               onClick={() => setShowSettings(true)}
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 transition-all hover:scale-110 active:scale-95"
+              icon={Settings}
+              className="text-white/30 hover:text-white w-10 h-10 p-0 hover:bg-white/5"
               title="Settings"
-            >
-              <Settings size={20} />
-            </button>
+            />
           </div>
         </div>
       </nav>

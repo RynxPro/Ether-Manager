@@ -90,7 +90,7 @@ export default function SearchableDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: direction === "down" ? -4 : 4, scale: 0.98 }}
             className={cn(
-              "absolute z-100 left-0 right-0 bg-[#0d0d14]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden",
+              "absolute z-100 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden",
               direction === "down" ? "top-full mt-2" : "bottom-full mb-2"
             )}
           >

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { X, FolderOpen } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
 
 export default function SettingsModal({ onClose, games }) {
   const [config, setConfig] = useState({});
@@ -83,12 +85,13 @@ export default function SettingsModal({ onClose, games }) {
               <h2 className="text-2xl font-black text-white tracking-tighter">SETTINGS</h2>
               <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.3em] mt-1">Configuration & Paths</p>
             </div>
-            <button
+            <Button
+              variant="ghost"
               onClick={onClose}
-              className="w-10 h-10 rounded-2xl bg-white/5 text-white/40 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-            >
-              <X size={20} />
-            </button>
+              icon={X}
+              className="text-white/40 hover:text-white hover:bg-white/10 w-10 h-10 p-0"
+              title="Close settings"
+            />
           </div>
 
           <div className="flex flex-1 overflow-hidden relative z-10">
@@ -142,22 +145,20 @@ export default function SettingsModal({ onClose, games }) {
 
                   <div className="flex gap-3 mb-8">
                     <div className="flex-1 relative group">
-                      <input
-                        type="text"
+                      <Input
                         value={config[activeTab] || ""}
                         onChange={(e) => handleSaveText(e.target.value)}
                         placeholder={`e.g. C:\\Games\\${games.find((g) => g.id === activeTab)?.folderHint}`}
-                        className="w-full bg-white/2 border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-4 focus:ring-(--active-accent)/5 transition-all outline-none font-mono"
+                        className="font-mono"
                       />
                     </div>
-                    <button
+                    <Button
+                      variant="secondary"
                       onClick={handleChooseFolder}
-                      className="px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 no-drag group"
+                      icon={FolderOpen}
+                      className="no-drag"
                       title="Browse folder"
-                      type="button"
-                    >
-                      <FolderOpen size={20} className="group-hover:text-(--active-accent) transition-colors" />
-                    </button>
+                    />
                   </div>
 
                   <div className="p-6 bg-black/40 rounded-3xl border border-white/5 relative overflow-hidden group">

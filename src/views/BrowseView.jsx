@@ -7,6 +7,8 @@ import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import SearchableDropdown from "../components/SearchableDropdown";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -329,7 +331,7 @@ export default function BrowseView({ game }) {
               <h2 className="text-xl font-black text-white uppercase tracking-widest">Hall of Fame</h2>
             </div>
             
-            <div className="relative w-full h-[400px] rounded-[2.5rem] bg-[#09090b] border border-white/10 shadow-2xl overflow-hidden flex group">
+            <div className="relative w-full h-[400px] rounded-[2.5rem] bg-card border border-border shadow-2xl overflow-hidden flex group">
               {/* High-Tech Grid Pattern */}
               <div 
                 className="absolute inset-0 opacity-[0.03] pointer-events-none" 
@@ -479,14 +481,13 @@ export default function BrowseView({ game }) {
       {/* Action Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 w-full z-20 relative">
         {/* Global Search */}
-        <div className="relative w-full sm:max-w-md xl:max-w-lg shrink">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-(--text-muted)" size={16} />
-          <input
-            type="text"
+        <div className="w-full sm:max-w-md xl:max-w-lg shrink">
+          <Input
+            icon={Search}
             placeholder="Search GameBanana..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-            className="w-full pl-11 pr-4 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-(--active-accent)/50 focus:ring-1 focus:ring-(--active-accent)/30 transition-all shadow-inner hover:bg-black/60 placeholder:text-(--text-muted)"
+            className="backdrop-blur-md shadow-inner rounded-2xl"
           />
         </div>
 
@@ -527,12 +528,9 @@ export default function BrowseView({ game }) {
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-12 bg-white/5 border border-white/5 rounded-2xl border-dashed">
           <p className="text-white font-medium">Could not load mods</p>
           <p className="text-(--text-muted) text-sm max-w-sm">{error}</p>
-          <button
-            onClick={fetchMods}
-            className="mt-2 px-4 py-2 text-sm rounded-xl bg-(--active-accent) text-black font-semibold hover:brightness-110"
-          >
+          <Button onClick={fetchMods} size="sm" className="mt-2">
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
@@ -617,24 +615,24 @@ export default function BrowseView({ game }) {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 mt-8 pb-8">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
+                icon={ChevronLeft}
+                className="w-10 h-10 p-0"
+              />
               <span className="text-sm text-gray-400">
                 Page <span className="text-white font-medium">{page}</span> of{" "}
                 <span className="text-white font-medium">{totalPages}</span>
               </span>
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
+                icon={ChevronRight}
+                className="w-10 h-10 p-0"
+              />
             </div>
           )}
         </>

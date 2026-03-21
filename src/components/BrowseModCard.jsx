@@ -30,7 +30,7 @@ const BrowseModCard = memo(function BrowseModCard({ mod, isInstalled, hasUpdate,
       )}
     >
       {/* Thumbnail */}
-      <div className="relative h-44 w-full bg-[#0d0d16] overflow-hidden shrink-0">
+      <div className="relative h-44 w-full bg-card overflow-hidden shrink-0">
         {mod.thumbnailUrl ? (
           <>
             {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}

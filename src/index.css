@@ -2,9 +2,25 @@
 
 @theme {
   --color-active-accent: var(--active-accent);
+  /* Design System Colors */
+  --color-primary: var(--active-accent);
+  --color-secondary: var(--bg-surface);
+  --color-card: var(--bg-card);
+  --color-base: var(--bg-base);
+  --color-neutral: rgba(255, 255, 255, 0.1);
+  
+  /* Text & Borders */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+
+  /* Unified Typography */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
 }
 @layer base {
   :root {
+    /* Base Palette */
     --bg-base: #07070a;
     --bg-surface: #0d0d15;
     --bg-card: #0f0f1a;
@@ -14,22 +30,28 @@
     --background: var(--bg-base);
     --navbar: var(--bg-surface);
     --card: var(--bg-card);
+    
+    /* Text */
     --text-primary: #ffffff;
     --text-secondary: #8c8c9a;
     --text-body: rgba(255, 255, 255, 0.65);
     --text-muted: rgba(255, 255, 255, 0.35);
+    
+    /* Status */
     --color-danger: #ff4455;
     --color-warning: #ffb347;
     --color-success: #4ade80;
     --color-update: #facc15;
-    --border: rgba(255, 255, 255, 0.06);
+    
+    /* UI Lines */
+    --border: rgba(255, 255, 255, 0.08); /* slightly stronger border for consistency */
     --active-accent: #00f5cc; /* Default to GIMI */
   }
 
   body {
     background-color: var(--background);
     color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
@@ -37,8 +59,9 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
-    letter-spacing: -0.02em;
+    font-family: var(--font-sans);
+    letter-spacing: -0.03em;
+    font-weight: 900; /* Extremely premium/bold look */
   }
 
   button, input, select, textarea {
