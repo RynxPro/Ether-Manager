@@ -234,19 +234,6 @@ export default function BrowseView({ game }) {
     await refreshInstalledModsInfo();
   }, [importerPath, game.id, refreshInstalledModsInfo]);
 
-  const handleCardInstall = useCallback(async (mod, fileUrl, fileName, category) => {
-    try {
-      await handleInstall({
-        characterName: "N/A",
-        gbModId: mod._idRow,
-        fileUrl,
-        fileName,
-        category
-      });
-    } catch (err) {
-      setError(err.message);
-    }
-  }, [handleInstall]);
 
   const handleCreatorClick = useCallback((submitter) => {
     setActiveCreatorProfile(submitter);
@@ -611,7 +598,7 @@ export default function BrowseView({ game }) {
                   hasUpdate={hasUpdate}
                   isBookmarked={isBookmarked}
                   onClick={handleCardInstallClick}
-                  onInstall={handleCardInstall}
+                  onInstall={handleCardInstallClick}
                   onToggleBookmark={() => handleToggleBookmark(mod)}
                   onCreatorClick={handleCreatorClick}
                 />
