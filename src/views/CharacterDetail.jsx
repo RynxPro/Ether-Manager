@@ -244,7 +244,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
           <div className="relative h-72 md:h-[340px] w-full rounded-4xl overflow-hidden bg-card border border-white/10 shadow-2xl mt-8">
             
             {/* Massive Background Text Watermark */}
-            <div className="absolute -right-8 -bottom-12 text-[140px] md:text-[200px] font-black text-white/2 leading-none tracking-tighter pointer-events-none select-none z-0 whitespace-nowrap truncate max-w-full">
+            <div className="absolute -right-12 -bottom-20 text-[180px] md:text-[320px] font-black italic text-white/5 leading-none tracking-tighter pointer-events-none select-none z-0 whitespace-nowrap overflow-hidden">
               {character.name.toUpperCase()}
             </div>
 
@@ -279,7 +279,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
                     loading="lazy"
                     decoding="async"
                     className={cn(
-                      "h-full w-auto object-contain object-left scale-150 md:scale-125 translate-x-4 md:translate-x-12 translate-y-6 transition-all duration-700",
+                      "h-full w-auto object-contain object-left scale-[1.8] md:scale-[1.6] translate-x-12 md:translate-x-32 translate-y-24 md:translate-y-36 transition-all duration-700",
                       imgLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"
                     )}
                   />
