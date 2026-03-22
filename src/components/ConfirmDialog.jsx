@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
-import { Button } from './ui/Button';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect } from "react";
+import { AlertTriangle, X } from "lucide-react";
+import { Button } from "./ui/Button";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function ConfirmDialog({
   isOpen,
@@ -12,25 +12,25 @@ export default function ConfirmDialog({
   confirmVariant = "danger",
   onConfirm,
   onCancel,
-  children
+  children,
 }) {
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === "Escape" && isOpen) {
         onCancel();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
+      document.addEventListener("keydown", handleEscape);
       // Prevent body scroll
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
   }, [isOpen, onCancel]);
 
@@ -76,9 +76,7 @@ export default function ConfirmDialog({
 
               {/* Content */}
               <div className="px-6 pb-6">
-                <p className="text-text-secondary mb-6">
-                  {message}
-                </p>
+                <p className="text-text-secondary mb-6">{message}</p>
 
                 {children}
 

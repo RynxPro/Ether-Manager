@@ -1,6 +1,6 @@
-import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { Button } from './ui/Button';
+import React from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "./ui/Button";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -15,11 +15,11 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Log the error to console (and could send to error reporting service)
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
 
     this.setState({
       error: error,
-      errorInfo: errorInfo
+      errorInfo: errorInfo,
     });
   }
 
@@ -59,7 +59,8 @@ class ErrorBoundary extends React.Component {
                 </summary>
                 <pre className="text-xs text-text-muted whitespace-pre-wrap overflow-auto max-h-32">
                   {this.state.error && this.state.error.toString()}
-                  {this.state.errorInfo && `\n\n${this.state.errorInfo.componentStack}`}
+                  {this.state.errorInfo &&
+                    `\n\n${this.state.errorInfo.componentStack}`}
                 </pre>
               </details>
             </div>

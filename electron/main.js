@@ -132,136 +132,158 @@ ipcMain.handle("choose-folder", async (event) => {
 });
 
 // Mods management
-ipcMain.handle("get-mods", (event, importerPath, knownCharacters = [], expectedGameId = null) => {
-  console.log("Fetching mods for path:", importerPath, "Expected Game ID:", expectedGameId);
-  if (!importerPath) return [];
+ipcMain.handle(
+  "get-mods",
+  (event, importerPath, knownCharacters = [], expectedGameId = null) => {
+    console.log(
+      "Fetching mods for path:",
+      importerPath,
+      "Expected Game ID:",
+      expectedGameId,
+    );
+    if (!importerPath) return [];
 
-  let modsPath = importerPath;
-  // If the selected path doesn't end in 'Mods', and there's a 'Mods' subfolder, use it.
-  // Otherwise, if the path itself is the Mods folder, use it as is.
-  if (
-    !modsPath.toLowerCase().endsWith("mods") &&
-    fs.existsSync(path.join(modsPath, "Mods"))
-  ) {
-    modsPath = path.join(modsPath, "Mods");
-  }
+    let modsPath = importerPath;
+    // If the selected path doesn't end in 'Mods', and there's a 'Mods' subfolder, use it.
+    // Otherwise, if the path itself is the Mods folder, use it as is.
+    if (
+      !modsPath.toLowerCase().endsWith("mods") &&
+      fs.existsSync(path.join(modsPath, "Mods"))
+    ) {
+      modsPath = path.join(modsPath, "Mods");
+    }
 
-  console.log("Final mods directory path:", modsPath);
+    console.log("Final mods directory path:", modsPath);
 
-  if (!fs.existsSync(modsPath)) {
-    console.log("Mods directory does not exist at:", modsPath);
-    return [];
-  }
+    if (!fs.existsSync(modsPath)) {
+      console.log("Mods directory does not exist at:", modsPath);
+      return [];
+    }
 
-  try {
-    const modFolders = fs
-      .readdirSync(modsPath, { withFileTypes: true })
-      .filter((dirent) => dirent.isDirectory())
-      .map((dirent) => dirent.name);
+    try {
+      const modFolders = fs
+        .readdirSync(modsPath, { withFileTypes: true })
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name);
 
-    console.log(`Found ${modFolders.length} folders in Mods directory`);
+      console.log(`Found ${modFolders.length} folders in Mods directory`);
 
-    const mods = [];
+      const mods = [];
 
-    modFolders.forEach((folderName) => {
-      const folderPath = path.join(modsPath, folderName);
-      const isEnabled = !folderName.startsWith("DISABLED_");
-      const realName = isEnabled
-        ? folderName
-        : folderName.replace(/^DISABLED_/, "");
+      modFolders.forEach((folderName) => {
+        const folderPath = path.join(modsPath, folderName);
+        const isEnabled = !folderName.startsWith("DISABLED_");
+        const realName = isEnabled
+          ? folderName
+          : folderName.replace(/^DISABLED_/, "");
 
-      // Match mod to a known character.
-      // Strategy: compare the folder name (lowercased, symbols stripped) against each known character
-      // name (lowercased, spaces and symbols stripped). This handles the common convention where
-      // folder names like "AliceThymefield_alice-wt" map to known character "Alice Thymefield".
-      let character = "Unassigned";
-      
-      if (knownCharacters && knownCharacters.length > 0) {
-        const normalizedFolder = realName.toLowerCase().replace(/[\s_\-]/g, "");
-        
-        let bestMatch = null;
-        let bestMatchLength = 0;
+        // Match mod to a known character.
+        // Strategy: compare the folder name (lowercased, symbols stripped) against each known character
+        // name (lowercased, spaces and symbols stripped). This handles the common convention where
+        // folder names like "AliceThymefield_alice-wt" map to known character "Alice Thymefield".
+        let character = "Unassigned";
 
-        for (const knownChar of knownCharacters) {
-          // Strip spaces/symbols from the known character name for comparison
-          const normalizedKnown = knownChar.toLowerCase().replace(/[\s_\-]/g, "");
-          // Check if the folder name STARTS WITH the normalized character name
-          if (normalizedFolder.startsWith(normalizedKnown) && normalizedKnown.length > bestMatchLength) {
-            bestMatch = knownChar;
-            bestMatchLength = normalizedKnown.length;
+        if (knownCharacters && knownCharacters.length > 0) {
+          const normalizedFolder = realName
+            .toLowerCase()
+            .replace(/[\s_\-]/g, "");
+
+          let bestMatch = null;
+          let bestMatchLength = 0;
+
+          for (const knownChar of knownCharacters) {
+            // Strip spaces/symbols from the known character name for comparison
+            const normalizedKnown = knownChar
+              .toLowerCase()
+              .replace(/[\s_\-]/g, "");
+            // Check if the folder name STARTS WITH the normalized character name
+            if (
+              normalizedFolder.startsWith(normalizedKnown) &&
+              normalizedKnown.length > bestMatchLength
+            ) {
+              bestMatch = knownChar;
+              bestMatchLength = normalizedKnown.length;
+            }
           }
+
+          if (bestMatch) character = bestMatch;
         }
 
-        if (bestMatch) character = bestMatch;
-      }
+        // Count ini files
+        let iniCount = 0;
+        try {
+          const files = fs.readdirSync(folderPath);
+          iniCount = files.filter((file) =>
+            file.toLowerCase().endsWith(".ini"),
+          ).length;
+        } catch (err) {}
 
-      // Count ini files
-      let iniCount = 0;
-      try {
-        const files = fs.readdirSync(folderPath);
-        iniCount = files.filter((file) =>
-          file.toLowerCase().endsWith(".ini"),
-        ).length;
-      } catch (err) {}
-
-      let gamebananaId = null;
-      let installedAt = null;
-      let installedFile = null;
-      let customThumbnail = null;
-      let category = null;
-      let gameId = null;
-      try {
-        const aetherJsonPath = path.join(folderPath, "aether.json");
-        if (fs.existsSync(aetherJsonPath)) {
-          const aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
-          gamebananaId = aetherData.gamebananaId || null;
-          installedAt = aetherData.installedAt || null;
-          installedFile = aetherData.installedFile || null;
-          customThumbnail = aetherData.customThumbnail || null;
-          category = aetherData.category || null;
-          gameId = aetherData.gameId || null;
+        let gamebananaId = null;
+        let installedAt = null;
+        let installedFile = null;
+        let customThumbnail = null;
+        let category = null;
+        let gameId = null;
+        try {
+          const aetherJsonPath = path.join(folderPath, "aether.json");
+          if (fs.existsSync(aetherJsonPath)) {
+            const aetherData = JSON.parse(
+              fs.readFileSync(aetherJsonPath, "utf-8"),
+            );
+            gamebananaId = aetherData.gamebananaId || null;
+            installedAt = aetherData.installedAt || null;
+            installedFile = aetherData.installedFile || null;
+            customThumbnail = aetherData.customThumbnail || null;
+            category = aetherData.category || null;
+            gameId = aetherData.gameId || null;
+          }
+        } catch (err) {
+          /* ignore parse errors */
         }
-      } catch (err) { /* ignore parse errors */ }
 
-      // STRICT GAME ISOLATION FILTERING
-      // If we have an expectedGameId and the mod has a different gameId, skip it.
-      // Exception: if the mod has NO gameId, we show it to maintain backward compatibility.
-      if (expectedGameId && gameId && gameId !== expectedGameId) {
-        return;
-      }
+        // STRICT GAME ISOLATION FILTERING
+        // If we have an expectedGameId and the mod has a different gameId, skip it.
+        // Exception: if the mod has NO gameId, we show it to maintain backward compatibility.
+        if (expectedGameId && gameId && gameId !== expectedGameId) {
+          return;
+        }
 
-      mods.push({
-        id: realName,
-        originalFolderName: folderName,
-        name: realName.replace(/_/g, " "),
-        character,
-        category,
-        isEnabled,
-        iniCount,
-        path: folderPath,
-        gamebananaId,
-        installedAt,
-        installedFile,
-        customThumbnail,
+        mods.push({
+          id: realName,
+          originalFolderName: folderName,
+          name: realName.replace(/_/g, " "),
+          character,
+          category,
+          isEnabled,
+          iniCount,
+          path: folderPath,
+          gamebananaId,
+          installedAt,
+          installedFile,
+          customThumbnail,
+        });
       });
-    });
 
-    return mods;
-  } catch (err) {
-    console.error("Failed to read mods", err);
-    return [];
-  }
-});
+      return mods;
+    } catch (err) {
+      console.error("Failed to read mods", err);
+      return [];
+    }
+  },
+);
 
 ipcMain.handle(
   "toggle-mod",
   (event, { importerPath, originalFolderName, enable }) => {
     try {
       let modsPath = importerPath;
-      if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
+      if (
+        !modsPath.toLowerCase().endsWith("mods") &&
+        fs.existsSync(path.join(modsPath, "Mods"))
+      ) {
         modsPath = path.join(modsPath, "Mods");
       }
-      
+
       const oldPath = path.join(modsPath, originalFolderName);
 
       let newFolderName = originalFolderName;
@@ -289,164 +311,207 @@ ipcMain.handle("open-folder", (event, folderPath) => {
 });
 
 // Import Mod Flow
-ipcMain.handle("import-mod", async (event, { importerPath, characterName, gameId }) => {
-  try {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const result = await dialog.showOpenDialog(win || mainWindow, {
-      properties: ["openDirectory"],
-      title: `Select Mod Folder for ${characterName}`,
-      buttonLabel: "Import Mod",
-    });
+ipcMain.handle(
+  "import-mod",
+  async (event, { importerPath, characterName, gameId }) => {
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const result = await dialog.showOpenDialog(win || mainWindow, {
+        properties: ["openDirectory"],
+        title: `Select Mod Folder for ${characterName}`,
+        buttonLabel: "Import Mod",
+      });
 
-    if (result.canceled || result.filePaths.length === 0) {
-      return { success: false, canceled: true };
-    }
-
-    const sourcePath = result.filePaths[0];
-    const sourceFolderName = path.basename(sourcePath);
-    
-    // Resolve Mods directory
-    let modsPath = importerPath;
-    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
-      modsPath = path.join(modsPath, "Mods");
-    }
-
-    if (!fs.existsSync(modsPath)) {
-      return { success: false, error: "Mods directory not found in the selected importer path." };
-    }
-
-    // Prefix the folder with the character name if it's not "Unassigned"
-    let targetFolderName = sourceFolderName;
-    if (characterName && characterName !== "Unassigned") {
-      // Clean up character name for folder (e.g., "Ellen Joe" -> "EllenJoe")
-      const cleanCharName = characterName.replace(/\s+/g, "");
-      
-      // Only prefix if it doesn't already start with it
-      if (!sourceFolderName.toLowerCase().startsWith(cleanCharName.toLowerCase())) {
-        targetFolderName = `${cleanCharName}_${sourceFolderName}`;
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, canceled: true };
       }
+
+      const sourcePath = result.filePaths[0];
+      const sourceFolderName = path.basename(sourcePath);
+
+      // Resolve Mods directory
+      let modsPath = importerPath;
+      if (
+        !modsPath.toLowerCase().endsWith("mods") &&
+        fs.existsSync(path.join(modsPath, "Mods"))
+      ) {
+        modsPath = path.join(modsPath, "Mods");
+      }
+
+      if (!fs.existsSync(modsPath)) {
+        return {
+          success: false,
+          error: "Mods directory not found in the selected importer path.",
+        };
+      }
+
+      // Prefix the folder with the character name if it's not "Unassigned"
+      let targetFolderName = sourceFolderName;
+      if (characterName && characterName !== "Unassigned") {
+        // Clean up character name for folder (e.g., "Ellen Joe" -> "EllenJoe")
+        const cleanCharName = characterName.replace(/\s+/g, "");
+
+        // Only prefix if it doesn't already start with it
+        if (
+          !sourceFolderName
+            .toLowerCase()
+            .startsWith(cleanCharName.toLowerCase())
+        ) {
+          targetFolderName = `${cleanCharName}_${sourceFolderName}`;
+        }
+      }
+
+      const targetPath = path.join(modsPath, targetFolderName);
+
+      // Prevent overwriting existing mods
+      if (fs.existsSync(targetPath)) {
+        return {
+          success: false,
+          error: `A mod folder named "${targetFolderName}" already exists.`,
+        };
+      }
+
+      // Copy folder recursively
+      fs.cpSync(sourcePath, targetPath, { recursive: true });
+
+      // Write aether.json for manual imports too to track game isolation
+      const aetherJson = {
+        installedAt: new Date().toISOString(),
+        gameId: gameId || null,
+      };
+      fs.writeFileSync(
+        path.join(targetPath, "aether.json"),
+        JSON.stringify(aetherJson, null, 2),
+      );
+
+      return { success: true, newFolderName: targetFolderName };
+    } catch (err) {
+      console.error("Failed to import mod:", err);
+      return { success: false, error: err.message };
     }
-
-    const targetPath = path.join(modsPath, targetFolderName);
-
-    // Prevent overwriting existing mods
-    if (fs.existsSync(targetPath)) {
-      return { success: false, error: `A mod folder named "${targetFolderName}" already exists.` };
-    }
-
-    // Copy folder recursively
-    fs.cpSync(sourcePath, targetPath, { recursive: true });
-
-    // Write aether.json for manual imports too to track game isolation
-    const aetherJson = {
-      installedAt: new Date().toISOString(),
-      gameId: gameId || null
-    };
-    fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
-
-    return { success: true, newFolderName: targetFolderName };
-  } catch (err) {
-    console.error("Failed to import mod:", err);
-    return { success: false, error: err.message };
-  }
-});
+  },
+);
 
 // Assign Unassigned Mod to Character
-ipcMain.handle("assign-mod", async (event, { importerPath, originalFolderName, newCharacterName }) => {
-  try {
-    let modsPath = importerPath;
-    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
-      modsPath = path.join(modsPath, "Mods");
-    }
-
-    const oldPath = path.join(modsPath, originalFolderName);
-    if (!fs.existsSync(oldPath)) {
-      return { success: false, error: "Original mod folder not found." };
-    }
-
-    // Handle whether it was disabled
-    const isDisabled = originalFolderName.startsWith("DISABLED_");
-    const realName = isDisabled ? originalFolderName.replace(/^DISABLED_/, "") : originalFolderName;
-
-    const cleanCharName = newCharacterName.replace(/\s+/g, "");
-    
-    // Create new name: CharacterName_RealName
-    let newRealName = `${cleanCharName}_${realName}`;
-    let newFolderName = isDisabled ? `DISABLED_${newRealName}` : newRealName;
-    
-    const newPath = path.join(modsPath, newFolderName);
-    
-    if (fs.existsSync(newPath) && newPath !== oldPath) {
-      return { success: false, error: `A mod folder named "${newFolderName}" already exists.` };
-    }
-
-    fs.renameSync(oldPath, newPath);
-    return { success: true, newFolderName };
-  } catch (err) {
-    console.error("Failed to assign mod:", err);
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle("set-custom-thumbnail", async (event, { importerPath, originalFolderName, thumbnailUrl }) => {
-  try {
-    let modsPath = importerPath;
-    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
-      modsPath = path.join(modsPath, "Mods");
-    }
-    const folderPath = path.join(modsPath, originalFolderName);
-    if (!fs.existsSync(folderPath)) {
-      throw new Error(`Folder "${originalFolderName}" not found`);
-    }
-
-    const aetherJsonPath = path.join(folderPath, "aether.json");
-    let aetherData = {};
-    if (fs.existsSync(aetherJsonPath)) {
-      try {
-        aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
-      } catch (e) {
-        console.error("Error reading aether.json:", e);
+ipcMain.handle(
+  "assign-mod",
+  async (event, { importerPath, originalFolderName, newCharacterName }) => {
+    try {
+      let modsPath = importerPath;
+      if (
+        !modsPath.toLowerCase().endsWith("mods") &&
+        fs.existsSync(path.join(modsPath, "Mods"))
+      ) {
+        modsPath = path.join(modsPath, "Mods");
       }
-    }
 
-    if (thumbnailUrl === null) {
-      delete aetherData.customThumbnail;
-    } else {
-      aetherData.customThumbnail = thumbnailUrl;
-    }
+      const oldPath = path.join(modsPath, originalFolderName);
+      if (!fs.existsSync(oldPath)) {
+        return { success: false, error: "Original mod folder not found." };
+      }
 
-    fs.writeFileSync(aetherJsonPath, JSON.stringify(aetherData, null, 2));
-    return { success: true };
-  } catch (err) {
-    console.error("Failed to set custom thumbnail:", err);
-    return { success: false, error: err.message };
-  }
-});
+      // Handle whether it was disabled
+      const isDisabled = originalFolderName.startsWith("DISABLED_");
+      const realName = isDisabled
+        ? originalFolderName.replace(/^DISABLED_/, "")
+        : originalFolderName;
 
-ipcMain.handle("delete-mod", async (event, { importerPath, originalFolderName }) => {
-  try {
-    let modsPath = importerPath;
-    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
-      modsPath = path.join(modsPath, "Mods");
-    }
-    const folderPath = path.join(modsPath, originalFolderName);
-    if (!fs.existsSync(folderPath)) {
-      throw new Error(`Folder "${originalFolderName}" not found`);
-    }
+      const cleanCharName = newCharacterName.replace(/\s+/g, "");
 
-    // Move to recycle bin instead of permanent rm -rf
-    await shell.trashItem(folderPath);
-    return { success: true };
-  } catch (err) {
-    console.error("Failed to delete mod:", err);
-    return { success: false, error: err.message };
-  }
-});
+      // Create new name: CharacterName_RealName
+      let newRealName = `${cleanCharName}_${realName}`;
+      let newFolderName = isDisabled ? `DISABLED_${newRealName}` : newRealName;
+
+      const newPath = path.join(modsPath, newFolderName);
+
+      if (fs.existsSync(newPath) && newPath !== oldPath) {
+        return {
+          success: false,
+          error: `A mod folder named "${newFolderName}" already exists.`,
+        };
+      }
+
+      fs.renameSync(oldPath, newPath);
+      return { success: true, newFolderName };
+    } catch (err) {
+      console.error("Failed to assign mod:", err);
+      return { success: false, error: err.message };
+    }
+  },
+);
+
+ipcMain.handle(
+  "set-custom-thumbnail",
+  async (event, { importerPath, originalFolderName, thumbnailUrl }) => {
+    try {
+      let modsPath = importerPath;
+      if (
+        !modsPath.toLowerCase().endsWith("mods") &&
+        fs.existsSync(path.join(modsPath, "Mods"))
+      ) {
+        modsPath = path.join(modsPath, "Mods");
+      }
+      const folderPath = path.join(modsPath, originalFolderName);
+      if (!fs.existsSync(folderPath)) {
+        throw new Error(`Folder "${originalFolderName}" not found`);
+      }
+
+      const aetherJsonPath = path.join(folderPath, "aether.json");
+      let aetherData = {};
+      if (fs.existsSync(aetherJsonPath)) {
+        try {
+          aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
+        } catch (e) {
+          console.error("Error reading aether.json:", e);
+        }
+      }
+
+      if (thumbnailUrl === null) {
+        delete aetherData.customThumbnail;
+      } else {
+        aetherData.customThumbnail = thumbnailUrl;
+      }
+
+      fs.writeFileSync(aetherJsonPath, JSON.stringify(aetherData, null, 2));
+      return { success: true };
+    } catch (err) {
+      console.error("Failed to set custom thumbnail:", err);
+      return { success: false, error: err.message };
+    }
+  },
+);
+
+ipcMain.handle(
+  "delete-mod",
+  async (event, { importerPath, originalFolderName }) => {
+    try {
+      let modsPath = importerPath;
+      if (
+        !modsPath.toLowerCase().endsWith("mods") &&
+        fs.existsSync(path.join(modsPath, "Mods"))
+      ) {
+        modsPath = path.join(modsPath, "Mods");
+      }
+      const folderPath = path.join(modsPath, originalFolderName);
+      if (!fs.existsSync(folderPath)) {
+        throw new Error(`Folder "${originalFolderName}" not found`);
+      }
+
+      // Move to recycle bin instead of permanent rm -rf
+      await shell.trashItem(folderPath);
+      return { success: true };
+    } catch (err) {
+      console.error("Failed to delete mod:", err);
+      return { success: false, error: err.message };
+    }
+  },
+);
 
 // ─── GameBanana API Helpers ───────────────────────────────────────────────
 
 const GB_API = "https://gamebanana.com/apiv10";
-const GB_PROPERTIES = "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame,_aCategory,_aRootCategory";
+const GB_PROPERTIES =
+  "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame,_aCategory,_aRootCategory";
 
 async function fetchFromGB(url) {
   const res = await fetch(url, {
@@ -459,17 +524,19 @@ async function fetchFromGB(url) {
 // Fetch single mod metadata from GameBanana
 ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
   try {
-    const data = await fetchFromGB(`${GB_API}/Mod/${gamebananaId}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`);
+    const data = await fetchFromGB(
+      `${GB_API}/Mod/${gamebananaId}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
+    );
     // Construct thumbnail URLs from all preview media
     const allImages = [];
     const images = data._aPreviewMedia?._aImages;
     if (images) {
-      images.forEach(img => {
+      images.forEach((img) => {
         const url = img._sFile530
           ? `${img._sBaseUrl}/${img._sFile530}`
           : img._sFile
-          ? `${img._sBaseUrl}/${img._sFile}`
-          : null;
+            ? `${img._sBaseUrl}/${img._sFile}`
+            : null;
         if (url) allImages.push(url);
       });
     }
@@ -486,22 +553,24 @@ ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
 ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
   try {
     if (!ids || ids.length === 0) return { success: true, data: [] };
-    
+
     // Using individual fetches in parallel is more reliable than the V10 batch API
     const results = await Promise.all(
       ids.map(async (id) => {
         try {
           // We need the update timestamp for status and preview media for thumbnails
-          const data = await fetchFromGB(`${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated,_aPreviewMedia`);
+          const data = await fetchFromGB(
+            `${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated,_aPreviewMedia`,
+          );
           return data;
         } catch (e) {
           console.error(`[BatchUpdate] Failed to fetch mod ${id}:`, e.message);
           return null;
         }
-      })
+      }),
     );
-    
-    const validData = results.filter(r => r !== null);
+
+    const validData = results.filter((r) => r !== null);
     return { success: true, data: validData };
   } catch (err) {
     console.error("[BatchUpdate] Fatal error in parallel fetch:", err);
@@ -513,275 +582,351 @@ const characterCategoryCache = {}; // Cache to map character name -> GameBanana 
 
 // Fetch a page of mods from GameBanana for a given game
 // Dual-mode: keyword search via Util/Search/Results, general browse via Mod/Index
-ipcMain.handle("browse-gb-mods", async (event, { gbGameId, page = 1, perPage = 20, sort = "", context = "", search = "", submitterId = null }) => {
-  try {
-    const browseFields = "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
+ipcMain.handle(
+  "browse-gb-mods",
+  async (
+    event,
+    {
+      gbGameId,
+      page = 1,
+      perPage = 20,
+      sort = "",
+      context = "",
+      search = "",
+      submitterId = null,
+    },
+  ) => {
+    try {
+      const browseFields =
+        "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
 
-    // Only supported sort aliases (verified via testing)
-    const sortAliases = {
-      "likes":     "Generic_MostLiked",
-      "downloads": "Generic_MostDownloaded",
-      "views":     "Generic_MostViewed",
-    };
-    const sortStr = sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
+      // Only supported sort aliases (verified via testing)
+      const sortAliases = {
+        likes: "Generic_MostLiked",
+        downloads: "Generic_MostDownloaded",
+        views: "Generic_MostViewed",
+      };
+      const sortStr =
+        sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
 
-    // Auto-discover the character category ID to enable native Mod/Index sorting
-    async function resolveCharCategory(gameId, charName) {
-      const searchLower = charName.toLowerCase();
-      const cacheKey = `${gameId}_${searchLower}`;
-      if (characterCategoryCache[cacheKey]) return characterCategoryCache[cacheKey];
+      // Auto-discover the character category ID to enable native Mod/Index sorting
+      async function resolveCharCategory(gameId, charName) {
+        const searchLower = charName.toLowerCase();
+        const cacheKey = `${gameId}_${searchLower}`;
+        if (characterCategoryCache[cacheKey])
+          return characterCategoryCache[cacheKey];
 
-      // Fast-path exact root categories for UI and Misc to avoid fuzzy search inaccuracies
-      if (searchLower === "ui" || searchLower.includes("interface")) {
-        if (gameId == 19567) return 30395; // ZZZ UI
-      }
-      if (searchLower === "misc" || searchLower === "miscellaneous") {
-        if (gameId == 19567) return 29874; // ZZZ Other/Misc
-      }
+        // Fast-path exact root categories for UI and Misc to avoid fuzzy search inaccuracies
+        if (searchLower === "ui" || searchLower.includes("interface")) {
+          if (gameId == 19567) return 30395; // ZZZ UI
+        }
+        if (searchLower === "misc" || searchLower === "miscellaneous") {
+          if (gameId == 19567) return 29874; // ZZZ Other/Misc
+        }
 
-      try {
-        const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
-        const searchRes = await fetchFromGB(searchUrl);
-        if (!searchRes._aRecords) return null;
+        try {
+          const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
+          const searchRes = await fetchFromGB(searchUrl);
+          if (!searchRes._aRecords) return null;
 
-        for (const mod of searchRes._aRecords) {
-          // Fetch detailed mod to inspect category tree
-          const mData = await fetchFromGB(`${GB_API}/Mod/${mod._idRow}?_csvProperties=_aRootCategory,_aCategory`);
-          if (mData._aCategory && mData._aRootCategory) {
-            const rootName = (mData._aRootCategory._sName || "").toLowerCase();
-            const catName = (mData._aCategory._sName || "").toLowerCase();
-            
-            // If it's a character/skin
-            if (rootName.includes("skin") || rootName.includes("character")) {
-               const catId = mData._aCategory._idRow;
-               characterCategoryCache[cacheKey] = catId;
-               return catId;
-            }
-            
-            // If it's UI/GUI
-            if (searchLower.includes("interface") || searchLower === "ui") {
-              if (rootName.includes("ui") || rootName.includes("gui") || rootName.includes("interface") ||
-                  catName.includes("ui") || catName.includes("gui") || catName.includes("interface")) {
-                const catId = mData._aRootCategory._idRow; // Usually UI is a root category, but fallback to sub
+          for (const mod of searchRes._aRecords) {
+            // Fetch detailed mod to inspect category tree
+            const mData = await fetchFromGB(
+              `${GB_API}/Mod/${mod._idRow}?_csvProperties=_aRootCategory,_aCategory`,
+            );
+            if (mData._aCategory && mData._aRootCategory) {
+              const rootName = (
+                mData._aRootCategory._sName || ""
+              ).toLowerCase();
+              const catName = (mData._aCategory._sName || "").toLowerCase();
+
+              // If it's a character/skin
+              if (rootName.includes("skin") || rootName.includes("character")) {
+                const catId = mData._aCategory._idRow;
                 characterCategoryCache[cacheKey] = catId;
                 return catId;
               }
-            }
 
-            // If it's Miscellaneous
-            if (searchLower.includes("misc")) {
-              if (rootName.includes("misc") || rootName.includes("other") || 
-                  catName.includes("misc") || catName.includes("other")) {
-                const catId = mData._aRootCategory._idRow;
-                characterCategoryCache[cacheKey] = catId;
-                return catId;
+              // If it's UI/GUI
+              if (searchLower.includes("interface") || searchLower === "ui") {
+                if (
+                  rootName.includes("ui") ||
+                  rootName.includes("gui") ||
+                  rootName.includes("interface") ||
+                  catName.includes("ui") ||
+                  catName.includes("gui") ||
+                  catName.includes("interface")
+                ) {
+                  const catId = mData._aRootCategory._idRow; // Usually UI is a root category, but fallback to sub
+                  characterCategoryCache[cacheKey] = catId;
+                  return catId;
+                }
+              }
+
+              // If it's Miscellaneous
+              if (searchLower.includes("misc")) {
+                if (
+                  rootName.includes("misc") ||
+                  rootName.includes("other") ||
+                  catName.includes("misc") ||
+                  catName.includes("other")
+                ) {
+                  const catId = mData._aRootCategory._idRow;
+                  characterCategoryCache[cacheKey] = catId;
+                  return catId;
+                }
               }
             }
           }
+        } catch (err) {
+          console.error("Failed to auto-discover category ID:", err.message);
         }
-      } catch (err) {
-        console.error("Failed to auto-discover category ID:", err.message);
+        return null;
       }
-      return null;
-    }
 
-    let url;
-    
-    const hasManualSearch = search && search.trim().length >= 1;
-    const hasCategoryContext = context && context.trim().length >= 1;
+      let url;
 
-    if (submitterId) {
-      // CREATOR PROFILE MODE
-      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
-    } else if (hasManualSearch) {
-      // MANUAL SEARCH MODE: Combine context and search for fuzzy string results
-      // We skip category resolution here to prevent "hijacking" by unrelated categories
-      const combinedQuery = [context, search].filter(Boolean).join(" ");
-      url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
-    } else if (hasCategoryContext) {
-      // BROWSING MODE: Pure character/category selection
-      // Use high-precision category ID if possible for perfect sorting
-      const charName = context.trim();
-      const catId = await resolveCharCategory(gbGameId, charName);
-      
-      if (catId) {
-        url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+      const hasManualSearch = search && search.trim().length >= 1;
+      const hasCategoryContext = context && context.trim().length >= 1;
+
+      if (submitterId) {
+        // CREATOR PROFILE MODE
+        url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+      } else if (hasManualSearch) {
+        // MANUAL SEARCH MODE: Combine context and search for fuzzy string results
+        // We skip category resolution here to prevent "hijacking" by unrelated categories
+        const combinedQuery = [context, search].filter(Boolean).join(" ");
+        url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
+      } else if (hasCategoryContext) {
+        // BROWSING MODE: Pure character/category selection
+        // Use high-precision category ID if possible for perfect sorting
+        const charName = context.trim();
+        const catId = await resolveCharCategory(gbGameId, charName);
+
+        if (catId) {
+          url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+        } else {
+          url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
+        }
       } else {
-        url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
+        // GLOBAL HOME MODE
+        url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
       }
-    } else {
-      // GLOBAL HOME MODE
-      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+
+      console.log("GB API Request URL:", url);
+      const data = await fetchFromGB(url);
+
+      // Add constructed thumbnail URLs
+      const records = (data._aRecords || []).map((mod) => {
+        const images = mod._aPreviewMedia?._aImages;
+        let thumbnailUrl = null;
+        if (images && images.length > 0) {
+          const img = images[0];
+          // Prioritize higher resolution 530px file if available, then original, then small preview
+          const fileName = img._sFile530 || img._sFile || img._sFile220;
+          thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
+        }
+        return { ...mod, thumbnailUrl };
+      });
+
+      return {
+        success: true,
+        records,
+        total: data._aMetadata?._nRecordCount || 0,
+      };
+    } catch (err) {
+      console.error("Failed to browse GB mods:", err);
+      return { success: false, error: err.message };
     }
-
-    console.log("GB API Request URL:", url);
-    const data = await fetchFromGB(url);
-
-    // Add constructed thumbnail URLs
-    const records = (data._aRecords || []).map(mod => {
-      const images = mod._aPreviewMedia?._aImages;
-      let thumbnailUrl = null;
-      if (images && images.length > 0) {
-        const img = images[0];
-        // Prioritize higher resolution 530px file if available, then original, then small preview
-        const fileName = img._sFile530 || img._sFile || img._sFile220;
-        thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
-      }
-      return { ...mod, thumbnailUrl };
-    });
-
-    return { success: true, records, total: data._aMetadata?._nRecordCount || 0 };
-  } catch (err) {
-    console.error("Failed to browse GB mods:", err);
-    return { success: false, error: err.message };
-  }
-});
+  },
+);
 
 // Download and install a mod from GameBanana
-ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gbModId, fileUrl, fileName, category, gameId }) => {
-  const tmpPath = path.join(app.getPath("temp"), `aether_${Date.now()}_${fileName}`);
-  
-  try {
-    // Resolve mods dir
-    let modsPath = importerPath;
-    if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
-      modsPath = path.join(modsPath, "Mods");
-    }
-    if (!fs.existsSync(modsPath)) {
-      return { success: false, error: "Mods directory not found." };
-    }
+ipcMain.handle(
+  "install-gb-mod",
+  async (
+    event,
+    {
+      importerPath,
+      characterName,
+      gbModId,
+      fileUrl,
+      fileName,
+      category,
+      gameId,
+    },
+  ) => {
+    const tmpPath = path.join(
+      app.getPath("temp"),
+      `aether_${Date.now()}_${fileName}`,
+    );
 
-    // Clean character name for folder prefix
-    const cleanCharName = characterName && characterName !== "Unassigned"
-      ? characterName.replace(/\s+/g, "")
-      : null;
+    try {
+      // Resolve mods dir
+      let modsPath = importerPath;
+      if (
+        !modsPath.toLowerCase().endsWith("mods") &&
+        fs.existsSync(path.join(modsPath, "Mods"))
+      ) {
+        modsPath = path.join(modsPath, "Mods");
+      }
+      if (!fs.existsSync(modsPath)) {
+        return { success: false, error: "Mods directory not found." };
+      }
 
-    // --- CLEAN UPDATE STRATEGY ---
-    // If updating, find any existing folders with the same gamebananaId and remove them
-    // to avoid ENOTEMPTY and name collision errors.
-    const modFolders = fs.readdirSync(modsPath, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
+      // Clean character name for folder prefix
+      const cleanCharName =
+        characterName && characterName !== "Unassigned"
+          ? characterName.replace(/\s+/g, "")
+          : null;
 
-    for (const folder of modFolders) {
-      const ajsonPath = path.join(modsPath, folder, "aether.json");
-      if (fs.existsSync(ajsonPath)) {
-        try {
-          const data = JSON.parse(fs.readFileSync(ajsonPath, "utf-8"));
-          if (data.gamebananaId === gbModId) {
-            console.log(`Cleaning up old mod version at: ${folder}`);
-            fs.rmSync(path.join(modsPath, folder), { recursive: true, force: true });
+      // --- CLEAN UPDATE STRATEGY ---
+      // If updating, find any existing folders with the same gamebananaId and remove them
+      // to avoid ENOTEMPTY and name collision errors.
+      const modFolders = fs
+        .readdirSync(modsPath, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name);
+
+      for (const folder of modFolders) {
+        const ajsonPath = path.join(modsPath, folder, "aether.json");
+        if (fs.existsSync(ajsonPath)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(ajsonPath, "utf-8"));
+            if (data.gamebananaId === gbModId) {
+              console.log(`Cleaning up old mod version at: ${folder}`);
+              fs.rmSync(path.join(modsPath, folder), {
+                recursive: true,
+                force: true,
+              });
+            }
+          } catch (e) {
+            console.error(
+              `Failed to read aether.json in ${folder} during cleanup`,
+              e,
+            );
           }
-        } catch (e) {
-          console.error(`Failed to read aether.json in ${folder} during cleanup`, e);
         }
       }
-    }
-    // ----------------------------
+      // ----------------------------
 
-    // Download the zip file
-    const res = await fetch(fileUrl, { headers: { "User-Agent": "AetherManager/1.0.0" } });
-    if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
-    
-    const contentLength = res.headers.get("content-length");
-    const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
-    let downloadedBytes = 0;
-    const chunks = [];
-    
-    // Read the stream chunk by chunk to report progress
-    const reader = res.body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        chunks.push(value);
-        downloadedBytes += value.length;
-        if (totalBytes > 0) {
-          const percent = Math.round((downloadedBytes / totalBytes) * 100);
-          event.sender.send("download-progress", { gbModId, percent, downloadedBytes, totalBytes });
+      // Download the zip file
+      const res = await fetch(fileUrl, {
+        headers: { "User-Agent": "AetherManager/1.0.0" },
+      });
+      if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+
+      const contentLength = res.headers.get("content-length");
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+      let downloadedBytes = 0;
+      const chunks = [];
+
+      // Read the stream chunk by chunk to report progress
+      const reader = res.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          downloadedBytes += value.length;
+          if (totalBytes > 0) {
+            const percent = Math.round((downloadedBytes / totalBytes) * 100);
+            event.sender.send("download-progress", {
+              gbModId,
+              percent,
+              downloadedBytes,
+              totalBytes,
+            });
+          }
         }
       }
-    }
-    const buffer = Buffer.concat(chunks);
-    fs.writeFileSync(tmpPath, buffer);
+      const buffer = Buffer.concat(chunks);
+      fs.writeFileSync(tmpPath, buffer);
 
-    // Extract the archive using 7zip (supports zip, rar, 7z)
-    const extractedFolders = [];
-    
-    await new Promise((resolve, reject) => {
-      const stream = Seven.extractFull(tmpPath, modsPath, {
-        $bin: sevenBin.path7za,
+      // Extract the archive using 7zip (supports zip, rar, 7z)
+      const extractedFolders = [];
+
+      await new Promise((resolve, reject) => {
+        const stream = Seven.extractFull(tmpPath, modsPath, {
+          $bin: sevenBin.path7za,
+        });
+
+        stream.on("data", function (data) {
+          // data.file is the relative path (e.g. "JaneDoe", "JaneDoe/face", "README.txt")
+          // data.attributes contains 'D' for directory.
+          const entryPath = data.file;
+          const normalizedPath = entryPath.replace(/\\/g, "/");
+          const parts = normalizedPath.replace(/\/+$/, "").split("/");
+
+          // Ensure it's a directory by checking attributes, or by inference if we see a file with a parent
+          // Even if 7z doesn't yield an explicit "Directory" event for the folder itself,
+          // we can track the root folder name from any file inside it.
+          if (parts.length > 1) {
+            const topLevel = parts[0];
+            if (topLevel && !extractedFolders.includes(topLevel)) {
+              extractedFolders.push(topLevel);
+            }
+          } else if (data.attributes && data.attributes.startsWith("D")) {
+            const topLevel = parts[0];
+            if (topLevel && !extractedFolders.includes(topLevel)) {
+              extractedFolders.push(topLevel);
+            }
+          }
+        });
+
+        stream.on("end", () => resolve());
+        stream.on("error", (err) => reject(err));
       });
 
-      stream.on('data', function (data) {
-        // data.file is the relative path (e.g. "JaneDoe", "JaneDoe/face", "README.txt")
-        // data.attributes contains 'D' for directory.
-        const entryPath = data.file;
-        const normalizedPath = entryPath.replace(/\\/g, '/');
-        const parts = normalizedPath.replace(/\/+$/, "").split("/");
-        
-        // Ensure it's a directory by checking attributes, or by inference if we see a file with a parent
-        // Even if 7z doesn't yield an explicit "Directory" event for the folder itself,
-        // we can track the root folder name from any file inside it.
-        if (parts.length > 1) {
-          const topLevel = parts[0];
-          if (topLevel && !extractedFolders.includes(topLevel)) {
-            extractedFolders.push(topLevel);
-          }
-        } else if (data.attributes && data.attributes.startsWith('D')) {
-           const topLevel = parts[0];
-           if (topLevel && !extractedFolders.includes(topLevel)) {
-             extractedFolders.push(topLevel);
-           }
+      // Rename each top-level folder with the character prefix and write metadata
+      const renamedFolders = [];
+      for (const folderName of extractedFolders) {
+        const srcPath = path.join(modsPath, folderName);
+        if (!fs.existsSync(srcPath)) continue;
+
+        // Ensure it's actually a directory (ignore top-level loose files like README.txt)
+        if (!fs.statSync(srcPath).isDirectory()) continue;
+
+        let targetName = folderName;
+        if (
+          cleanCharName &&
+          !folderName.toLowerCase().startsWith(cleanCharName.toLowerCase())
+        ) {
+          targetName = `${cleanCharName}_${folderName}`;
         }
-      });
 
-      stream.on('end', () => resolve());
-      stream.on('error', (err) => reject(err));
-    });
+        const targetPath = path.join(modsPath, targetName);
+        if (srcPath !== targetPath) {
+          fs.renameSync(srcPath, targetPath);
+        }
 
-    // Rename each top-level folder with the character prefix and write metadata
-    const renamedFolders = [];
-    for (const folderName of extractedFolders) {
-      const srcPath = path.join(modsPath, folderName);
-      if (!fs.existsSync(srcPath)) continue;
-
-      // Ensure it's actually a directory (ignore top-level loose files like README.txt)
-      if (!fs.statSync(srcPath).isDirectory()) continue;
-
-      let targetName = folderName;
-      if (cleanCharName && !folderName.toLowerCase().startsWith(cleanCharName.toLowerCase())) {
-        targetName = `${cleanCharName}_${folderName}`;
+        // Write aether.json inside the mod folder
+        const aetherJson = {
+          gamebananaId: gbModId,
+          installedAt: new Date().toISOString(),
+          installedFile: fileName,
+          category: category || null,
+          gameId: gameId || null,
+        };
+        fs.writeFileSync(
+          path.join(targetPath, "aether.json"),
+          JSON.stringify(aetherJson, null, 2),
+        );
+        renamedFolders.push(targetName);
       }
 
-      const targetPath = path.join(modsPath, targetName);
-      if (srcPath !== targetPath) {
-        fs.renameSync(srcPath, targetPath);
-      }
+      // Cleanup temp file
+      fs.unlinkSync(tmpPath);
 
-      // Write aether.json inside the mod folder
-      const aetherJson = {
-        gamebananaId: gbModId,
-        installedAt: new Date().toISOString(),
-        installedFile: fileName,
-        category: category || null,
-        gameId: gameId || null
-      };
-      fs.writeFileSync(path.join(targetPath, "aether.json"), JSON.stringify(aetherJson, null, 2));
-      renamedFolders.push(targetName);
+      return { success: true, installedFolders: renamedFolders };
+    } catch (err) {
+      console.error("Failed to install GB mod:", err);
+      // Cleanup temp if error
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      return { success: false, error: err.message };
     }
-
-    // Cleanup temp file
-    fs.unlinkSync(tmpPath);
-
-    return { success: true, installedFolders: renamedFolders };
-  } catch (err) {
-    console.error("Failed to install GB mod:", err);
-    // Cleanup temp if error
-    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
-    return { success: false, error: err.message };
-  }
-});
+  },
+);
 
 // ─────────────────────────────────────────────
 //  PRESETS / LOADOUTS
@@ -790,7 +935,10 @@ ipcMain.handle("install-gb-mod", async (event, { importerPath, characterName, gb
 /** Helper to resolve the Mods directory from an importer path (same logic used everywhere) */
 function resolveModsPath(importerPath) {
   let modsPath = importerPath;
-  if (!modsPath.toLowerCase().endsWith("mods") && fs.existsSync(path.join(modsPath, "Mods"))) {
+  if (
+    !modsPath.toLowerCase().endsWith("mods") &&
+    fs.existsSync(path.join(modsPath, "Mods"))
+  ) {
     modsPath = path.join(modsPath, "Mods");
   }
   return modsPath;
@@ -821,7 +969,7 @@ ipcMain.handle("save-preset", (event, preset) => {
     const gameId = preset.gameId;
     if (!config.presets[gameId]) config.presets[gameId] = [];
 
-    const index = config.presets[gameId].findIndex(p => p.id === preset.id);
+    const index = config.presets[gameId].findIndex((p) => p.id === preset.id);
     if (index >= 0) {
       config.presets[gameId][index] = preset;
     } else {
@@ -843,7 +991,9 @@ ipcMain.handle("delete-preset", (event, gameId, presetId) => {
     if (!fs.existsSync(configPath)) return { success: true };
     const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
     if (config.presets && config.presets[gameId]) {
-      config.presets[gameId] = config.presets[gameId].filter(p => p.id !== presetId);
+      config.presets[gameId] = config.presets[gameId].filter(
+        (p) => p.id !== presetId,
+      );
     }
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     return { success: true };
@@ -857,89 +1007,126 @@ ipcMain.handle("delete-preset", (event, gameId, presetId) => {
  * Apply a preset: enables all mods in the preset, disables all others.
  * Returns a diff object so the UI can show a preview BEFORE applying (dryRun mode).
  */
-ipcMain.handle("apply-preset", (event, { importerPath, preset, dryRun = false }) => {
-  try {
-    const modsPath = resolveModsPath(importerPath);
-    if (!fs.existsSync(modsPath)) return { success: false, error: "Mods directory not found." };
+ipcMain.handle(
+  "apply-preset",
+  (event, { importerPath, preset, dryRun = false }) => {
+    try {
+      const modsPath = resolveModsPath(importerPath);
+      if (!fs.existsSync(modsPath))
+        return { success: false, error: "Mods directory not found." };
 
-    // Build a Set of folder names that should be ENABLED after applying the preset
-    const presetFolderNames = new Set(
-      preset.mods.map(m => {
-        // The stored originalFolderName might have DISABLED_ prefix if it was disabled when saved
-        // Normalise: always use the non-DISABLED version as the canonical name
-        return m.originalFolderName.replace(/^DISABLED_/, "");
-      })
-    );
+      // Build a Set of folder names that should be ENABLED after applying the preset
+      const presetFolderNames = new Set(
+        preset.mods.map((m) => {
+          // The stored originalFolderName might have DISABLED_ prefix if it was disabled when saved
+          // Normalise: always use the non-DISABLED version as the canonical name
+          return m.originalFolderName.replace(/^DISABLED_/, "");
+        }),
+      );
 
-    const allEntries = fs.readdirSync(modsPath, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
+      const allEntries = fs
+        .readdirSync(modsPath, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name);
 
-    const willEnable = [];
-    const willDisable = [];
-    const notFound = [];
+      const willEnable = [];
+      const willDisable = [];
+      const notFound = [];
 
-    // Check which preset mods are missing from disk entirely
-    for (const m of preset.mods) {
-      const base = m.originalFolderName.replace(/^DISABLED_/, "");
-      const enabledExists = fs.existsSync(path.join(modsPath, base));
-      const disabledExists = fs.existsSync(path.join(modsPath, `DISABLED_${base}`));
-      if (!enabledExists && !disabledExists) {
-        notFound.push(m);
-      }
-    }
-
-    for (const folderName of allEntries) {
-      const isCurrentlyEnabled = !folderName.startsWith("DISABLED_");
-      const baseName = folderName.replace(/^DISABLED_/, "");
-      const shouldBeEnabled = presetFolderNames.has(baseName);
-
-      if (shouldBeEnabled && !isCurrentlyEnabled) {
-        // Enriched metadata for better UI preview
-        const aetherPath = path.join(modsPath, folderName, "aether.json");
-        let metadata = { folderName, baseName, name: baseName, character: "Misc", gamebananaId: null };
-        if (fs.existsSync(aetherPath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
-            metadata.gamebananaId = data.gamebananaId || null;
-            metadata.character = data.character || "Misc";
-          } catch (e) {}
+      // Check which preset mods are missing from disk entirely
+      for (const m of preset.mods) {
+        const base = m.originalFolderName.replace(/^DISABLED_/, "");
+        const enabledExists = fs.existsSync(path.join(modsPath, base));
+        const disabledExists = fs.existsSync(
+          path.join(modsPath, `DISABLED_${base}`),
+        );
+        if (!enabledExists && !disabledExists) {
+          notFound.push(m);
         }
-        willEnable.push(metadata);
-      } else if (!shouldBeEnabled && isCurrentlyEnabled) {
-        // Enriched metadata for better UI preview
-        const aetherPath = path.join(modsPath, folderName, "aether.json");
-        let metadata = { folderName, baseName, name: baseName, character: "Misc", gamebananaId: null };
-        if (fs.existsSync(aetherPath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
-            metadata.gamebananaId = data.gamebananaId || null;
-            metadata.character = data.character || "Misc";
-          } catch (e) {}
-        }
-        willDisable.push(metadata);
       }
-    }
 
-    // If dry run, just return the diff
-    if (dryRun) {
-      return { success: true, dryRun: true, willEnable, willDisable, notFound };
-    }
+      for (const folderName of allEntries) {
+        const isCurrentlyEnabled = !folderName.startsWith("DISABLED_");
+        const baseName = folderName.replace(/^DISABLED_/, "");
+        const shouldBeEnabled = presetFolderNames.has(baseName);
 
-    // Apply changes on disk
-    for (const { folderName, baseName } of willEnable) {
-      fs.renameSync(path.join(modsPath, folderName), path.join(modsPath, baseName));
-    }
-    for (const { folderName, baseName } of willDisable) {
-      fs.renameSync(path.join(modsPath, folderName), path.join(modsPath, `DISABLED_${baseName}`));
-    }
+        if (shouldBeEnabled && !isCurrentlyEnabled) {
+          // Enriched metadata for better UI preview
+          const aetherPath = path.join(modsPath, folderName, "aether.json");
+          let metadata = {
+            folderName,
+            baseName,
+            name: baseName,
+            character: "Misc",
+            gamebananaId: null,
+          };
+          if (fs.existsSync(aetherPath)) {
+            try {
+              const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
+              metadata.gamebananaId = data.gamebananaId || null;
+              metadata.character = data.character || "Misc";
+            } catch (e) {}
+          }
+          willEnable.push(metadata);
+        } else if (!shouldBeEnabled && isCurrentlyEnabled) {
+          // Enriched metadata for better UI preview
+          const aetherPath = path.join(modsPath, folderName, "aether.json");
+          let metadata = {
+            folderName,
+            baseName,
+            name: baseName,
+            character: "Misc",
+            gamebananaId: null,
+          };
+          if (fs.existsSync(aetherPath)) {
+            try {
+              const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
+              metadata.gamebananaId = data.gamebananaId || null;
+              metadata.character = data.character || "Misc";
+            } catch (e) {}
+          }
+          willDisable.push(metadata);
+        }
+      }
 
-    return { success: true, dryRun: false, willEnable, willDisable, notFound };
-  } catch (err) {
-    console.error("apply-preset error:", err);
-    return { success: false, error: err.message };
-  }
-});
+      // If dry run, just return the diff
+      if (dryRun) {
+        return {
+          success: true,
+          dryRun: true,
+          willEnable,
+          willDisable,
+          notFound,
+        };
+      }
+
+      // Apply changes on disk
+      for (const { folderName, baseName } of willEnable) {
+        fs.renameSync(
+          path.join(modsPath, folderName),
+          path.join(modsPath, baseName),
+        );
+      }
+      for (const { folderName, baseName } of willDisable) {
+        fs.renameSync(
+          path.join(modsPath, folderName),
+          path.join(modsPath, `DISABLED_${baseName}`),
+        );
+      }
+
+      return {
+        success: true,
+        dryRun: false,
+        willEnable,
+        willDisable,
+        notFound,
+      };
+    } catch (err) {
+      console.error("apply-preset error:", err);
+      return { success: false, error: err.message };
+    }
+  },
+);
 
 /** Export preset to a .aether-preset file via Save dialog */
 ipcMain.handle("export-preset", async (event, preset) => {
@@ -950,7 +1137,8 @@ ipcMain.handle("export-preset", async (event, preset) => {
       defaultPath: `${preset.name.replace(/[^a-z0-9]/gi, "_")}.aether-preset`,
       filters: [{ name: "Aether Preset", extensions: ["aether-preset"] }],
     });
-    if (result.canceled || !result.filePath) return { success: false, canceled: true };
+    if (result.canceled || !result.filePath)
+      return { success: false, canceled: true };
     fs.writeFileSync(result.filePath, JSON.stringify(preset, null, 2));
     return { success: true };
   } catch (err) {
@@ -968,7 +1156,8 @@ ipcMain.handle("import-preset", async (event) => {
       filters: [{ name: "Aether Preset", extensions: ["aether-preset"] }],
       properties: ["openFile"],
     });
-    if (result.canceled || result.filePaths.length === 0) return { success: false, canceled: true };
+    if (result.canceled || result.filePaths.length === 0)
+      return { success: false, canceled: true };
     const data = JSON.parse(fs.readFileSync(result.filePaths[0], "utf-8"));
     return { success: true, preset: data };
   } catch (err) {
@@ -976,4 +1165,3 @@ ipcMain.handle("import-preset", async (event) => {
     return { success: false, error: err.message };
   }
 });
-

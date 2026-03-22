@@ -3,7 +3,12 @@ import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
 import CharacterDetail from "./CharacterDetail";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { getAllCharacterNames, GLOBAL_CATEGORIES, isGlobalCategory } from "../lib/portraits";
+import {
+  getAllCharacterNames,
+  GLOBAL_CATEGORIES,
+  isGlobalCategory,
+} from "../lib/portraits";
+import { useFetchCache } from "../hooks/useFetchCache";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
@@ -22,6 +27,9 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
   const [updatesMap, setUpdatesMap] = useState({});
   const [showDisableAllConfirm, setShowDisableAllConfirm] = useState(false);
 
+  // Use fetch cache hook for update checks
+  const { fetchModsBatch } = useFetchCache();
+
   const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
@@ -29,7 +37,11 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
       if (importerPath) {
         const knownCharacters = getAllCharacterNames(game.id);
         const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-        const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames, game.id);
+        const loadedMods = await window.electronMods.getMods(
+          importerPath,
+          allParseableNames,
+          game.id,
+        );
         setMods(loadedMods);
       } else {
         setMods([]);
@@ -45,38 +57,46 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
 
   useEffect(() => {
     const checkUpdates = async () => {
-      if (!mods || mods.length === 0 || !window.electronMods?.fetchGbModsBatch) return;
+      if (!mods || mods.length === 0) return;
 
-      const modsWithId = mods.filter(m => m.gamebananaId);
-      const gbIds = [...new Set(modsWithId.map(m => m.gamebananaId))];
+      const modsWithId = mods.filter((m) => m.gamebananaId);
+      const gbIds = [...new Set(modsWithId.map((m) => m.gamebananaId))];
       if (gbIds.length === 0) return;
 
       try {
-        const result = await window.electronMods.fetchGbModsBatch(gbIds);
+        const result = await fetchModsBatch(gbIds);
         if (result.success && result.data) {
           const newUpdatesMap = {};
-          
+
           // Map fetched data for quick lookup
           const latestDates = {};
-          result.data.forEach(m => {
+          result.data.forEach((m) => {
             if (m._idRow) latestDates[String(m._idRow)] = m._tsDateUpdated;
           });
 
           // Check each mod
-          mods.forEach(mod => {
+          mods.forEach((mod) => {
             const gbId = mod.gamebananaId ? String(mod.gamebananaId) : null;
             if (gbId && mod.installedAt && latestDates[gbId]) {
               const installedDate = new Date(mod.installedAt).getTime() / 1000;
               const gbDate = latestDates[gbId];
-              
+
               // Use a 5-minute buffer (300s) to account for slight clock skews
               if (gbDate > installedDate + 300) {
                 newUpdatesMap[mod.character] = true;
-                
+
                 // Also handle cases where mod is assigned to a category but shows in a tab
-                const isGlobalUI = mod.character === "User Interface" || (mod.character === "Unassigned" && mod.category === "User Interface");
-                const isGlobalMisc = mod.character === "Miscellaneous" || (mod.character === "Unassigned" && (mod.category === "Other/Misc" || mod.category === "Audio" || mod.category === "Miscellaneous"));
-                
+                const isGlobalUI =
+                  mod.character === "User Interface" ||
+                  (mod.character === "Unassigned" &&
+                    mod.category === "User Interface");
+                const isGlobalMisc =
+                  mod.character === "Miscellaneous" ||
+                  (mod.character === "Unassigned" &&
+                    (mod.category === "Other/Misc" ||
+                      mod.category === "Audio" ||
+                      mod.category === "Miscellaneous"));
+
                 if (isGlobalUI) newUpdatesMap["ui"] = true;
                 else if (isGlobalMisc) newUpdatesMap["misc"] = true;
                 else newUpdatesMap["characters"] = true;
@@ -106,13 +126,15 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       await Promise.all(
-        mods.filter((m) => m.isEnabled).map((mod) =>
-          window.electronMods.toggleMod({
-            importerPath,
-            originalFolderName: mod.originalFolderName,
-            enable: false,
-          })
-        )
+        mods
+          .filter((m) => m.isEnabled)
+          .map((mod) =>
+            window.electronMods.toggleMod({
+              importerPath,
+              originalFolderName: mod.originalFolderName,
+              enable: false,
+            }),
+          ),
       );
       await loadMods();
     } finally {
@@ -120,31 +142,41 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
     }
   }, [mods, game.id, loadMods]);
 
-  const totalEnabledMods = useMemo(() => mods.filter((m) => m.isEnabled).length, [mods]);
+  const totalEnabledMods = useMemo(
+    () => mods.filter((m) => m.isEnabled).length,
+    [mods],
+  );
 
   // Group and Filter logic
   const { displayItems, counts } = useMemo(() => {
     const charactersMap = new Map();
     const globalMods = {
       ui: { name: "User Interface", totalMods: 0, enabledMods: 0, mods: [] },
-      misc: { name: "Miscellaneous", totalMods: 0, enabledMods: 0, mods: [] }
+      misc: { name: "Miscellaneous", totalMods: 0, enabledMods: 0, mods: [] },
     };
 
     // Pre-populate characters only for the characters tab
     const currentChars = getAllCharacterNames(game.id);
-    currentChars.forEach(name => {
+    currentChars.forEach((name) => {
       charactersMap.set(name, {
         name,
         totalMods: 0,
         enabledMods: 0,
-        mods: []
+        mods: [],
       });
     });
 
-    mods.forEach(mod => {
+    mods.forEach((mod) => {
       // Check if it's a global UI/Misc mod or a true character mod
-      const isGlobalUI = mod.character === "User Interface" || (mod.character === "Unassigned" && mod.category === "User Interface");
-      const isGlobalMisc = mod.character === "Miscellaneous" || (mod.character === "Unassigned" && (mod.category === "Other/Misc" || mod.category === "Audio" || mod.category === "Miscellaneous"));
+      const isGlobalUI =
+        mod.character === "User Interface" ||
+        (mod.character === "Unassigned" && mod.category === "User Interface");
+      const isGlobalMisc =
+        mod.character === "Miscellaneous" ||
+        (mod.character === "Unassigned" &&
+          (mod.category === "Other/Misc" ||
+            mod.category === "Audio" ||
+            mod.category === "Miscellaneous"));
 
       if (isGlobalUI) {
         globalMods.ui.totalMods++;
@@ -157,7 +189,12 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
       } else {
         // Character Bound
         if (!charactersMap.has(mod.character)) {
-          charactersMap.set(mod.character, { name: mod.character, totalMods: 0, enabledMods: 0, mods: [] });
+          charactersMap.set(mod.character, {
+            name: mod.character,
+            totalMods: 0,
+            enabledMods: 0,
+            mods: [],
+          });
         }
         const charData = charactersMap.get(mod.character);
         charData.totalMods++;
@@ -168,8 +205,8 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
 
     let items = [];
     if (activeTab === "characters") {
-       items = Array.from(charactersMap.values())
-        .filter(c => c.name !== "Unassigned" || c.totalMods > 0)
+      items = Array.from(charactersMap.values())
+        .filter((c) => c.name !== "Unassigned" || c.totalMods > 0)
         .sort((a, b) => {
           if (a.name === "Unassigned") return -1;
           if (b.name === "Unassigned") return 1;
@@ -181,17 +218,20 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
       items = globalMods.misc.totalMods > 0 ? [globalMods.misc] : [];
     }
 
-    const filteredItems = items.filter(item => {
+    const filteredItems = items.filter((item) => {
       return item.name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
-    return { 
+    return {
       displayItems: filteredItems,
       counts: {
-        characters: Array.from(charactersMap.values()).reduce((acc, c) => acc + c.totalMods, 0),
+        characters: Array.from(charactersMap.values()).reduce(
+          (acc, c) => acc + c.totalMods,
+          0,
+        ),
         ui: globalMods.ui.totalMods,
-        misc: globalMods.misc.totalMods
-      }
+        misc: globalMods.misc.totalMods,
+      },
     };
   }, [mods, game.id, activeTab, searchQuery]);
 
@@ -222,19 +262,27 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "group relative pb-2 flex items-center gap-2 transition-all",
-                    isActive ? "text-primary" : "text-text-muted hover:text-text-primary"
+                    isActive
+                      ? "text-primary"
+                      : "text-text-muted hover:text-text-primary",
                   )}
                 >
                   <Icon size={16} />
-                  <span className="text-sm font-bold uppercase tracking-widest">{tab.label}</span>
+                  <span className="text-sm font-bold uppercase tracking-widest">
+                    {tab.label}
+                  </span>
                   {hasUpdate && (
                     <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-update shadow-[0_0_8px_var(--color-update)]" />
                   )}
                   {count > 0 && (
-                    <span className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full font-black",
-                      isActive ? "bg-primary text-black" : "bg-white/10 text-text-muted group-hover:bg-white/20"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-black",
+                        isActive
+                          ? "bg-primary text-black"
+                          : "bg-white/10 text-text-muted group-hover:bg-white/20",
+                      )}
+                    >
                       {count}
                     </span>
                   )}
@@ -264,14 +312,32 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
               title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
             >
               {disablingAll ? (
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                <svg
+                  className="animate-spin h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
                 </svg>
               ) : (
                 <EyeOff size={15} />
               )}
-              {disablingAll ? "Disabling…" : `Disable All (${totalEnabledMods})`}
+              {disablingAll
+                ? "Disabling…"
+                : `Disable All (${totalEnabledMods})`}
             </motion.button>
           )}
 
@@ -279,7 +345,11 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
           <div className="relative w-full sm:w-64 xl:w-72">
             <Input
               icon={Search}
-              placeholder={activeTab === "characters" ? "Search characters..." : "Search mods..."}
+              placeholder={
+                activeTab === "characters"
+                  ? "Search characters..."
+                  : "Search mods..."
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -299,9 +369,11 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
           {activeTab === "characters" ? (
             displayItems.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-surface/50 border-2 border-border rounded-2xl border-dashed">
-                <h3 className="text-xl font-medium text-white mb-2">No {activeTab} mods found</h3>
+                <h3 className="text-xl font-medium text-white mb-2">
+                  No {activeTab} mods found
+                </h3>
                 <p className="text-text-secondary max-w-sm">
-                  {searchQuery 
+                  {searchQuery
                     ? `No results matching "${searchQuery}" in this category.`
                     : `You haven't installed any ${activeTab} mods yet.`}
                 </p>
@@ -325,13 +397,15 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
               </motion.div>
             )
           ) : (
-             <CharacterDetail 
-               game={game} 
-               character={{ name: activeTab === "ui" ? "User Interface" : "Miscellaneous" }} 
-               hideHeader={true} 
-               searchQuery={searchQuery} 
-               onBack={() => {}} 
-             />
+            <CharacterDetail
+              game={game}
+              character={{
+                name: activeTab === "ui" ? "User Interface" : "Miscellaneous",
+              }}
+              hideHeader={true}
+              searchQuery={searchQuery}
+              onBack={() => {}}
+            />
           )}
         </motion.div>
       </AnimatePresence>
@@ -339,7 +413,7 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
       <ConfirmDialog
         isOpen={showDisableAllConfirm}
         title="Disable All Mods"
-        message={`Are you sure you want to disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? 's' : ''} for ${game.name}? This will turn off all currently enabled modifications.`}
+        message={`Are you sure you want to disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}? This will turn off all currently enabled modifications.`}
         confirmText="Disable All"
         onConfirm={confirmDisableAllGame}
         onCancel={() => setShowDisableAllConfirm(false)}

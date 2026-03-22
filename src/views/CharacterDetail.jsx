@@ -4,10 +4,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import LibraryModCard from "../components/LibraryModCard";
 import ModDetailModal from "../components/ModDetailModal";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { getCharacterPortrait, getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
+import {
+  getCharacterPortrait,
+  getAllCharacterNames,
+  GLOBAL_CATEGORIES,
+} from "../lib/portraits";
+import { useFetchCache } from "../hooks/useFetchCache";
 import { cn } from "../lib/utils";
 
-export default function CharacterDetail({ game, character, onBack, hideHeader = false, searchQuery = "" }) {
+export default function CharacterDetail({
+  game,
+  character,
+  onBack,
+  hideHeader = false,
+  searchQuery = "",
+}) {
   const portraitUrl = getCharacterPortrait(character.name, game.id);
   const [mods, setMods] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -18,6 +29,9 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
   const [disablingAll, setDisablingAll] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Use fetch cache hook to avoid redundant GameBanana API calls
+  const { fetchMod } = useFetchCache();
+
   const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
@@ -25,56 +39,68 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
       if (importerPath) {
         const knownCharacters = getAllCharacterNames(game.id);
         const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-        const loadedMods = await window.electronMods.getMods(importerPath, allParseableNames, game.id);
-        const charMods = loadedMods.filter((m) => m.character === character.name);
+        const loadedMods = await window.electronMods.getMods(
+          importerPath,
+          allParseableNames,
+          game.id,
+        );
+        const charMods = loadedMods.filter(
+          (m) => m.character === character.name,
+        );
         charMods.sort((a, b) => {
           if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
           return a.isEnabled ? -1 : 1;
         });
         setMods(charMods);
 
-          // Fetch GameBanana data for mods that have a gamebananaId
-          const gbIds = [...new Set(charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId))];
-          if (gbIds.length > 0 && window.electronMods.fetchGbMod) {
-            const results = await Promise.allSettled(
-              gbIds.map((id) => window.electronMods.fetchGbMod(id))
-            );
-            const map = {};
-            results.forEach((res, i) => {
-              if (res.status === "fulfilled" && res.value.success) {
-                const gbMod = res.value.data;
-                const gbId = gbIds[i];
-                
-                map[gbId] = {
-                  thumbnailUrl: gbMod.thumbnailUrl,
-                  fullData: gbMod, // Store full data for modal
-                };
-              }
-            });
-            setGbDataMap(map);
-          }
+        // Fetch GameBanana data for mods that have a gamebananaId
+        const gbIds = [
+          ...new Set(
+            charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId),
+          ),
+        ];
+        if (gbIds.length > 0) {
+          const results = await Promise.allSettled(
+            gbIds.map((id) => fetchMod(id)),
+          );
+          const map = {};
+          results.forEach((res, i) => {
+            if (res.status === "fulfilled" && res.value.success) {
+              const gbMod = res.value.data;
+              const gbId = gbIds[i];
 
-          // Build installedModsInfo
-          const infoMap = {};
-          charMods.forEach((m) => {
-            if (m.gamebananaId != null) {
-              if (!infoMap[m.gamebananaId]) {
-                infoMap[m.gamebananaId] = { installedFiles: [] };
-              }
-              if (m.installedFile) {
-                // Check if we already added this file name to avoid duplicates
-                const exists = infoMap[m.gamebananaId].installedFiles.find(f => f.fileName === m.installedFile);
-                if (!exists) {
-                  infoMap[m.gamebananaId].installedFiles.push({
-                    fileName: m.installedFile,
-                    installedAt: m.installedAt
-                  });
-                }
-              }
+              map[gbId] = {
+                thumbnailUrl: gbMod.thumbnailUrl,
+                fullData: gbMod, // Store full data for modal
+              };
             }
           });
-          setInstalledModsInfo(infoMap);
+          setGbDataMap(map);
         }
+
+        // Build installedModsInfo
+        const infoMap = {};
+        charMods.forEach((m) => {
+          if (m.gamebananaId != null) {
+            if (!infoMap[m.gamebananaId]) {
+              infoMap[m.gamebananaId] = { installedFiles: [] };
+            }
+            if (m.installedFile) {
+              // Check if we already added this file name to avoid duplicates
+              const exists = infoMap[m.gamebananaId].installedFiles.find(
+                (f) => f.fileName === m.installedFile,
+              );
+              if (!exists) {
+                infoMap[m.gamebananaId].installedFiles.push({
+                  fileName: m.installedFile,
+                  installedAt: m.installedAt,
+                });
+              }
+            }
+          }
+        });
+        setInstalledModsInfo(infoMap);
+      }
     }
   }, [game.id, character.name]); // Include essential deps here if needed in the future
 
@@ -82,62 +108,70 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
     loadMods();
   }, [loadMods]);
 
-  const handleToggle = useCallback(async (mod, enable) => {
-    if (window.electronConfig && window.electronMods) {
-      // Optimistically update local state first
-      setMods(prevMods =>
-        prevMods.map(m =>
-          m.originalFolderName === mod.originalFolderName
-            ? { ...m, isEnabled: enable }
-            : m
-        )
-      );
+  const handleToggle = useCallback(
+    async (mod, enable) => {
+      if (window.electronConfig && window.electronMods) {
+        // Optimistically update local state first
+        setMods((prevMods) =>
+          prevMods.map((m) =>
+            m.originalFolderName === mod.originalFolderName
+              ? { ...m, isEnabled: enable }
+              : m,
+          ),
+        );
 
-      try {
-        const config = await window.electronConfig.getConfig();
-        const importerPath = config[game.id];
+        try {
+          const config = await window.electronConfig.getConfig();
+          const importerPath = config[game.id];
 
-        const result = await window.electronMods.toggleMod({
-          importerPath,
-          originalFolderName: mod.originalFolderName,
-          enable,
-        });
+          const result = await window.electronMods.toggleMod({
+            importerPath,
+            originalFolderName: mod.originalFolderName,
+            enable,
+          });
 
-        if (result.success) {
-          // Update with the actual result from server
-          setMods(prevMods =>
-            prevMods.map(m =>
-              m.originalFolderName === mod.originalFolderName
-                ? { ...m, isEnabled: enable, originalFolderName: result.newFolderName || mod.originalFolderName }
-                : m
-            )
-          );
-        } else {
-          // Revert optimistic update on failure
-          setMods(prevMods =>
-            prevMods.map(m =>
+          if (result.success) {
+            // Update with the actual result from server
+            setMods((prevMods) =>
+              prevMods.map((m) =>
+                m.originalFolderName === mod.originalFolderName
+                  ? {
+                      ...m,
+                      isEnabled: enable,
+                      originalFolderName:
+                        result.newFolderName || mod.originalFolderName,
+                    }
+                  : m,
+              ),
+            );
+          } else {
+            // Revert optimistic update on failure
+            setMods((prevMods) =>
+              prevMods.map((m) =>
+                m.originalFolderName === mod.originalFolderName
+                  ? { ...m, isEnabled: !enable }
+                  : m,
+              ),
+            );
+            console.error("Failed to toggle mod:", result.error);
+            alert(`Failed to toggle mod: ${result.error}`);
+          }
+        } catch (error) {
+          // Revert optimistic update on error
+          setMods((prevMods) =>
+            prevMods.map((m) =>
               m.originalFolderName === mod.originalFolderName
                 ? { ...m, isEnabled: !enable }
-                : m
-            )
+                : m,
+            ),
           );
-          console.error("Failed to toggle mod:", result.error);
-          alert(`Failed to toggle mod: ${result.error}`);
+          console.error("Failed to toggle mod:", error);
+          alert(`Failed to toggle mod: ${error.message}`);
         }
-      } catch (error) {
-        // Revert optimistic update on error
-        setMods(prevMods =>
-          prevMods.map(m =>
-            m.originalFolderName === mod.originalFolderName
-              ? { ...m, isEnabled: !enable }
-              : m
-          )
-        );
-        console.error("Failed to toggle mod:", error);
-        alert(`Failed to toggle mod: ${error.message}`);
       }
-    }
-  }, [game.id, loadMods]);
+    },
+    [game.id, loadMods],
+  );
 
   const handleDisableAll = useCallback(async () => {
     const enabledMods = mods.filter((m) => m.isEnabled);
@@ -152,8 +186,8 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
             importerPath,
             originalFolderName: mod.originalFolderName,
             enable: false,
-          })
-        )
+          }),
+        ),
       );
       await loadMods();
     } finally {
@@ -175,7 +209,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
       const result = await window.electronMods.importMod({
         importerPath,
         characterName: character.name,
-        gameId: game.id
+        gameId: game.id,
       });
 
       if (result && result.success) {
@@ -186,12 +220,17 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
     }
   };
 
-  const handleInstallUpdate = async ({ characterName, gbModId, fileUrl, fileName }) => {
+  const handleInstallUpdate = async ({
+    characterName,
+    gbModId,
+    fileUrl,
+    fileName,
+  }) => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       if (!importerPath) throw new Error("No importer path configured.");
-      
+
       const result = await window.electronMods.installGbMod({
         importerPath,
         characterName,
@@ -201,44 +240,52 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
         gameId: game.id,
       });
 
-      if (!result.success) throw new Error(result.error || "Installation failed.");
-      
+      if (!result.success)
+        throw new Error(result.error || "Installation failed.");
+
       // Update local state so badge shows immediately
       setInstalledModsInfo((prev) => {
         const current = prev[gbModId] || { installedFiles: [] };
-        if (current.installedFiles.find(f => f.fileName === fileName)) return prev;
+        if (current.installedFiles.find((f) => f.fileName === fileName))
+          return prev;
         return {
           ...prev,
-          [gbModId]: { 
+          [gbModId]: {
             ...current,
-            installedFiles: [...current.installedFiles, { fileName, installedAt: new Date().toISOString() }] 
-          }
+            installedFiles: [
+              ...current.installedFiles,
+              { fileName, installedAt: new Date().toISOString() },
+            ],
+          },
         };
       });
-      
+
       // Reload the library view behind the modal
       loadMods();
     }
   };
 
-  const handleAssign = useCallback(async (mod, newCharacterName) => {
-    if (window.electronConfig && window.electronMods) {
-      const config = await window.electronConfig.getConfig();
-      const importerPath = config[game.id];
+  const handleAssign = useCallback(
+    async (mod, newCharacterName) => {
+      if (window.electronConfig && window.electronMods) {
+        const config = await window.electronConfig.getConfig();
+        const importerPath = config[game.id];
 
-      const result = await window.electronMods.assignMod({
-        importerPath,
-        originalFolderName: mod.originalFolderName,
-        newCharacterName,
-      });
+        const result = await window.electronMods.assignMod({
+          importerPath,
+          originalFolderName: mod.originalFolderName,
+          newCharacterName,
+        });
 
-      if (result.success) {
-        loadMods();
-      } else {
-        alert(result.error || "Failed to assign mod.");
+        if (result.success) {
+          loadMods();
+        } else {
+          alert(result.error || "Failed to assign mod.");
+        }
       }
-    }
-  }, [game.id, loadMods]);
+    },
+    [game.id, loadMods],
+  );
 
   const handleDelete = useCallback((mod) => {
     setModToDelete(mod);
@@ -274,7 +321,12 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
   const disabledCount = mods.length - enabledCount;
 
   return (
-    <div className={cn("flex flex-col h-full", !hideHeader && "animate-in fade-in duration-700")}>
+    <div
+      className={cn(
+        "flex flex-col h-full",
+        !hideHeader && "animate-in fade-in duration-700",
+      )}
+    >
       {!hideHeader && (
         <div className="relative mb-12 group">
           {/* Breadcrumb row - Floats over banner */}
@@ -292,27 +344,30 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
 
           {/* Premium Hero Banner */}
           <div className="relative h-72 md:h-[340px] w-full rounded-4xl overflow-hidden bg-card border border-white/10 shadow-2xl mt-8">
-            
             {/* Massive Background Text Watermark */}
             <div className="absolute -right-12 -bottom-20 text-[180px] md:text-[320px] font-black italic text-white/5 leading-none tracking-tighter pointer-events-none select-none z-0 whitespace-nowrap overflow-hidden">
               {character.name.toUpperCase()}
             </div>
 
             {/* High-Tech Grid Pattern */}
-            <div 
-              className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
-              style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} 
+            <div
+              className="absolute inset-0 opacity-[0.03] pointer-events-none z-0"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+                backgroundSize: "32px 32px",
+              }}
             />
 
             {/* Background Glow */}
-            <div 
+            <div
               className="absolute inset-0 transition-opacity duration-1000 z-0 opacity-20"
               style={{
                 background: `radial-gradient(circle at 20% 50%, var(--color-primary) 0%, transparent 60%), 
-                             linear-gradient(to right, rgba(0,0,0,0.8) 0%, transparent 100%)`
+                             linear-gradient(to right, rgba(0,0,0,0.8) 0%, transparent 100%)`,
               }}
             />
-            
+
             {/* The Artwork */}
             <AnimatePresence>
               {portraitUrl && (
@@ -322,15 +377,15 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
                   transition={{ duration: 0.8, ease: "easeOut" }}
                   className="absolute inset-0 z-10 pointer-events-none"
                 >
-                  <img 
-                    src={portraitUrl} 
+                  <img
+                    src={portraitUrl}
                     alt={character.name}
                     onLoad={() => setImgLoaded(true)}
                     loading="lazy"
                     decoding="async"
                     className={cn(
                       "h-full w-auto object-contain object-left scale-[1.8] md:scale-[1.6] translate-x-12 md:translate-x-32 translate-y-24 md:translate-y-36 transition-all duration-700",
-                      imgLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"
+                      imgLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl",
                     )}
                   />
                   {/* Bottom Vignette for text legibility */}
@@ -342,7 +397,6 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
 
             {/* Banner Content Layout */}
             <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col md:flex-row md:items-end justify-between">
-              
               {/* Left: Title & Action */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -351,17 +405,19 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
                 className="flex flex-col justify-end h-full md:h-auto"
               >
                 <div className="flex items-center gap-3 mb-3">
-                   <div className="w-1.5 h-6 bg-primary rounded-full shadow-[0_0_12px_var(--color-primary)]" />
-                   <span className="text-xs font-black uppercase tracking-[0.3em] text-white/50">{game.name}</span>
+                  <div className="w-1.5 h-6 bg-primary rounded-full shadow-[0_0_12px_var(--color-primary)]" />
+                  <span className="text-xs font-black uppercase tracking-[0.3em] text-white/50">
+                    {game.name}
+                  </span>
                 </div>
                 <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-8 drop-shadow-2xl">
                   {character.name}
                 </h1>
-                
+
                 {/* Button Row */}
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* Import Button */}
-                  <motion.button 
+                  <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={async () => await handleImport()}
@@ -383,9 +439,25 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
                       className="flex w-max items-center gap-3 px-6 py-3.5 bg-white/5 text-white/70 hover:text-white font-black rounded-2xl hover:bg-white/10 transition-all uppercase tracking-widest text-xs border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {disablingAll ? (
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          />
                         </svg>
                       ) : (
                         <EyeOff size={16} />
@@ -397,7 +469,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
               </motion.div>
 
               {/* Right: Glassmorphic Stats Dashboard */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
@@ -408,27 +480,41 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_var(--color-primary)]" />
-                      <span className="text-xs font-bold text-white tracking-widest uppercase">Active</span>
+                      <span className="text-xs font-bold text-white tracking-widest uppercase">
+                        Active
+                      </span>
                     </div>
-                    <span className="text-sm font-black text-white">{enabledCount}</span>
+                    <span className="text-sm font-black text-white">
+                      {enabledCount}
+                    </span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-white/20" />
-                      <span className="text-xs font-bold text-text-muted tracking-widest uppercase">Stashed</span>
+                      <span className="text-xs font-bold text-text-muted tracking-widest uppercase">
+                        Stashed
+                      </span>
                     </div>
-                    <span className="text-sm font-black text-white/60">{disabledCount}</span>
+                    <span className="text-sm font-black text-white/60">
+                      {disabledCount}
+                    </span>
                   </div>
                 </div>
 
                 {/* Stat Box 2: Total (Now on the right) */}
                 <div className="flex flex-col items-center justify-center px-8 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[160px]">
-                   <span className="text-[10px] font-black tracking-[0.2em] text-text-muted uppercase mb-1">Total Mods</span>
-                   <div className="flex items-baseline gap-2">
-                     <span className="text-5xl font-black text-white leading-none tracking-tighter">{mods.length}</span>
-                     <span className="text-xs font-bold text-white/20 uppercase tracking-[0.2em]">Installed</span>
-                   </div>
+                  <span className="text-[10px] font-black tracking-[0.2em] text-text-muted uppercase mb-1">
+                    Total Mods
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black text-white leading-none tracking-tighter">
+                      {mods.length}
+                    </span>
+                    <span className="text-xs font-bold text-white/20 uppercase tracking-[0.2em]">
+                      Installed
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -438,44 +524,52 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
 
       {/* Mods Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
-        {mods.filter(m => !searchQuery || m.name.toLowerCase().includes(searchQuery.toLowerCase())).map((mod) => {
-          const gbData = mod.gamebananaId ? gbDataMap[mod.gamebananaId] : undefined;
-          let hasUpdate = false;
-          
-          if (gbData?.fullData && mod.installedAt) {
-            const installedDate = new Date(mod.installedAt).getTime() / 1000;
-            if (gbData.fullData._tsDateUpdated > installedDate + 60) {
-              hasUpdate = true;
-            }
-          }
-          
-          const cardGbData = gbData ? { ...gbData, hasUpdate } : undefined;
+        {mods
+          .filter(
+            (m) =>
+              !searchQuery ||
+              m.name.toLowerCase().includes(searchQuery.toLowerCase()),
+          )
+          .map((mod) => {
+            const gbData = mod.gamebananaId
+              ? gbDataMap[mod.gamebananaId]
+              : undefined;
+            let hasUpdate = false;
 
-          return (
-            <LibraryModCard
-              key={mod.originalFolderName}
-              mod={mod}
-              gbData={cardGbData}
-              isUnassignedMode={character.name === "Unassigned"}
-              characters={getAllCharacterNames(game.id)}
-              gameId={game.id}
-              onClick={() => {
-                if (gbData?.fullData) {
-                  setSelectedMod({ 
-                    ...gbData.fullData,
-                    isUpdating: hasUpdate,
-                    localMod: mod
-                  });
-                }
-              }}
-              onToggle={handleToggle}
-              onOpenFolder={handleOpenFolder}
-              onAssign={handleAssign}
-              onDelete={handleDelete}
-              hideCategoryTag={hideHeader}
-            />
-          );
-        })}
+            if (gbData?.fullData && mod.installedAt) {
+              const installedDate = new Date(mod.installedAt).getTime() / 1000;
+              if (gbData.fullData._tsDateUpdated > installedDate + 60) {
+                hasUpdate = true;
+              }
+            }
+
+            const cardGbData = gbData ? { ...gbData, hasUpdate } : undefined;
+
+            return (
+              <LibraryModCard
+                key={mod.originalFolderName}
+                mod={mod}
+                gbData={cardGbData}
+                isUnassignedMode={character.name === "Unassigned"}
+                characters={getAllCharacterNames(game.id)}
+                gameId={game.id}
+                onClick={() => {
+                  if (gbData?.fullData) {
+                    setSelectedMod({
+                      ...gbData.fullData,
+                      isUpdating: hasUpdate,
+                      localMod: mod,
+                    });
+                  }
+                }}
+                onToggle={handleToggle}
+                onOpenFolder={handleOpenFolder}
+                onAssign={handleAssign}
+                onDelete={handleDelete}
+                hideCategoryTag={hideHeader}
+              />
+            );
+          })}
       </div>
 
       {/* Mod Detail Modal */}
@@ -484,7 +578,9 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
           mod={selectedMod}
           game={game}
           installedFileInfo={installedModsInfo[selectedMod._idRow]}
-          preSelectedCharacter={character.name !== "Unassigned" ? character.name : ""}
+          preSelectedCharacter={
+            character.name !== "Unassigned" ? character.name : ""
+          }
           isUpdating={selectedMod.isUpdating}
           isLibraryContext={true}
           onClose={() => setSelectedMod(null)}
