@@ -30,7 +30,7 @@ export default function CharacterDetailGrid({
 
           if (gbData?.fullData && mod.installedAt) {
             const installedDate = new Date(mod.installedAt).getTime() / 1000;
-            if (gbData.fullData._tsDateUpdated > installedDate + 60) {
+            if (gbData.fullData._tsDateUpdated > installedDate + 300) {
               hasUpdate = true;
             }
           }

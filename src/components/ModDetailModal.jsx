@@ -305,7 +305,7 @@ export default function ModDetailModal({
                   
                   if (isInstalled && mod._tsDateUpdated && installedData.installedAt) {
                     const installedDate = new Date(installedData.installedAt).getTime() / 1000;
-                    if (mod._tsDateUpdated > installedDate + 60) {
+                    if (mod._tsDateUpdated > installedDate + 300) {
                       isOutdated = true;
                     }
                   }

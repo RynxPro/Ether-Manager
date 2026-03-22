@@ -753,7 +753,7 @@ export default function BrowseView() {
                     if (!f.installedAt) return false;
                     const installedDate =
                       new Date(f.installedAt).getTime() / 1000;
-                    return mod._tsDateUpdated > installedDate + 60;
+                    return mod._tsDateUpdated > installedDate + 300;
                   });
                 }
                 const isBookmarked = (bookmarks[game.id] || []).some(
