@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld("electronMods", {
   getPresets: (gameId) => ipcRenderer.invoke("get-presets", gameId),
   savePreset: (preset) => ipcRenderer.invoke("save-preset", preset),
   deletePreset: (gameId, presetId) => ipcRenderer.invoke("delete-preset", gameId, presetId),
-  applyPreset: (args) => ipcRenderer.invoke("apply-preset", args),
+  executePresetDiff: (args) => ipcRenderer.invoke("execute-preset-diff", args),
   exportPreset: (preset) => ipcRenderer.invoke("export-preset", preset),
   importPreset: () => ipcRenderer.invoke("import-preset"),
   onDownloadProgress: (callback) => {

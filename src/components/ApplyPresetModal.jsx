@@ -2,64 +2,94 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, CheckCircle, XCircle, AlertTriangle, Loader2, X } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useAppStore } from "../store/useAppStore";
 
 export default function ApplyPresetModal({ preset, importerPath, onClose, onApplied }) {
+  const game = useAppStore((state) => state.activeGame);
+  const { mods: allMods, loadMods } = useLoadGameMods(game.id);
   const [diff, setDiff] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState(null);
   const [gbData, setGbData] = useState({});
 
-  // Fetch dry-run diff on mount
   useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      try {
-        const result = await window.electronMods.applyPreset({
-          importerPath,
-          preset,
-          dryRun: true,
-        });
-        if (result.success) {
-          setDiff(result);
-          
-          // Fetch GB data for all mods in diff
-          const allChanged = [...result.willEnable, ...result.willDisable, ...result.notFound];
-          const gbIds = allChanged.map(m => m.gamebananaId).filter(Boolean);
-          if (gbIds.length > 0) {
-            const batch = await window.electronMods.fetchGbModsBatch(gbIds);
-            if (batch.success && batch.data) {
-              const dataMap = {};
-              batch.data.forEach(item => {
-                const thumb = item._aPreviewMedia?._aImages?.[0];
-                dataMap[item._idRow] = {
-                  thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
-                };
-              });
-              setGbData(dataMap);
-            }
-          }
-        } else {
-          setError(result.error || "Failed to calculate diff.");
+    if (!allMods || allMods.length === 0) return;
+
+    setLoading(true);
+    try {
+      // 1. Identify Scope (Affected Characters)
+      const affectedCharacters = new Set(preset.mods.map(m => m.character));
+
+      // 2. Diff Targeting
+      const willEnable = [];
+      const willDisable = [];
+      const notFound = [];
+
+      // Check which preset mods exist in allMods and need enabling
+      for (const pm of preset.mods) {
+        // Find by base id (folder name excluding DISABLED_ prefix)
+        const exists = allMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, ""));
+        if (!exists) {
+          notFound.push(pm);
+        } else if (!exists.isEnabled) {
+          willEnable.push(exists);
         }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
       }
-    };
-    run();
-  }, [importerPath, preset]);
+
+      // Check which currently enabled mods should be disabled
+      for (const m of allMods) {
+        if (m.isEnabled && affectedCharacters.has(m.character)) {
+          // Is it part of the preset?
+          const isPart = preset.mods.find(pm => pm.modId === m.id || pm.originalFolderName.replace(/^DISABLED_/, "") === m.id);
+          if (!isPart) {
+            willDisable.push(m);
+          }
+        }
+      }
+
+      setDiff({ willEnable, willDisable, notFound });
+
+      // Fetch GB data for thumbnails asynchronously
+      const allChanged = [...willEnable, ...willDisable, ...notFound];
+      const gbIds = allChanged.map(m => m.gamebananaId).filter(Boolean);
+      if (gbIds.length > 0) {
+        window.electronMods.fetchGbModsBatch(gbIds).then(batch => {
+          if (batch.success && batch.data) {
+            const dataMap = {};
+            batch.data.forEach(item => {
+              const thumb = item._aPreviewMedia?._aImages?.[0];
+              dataMap[item._idRow] = {
+                thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
+              };
+            });
+            setGbData(dataMap);
+          }
+        });
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [allMods, preset]);
 
   const handleApply = async () => {
     setApplying(true);
     try {
-      const result = await window.electronMods.applyPreset({
+      // Form precise instructions for the backend
+      const enableList = diff.willEnable.map(m => m.originalFolderName);
+      const disableList = diff.willDisable.map(m => m.originalFolderName);
+
+      const result = await window.electronMods.executePresetDiff({
         importerPath,
-        preset,
-        dryRun: false,
+        enableList,
+        disableList
       });
+
       if (result.success) {
+        await loadMods(true); // Force global cache invalidation
         onApplied?.();
         onClose();
       } else {

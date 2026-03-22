@@ -39,7 +39,8 @@ export default function PresetDetailModal({ preset: initialPreset, importerPath,
 
   // Add mods panel state
   const [showAddPanel, setShowAddPanel] = useState(false);
-  const { mods: loadedMods, loading: loadingLibrary, loadMods: forceLoadLibrary } = useLoadGameMods(game.id, showAddPanel);
+  // Always load the library in the background to detect missing ghost mods instantly
+  const { mods: loadedMods, loading: loadingLibrary, loadMods: forceLoadLibrary } = useLoadGameMods(game.id, true);
   const [allLibraryMods, setAllLibraryMods] = useState([]);
   const [addSearch, setAddSearch] = useState("");
 
@@ -391,6 +392,42 @@ export default function PresetDetailModal({ preset: initialPreset, importerPath,
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {activeTab === "mods" && (
               <div className="p-6">
+                
+                {(() => {
+                  const ghostMods = displayMods.filter(pm => !allLibraryMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, "")));
+                  if (ghostMods.length > 0 && !isEditMode && allLibraryMods.length > 0) {
+                    return (
+                      <div className="flex items-center justify-between p-4 mb-6 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-500/80 shadow-inner">
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle size={18} className="text-yellow-500 shrink-0" />
+                          <div className="text-xs">
+                            <span className="font-bold text-yellow-500 tracking-tight">Missing Mods Detected</span>
+                            <p className="mt-0.5 opacity-80 font-medium leading-tight">{ghostMods.length} mod(s) in this loadout were permanently deleted or renamed.</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            const cleaned = preset.mods.filter(pm => !ghostMods.find(g => g.modId === pm.modId));
+                            const updated = { ...preset, mods: cleaned, updatedAt: new Date().toISOString() };
+                            setSaving(true);
+                            try {
+                              await window.electronMods.savePreset(updated);
+                              setPreset(updated);
+                              onUpdated?.(updated);
+                            } finally {
+                              setSaving(false);
+                            }
+                          }}
+                          className="px-4 py-2 shrink-0 bg-yellow-500/20 hover:bg-yellow-500 text-yellow-500 hover:text-black font-black text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-md"
+                        >
+                          {saving ? <Loader2 size={12} className="animate-spin" /> : "Remove Missing"}
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {displayMods.length === 0 && !showAddPanel ? (
                   <div className="text-center py-20 text-text-muted">
                     <Package size={32} className="mx-auto mb-3 opacity-30" />

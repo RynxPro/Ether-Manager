@@ -1011,125 +1011,45 @@ ipcMain.handle("delete-preset", (event, gameId, presetId) => {
 });
 
 /**
- * Apply a preset: enables all mods in the preset, disables all others.
- * Returns a diff object so the UI can show a preview BEFORE applying (dryRun mode).
+ * Execute a calculated preset diff: applies exact enable/disable folder renames.
  */
 ipcMain.handle(
-  "apply-preset",
-  (event, { importerPath, preset, dryRun = false }) => {
+  "execute-preset-diff",
+  (event, { importerPath, enableList, disableList }) => {
     try {
       const modsPath = resolveModsPath(importerPath);
       if (!fs.existsSync(modsPath))
         return { success: false, error: "Mods directory not found." };
 
-      // Build a Set of folder names that should be ENABLED after applying the preset
-      const presetFolderNames = new Set(
-        preset.mods.map((m) => {
-          // The stored originalFolderName might have DISABLED_ prefix if it was disabled when saved
-          // Normalise: always use the non-DISABLED version as the canonical name
-          return m.originalFolderName.replace(/^DISABLED_/, "");
-        }),
-      );
+      const toEnable = Array.isArray(enableList) ? enableList : [];
+      const toDisable = Array.isArray(disableList) ? disableList : [];
 
-      const allEntries = fs
-        .readdirSync(modsPath, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => d.name);
-
-      const willEnable = [];
-      const willDisable = [];
-      const notFound = [];
-
-      // Check which preset mods are missing from disk entirely
-      for (const m of preset.mods) {
-        const base = m.originalFolderName.replace(/^DISABLED_/, "");
-        const enabledExists = fs.existsSync(path.join(modsPath, base));
-        const disabledExists = fs.existsSync(
-          path.join(modsPath, `DISABLED_${base}`),
-        );
-        if (!enabledExists && !disabledExists) {
-          notFound.push(m);
+      for (const folderName of toEnable) {
+        const disabledName = folderName.startsWith("DISABLED_") ? folderName : `DISABLED_${folderName}`;
+        const baseName = disabledName.replace(/^DISABLED_/, "");
+        
+        if (fs.existsSync(path.join(modsPath, disabledName))) {
+          fs.renameSync(
+            path.join(modsPath, disabledName),
+            path.join(modsPath, baseName),
+          );
         }
       }
 
-      for (const folderName of allEntries) {
-        const isCurrentlyEnabled = !folderName.startsWith("DISABLED_");
+      for (const folderName of toDisable) {
         const baseName = folderName.replace(/^DISABLED_/, "");
-        const shouldBeEnabled = presetFolderNames.has(baseName);
-
-        if (shouldBeEnabled && !isCurrentlyEnabled) {
-          // Enriched metadata for better UI preview
-          const aetherPath = path.join(modsPath, folderName, "aether.json");
-          let metadata = {
-            folderName,
-            baseName,
-            name: baseName,
-            character: "Misc",
-            gamebananaId: null,
-          };
-          if (fs.existsSync(aetherPath)) {
-            try {
-              const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
-              metadata.gamebananaId = data.gamebananaId || null;
-              metadata.character = data.character || "Misc";
-            } catch (e) {}
-          }
-          willEnable.push(metadata);
-        } else if (!shouldBeEnabled && isCurrentlyEnabled) {
-          // Enriched metadata for better UI preview
-          const aetherPath = path.join(modsPath, folderName, "aether.json");
-          let metadata = {
-            folderName,
-            baseName,
-            name: baseName,
-            character: "Misc",
-            gamebananaId: null,
-          };
-          if (fs.existsSync(aetherPath)) {
-            try {
-              const data = JSON.parse(fs.readFileSync(aetherPath, "utf-8"));
-              metadata.gamebananaId = data.gamebananaId || null;
-              metadata.character = data.character || "Misc";
-            } catch (e) {}
-          }
-          willDisable.push(metadata);
+        
+        if (fs.existsSync(path.join(modsPath, baseName))) {
+          fs.renameSync(
+            path.join(modsPath, baseName),
+            path.join(modsPath, `DISABLED_${baseName}`),
+          );
         }
       }
 
-      // If dry run, just return the diff
-      if (dryRun) {
-        return {
-          success: true,
-          dryRun: true,
-          willEnable,
-          willDisable,
-          notFound,
-        };
-      }
-
-      // Apply changes on disk
-      for (const { folderName, baseName } of willEnable) {
-        fs.renameSync(
-          path.join(modsPath, folderName),
-          path.join(modsPath, baseName),
-        );
-      }
-      for (const { folderName, baseName } of willDisable) {
-        fs.renameSync(
-          path.join(modsPath, folderName),
-          path.join(modsPath, `DISABLED_${baseName}`),
-        );
-      }
-
-      return {
-        success: true,
-        dryRun: false,
-        willEnable,
-        willDisable,
-        notFound,
-      };
+      return { success: true };
     } catch (err) {
-      console.error("apply-preset error:", err);
+      console.error("execute-preset-diff error:", err);
       return { success: false, error: err.message };
     }
   },
