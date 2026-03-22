@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, User, Plus, Trash2, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import LibraryModCard from "../components/LibraryModCard";
 import ModDetailModal from "../components/ModDetailModal";
+import CharacterDetailHeader from "../components/CharacterDetailHeader";
+import CharacterDetailStats from "../components/CharacterDetailStats";
+import CharacterDetailGrid from "../components/CharacterDetailGrid";
 import ConfirmDialog from "../components/ConfirmDialog";
 import {
   getCharacterPortrait,
@@ -387,179 +389,40 @@ export default function CharacterDetail({
             {/* Banner Content Layout */}
             <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col md:flex-row md:items-end justify-between">
               {/* Left: Title & Action */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="flex flex-col justify-end h-full md:h-auto"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-1.5 h-6 bg-primary rounded-full shadow-[0_0_12px_var(--color-primary)]" />
-                  <span className="text-xs font-black uppercase tracking-[0.3em] text-white/50">
-                    {game.name}
-                  </span>
-                </div>
-                <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-8 drop-shadow-2xl">
-                  {character.name}
-                </h1>
-
-                {/* Button Row */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  {/* Import Button */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={async () => await handleImport()}
-                    className="flex w-max items-center gap-3 px-8 py-3.5 bg-primary text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-[0_0_20px_var(--color-primary)]/20 uppercase tracking-widest text-xs border border-transparent hover:border-white/50"
-                  >
-                    <Plus size={18} strokeWidth={3} />
-                    Import Mod
-                  </motion.button>
-
-                  {/* Disable All Button — only shown when there are active mods */}
-                  {mods.some((m) => m.isEnabled) && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleDisableAll}
-                      disabled={disablingAll}
-                      className="flex w-max items-center gap-3 px-6 py-3.5 bg-white/5 text-white/70 hover:text-white font-black rounded-2xl hover:bg-white/10 transition-all uppercase tracking-widest text-xs border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {disablingAll ? (
-                        <svg
-                          className="animate-spin h-4 w-4"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                          />
-                        </svg>
-                      ) : (
-                        <EyeOff size={16} />
-                      )}
-                      {disablingAll ? "Disabling…" : "Disable All"}
-                    </motion.button>
-                  )}
-                </div>
-              </motion.div>
-
+              <CharacterDetailHeader
+                 game={game}
+                 character={character}
+                 mods={mods}
+                 disablingAll={disablingAll}
+                 onImport={handleImport}
+                 onDisableAll={handleDisableAll}
+              />
+              
               {/* Right: Glassmorphic Stats Dashboard */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-                className="hidden md:flex items-stretch gap-4"
-              >
-                {/* Stat Box 1: Status (Now on the left) */}
-                <div className="flex flex-col gap-2 p-4 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[180px]">
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_var(--color-primary)]" />
-                      <span className="text-xs font-bold text-white tracking-widest uppercase">
-                        Active
-                      </span>
-                    </div>
-                    <span className="text-sm font-black text-white">
-                      {enabledCount}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-white/20" />
-                      <span className="text-xs font-bold text-text-muted tracking-widest uppercase">
-                        Stashed
-                      </span>
-                    </div>
-                    <span className="text-sm font-black text-white/60">
-                      {disabledCount}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Stat Box 2: Total (Now on the right) */}
-                <div className="flex flex-col items-center justify-center px-8 bg-black/40 backdrop-blur-xl rounded-4xl border border-white/10 shadow-2xl min-w-[160px]">
-                  <span className="text-[10px] font-black tracking-[0.2em] text-text-muted uppercase mb-1">
-                    Total Mods
-                  </span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black text-white leading-none tracking-tighter">
-                      {mods.length}
-                    </span>
-                    <span className="text-xs font-bold text-white/20 uppercase tracking-[0.2em]">
-                      Installed
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
+              <CharacterDetailStats
+                 enabledCount={enabledCount}
+                 disabledCount={disabledCount}
+                 totalCount={mods.length}
+              />
             </div>
           </div>
         </div>
       )}
 
       {/* Mods Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
-        {mods
-          .filter(
-            (m) =>
-              !searchQuery ||
-              m.name.toLowerCase().includes(searchQuery.toLowerCase()),
-          )
-          .map((mod) => {
-            const gbData = mod.gamebananaId
-              ? gbDataMap[mod.gamebananaId]
-              : undefined;
-            let hasUpdate = false;
-
-            if (gbData?.fullData && mod.installedAt) {
-              const installedDate = new Date(mod.installedAt).getTime() / 1000;
-              if (gbData.fullData._tsDateUpdated > installedDate + 60) {
-                hasUpdate = true;
-              }
-            }
-
-            const cardGbData = gbData ? { ...gbData, hasUpdate } : undefined;
-
-            return (
-              <LibraryModCard
-                key={mod.originalFolderName}
-                mod={mod}
-                gbData={cardGbData}
-                isUnassignedMode={character.name === "Unassigned"}
-                characters={getAllCharacterNames(game.id)}
-                gameId={game.id}
-                onClick={() => {
-                  if (gbData?.fullData) {
-                    setSelectedMod({
-                      ...gbData.fullData,
-                      isUpdating: hasUpdate,
-                      localMod: mod,
-                    });
-                  }
-                }}
-                onToggle={handleToggle}
-                onOpenFolder={handleOpenFolder}
-                onAssign={handleAssign}
-                onDelete={handleDelete}
-                hideCategoryTag={hideHeader}
-              />
-            );
-          })}
-      </div>
+      <CharacterDetailGrid
+        mods={mods}
+        searchQuery={searchQuery}
+        gbDataMap={gbDataMap}
+        character={character}
+        game={game}
+        hideHeader={hideHeader}
+        onSelectMod={setSelectedMod}
+        onToggle={handleToggle}
+        onOpenFolder={handleOpenFolder}
+        onAssign={handleAssign}
+        onDelete={handleDelete}
+      />
 
       {/* Mod Detail Modal */}
       {selectedMod && (
