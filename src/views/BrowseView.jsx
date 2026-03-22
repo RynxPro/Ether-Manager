@@ -24,6 +24,8 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useDebounce } from "../hooks/useDebounce";
 import { useFetchCache } from "../hooks/useFetchCache";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useAppStore } from "../store/useAppStore";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -42,19 +44,19 @@ const SORT_OPTIONS = [
 
 const PER_PAGE = 20;
 
-export default function BrowseView({ game }) {
-  const [mods, setMods] = useState([]);
+export default function BrowseView() {
+  const game = useAppStore((state) => state.activeGame);
+  const [activeTab, setActiveTab] = useState("all");
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState("");
   const [page, setPage] = useState(1);
+  const [mods, setMods] = useState([]);
   const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFile }
   const [installTarget, setInstallTarget] = useState(null);
   const [activeCreatorProfile, setActiveCreatorProfile] = useState(null);
   const [importerPath, setImporterPath] = useState(null);
-
-  const [activeTab, setActiveTab] = useState("all");
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // Reduced from 400ms for better responsiveness
@@ -148,13 +150,10 @@ export default function BrowseView({ game }) {
     });
   }, []);
 
-  const refreshInstalledModsInfo = useCallback(async () => {
-    if (!importerPath || !window.electronMods) return;
-    const allMods = await window.electronMods.getMods(
-      importerPath,
-      getAllCharacterNames(game.id),
-      game.id,
-    );
+  const { mods: allMods, loadMods: refreshInstalledModsInfo } = useLoadGameMods(game.id, true);
+
+  useEffect(() => {
+    if (!allMods) return;
     const infoMap = {};
     allMods.forEach((m) => {
       if (m.gamebananaId != null) {
@@ -175,11 +174,8 @@ export default function BrowseView({ game }) {
       }
     });
     setInstalledModsInfo(infoMap);
-  }, [importerPath, game.id]);
+  }, [allMods]);
 
-  useEffect(() => {
-    refreshInstalledModsInfo();
-  }, [refreshInstalledModsInfo]);
 
   // Fetch mods from GameBanana when params change (API Tabs ONLY)
   const fetchMods = useCallback(async () => {

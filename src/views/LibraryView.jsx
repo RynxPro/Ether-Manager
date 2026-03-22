@@ -6,9 +6,10 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import {
   getAllCharacterNames,
   GLOBAL_CATEGORIES,
-  isGlobalCategory,
 } from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useAppStore } from "../store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
@@ -19,8 +20,9 @@ const TABS = [
   { id: "misc", label: "Miscellaneous", icon: Box },
 ];
 
-export default function LibraryView({ game, isActive, onSelectCharacter }) {
-  const [mods, setMods] = useState([]);
+export default function LibraryView({ isActive }) {
+  const game = useAppStore((state) => state.activeGame);
+  const onSelectCharacter = useAppStore((state) => state.setSelectedCharacter);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
   const [disablingAll, setDisablingAll] = useState(false);
@@ -30,30 +32,8 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
   // Use fetch cache hook for update checks
   const { fetchModsBatch } = useFetchCache();
 
-  const loadMods = useCallback(async () => {
-    if (window.electronConfig && window.electronMods) {
-      const config = await window.electronConfig.getConfig();
-      const importerPath = config[game.id];
-      if (importerPath) {
-        const knownCharacters = getAllCharacterNames(game.id);
-        const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-        const loadedMods = await window.electronMods.getMods(
-          importerPath,
-          allParseableNames,
-          game.id,
-        );
-        setMods(loadedMods);
-      } else {
-        setMods([]);
-      }
-    }
-  }, [game.id]);
-
-  useEffect(() => {
-    if (isActive !== false) {
-      loadMods();
-    }
-  }, [loadMods, isActive]);
+  // Standardized Mod Loading
+  const { mods, loadMods, setMods } = useLoadGameMods(game.id, isActive !== false);
 
   useEffect(() => {
     const checkUpdates = async () => {

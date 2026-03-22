@@ -4,8 +4,15 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import SettingsModal from "./SettingsModal";
 import { Button } from "./ui/Button";
+import { useAppStore } from "../store/useAppStore";
+import { GAME_CONFIG } from "../gameConfig";
 
-export default function Navbar({ games, activeGame, onSelectGame, activeView, onSelectView, onShowHelp }) {
+export default function Navbar({ onShowHelp }) {
+  const activeGame = useAppStore((state) => state.activeGameId);
+  const onSelectGame = useAppStore((state) => state.setActiveGameId);
+  const activeView = useAppStore((state) => state.activeView);
+  const onSelectView = useAppStore((state) => state.setActiveView);
+  const games = Object.values(GAME_CONFIG);
   const [showSettings, setShowSettings] = useState(false);
 
   return (

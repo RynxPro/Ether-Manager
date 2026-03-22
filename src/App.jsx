@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GAME_CONFIG } from "./gameConfig";
+import { useAppStore } from "./store/useAppStore";
 import Navbar from "./components/Navbar";
 import LibraryView from "./views/LibraryView";
 import CharacterDetail from "./views/CharacterDetail";
@@ -10,9 +11,10 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 
 function App() {
-  const [activeGame, setActiveGame] = useState("GIMI");
-  const [selectedCharacter, setSelectedCharacter] = useState(null);
-  const [activeView, setActiveView] = useState("mods"); // "mods" | "browse"
+  const activeGameId = useAppStore((state) => state.activeGameId);
+  const selectedCharacter = useAppStore((state) => state.selectedCharacter);
+  const activeView = useAppStore((state) => state.activeView);
+  const setSelectedCharacter = useAppStore((state) => state.setSelectedCharacter);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -31,14 +33,9 @@ function App() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--color-primary",
-      GAME_CONFIG[activeGame].accentColor,
+      GAME_CONFIG[activeGameId].accentColor,
     );
-  }, [activeGame]);
-
-  const handleGameSelect = (gameId) => {
-    setActiveGame(gameId);
-    setSelectedCharacter(null); // Reset detail view when switching games
-  };
+  }, [activeGameId]);
 
   const handleCloseOnboarding = async () => {
     setShowOnboarding(false);
@@ -50,8 +47,6 @@ function App() {
   const handleShowHelp = () => {
     setShowOnboarding(true);
   };
-
-  const game = GAME_CONFIG[activeGame];
 
   return (
     <div className="h-screen w-screen flex flex-col bg-background text-text-primary relative overflow-hidden">
@@ -78,14 +73,7 @@ function App() {
         </svg>
       </div>
 
-      <Navbar
-        games={Object.values(GAME_CONFIG)}
-        activeGame={activeGame}
-        onSelectGame={handleGameSelect}
-        activeView={activeView}
-        onSelectView={setActiveView}
-        onShowHelp={handleShowHelp}
-      />
+      <Navbar onShowHelp={handleShowHelp} />
 
       <main className="flex-1 w-full relative z-10 overflow-hidden">
         <ErrorBoundary>
@@ -103,7 +91,7 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <BrowseView game={game} />
+              <BrowseView />
             </div>
           </motion.div>
 
@@ -121,7 +109,7 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <PresetsView game={game} />
+              <PresetsView />
             </div>
           </motion.div>
 
@@ -140,11 +128,7 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <LibraryView
-                game={game}
-                isActive={activeView === "mods" && !selectedCharacter}
-                onSelectCharacter={setSelectedCharacter}
-              />
+              <LibraryView isActive={activeView === "mods" && !selectedCharacter} />
             </div>
           </motion.div>
 
@@ -162,7 +146,6 @@ function App() {
               >
                 <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
                   <CharacterDetail
-                    game={game}
                     character={selectedCharacter}
                     onBack={() => setSelectedCharacter(null)}
                   />

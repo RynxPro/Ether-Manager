@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ChevronRight, ChevronLeft, Zap, Palette, Check, Loader2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useAppStore } from "../store/useAppStore";
 
 const ACCENT_COLORS = [
   { label: "Violet", value: "#7c3aed" },
@@ -21,11 +23,13 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-export default function CreatePresetModal({ game, importerPath, onClose, onSaved }) {
+export default function CreatePresetModal({ importerPath, onClose, onSaved }) {
+  const game = useAppStore((state) => state.activeGame);
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(ACCENT_COLORS[0].value);
+  const { mods: loadedMods, loading: loadingLibrary } = useLoadGameMods(game.id, step === 2 || step === 1 /* Always load to allow quick snapshots */);
   const [allMods, setAllMods] = useState([]);
   const [selectedModIds, setSelectedModIds] = useState(new Set());
   const [search, setSearch] = useState("");
@@ -33,20 +37,15 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
   const [gbData, setGbData] = useState({});
   const [saving, setSaving] = useState(false);
 
-  // Load all installed mods
-  const loadMods = useCallback(async () => {
-    if (!importerPath) return;
+  // Load all installed mods (wrapper for fetching GB thumbnails)
+  const processMods = useCallback(async () => {
+    if (!loadedMods || loadedMods.length === 0) return;
     setLoadingMods(true);
-    try {
-      const mods = await window.electronMods.getMods(
-        importerPath,
-        [...getAllCharacterNames(game.id), ...getGlobalCategories()],
-        game.id
-      );
-      setAllMods(mods);
+    setAllMods(loadedMods);
 
+    try {
       // Fetch GB data for thumbnails
-      const gbIds = mods.map(m => m.gamebananaId).filter(Boolean);
+      const gbIds = loadedMods.map(m => m.gamebananaId).filter(Boolean);
       if (gbIds.length > 0) {
         const result = await window.electronMods.fetchGbModsBatch(gbIds);
         if (result.success && result.data) {
@@ -61,31 +60,29 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
         }
       }
     } catch (err) {
-      console.error("CreatePresetModal: failed to load mods", err);
+      console.error("CreatePresetModal: failed to process mods", err);
     } finally {
       setLoadingMods(false);
     }
-  }, [importerPath, game.id]);
+  }, [loadedMods]);
 
   useEffect(() => {
-    if (step === 2) loadMods();
-  }, [step, loadMods]);
+    if (step === 2 && loadedMods.length > 0) {
+      processMods();
+    }
+  }, [step, loadedMods, processMods]);
 
   // Snapshot: auto-select all currently-enabled mods
   const handleSnapshot = async () => {
+    if (!loadedMods || loadedMods.length === 0) return;
     setLoadingMods(true);
-    try {
-      const mods = await window.electronMods.getMods(
-        importerPath,
-        [...getAllCharacterNames(game.id), ...getGlobalCategories()],
-        game.id
-      );
-      setAllMods(mods);
-      const enabledIds = new Set(mods.filter(m => m.isEnabled).map(m => m.id));
-      setSelectedModIds(enabledIds);
+    setAllMods(loadedMods);
+    const enabledIds = new Set(loadedMods.filter(m => m.isEnabled).map(m => m.id));
+    setSelectedModIds(enabledIds);
 
+    try {
       // Fetch GB data for thumbnails
-      const gbIds = mods.map(m => m.gamebananaId).filter(Boolean);
+      const gbIds = loadedMods.map(m => m.gamebananaId).filter(Boolean);
       if (gbIds.length > 0) {
         const result = await window.electronMods.fetchGbModsBatch(gbIds);
         if (result.success && result.data) {
@@ -99,12 +96,11 @@ export default function CreatePresetModal({ game, importerPath, onClose, onSaved
           setGbData(prev => ({ ...prev, ...dataMap }));
         }
       }
-
-      setStep(2);
-    } catch (err) {
-      console.error("Snapshot failed", err);
+    } catch (error) {
+       console.error("Snapshot error:", error);
     } finally {
       setLoadingMods(false);
+      setStep(2);
     }
   };
 

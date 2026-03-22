@@ -1,18 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Plus, Upload, Package, ChevronRight, Loader2 } from "lucide-react";
-import { cn } from "../lib/utils";
-import { getAllCharacterNames } from "../lib/portraits";
-import PresetDetailModal from "../components/PresetDetailModal";
 import CreatePresetModal from "../components/CreatePresetModal";
+import PresetDetailModal from "../components/PresetDetailModal";
 import { Button } from "../components/ui/Button";
+import { useAppStore } from "../store/useAppStore";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
   show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] } }),
 };
 
-export default function PresetsView({ game }) {
+export default function PresetsView() {
+  const game = useAppStore((state) => state.activeGame);
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importerPath, setImporterPath] = useState(null);
@@ -162,7 +162,6 @@ export default function PresetsView({ game }) {
       <AnimatePresence>
         {showCreate && importerPath && (
           <CreatePresetModal
-            game={game}
             importerPath={importerPath}
             onClose={() => setShowCreate(false)}
             onSaved={(preset) => {

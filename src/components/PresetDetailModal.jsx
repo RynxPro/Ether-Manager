@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Zap, Edit3, Check, Plus, Trash2, Search, Loader2, Share2, Copy, AlertTriangle, Info, Package } from "lucide-react";
+import { AlertTriangle, Plus, Search, HelpCircle, Package, ArrowLeft, RefreshCw, X, ChevronDown, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy, Info } from "lucide-react";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import ApplyPresetModal from "./ApplyPresetModal";
@@ -17,7 +19,8 @@ const ACCENT_COLORS = [
   { label: "White", value: "#e2e8f0" },
 ];
 
-export default function PresetDetailModal({ preset: initialPreset, game, importerPath, onClose, onUpdated, onDeleted }) {
+export default function PresetDetailModal({ preset: initialPreset, importerPath, onClose, onSaved, onDeleted }) {
+  const game = useAppStore((state) => state.activeGame);
   const [preset, setPreset] = useState(initialPreset);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState("mods");
@@ -36,78 +39,54 @@ export default function PresetDetailModal({ preset: initialPreset, game, importe
 
   // Add mods panel state
   const [showAddPanel, setShowAddPanel] = useState(false);
+  const { mods: loadedMods, loading: loadingLibrary, loadMods: forceLoadLibrary } = useLoadGameMods(game.id, showAddPanel);
   const [allLibraryMods, setAllLibraryMods] = useState([]);
-  const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [addSearch, setAddSearch] = useState("");
 
   const loadLibrary = useCallback(async () => {
-    if (!importerPath) return;
-    setLoadingLibrary(true);
-    try {
-      const mods = await window.electronMods.getMods(
-        importerPath,
-        [...getAllCharacterNames(game.id), ...getGlobalCategories()],
-        game.id
-      );
-      setAllLibraryMods(mods);
+    if (!loadedMods || loadedMods.length === 0) return;
+    setAllLibraryMods(loadedMods);
 
-      // SELF-HEALING: If preset mods are missing gamebananaId, try to find them in the loaded library
-      let needsUpdate = false;
-      const healedMods = preset.mods.map(pm => {
-        if (!pm.gamebananaId || pm.character === "Unassigned") {
-          const libraryMod = mods.find(m => m.id === pm.modId);
-          if (libraryMod) {
-            let updated = { ...pm };
-            let changed = false;
-            
-            if (!pm.gamebananaId && libraryMod.gamebananaId) {
-              updated.gamebananaId = libraryMod.gamebananaId;
-              changed = true;
-            }
-            
-            // Fix character if it was incorrectly "Unassigned"
-            if (pm.character === "Unassigned" && libraryMod.character !== "Unassigned") {
-              updated.character = libraryMod.character;
-              changed = true;
-            }
-            
-            if (changed) {
-              needsUpdate = true;
-              return updated;
-            }
+    // SELF-HEALING: If preset mods are missing gamebananaId, try to find them in the loaded library
+    let needsUpdate = false;
+    const healedMods = preset.mods.map(pm => {
+      if (!pm.gamebananaId || pm.character === "Unassigned") {
+        const libraryMod = loadedMods.find(m => m.id === pm.modId);
+        if (libraryMod) {
+          let updated = { ...pm };
+          if (libraryMod.gamebananaId) {
+            updated.gamebananaId = libraryMod.gamebananaId;
           }
-        }
-        return pm;
-      });
-
-      if (needsUpdate) {
-        const updatedPreset = { ...preset, mods: healedMods };
-        setPreset(updatedPreset);
-        // We don't auto-save to disk here to avoid silent mutations, 
-        // but the UI will now have the IDs needed for thumbnails.
-      }
-
-      // Fetch GB data for thumbnails in the library panel
-      const gbIds = mods.map(m => m.gamebananaId).filter(Boolean);
-      if (gbIds.length > 0) {
-        const result = await window.electronMods.fetchGbModsBatch(gbIds);
-        if (result.success && result.data) {
-          const dataMap = {};
-          result.data.forEach(item => {
-            const thumb = item._aPreviewMedia?._aImages?.[0];
-            dataMap[item._idRow] = {
-              thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
-            };
-          });
-          setGbData(prev => ({ ...prev, ...dataMap }));
+          if (libraryMod.character !== "Unassigned") {
+            updated.character = libraryMod.character;
+          }
+          needsUpdate = true;
+          return updated;
         }
       }
-    } catch (e) {
-      console.error("PresetDetailModal: failed to load library", e);
-    } finally {
-      setLoadingLibrary(false);
+      return pm;
+    });
+
+    if (needsUpdate) {
+      setEditMods(healedMods);
     }
-  }, [importerPath, game.id, preset]);
+
+    // Fetch GB data for thumbnails in the library panel
+    const gbIds = loadedMods.map(m => m.gamebananaId).filter(Boolean);
+    if (gbIds.length > 0) {
+      const result = await window.electronMods.fetchGbModsBatch(gbIds);
+      if (result.success && result.data) {
+        const dataMap = {};
+        result.data.forEach(item => {
+          const thumb = item._aPreviewMedia?._aImages?.[0];
+          dataMap[item._idRow] = {
+            thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
+          };
+        });
+        setGbData(prev => ({ ...prev, ...dataMap }));
+      }
+    }
+  }, [loadedMods, preset.mods]);
 
   // Initial load: check if we need to self-heal (if any mod is missing GB ID)
   useEffect(() => {

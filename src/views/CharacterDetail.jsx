@@ -10,17 +10,19 @@ import {
   GLOBAL_CATEGORIES,
 } from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 
 export default function CharacterDetail({
-  game,
   character,
   onBack,
   hideHeader = false,
   searchQuery = "",
 }) {
+  const game = useAppStore((state) => state.activeGame);
   const portraitUrl = getCharacterPortrait(character.name, game.id);
-  const [mods, setMods] = useState([]);
+// Removed old useState for mods
   const [imgLoaded, setImgLoaded] = useState(false);
   const [gbDataMap, setGbDataMap] = useState({});
   const [selectedMod, setSelectedMod] = useState(null);
@@ -32,77 +34,64 @@ export default function CharacterDetail({
   // Use fetch cache hook to avoid redundant GameBanana API calls
   const { fetchMod } = useFetchCache();
 
+  // Use standard hook but keep local mods state for the filtered character
+  const { mods: allMods, loadMods: reloadAllMods } = useLoadGameMods(game.id, true);
+  const [mods, setMods] = useState([]);
+
   const loadMods = useCallback(async () => {
-    if (window.electronConfig && window.electronMods) {
-      const config = await window.electronConfig.getConfig();
-      const importerPath = config[game.id];
-      if (importerPath) {
-        const knownCharacters = getAllCharacterNames(game.id);
-        const allParseableNames = [...knownCharacters, ...GLOBAL_CATEGORIES];
-        const loadedMods = await window.electronMods.getMods(
-          importerPath,
-          allParseableNames,
-          game.id,
-        );
-        const charMods = loadedMods.filter(
-          (m) => m.character === character.name,
-        );
-        charMods.sort((a, b) => {
-          if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
-          return a.isEnabled ? -1 : 1;
-        });
-        setMods(charMods);
+    if (allMods && allMods.length > 0) {
+      const charMods = allMods.filter((m) => m.character === character.name);
+      charMods.sort((a, b) => {
+        if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
+        return a.isEnabled ? -1 : 1;
+      });
+      setMods(charMods);
 
-        // Fetch GameBanana data for mods that have a gamebananaId
-        const gbIds = [
-          ...new Set(
-            charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId),
-          ),
-        ];
-        if (gbIds.length > 0) {
-          const results = await Promise.allSettled(
-            gbIds.map((id) => fetchMod(id)),
-          );
-          const map = {};
-          results.forEach((res, i) => {
-            if (res.status === "fulfilled" && res.value.success) {
-              const gbMod = res.value.data;
-              const gbId = gbIds[i];
-
-              map[gbId] = {
-                thumbnailUrl: gbMod.thumbnailUrl,
-                fullData: gbMod, // Store full data for modal
-              };
-            }
-          });
-          setGbDataMap(map);
-        }
-
-        // Build installedModsInfo
-        const infoMap = {};
-        charMods.forEach((m) => {
-          if (m.gamebananaId != null) {
-            if (!infoMap[m.gamebananaId]) {
-              infoMap[m.gamebananaId] = { installedFiles: [] };
-            }
-            if (m.installedFile) {
-              // Check if we already added this file name to avoid duplicates
-              const exists = infoMap[m.gamebananaId].installedFiles.find(
-                (f) => f.fileName === m.installedFile,
-              );
-              if (!exists) {
-                infoMap[m.gamebananaId].installedFiles.push({
-                  fileName: m.installedFile,
-                  installedAt: m.installedAt,
-                });
-              }
-            }
+      // Fetch GameBanana data for mods that have a gamebananaId
+      const gbIds = [
+        ...new Set(charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId)),
+      ];
+      if (gbIds.length > 0) {
+        const results = await Promise.allSettled(gbIds.map((id) => fetchMod(id)));
+        const map = {};
+        results.forEach((res, i) => {
+          if (res.status === "fulfilled" && res.value.success) {
+            const gbMod = res.value.data;
+            const gbId = gbIds[i];
+            map[gbId] = {
+              thumbnailUrl: gbMod.thumbnailUrl,
+              fullData: gbMod,
+            };
           }
         });
-        setInstalledModsInfo(infoMap);
+        setGbDataMap(map);
       }
+
+      // Build installedModsInfo
+      const infoMap = {};
+      charMods.forEach((m) => {
+        if (m.gamebananaId != null) {
+          if (!infoMap[m.gamebananaId]) {
+            infoMap[m.gamebananaId] = { installedFiles: [] };
+          }
+          if (m.installedFile) {
+            const exists = infoMap[m.gamebananaId].installedFiles.find(
+              (f) => f.fileName === m.installedFile,
+            );
+            if (!exists) {
+              infoMap[m.gamebananaId].installedFiles.push({
+                fileName: m.installedFile,
+                installedAt: m.installedAt,
+              });
+            }
+          }
+        }
+      });
+      setInstalledModsInfo(infoMap);
+    } else {
+      setMods([]);
     }
-  }, [game.id, character.name]); // Include essential deps here if needed in the future
+  }, [allMods, character.name]);
 
   useEffect(() => {
     loadMods();
