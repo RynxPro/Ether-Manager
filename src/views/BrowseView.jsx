@@ -71,22 +71,26 @@ export default function BrowseView() {
   // Use fetch cache for individual mod details
   const { fetchMod } = useFetchCache();
 
-  // Fetch Featured Mods (simulate Today/Week/Month/Year/All Time with Top 5)
+  // Fetch Featured Mods (Randomized popular mods per session)
   useEffect(() => {
     const fetchFeatured = async () => {
       if (!game.gbGameId) return;
       setLoadingFeatured(true);
       try {
+        // Randomly grab page 1, 2, or 3 of the most liked mods
+        const randomPage = Math.floor(Math.random() * 3) + 1;
         const result = await window.electronMods.browseGbMods({
           gbGameId: game.gbGameId,
-          page: 1,
-          perPage: 5,
+          page: randomPage,
+          perPage: 15,
           sort: "likes",
           context: "",
           search: "",
         });
-        if (result.success) {
-          setFeaturedMods(result.records);
+        if (result.success && result.records) {
+          // Shuffle the large pool and take 5 to ensure fresh variety
+          const shuffled = [...result.records].sort(() => 0.5 - Math.random());
+          setFeaturedMods(shuffled.slice(0, 5));
         }
       } catch (err) {
         console.error("Failed to fetch featured mods:", err);
@@ -246,7 +250,51 @@ export default function BrowseView() {
         : savedMods;
 
       setTotal(filtered.length);
-      setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
+      
+      const pageMods = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+      setMods(pageMods); // Optimistic load
+
+      // Live-update metadata in background
+      if (pageMods.length > 0) {
+        const modIds = pageMods.map((m) => m._idRow).filter(Boolean);
+        if (modIds.length > 0) {
+          window.electronMods.fetchGbModsBatch(modIds).then((result) => {
+            if (result.success && result.data) {
+              const liveDataMap = {};
+              result.data.forEach((m) => {
+                liveDataMap[m._idRow] = m;
+              });
+
+              setMods((currentMods) =>
+                currentMods.map((mod) => {
+                  if (liveDataMap[mod._idRow]) {
+                    const live = liveDataMap[mod._idRow];
+                    
+                    // Re-construct thumbnail if updated
+                    let thumbnailUrl = mod.thumbnailUrl;
+                    const images = live._aPreviewMedia?._aImages;
+                    if (images && images.length > 0) {
+                      const img = images[0];
+                      const fileName = img._sFile530 || img._sFile || img._sFile220;
+                      thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
+                    }
+
+                    return {
+                      ...mod,
+                      _nLikeCount: live._nLikeCount ?? mod._nLikeCount,
+                      _nDownloadCount: live._nDownloadCount ?? mod._nDownloadCount,
+                      _nViewCount: live._nViewCount ?? mod._nViewCount,
+                      _tsDateUpdated: live._tsDateUpdated ?? mod._tsDateUpdated,
+                      thumbnailUrl,
+                    };
+                  }
+                  return mod;
+                }),
+              );
+            }
+          }).catch((err) => console.error("Failed to live-update bookmarks:", err));
+        }
+      }
     }
   }, [activeTab, bookmarks, game.id, debouncedSearchQuery, page]);
 
@@ -265,7 +313,7 @@ export default function BrowseView() {
       });
       if (!result.success)
         throw new Error(result.error || "Installation failed.");
-      await refreshInstalledModsInfo();
+      await refreshInstalledModsInfo(true);
     },
     [importerPath, game.id, refreshInstalledModsInfo],
   );

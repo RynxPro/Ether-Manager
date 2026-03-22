@@ -781,8 +781,8 @@ ipcMain.handle(
           : null;
 
       // --- CLEAN UPDATE STRATEGY ---
-      // If updating, find any existing folders with the same gamebananaId and remove them
-      // to avoid ENOTEMPTY and name collision errors.
+      // If updating, find existing folders with the exact same gamebananaId AND the exact same installedFile
+      // This prevents Variant A from deleting Variant B if both are downloaded from the same post!
       const modFolders = fs
         .readdirSync(modsPath, { withFileTypes: true })
         .filter((d) => d.isDirectory())
@@ -793,8 +793,8 @@ ipcMain.handle(
         if (fs.existsSync(ajsonPath)) {
           try {
             const data = JSON.parse(fs.readFileSync(ajsonPath, "utf-8"));
-            if (data.gamebananaId === gbModId) {
-              console.log(`Cleaning up old mod version at: ${folder}`);
+            if (data.gamebananaId === gbModId && data.installedFile === fileName) {
+              console.log(`Cleaning up exact old mod version at: ${folder}`);
               fs.rmSync(path.join(modsPath, folder), {
                 recursive: true,
                 force: true,
@@ -843,64 +843,66 @@ ipcMain.handle(
       const buffer = Buffer.concat(chunks);
       fs.writeFileSync(tmpPath, buffer);
 
-      // Extract the archive using 7zip (supports zip, rar, 7z)
-      const extractedFolders = [];
+      // Create a dedicated Sandbox extraction folder to trap "Flat Zips" (zips without root folders)
+      const extractSandboxName = `.aether_tmp_extract_${Date.now()}`;
+      const extractSandboxPath = path.join(modsPath, extractSandboxName);
+      fs.mkdirSync(extractSandboxPath, { recursive: true });
 
+      // Extract the archive into the Sandbox
       await new Promise((resolve, reject) => {
-        const stream = Seven.extractFull(tmpPath, modsPath, {
+        const stream = Seven.extractFull(tmpPath, extractSandboxPath, {
           $bin: sevenBin.path7za,
-        });
-
-        stream.on("data", function (data) {
-          // data.file is the relative path (e.g. "JaneDoe", "JaneDoe/face", "README.txt")
-          // data.attributes contains 'D' for directory.
-          const entryPath = data.file;
-          const normalizedPath = entryPath.replace(/\\/g, "/");
-          const parts = normalizedPath.replace(/\/+$/, "").split("/");
-
-          // Ensure it's a directory by checking attributes, or by inference if we see a file with a parent
-          // Even if 7z doesn't yield an explicit "Directory" event for the folder itself,
-          // we can track the root folder name from any file inside it.
-          if (parts.length > 1) {
-            const topLevel = parts[0];
-            if (topLevel && !extractedFolders.includes(topLevel)) {
-              extractedFolders.push(topLevel);
-            }
-          } else if (data.attributes && data.attributes.startsWith("D")) {
-            const topLevel = parts[0];
-            if (topLevel && !extractedFolders.includes(topLevel)) {
-              extractedFolders.push(topLevel);
-            }
-          }
         });
 
         stream.on("end", () => resolve());
         stream.on("error", (err) => reject(err));
       });
 
-      // Rename each top-level folder with the character prefix and write metadata
+      // Analyze the Sandbox contents
+      const sandboxContents = fs.readdirSync(extractSandboxPath, { withFileTypes: true });
+      let extractedRootFolders = [];
+      const hasLooseLooseFiles = sandboxContents.some(d => !d.isDirectory());
+      const directoryCount = sandboxContents.filter(d => d.isDirectory()).length;
+
+      // If the zip was "properly formatted" (only 1 single root folder inside, no loose files beside it)
+      if (directoryCount === 1 && !hasLooseLooseFiles) {
+        const rootFolder = sandboxContents.find(d => d.isDirectory()).name;
+        extractedRootFolders.push(path.join(extractSandboxPath, rootFolder));
+      } 
+      // If the zip was "improperly formatted" (a flat zip containing multiple folders or loose files at the root)
+      else {
+        // We package the entire sandbox itself into a single directory!
+        extractedRootFolders.push(extractSandboxPath);
+      }
+
+      // Rename each top-level root folder with the character prefix and write metadata, moving it OUT of the sandbox
       const renamedFolders = [];
-      for (const folderName of extractedFolders) {
-        const srcPath = path.join(modsPath, folderName);
+      for (const srcPath of extractedRootFolders) {
         if (!fs.existsSync(srcPath)) continue;
 
-        // Ensure it's actually a directory (ignore top-level loose files like README.txt)
-        if (!fs.statSync(srcPath).isDirectory()) continue;
+        // Use the original zip/tar name (sans extension) if it was a flat zip, otherwise use the intrinsic folder name
+        const rawFolderName = srcPath === extractSandboxPath 
+          ? fileName.replace(/\.[^/.]+$/, "") // strip extension
+          : path.basename(srcPath);
 
-        let targetName = folderName;
+        let targetName = rawFolderName.replace(/[^a-zA-Z0-9_\-\s]/g, ""); // sanitize just in case
         if (
           cleanCharName &&
-          !folderName.toLowerCase().startsWith(cleanCharName.toLowerCase())
+          !targetName.toLowerCase().startsWith(cleanCharName.toLowerCase())
         ) {
-          targetName = `${cleanCharName}_${folderName}`;
+          targetName = `${cleanCharName}_${targetName}`;
         }
 
-        const targetPath = path.join(modsPath, targetName);
-        if (srcPath !== targetPath) {
-          fs.renameSync(srcPath, targetPath);
+        const finalTargetPath = path.join(modsPath, targetName);
+        
+        // Prevent extremely rare naming collision if a folder with this exact final name was manually dragged there
+        if (fs.existsSync(finalTargetPath)) {
+          fs.rmSync(finalTargetPath, { recursive: true, force: true });
         }
 
-        // Write aether.json inside the mod folder
+        fs.renameSync(srcPath, finalTargetPath);
+
+        // Write aether.json inside the packaged directory
         const aetherJson = {
           gamebananaId: gbModId,
           installedAt: new Date().toISOString(),
@@ -909,14 +911,19 @@ ipcMain.handle(
           gameId: gameId || null,
         };
         fs.writeFileSync(
-          path.join(targetPath, "aether.json"),
+          path.join(finalTargetPath, "aether.json"),
           JSON.stringify(aetherJson, null, 2),
         );
         renamedFolders.push(targetName);
       }
 
-      // Cleanup temp file
-      fs.unlinkSync(tmpPath);
+      // Cleanup Sandbox & Zip Tracker
+      if (fs.existsSync(extractSandboxPath)) {
+        fs.rmSync(extractSandboxPath, { recursive: true, force: true });
+      }
+      if (fs.existsSync(tmpPath)) {
+        fs.unlinkSync(tmpPath);
+      }
 
       return { success: true, installedFolders: renamedFolders };
     } catch (err) {
