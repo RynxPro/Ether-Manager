@@ -135,6 +135,8 @@ export default function CharacterDetail({
                   : m,
               ),
             );
+            // Flush global cache to ensure other views see this toggle
+            await reloadAllMods(true);
           } else {
             // Revert optimistic update on failure
             setMods((prevMods) =>
@@ -171,7 +173,7 @@ export default function CharacterDetail({
     try {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
-      await Promise.all(
+      const results = await Promise.all(
         enabledMods.map((mod) =>
           window.electronMods.toggleMod({
             importerPath,
@@ -180,7 +182,17 @@ export default function CharacterDetail({
           }),
         ),
       );
-      await loadMods();
+      
+      const failures = results.filter(r => !r.success);
+      if (failures.length > 0) {
+        alert(
+          `Failed to disable ${failures.length} mod(s).\n\n` +
+          `This usually happens if the game is currently open and locking the files. ` +
+          `Please close the game and try again.`
+        );
+      }
+
+      await reloadAllMods(true);
     } finally {
       setDisablingAll(false);
     }
@@ -204,7 +216,7 @@ export default function CharacterDetail({
       });
 
       if (result && result.success) {
-        loadMods();
+        await reloadAllMods(true);
       } else if (result && !result.canceled) {
         alert(result.error || "Failed to import mod.");
       }
@@ -251,8 +263,8 @@ export default function CharacterDetail({
         };
       });
 
-      // Reload the library view behind the modal
-      loadMods();
+      // Reload the global cache so the library sees the new files
+      await reloadAllMods(true);
     }
   };
 
@@ -269,7 +281,7 @@ export default function CharacterDetail({
         });
 
         if (result.success) {
-          loadMods();
+          await reloadAllMods(true);
         } else {
           alert(result.error || "Failed to assign mod.");
         }
@@ -300,7 +312,7 @@ export default function CharacterDetail({
       });
 
       if (result && result.success) {
-        loadMods();
+        await reloadAllMods(true);
       } else {
         alert(result?.error || "Failed to delete mod.");
       }
@@ -437,7 +449,7 @@ export default function CharacterDetail({
           isLibraryContext={true}
           onClose={() => setSelectedMod(null)}
           onInstall={handleInstallUpdate}
-          onThumbnailChange={() => loadMods()}
+          onThumbnailChange={() => reloadAllMods(true)}
         />
       )}
 

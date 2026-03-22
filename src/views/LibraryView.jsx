@@ -105,7 +105,7 @@ export default function LibraryView({ isActive }) {
     try {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
-      await Promise.all(
+      const results = await Promise.all(
         mods
           .filter((m) => m.isEnabled)
           .map((mod) =>
@@ -116,7 +116,17 @@ export default function LibraryView({ isActive }) {
             }),
           ),
       );
-      await loadMods();
+
+      const failures = results.filter(r => !r.success);
+      if (failures.length > 0) {
+        alert(
+          `Failed to disable ${failures.length} mod(s).\n\n` +
+          `This usually happens if the game is currently open and locking the files. ` +
+          `Please close the game and try again.`
+        );
+      }
+
+      await loadMods(true);
     } finally {
       setDisablingAll(false);
     }
