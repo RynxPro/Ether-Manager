@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
 import CharacterDetail from "./CharacterDetail";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { getAllCharacterNames, GLOBAL_CATEGORIES, isGlobalCategory } from "../lib/portraits";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
@@ -19,6 +20,7 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
   const [activeTab, setActiveTab] = useState("characters");
   const [disablingAll, setDisablingAll] = useState(false);
   const [updatesMap, setUpdatesMap] = useState({});
+  const [showDisableAllConfirm, setShowDisableAllConfirm] = useState(false);
 
   const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
@@ -91,15 +93,20 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
     checkUpdates();
   }, [mods]);
 
-  const handleDisableAllGame = useCallback(async () => {
+  const handleDisableAllGame = useCallback(() => {
     const enabledMods = mods.filter((m) => m.isEnabled);
     if (enabledMods.length === 0) return;
+    setShowDisableAllConfirm(true);
+  }, [mods]);
+
+  const confirmDisableAllGame = useCallback(async () => {
+    setShowDisableAllConfirm(false);
     setDisablingAll(true);
     try {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       await Promise.all(
-        enabledMods.map((mod) =>
+        mods.filter((m) => m.isEnabled).map((mod) =>
           window.electronMods.toggleMod({
             importerPath,
             originalFolderName: mod.originalFolderName,
@@ -328,6 +335,15 @@ export default function LibraryView({ game, isActive, onSelectCharacter }) {
           )}
         </motion.div>
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={showDisableAllConfirm}
+        title="Disable All Mods"
+        message={`Are you sure you want to disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? 's' : ''} for ${game.name}? This will turn off all currently enabled modifications.`}
+        confirmText="Disable All"
+        onConfirm={confirmDisableAllGame}
+        onCancel={() => setShowDisableAllConfirm(false)}
+      />
     </div>
   );
 }

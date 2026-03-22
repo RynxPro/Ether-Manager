@@ -3,6 +3,7 @@ import { ArrowLeft, User, Plus, Trash2, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import LibraryModCard from "../components/LibraryModCard";
 import ModDetailModal from "../components/ModDetailModal";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { getCharacterPortrait, getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
 import { cn } from "../lib/utils";
 
@@ -15,6 +16,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
   const [installedModsInfo, setInstalledModsInfo] = useState({});
   const [modToDelete, setModToDelete] = useState(null);
   const [disablingAll, setDisablingAll] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const loadMods = useCallback(async () => {
     if (window.electronConfig && window.electronMods) {
@@ -82,20 +84,57 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
 
   const handleToggle = useCallback(async (mod, enable) => {
     if (window.electronConfig && window.electronMods) {
-      const config = await window.electronConfig.getConfig();
-      const importerPath = config[game.id];
+      // Optimistically update local state first
+      setMods(prevMods =>
+        prevMods.map(m =>
+          m.originalFolderName === mod.originalFolderName
+            ? { ...m, isEnabled: enable }
+            : m
+        )
+      );
 
-      const result = await window.electronMods.toggleMod({
-        importerPath,
-        originalFolderName: mod.originalFolderName,
-        enable,
-      });
+      try {
+        const config = await window.electronConfig.getConfig();
+        const importerPath = config[game.id];
 
-      if (result.success) {
-        loadMods();
-      } else {
-        console.error("Failed to toggle mod:", result.error);
-        alert(`Failed to toggle mod: ${result.error}`);
+        const result = await window.electronMods.toggleMod({
+          importerPath,
+          originalFolderName: mod.originalFolderName,
+          enable,
+        });
+
+        if (result.success) {
+          // Update with the actual result from server
+          setMods(prevMods =>
+            prevMods.map(m =>
+              m.originalFolderName === mod.originalFolderName
+                ? { ...m, isEnabled: enable, originalFolderName: result.newFolderName || mod.originalFolderName }
+                : m
+            )
+          );
+        } else {
+          // Revert optimistic update on failure
+          setMods(prevMods =>
+            prevMods.map(m =>
+              m.originalFolderName === mod.originalFolderName
+                ? { ...m, isEnabled: !enable }
+                : m
+            )
+          );
+          console.error("Failed to toggle mod:", result.error);
+          alert(`Failed to toggle mod: ${result.error}`);
+        }
+      } catch (error) {
+        // Revert optimistic update on error
+        setMods(prevMods =>
+          prevMods.map(m =>
+            m.originalFolderName === mod.originalFolderName
+              ? { ...m, isEnabled: !enable }
+              : m
+          )
+        );
+        console.error("Failed to toggle mod:", error);
+        alert(`Failed to toggle mod: ${error.message}`);
       }
     }
   }, [game.id, loadMods]);
@@ -201,7 +240,18 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
     }
   }, [game.id, loadMods]);
 
-  const handleDelete = useCallback(async (mod) => {
+  const handleDelete = useCallback((mod) => {
+    setModToDelete(mod);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!modToDelete) return;
+
+    setShowDeleteConfirm(false);
+    const mod = modToDelete;
+    setModToDelete(null);
+
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
@@ -217,7 +267,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
         alert(result?.error || "Failed to delete mod.");
       }
     }
-  }, [game.id, loadMods]);
+  }, [modToDelete, game.id, loadMods]);
 
   if (!character) return null;
   const enabledCount = mods.filter((m) => m.isEnabled).length;
@@ -314,7 +364,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
                   <motion.button 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={handleImport}
+                    onClick={async () => await handleImport()}
                     className="flex w-max items-center gap-3 px-8 py-3.5 bg-primary text-black font-black rounded-2xl hover:brightness-110 transition-all shadow-[0_0_20px_var(--color-primary)]/20 uppercase tracking-widest text-xs border border-transparent hover:border-white/50"
                   >
                     <Plus size={18} strokeWidth={3} />
@@ -421,7 +471,7 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
               onToggle={handleToggle}
               onOpenFolder={handleOpenFolder}
               onAssign={handleAssign}
-              onDelete={setModToDelete}
+              onDelete={handleDelete}
               hideCategoryTag={hideHeader}
             />
           );
@@ -443,47 +493,17 @@ export default function CharacterDetail({ game, character, onBack, hideHeader = 
         />
       )}
 
-      {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {modToDelete && (
-          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setModToDelete(null)}>
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 10 }}
-              className="w-full max-w-sm bg-surface border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500 shadow-inner shadow-red-500/20">
-                <Trash2 size={24} />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Delete Mod?</h3>
-              <p className="text-text-secondary text-sm mb-6 leading-relaxed">
-                Are you sure you want to delete <strong className="text-white">{modToDelete.name}</strong>?<br/>
-                This will move the folder to your computer's Recycle Bin.
-              </p>
-              
-              <div className="flex items-center gap-3 w-full">
-                <button
-                  onClick={() => setModToDelete(null)}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    await handleDelete(modToDelete);
-                    setModToDelete(null);
-                  }}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all shadow-[0_0_15px_rgba(255,68,85,0)] hover:shadow-[0_0_15px_rgba(255,68,85,0.15)]"
-                >
-                  Confirm Delete
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Mod"
+        message={`Are you sure you want to delete "${modToDelete?.name}"? This will move the mod folder to your computer's Recycle Bin.`}
+        confirmText="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setModToDelete(null);
+        }}
+      />
     </div>
   );
 }

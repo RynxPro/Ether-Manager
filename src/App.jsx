@@ -6,6 +6,7 @@ import CharacterDetail from "./views/CharacterDetail";
 import BrowseView from "./views/BrowseView";
 import PresetsView from "./views/PresetsView";
 import OnboardingModal from "./components/OnboardingModal";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 
 function App() {
@@ -83,6 +84,7 @@ function App() {
       />
 
       <main className="flex-1 w-full relative z-10 overflow-hidden">
+        <ErrorBoundary>
         
         {/* BROWSE VIEW VIEWPORT */}
         <motion.div
@@ -165,6 +167,7 @@ function App() {
           )}
         </AnimatePresence>
 
+        </ErrorBoundary>
       </main>
       <OnboardingModal 
         isOpen={showOnboarding} 
