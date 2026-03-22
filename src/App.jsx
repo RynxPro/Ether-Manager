@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
+import { Loader2 } from "lucide-react";
 import { GAME_CONFIG } from "./gameConfig";
 import { useAppStore } from "./store/useAppStore";
 import Navbar from "./components/Navbar";
 import LibraryView from "./views/LibraryView";
-import CharacterDetail from "./views/CharacterDetail";
-import BrowseView from "./views/BrowseView";
-import PresetsView from "./views/PresetsView";
 import OnboardingModal from "./components/OnboardingModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
+
+const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
+const BrowseView = lazy(() => import("./views/BrowseView"));
+const PresetsView = lazy(() => import("./views/PresetsView"));
 
 function App() {
   const activeGameId = useAppStore((state) => state.activeGameId);
@@ -16,6 +18,15 @@ function App() {
   const activeView = useAppStore((state) => state.activeView);
   const setSelectedCharacter = useAppStore((state) => state.setSelectedCharacter);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [mountedViews, setMountedViews] = useState(new Set([activeView]));
+
+  useEffect(() => {
+    setMountedViews(prev => {
+      const next = new Set(prev);
+      next.add(activeView);
+      return next;
+    });
+  }, [activeView]);
 
   useEffect(() => {
     async function checkOnboarding() {
@@ -91,7 +102,11 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <BrowseView />
+              {mountedViews.has("browse") && (
+                <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+                  <BrowseView />
+                </Suspense>
+              )}
             </div>
           </motion.div>
 
@@ -109,7 +124,11 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <PresetsView />
+              {mountedViews.has("presets") && (
+                <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+                  <PresetsView />
+                </Suspense>
+              )}
             </div>
           </motion.div>
 
@@ -145,10 +164,12 @@ function App() {
                 style={{ zIndex: 30 }}
               >
                 <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-                  <CharacterDetail
-                    character={selectedCharacter}
-                    onBack={() => setSelectedCharacter(null)}
-                  />
+                  <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+                    <CharacterDetail
+                      character={selectedCharacter}
+                      onBack={() => setSelectedCharacter(null)}
+                    />
+                  </Suspense>
                 </div>
               </motion.div>
             )}
