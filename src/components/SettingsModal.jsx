@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { useAppStore } from "../store/useAppStore";
+import { getPortraitCatalogStats } from "../lib/portraits";
 
 export default function SettingsModal({ onClose, games }) {
   const [config, setConfig] = useState({});
@@ -55,6 +56,16 @@ export default function SettingsModal({ onClose, games }) {
       });
     }
   };
+
+  const activeGame = games.find((g) => g.id === activeTab);
+  const portraitCatalog = getPortraitCatalogStats(activeTab);
+  const portraitStatus = activeGame?.portraitCatalogStatus || "missing";
+  const portraitStatusClasses =
+    portraitStatus === "curated"
+      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+      : "border-amber-500/20 bg-amber-500/10 text-amber-400";
+  const portraitStatusLabel =
+    portraitStatus === "curated" ? "Curated Catalog" : "Catalog Missing";
 
   return (
     <AnimatePresence>
@@ -144,7 +155,7 @@ export default function SettingsModal({ onClose, games }) {
 
                   <p className="text-sm text-text-secondary leading-relaxed mb-6 font-medium">
                     Select the directory of the{" "}
-                    <span className="text-text-primary font-bold">{games.find((g) => g.id === activeTab)?.name}</span> launcher. 
+                    <span className="text-text-primary font-bold">{activeGame?.name}</span> launcher. 
                     This should be the parent folder containing the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm font-mono text-xs">Mods/</code> directory.
                   </p>
 
@@ -153,7 +164,7 @@ export default function SettingsModal({ onClose, games }) {
                       <Input
                         value={config[activeTab] || ""}
                         onChange={(e) => handleSaveText(e.target.value)}
-                        placeholder={`e.g. C:\\Games\\${games.find((g) => g.id === activeTab)?.folderHint}`}
+                        placeholder={`e.g. C:\\Games\\${activeGame?.folderHint}`}
                         className="font-mono"
                       />
                     </div>
@@ -192,6 +203,37 @@ export default function SettingsModal({ onClose, games }) {
                         No path configured for this client
                       </div>
                     )}
+                  </div>
+
+                  <div className="mt-6 p-6 bg-background rounded-2xl border border-border relative overflow-hidden shadow-inner">
+                    <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mb-4">
+                      Portrait Catalog
+                    </h4>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div>
+                        <div
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.25em]",
+                            portraitStatusClasses,
+                          )}
+                        >
+                          {portraitStatusLabel}
+                        </div>
+                        <p className="mt-3 text-sm text-text-secondary font-medium max-w-xl">
+                          {portraitCatalog.hasCatalog
+                            ? `${activeGame?.name} currently has ${portraitCatalog.count} curated portraits available for cards, headers, and selectors.`
+                            : `${activeGame?.name} does not have a curated portrait catalog yet. The app will fall back to text-first UI for character surfaces until assets are added.`}
+                        </p>
+                      </div>
+                      <div className="min-w-28 rounded-2xl border border-white/10 bg-surface px-4 py-3 text-right">
+                        <div className="text-2xl font-black text-text-primary leading-none">
+                          {portraitCatalog.count}
+                        </div>
+                        <div className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">
+                          Portraits
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               </AnimatePresence>

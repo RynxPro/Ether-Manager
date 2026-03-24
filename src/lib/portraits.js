@@ -101,6 +101,17 @@ export function getAllCharacterNames(gameId) {
   return Object.values(gamePortraits).map(p => p.displayName).sort((a, b) => a.localeCompare(b));
 }
 
+export function getPortraitCatalogStats(gameId) {
+  const gId = (gameId || "").toLowerCase();
+  const gamePortraits = portraits[gId] || {};
+  const count = Object.keys(gamePortraits).length;
+
+  return {
+    count,
+    hasCatalog: count > 0,
+  };
+}
+
 function findCharacterPortraitEntry(characterName, gameId) {
   if (!characterName) return null;
   const normalized = normalizePortraitName(characterName);

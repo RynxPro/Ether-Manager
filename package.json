@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "audit:assets": "node scripts/audit-portrait-assets.mjs",
     "preview": "vite preview",
     "electron:start": "cross-env NODE_ENV=development electron .",
     "electron:dev": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on tcp:5173 && npm run electron:start\"",
