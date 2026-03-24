@@ -15,7 +15,6 @@ export const GAME_CONFIG = {
     accentColor: "#00f5cc",
     folderHint: "GIMI",
     gbGameId: GB_GAME_IDS.GIMI,
-    portraitCatalogStatus: "curated",
   },
   WWMI: {
     id: "WWMI",
@@ -23,7 +22,6 @@ export const GAME_CONFIG = {
     accentColor: "#7c6be8",
     folderHint: "WWMI",
     gbGameId: GB_GAME_IDS.WWMI,
-    portraitCatalogStatus: "curated",
   },
   ZZMI: {
     id: "ZZMI",
@@ -31,7 +29,6 @@ export const GAME_CONFIG = {
     accentColor: "#ff6b35",
     folderHint: "ZZMI",
     gbGameId: GB_GAME_IDS.ZZMI,
-    portraitCatalogStatus: "curated",
   },
   SRMI: {
     id: "SRMI",
@@ -39,7 +36,6 @@ export const GAME_CONFIG = {
     accentColor: "#00b4d8",
     folderHint: "SRMI",
     gbGameId: GB_GAME_IDS.SRMI,
-    portraitCatalogStatus: "missing",
   },
   HIMI: {
     id: "HIMI",
@@ -47,6 +43,5 @@ export const GAME_CONFIG = {
     accentColor: "#ff2d78",
     folderHint: "HIMI",
     gbGameId: GB_GAME_IDS.HIMI,
-    portraitCatalogStatus: "missing",
   },
 };
