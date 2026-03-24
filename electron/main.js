@@ -794,11 +794,15 @@ ipcMain.handle(
           try {
             const data = JSON.parse(fs.readFileSync(ajsonPath, "utf-8"));
             if (data.gamebananaId === gbModId && data.installedFile === fileName) {
-              console.log(`Cleaning up exact old mod version at: ${folder}`);
-              fs.rmSync(path.join(modsPath, folder), {
-                recursive: true,
-                force: true,
-              });
+              console.log(`Moving old mod version to Recycle Bin: ${folder}`);
+              // Use trashItem (Recycle Bin) instead of rmSync so the user can recover if something goes wrong
+              try {
+                await shell.trashItem(path.join(modsPath, folder));
+              } catch (trashErr) {
+                // Fallback to rmSync only if trashItem fails (e.g. external / network drives)
+                console.warn(`trashItem failed for ${folder}, falling back to rmSync:`, trashErr.message);
+                fs.rmSync(path.join(modsPath, folder), { recursive: true, force: true });
+              }
             }
           } catch (e) {
             console.error(
@@ -907,6 +911,7 @@ ipcMain.handle(
           gamebananaId: gbModId,
           installedAt: new Date().toISOString(),
           installedFile: fileName,
+          character: characterName || null,
           category: category || null,
           gameId: gameId || null,
         };
