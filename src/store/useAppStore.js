@@ -1,16 +1,27 @@
 import { create } from 'zustand';
-import { GAME_CONFIG } from '../gameConfig';
+import { DEFAULT_GAME_ID, GAME_CONFIG } from '../gameConfig';
+
+function resolveGameId(gameId) {
+  const game = GAME_CONFIG[gameId];
+  if (!game || game.isWorkInProgress) {
+    return DEFAULT_GAME_ID;
+  }
+  return gameId;
+}
 
 export const useAppStore = create((set) => ({
   // Active Game State
-  activeGameId: 'GIMI',
-  activeGame: GAME_CONFIG['GIMI'],
-  setActiveGameId: (gameId) => set({ 
-    activeGameId: gameId, 
-    activeGame: GAME_CONFIG[gameId],
-    // Reset view-specific state when switching games
-    selectedCharacter: null 
-  }),
+  activeGameId: DEFAULT_GAME_ID,
+  activeGame: GAME_CONFIG[DEFAULT_GAME_ID],
+  setActiveGameId: (gameId) => {
+    const resolvedGameId = resolveGameId(gameId);
+    set({
+      activeGameId: resolvedGameId,
+      activeGame: GAME_CONFIG[resolvedGameId],
+      // Reset view-specific state when switching games
+      selectedCharacter: null,
+    });
+  },
 
   // Navigation / View State
   activeView: 'mods', // "mods" | "browse" | "presets"

@@ -15,6 +15,7 @@ export const GAME_CONFIG = {
     accentColor: "#00f5cc",
     folderHint: "GIMI",
     gbGameId: GB_GAME_IDS.GIMI,
+    isWorkInProgress: false,
   },
   WWMI: {
     id: "WWMI",
@@ -22,6 +23,7 @@ export const GAME_CONFIG = {
     accentColor: "#7c6be8",
     folderHint: "WWMI",
     gbGameId: GB_GAME_IDS.WWMI,
+    isWorkInProgress: false,
   },
   ZZMI: {
     id: "ZZMI",
@@ -29,6 +31,7 @@ export const GAME_CONFIG = {
     accentColor: "#ff6b35",
     folderHint: "ZZMI",
     gbGameId: GB_GAME_IDS.ZZMI,
+    isWorkInProgress: false,
   },
   SRMI: {
     id: "SRMI",
@@ -36,6 +39,7 @@ export const GAME_CONFIG = {
     accentColor: "#00b4d8",
     folderHint: "SRMI",
     gbGameId: GB_GAME_IDS.SRMI,
+    isWorkInProgress: true,
   },
   HIMI: {
     id: "HIMI",
@@ -43,5 +47,12 @@ export const GAME_CONFIG = {
     accentColor: "#ff2d78",
     folderHint: "HIMI",
     gbGameId: GB_GAME_IDS.HIMI,
+    isWorkInProgress: true,
   },
 };
+
+export const VISIBLE_GAMES = Object.values(GAME_CONFIG).filter(
+  (game) => !game.isWorkInProgress,
+);
+
+export const DEFAULT_GAME_ID = VISIBLE_GAMES[0]?.id || "GIMI";

@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
 import { useAppStore } from "../store/useAppStore";
+import { VISIBLE_GAMES } from "../gameConfig";
+
+function normalizeImporterPath(pathValue) {
+  return String(pathValue || "")
+    .trim()
+    .replace(/[\\/]+$/, "")
+    .toLowerCase();
+}
 
 export function useLoadGameMods(gameId, isActive = true) {
   const cachedMods = useAppStore(state => state.modsCache[gameId]);
@@ -24,17 +32,30 @@ export function useLoadGameMods(gameId, isActive = true) {
     try {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[gameId];
+      const normalizedImporterPath = normalizeImporterPath(importerPath);
+      const sharedImporterAcrossGames = Boolean(
+        normalizedImporterPath &&
+          VISIBLE_GAMES.some(
+            (game) =>
+              game.id !== gameId &&
+              normalizeImporterPath(config[game.id]) === normalizedImporterPath,
+          ),
+      );
 
       if (
         !force &&
         cachedMods !== undefined &&
-        cachedMeta?.importerPath === (importerPath || null)
+        cachedMeta?.importerPath === (importerPath || null) &&
+        cachedMeta?.sharedImporterAcrossGames === sharedImporterAcrossGames
       ) {
         return cachedMods;
       }
 
       if (!importerPath) {
-        setModsCache(gameId, [], { importerPath: null });
+        setModsCache(gameId, [], {
+          importerPath: null,
+          sharedImporterAcrossGames: false,
+        });
         return [];
       }
 
@@ -44,14 +65,20 @@ export function useLoadGameMods(gameId, isActive = true) {
         importerPath,
         allParseableNames,
         gameId,
+        { sharedImporterAcrossGames },
       );
-      setModsCache(gameId, loadedMods, { importerPath });
+      setModsCache(gameId, loadedMods, {
+        importerPath,
+        sharedImporterAcrossGames,
+      });
       return loadedMods;
     } catch (err) {
       console.error("Failed to load mods:", err);
       setError(err.message || "Failed to load mods");
       setModsCache(gameId, [], {
         importerPath: cachedMeta?.importerPath ?? null,
+        sharedImporterAcrossGames:
+          cachedMeta?.sharedImporterAcrossGames ?? false,
       });
       return [];
     } finally {

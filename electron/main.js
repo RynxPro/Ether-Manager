@@ -134,7 +134,13 @@ ipcMain.handle("choose-folder", async (event) => {
 // Mods management
 ipcMain.handle(
   "get-mods",
-  (event, importerPath, knownCharacters = [], expectedGameId = null) => {
+  (
+    event,
+    importerPath,
+    knownCharacters = [],
+    expectedGameId = null,
+    options = {},
+  ) => {
     console.log(
       "Fetching mods for path:",
       importerPath,
@@ -169,6 +175,9 @@ ipcMain.handle(
       console.log(`Found ${modFolders.length} folders in Mods directory`);
 
       const mods = [];
+      const sharedImporterAcrossGames = Boolean(
+        options?.sharedImporterAcrossGames,
+      );
 
       modFolders.forEach((folderName) => {
         const folderPath = path.join(modsPath, folderName);
@@ -182,6 +191,7 @@ ipcMain.handle(
         // name (lowercased, spaces and symbols stripped). This handles the common convention where
         // folder names like "AliceThymefield_alice-wt" map to known character "Alice Thymefield".
         let character = "Unassigned";
+        let hasKnownCharacterMatch = false;
 
         if (knownCharacters && knownCharacters.length > 0) {
           const normalizedFolder = realName
@@ -206,7 +216,10 @@ ipcMain.handle(
             }
           }
 
-          if (bestMatch) character = bestMatch;
+          if (bestMatch) {
+            character = bestMatch;
+            hasKnownCharacterMatch = true;
+          }
         }
 
         // Count ini files
@@ -226,12 +239,11 @@ ipcMain.handle(
         let customThumbnail = null;
         let category = null;
         let gameId = null;
+        let aetherData = {};
+        const aetherJsonPath = path.join(folderPath, "aether.json");
         try {
-          const aetherJsonPath = path.join(folderPath, "aether.json");
           if (fs.existsSync(aetherJsonPath)) {
-            const aetherData = JSON.parse(
-              fs.readFileSync(aetherJsonPath, "utf-8"),
-            );
+            aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
             gamebananaId = aetherData.gamebananaId || null;
             installedAt = aetherData.installedAt || null;
             installedFile = aetherData.installedFile || null;
@@ -243,11 +255,52 @@ ipcMain.handle(
           /* ignore parse errors */
         }
 
-        // STRICT GAME ISOLATION FILTERING
-        // If we have an expectedGameId and the mod has a different gameId, skip it.
-        // Exception: if the mod has NO gameId, we show it to maintain backward compatibility.
-        if (expectedGameId && gameId && gameId !== expectedGameId) {
-          return;
+        if (expectedGameId) {
+          if (gameId && gameId !== expectedGameId) {
+            return;
+          }
+
+          const hasMatchableLegacyMetadata = Boolean(
+            hasKnownCharacterMatch ||
+              category ||
+              gamebananaId ||
+              installedAt ||
+              installedFile ||
+              customThumbnail,
+          );
+
+          if (!gameId && hasMatchableLegacyMetadata) {
+            gameId = expectedGameId;
+            try {
+              fs.writeFileSync(
+                aetherJsonPath,
+                JSON.stringify(
+                  {
+                    ...aetherData,
+                    gamebananaId,
+                    installedAt,
+                    installedFile,
+                    customThumbnail,
+                    category,
+                    gameId,
+                  },
+                  null,
+                  2,
+                ),
+              );
+            } catch (migrationErr) {
+              console.warn(
+                `Failed to backfill gameId for legacy mod "${folderName}":`,
+                migrationErr.message,
+              );
+            }
+          }
+
+          // If multiple games point at the same Mods directory, untagged legacy
+          // folders without enough metadata to attribute safely are ambiguous.
+          if (sharedImporterAcrossGames && !gameId) {
+            return;
+          }
         }
 
         mods.push({
@@ -263,6 +316,7 @@ ipcMain.handle(
           installedAt,
           installedFile,
           customThumbnail,
+          gameId,
         });
       });
 

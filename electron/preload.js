@@ -8,7 +8,14 @@ contextBridge.exposeInMainWorld("electronConfig", {
 });
 
 contextBridge.exposeInMainWorld("electronMods", {
-  getMods: (importerPath, knownCharacters, gameId) => ipcRenderer.invoke("get-mods", importerPath, knownCharacters, gameId),
+  getMods: (importerPath, knownCharacters, gameId, options = {}) =>
+    ipcRenderer.invoke(
+      "get-mods",
+      importerPath,
+      knownCharacters,
+      gameId,
+      options,
+    ),
   toggleMod: (args) => ipcRenderer.invoke("toggle-mod", args),
   openFolder: (folderPath) => ipcRenderer.invoke("open-folder", folderPath),
   importMod: (args) => ipcRenderer.invoke("import-mod", args),
