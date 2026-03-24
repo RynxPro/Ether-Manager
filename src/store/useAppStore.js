@@ -22,10 +22,21 @@ export const useAppStore = create((set) => ({
 
   // Global Mod Cache
   modsCache: {}, // { [gameId]: modsArray }
-  setModsCache: (gameId, mods) => set((state) => ({
+  modsCacheMeta: {}, // { [gameId]: { importerPath } }
+  setModsCache: (gameId, mods, meta) => set((state) => ({
     modsCache: {
       ...state.modsCache,
       [gameId]: mods
+    },
+    modsCacheMeta: {
+      ...state.modsCacheMeta,
+      [gameId]: meta ?? state.modsCacheMeta[gameId]
     }
-  }))
+  })),
+
+  // Config invalidation
+  configVersion: 0,
+  bumpConfigVersion: () => set((state) => ({
+    configVersion: state.configVersion + 1,
+  })),
 }));

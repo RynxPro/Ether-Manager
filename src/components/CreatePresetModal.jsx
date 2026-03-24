@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
+import { getModClassification, getModDisplayCharacter } from "../lib/modClassification";
 
 const ACCENT_COLORS = [
   { label: "Violet", value: "#7c3aed" },
@@ -121,7 +122,8 @@ export default function CreatePresetModal({ importerPath, onClose, onSaved }) {
         .map(m => ({
           modId: m.id,
           originalFolderName: m.originalFolderName,
-          character: m.character,
+          character: getModDisplayCharacter(m),
+          category: m.category || null,
           name: m.name,
           gamebananaId: m.gamebananaId || null,
           customThumbnail: m.customThumbnail || null,
@@ -157,13 +159,7 @@ export default function CreatePresetModal({ importerPath, onClose, onSaved }) {
 
   // Group by character / category
   const grouped = filteredMods.reduce((acc, mod) => {
-    // Match the logic in CharacterGrid.jsx
-    const isGlobalUI = mod.character === "User Interface" || (mod.character === "Unassigned" && mod.category === "User Interface");
-    const isGlobalMisc = mod.character === "Miscellaneous" || (mod.character === "Unassigned" && (mod.category === "Other/Misc" || mod.category === "Audio" || mod.category === "Miscellaneous"));
-
-    let groupName = mod.character;
-    if (isGlobalUI) groupName = "User Interface";
-    else if (isGlobalMisc) groupName = "Miscellaneous";
+    const groupName = getModClassification(mod).label;
 
     if (!acc[groupName]) acc[groupName] = [];
     acc[groupName].push(mod);

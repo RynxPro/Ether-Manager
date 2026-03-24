@@ -46,6 +46,7 @@ const PER_PAGE = 20;
 
 export default function BrowseView() {
   const game = useAppStore((state) => state.activeGame);
+  const configVersion = useAppStore((state) => state.configVersion);
   const [activeTab, setActiveTab] = useState("all");
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -112,7 +113,7 @@ export default function BrowseView() {
       }
     };
     loadConfigAndPath();
-  }, [game.id]);
+  }, [game.id, configVersion]);
 
   const handleToggleBookmark = useCallback(
     (mod) => {

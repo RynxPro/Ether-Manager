@@ -13,6 +13,7 @@ const cardVariants = {
 
 export default function PresetsView() {
   const game = useAppStore((state) => state.activeGame);
+  const configVersion = useAppStore((state) => state.configVersion);
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importerPath, setImporterPath] = useState(null);
@@ -51,7 +52,7 @@ export default function PresetsView() {
     } finally {
       setLoading(false);
     }
-  }, [game.id]);
+  }, [game.id, configVersion]);
 
   useEffect(() => {
     loadPresets();

@@ -4,10 +4,12 @@ import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
+import { useAppStore } from "../store/useAppStore";
 
 export default function SettingsModal({ onClose, games }) {
   const [config, setConfig] = useState({});
   const [activeTab, setActiveTab] = useState(games[0].id);
+  const bumpConfigVersion = useAppStore((state) => state.bumpConfigVersion);
 
   useEffect(() => {
     // Load config from main process
@@ -33,7 +35,8 @@ export default function SettingsModal({ onClose, games }) {
         if (folderPath) {
           const newConfig = { ...config, [activeTab]: folderPath };
           setConfig(newConfig);
-          window.electronConfig.setConfig(newConfig);
+          const success = await window.electronConfig.setConfig(newConfig);
+          if (success) bumpConfigVersion();
         }
       } catch (err) {
         console.error("SettingsModal: Error in chooseFolder:", err);
@@ -47,7 +50,9 @@ export default function SettingsModal({ onClose, games }) {
     const newConfig = { ...config, [activeTab]: val };
     setConfig(newConfig);
     if (window.electronConfig) {
-      window.electronConfig.setConfig(newConfig);
+      window.electronConfig.setConfig(newConfig).then((success) => {
+        if (success) bumpConfigVersion();
+      });
     }
   };
 

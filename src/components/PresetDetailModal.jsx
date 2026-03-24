@@ -6,6 +6,7 @@ import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import ApplyPresetModal from "./ApplyPresetModal";
+import { getModDisplayCharacter } from "../lib/modClassification";
 const ACCENT_COLORS = [
   { label: "Violet", value: "#7c3aed" },
   { label: "Cyan", value: "#06b6d4" },
@@ -63,11 +64,15 @@ export default function PresetDetailModal({
         const libraryMod = loadedMods.find(m => m.id === pm.modId);
         if (libraryMod) {
           let updated = { ...pm };
+          const classifiedCharacter = getModDisplayCharacter(libraryMod);
           if (libraryMod.gamebananaId) {
             updated.gamebananaId = libraryMod.gamebananaId;
           }
-          if (libraryMod.character !== "Unassigned") {
-            updated.character = libraryMod.character;
+          if (classifiedCharacter !== pm.character) {
+            updated.character = classifiedCharacter;
+          }
+          if (libraryMod.category && libraryMod.category !== pm.category) {
+            updated.category = libraryMod.category;
           }
           needsUpdate = true;
           return updated;
@@ -77,6 +82,10 @@ export default function PresetDetailModal({
     });
 
     if (needsUpdate) {
+      setPreset((currentPreset) => ({
+        ...currentPreset,
+        mods: healedMods,
+      }));
       setEditMods(healedMods);
     }
 
@@ -99,8 +108,10 @@ export default function PresetDetailModal({
 
   // Initial load: check if we need to self-heal (if any mod is missing GB ID)
   useEffect(() => {
-    const hasMissingIds = preset.mods.some(m => !m.gamebananaId);
-    if (hasMissingIds) {
+    const needsHealing = preset.mods.some(
+      (m) => !m.gamebananaId || m.character === "Unassigned",
+    );
+    if (needsHealing) {
       loadLibrary();
     }
   }, []); // Only on mount
@@ -168,7 +179,8 @@ export default function PresetDetailModal({
     setEditMods(prev => [...prev, {
       modId: mod.id,
       originalFolderName: mod.originalFolderName,
-      character: mod.character,
+      character: getModDisplayCharacter(mod),
+      category: mod.category || null,
       name: mod.name,
       gamebananaId: mod.gamebananaId || null,
       customThumbnail: mod.customThumbnail || null,

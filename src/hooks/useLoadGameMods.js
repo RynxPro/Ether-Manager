@@ -1,20 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
 import { useAppStore } from "../store/useAppStore";
 
 export function useLoadGameMods(gameId, isActive = true) {
   const cachedMods = useAppStore(state => state.modsCache[gameId]);
+  const cachedMeta = useAppStore(state => state.modsCacheMeta[gameId]);
   const setModsCache = useAppStore(state => state.setModsCache);
+  const configVersion = useAppStore(state => state.configVersion);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const lastSeenConfigVersion = useRef(configVersion);
 
   const loadMods = useCallback(async (force = false) => {
-    // Return early if cached and not forced
-    if (!force && cachedMods !== undefined) {
-      return cachedMods;
-    }
-
     if (!window.electronConfig || !window.electronMods) {
       setError("Electron APIs not available");
       return [];
@@ -27,8 +25,16 @@ export function useLoadGameMods(gameId, isActive = true) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[gameId];
 
+      if (
+        !force &&
+        cachedMods !== undefined &&
+        cachedMeta?.importerPath === (importerPath || null)
+      ) {
+        return cachedMods;
+      }
+
       if (!importerPath) {
-        setModsCache(gameId, []);
+        setModsCache(gameId, [], { importerPath: null });
         return [];
       }
 
@@ -39,29 +45,37 @@ export function useLoadGameMods(gameId, isActive = true) {
         allParseableNames,
         gameId,
       );
-      setModsCache(gameId, loadedMods);
+      setModsCache(gameId, loadedMods, { importerPath });
       return loadedMods;
     } catch (err) {
       console.error("Failed to load mods:", err);
       setError(err.message || "Failed to load mods");
-      setModsCache(gameId, []);
+      setModsCache(gameId, [], {
+        importerPath: cachedMeta?.importerPath ?? null,
+      });
       return [];
     } finally {
       setLoading(false);
     }
-  }, [gameId, cachedMods, setModsCache]);
+  }, [gameId, cachedMeta, cachedMods, setModsCache]);
 
   useEffect(() => {
-    // Only auto-fetch if active AND not yet cached
-    if (isActive && cachedMods === undefined) {
+    const configChanged = lastSeenConfigVersion.current !== configVersion;
+    lastSeenConfigVersion.current = configVersion;
+
+    if (isActive && (cachedMods === undefined || configChanged)) {
       loadMods();
     }
-  }, [loadMods, isActive, cachedMods]);
+  }, [loadMods, isActive, cachedMods, configVersion]);
 
   // Support local optimistic updates that synchronize globally
   const setMods = useCallback((newMods) => {
-    setModsCache(gameId, typeof newMods === 'function' ? newMods(cachedMods || []) : newMods);
-  }, [gameId, setModsCache, cachedMods]);
+    setModsCache(
+      gameId,
+      typeof newMods === 'function' ? newMods(cachedMods || []) : newMods,
+      cachedMeta,
+    );
+  }, [gameId, setModsCache, cachedMods, cachedMeta]);
 
   return {
     mods: cachedMods || [],

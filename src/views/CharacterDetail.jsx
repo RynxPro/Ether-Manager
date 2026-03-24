@@ -15,6 +15,7 @@ import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
+import { isModInCollection } from "../lib/modClassification";
 
 export default function CharacterDetail({
   character,
@@ -42,7 +43,9 @@ export default function CharacterDetail({
 
   const loadMods = useCallback(async () => {
     if (allMods && allMods.length > 0) {
-      const charMods = allMods.filter((m) => m.character === character.name);
+      const charMods = allMods.filter((m) =>
+        isModInCollection(m, character.name),
+      );
       charMods.sort((a, b) => {
         if (a.isEnabled === b.isEnabled) return a.name.localeCompare(b.name);
         return a.isEnabled ? -1 : 1;

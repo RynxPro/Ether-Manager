@@ -13,6 +13,7 @@ import { useAppStore } from "../store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
+import { getModClassification } from "../lib/modClassification";
 
 const TABS = [
   { id: "characters", label: "Characters", icon: User },
@@ -63,23 +64,15 @@ export default function LibraryView({ isActive }) {
 
               // Use a 5-minute buffer (300s) to account for slight clock skews
               if (gbDate > installedDate + 300) {
-                newUpdatesMap[mod.character] = true;
+                const classification = getModClassification(mod);
+                newUpdatesMap[classification.label] = true;
 
-                // Also handle cases where mod is assigned to a category but shows in a tab
-                const isGlobalUI =
-                  mod.character === "User Interface" ||
-                  (mod.character === "Unassigned" &&
-                    mod.category === "User Interface");
-                const isGlobalMisc =
-                  mod.character === "Miscellaneous" ||
-                  (mod.character === "Unassigned" &&
-                    (mod.category === "Other/Misc" ||
-                      mod.category === "Audio" ||
-                      mod.category === "Miscellaneous"));
-
-                if (isGlobalUI) newUpdatesMap["ui"] = true;
-                else if (isGlobalMisc) newUpdatesMap["misc"] = true;
-                else newUpdatesMap["characters"] = true;
+                if (classification.bucket === "ui") newUpdatesMap["ui"] = true;
+                else if (classification.bucket === "misc") {
+                  newUpdatesMap["misc"] = true;
+                } else {
+                  newUpdatesMap["characters"] = true;
+                }
               }
             }
           });
@@ -157,36 +150,27 @@ export default function LibraryView({ isActive }) {
     });
 
     mods.forEach((mod) => {
-      // Check if it's a global UI/Misc mod or a true character mod
-      const isGlobalUI =
-        mod.character === "User Interface" ||
-        (mod.character === "Unassigned" && mod.category === "User Interface");
-      const isGlobalMisc =
-        mod.character === "Miscellaneous" ||
-        (mod.character === "Unassigned" &&
-          (mod.category === "Other/Misc" ||
-            mod.category === "Audio" ||
-            mod.category === "Miscellaneous"));
+      const classification = getModClassification(mod);
 
-      if (isGlobalUI) {
+      if (classification.bucket === "ui") {
         globalMods.ui.totalMods++;
         globalMods.ui.mods.push(mod);
         if (mod.isEnabled) globalMods.ui.enabledMods++;
-      } else if (isGlobalMisc) {
+      } else if (classification.bucket === "misc") {
         globalMods.misc.totalMods++;
         globalMods.misc.mods.push(mod);
         if (mod.isEnabled) globalMods.misc.enabledMods++;
       } else {
         // Character Bound
-        if (!charactersMap.has(mod.character)) {
-          charactersMap.set(mod.character, {
-            name: mod.character,
+        if (!charactersMap.has(classification.label)) {
+          charactersMap.set(classification.label, {
+            name: classification.label,
             totalMods: 0,
             enabledMods: 0,
             mods: [],
           });
         }
-        const charData = charactersMap.get(mod.character);
+        const charData = charactersMap.get(classification.label);
         charData.totalMods++;
         charData.mods.push(mod);
         if (mod.isEnabled) charData.enabledMods++;
