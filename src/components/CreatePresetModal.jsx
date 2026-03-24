@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ChevronRight, ChevronLeft, Zap, Palette, Check, Loader2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
-import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { getModClassification, getModDisplayCharacter } from "../lib/modClassification";
@@ -24,13 +23,13 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-export default function CreatePresetModal({ importerPath, onClose, onSaved }) {
+export default function CreatePresetModal({ onClose, onSaved }) {
   const game = useAppStore((state) => state.activeGame);
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(ACCENT_COLORS[0].value);
-  const { mods: loadedMods, loading: loadingLibrary } = useLoadGameMods(game.id, step === 2 || step === 1 /* Always load to allow quick snapshots */);
+  const { mods: loadedMods } = useLoadGameMods(game.id, step === 2 || step === 1 /* Always load to allow quick snapshots */);
   const [allMods, setAllMods] = useState([]);
   const [selectedModIds, setSelectedModIds] = useState(new Set());
   const [search, setSearch] = useState("");

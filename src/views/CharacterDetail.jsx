@@ -8,8 +8,6 @@ import CharacterDetailGrid from "../components/CharacterDetailGrid";
 import ConfirmDialog from "../components/ConfirmDialog";
 import {
   getCharacterPortrait,
-  getAllCharacterNames,
-  GLOBAL_CATEGORIES,
 } from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
@@ -103,7 +101,7 @@ export default function CharacterDetail({
     } else {
       setMods([]);
     }
-  }, [allMods, character.name]);
+  }, [allMods, character.name, fetchMod]);
 
   useEffect(() => {
     loadMods();
@@ -173,7 +171,7 @@ export default function CharacterDetail({
         }
       }
     },
-    [game.id, loadMods],
+    [game.id, reloadAllMods],
   );
 
   const handleDisableAll = useCallback(async () => {
@@ -206,7 +204,7 @@ export default function CharacterDetail({
     } finally {
       setDisablingAll(false);
     }
-  }, [mods, game.id, loadMods]);
+  }, [game.id, mods, reloadAllMods]);
 
   const handleOpenFolder = useCallback(async (mod) => {
     if (window.electronMods) {
@@ -297,7 +295,7 @@ export default function CharacterDetail({
         }
       }
     },
-    [game.id, loadMods],
+    [game.id, reloadAllMods],
   );
 
   const handleDelete = useCallback((mod) => {
@@ -327,7 +325,7 @@ export default function CharacterDetail({
         alert(result?.error || "Failed to delete mod.");
       }
     }
-  }, [modToDelete, game.id, loadMods]);
+  }, [game.id, modToDelete, reloadAllMods]);
 
   if (!character) return null;
   const enabledCount = mods.filter((m) => m.isEnabled).length;

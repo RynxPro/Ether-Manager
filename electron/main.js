@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, net } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -186,7 +186,7 @@ ipcMain.handle(
         if (knownCharacters && knownCharacters.length > 0) {
           const normalizedFolder = realName
             .toLowerCase()
-            .replace(/[\s_\-]/g, "");
+            .replace(/[\s_-]/g, "");
 
           let bestMatch = null;
           let bestMatchLength = 0;
@@ -195,7 +195,7 @@ ipcMain.handle(
             // Strip spaces/symbols from the known character name for comparison
             const normalizedKnown = knownChar
               .toLowerCase()
-              .replace(/[\s_\-]/g, "");
+              .replace(/[\s_-]/g, "");
             // Check if the folder name STARTS WITH the normalized character name
             if (
               normalizedFolder.startsWith(normalizedKnown) &&
@@ -216,7 +216,9 @@ ipcMain.handle(
           iniCount = files.filter((file) =>
             file.toLowerCase().endsWith(".ini"),
           ).length;
-        } catch (err) {}
+        } catch {
+          // Leave iniCount at zero if the folder cannot be inspected.
+        }
 
         let gamebananaId = null;
         let installedAt = null;
@@ -237,7 +239,7 @@ ipcMain.handle(
             category = aetherData.category || null;
             gameId = aetherData.gameId || null;
           }
-        } catch (err) {
+        } catch {
           /* ignore parse errors */
         }
 

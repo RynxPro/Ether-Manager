@@ -13,6 +13,7 @@ export function useLazyLoadImage() {
   const ref = useRef(null);
 
   useEffect(() => {
+    const target = ref.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -26,13 +27,13 @@ export function useLazyLoadImage() {
       },
     );
 
-    if (ref.current) {
-      observer.observe(ref.current);
+    if (target) {
+      observer.observe(target);
     }
 
     return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
+      if (target) {
+        observer.unobserve(target);
       }
     };
   }, []);
@@ -61,7 +62,7 @@ export function LazyImage({
   className = "",
   ...props
 }) {
-  const { ref, isVisible, isLoaded, onLoad, onError } = useLazyLoadImage();
+  const { ref, isVisible, onLoad, onError } = useLazyLoadImage();
 
   return (
     <img

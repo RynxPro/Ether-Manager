@@ -4,7 +4,6 @@ import { AlertTriangle, Plus, Search, HelpCircle, Package, ArrowLeft, RefreshCw,
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
-import { getAllCharacterNames, getGlobalCategories } from "../lib/portraits";
 import ApplyPresetModal from "./ApplyPresetModal";
 import { getModDisplayCharacter } from "../lib/modClassification";
 const ACCENT_COLORS = [
@@ -49,7 +48,7 @@ export default function PresetDetailModal({
   // Add mods panel state
   const [showAddPanel, setShowAddPanel] = useState(false);
   // Always load the library in the background to detect missing ghost mods instantly
-  const { mods: loadedMods, loading: loadingLibrary, loadMods: forceLoadLibrary } = useLoadGameMods(game.id, true);
+  const { mods: loadedMods, loading: loadingLibrary } = useLoadGameMods(game.id, true);
   const [allLibraryMods, setAllLibraryMods] = useState([]);
   const [addSearch, setAddSearch] = useState("");
 
@@ -114,7 +113,7 @@ export default function PresetDetailModal({
     if (needsHealing) {
       loadLibrary();
     }
-  }, []); // Only on mount
+  }, [loadLibrary, preset.mods]); // Only when healing criteria changes
 
   // Fetch GB data for mods ALREADY in the preset
   useEffect(() => {
@@ -229,9 +228,6 @@ export default function PresetDetailModal({
 
   const displayMods = isEditMode ? editMods : preset.mods;
   const characters = [...new Set(displayMods.map(m => m.character))];
-
-  // Hero image: first mod with a thumbnail
-  const heroImage = preset.mods.find(m => m.customThumbnail)?.customThumbnail;
 
   return (
     <>

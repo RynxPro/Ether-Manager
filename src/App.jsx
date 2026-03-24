@@ -18,15 +18,6 @@ function App() {
   const activeView = useAppStore((state) => state.activeView);
   const setSelectedCharacter = useAppStore((state) => state.setSelectedCharacter);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [mountedViews, setMountedViews] = useState(new Set([activeView]));
-
-  useEffect(() => {
-    setMountedViews(prev => {
-      const next = new Set(prev);
-      next.add(activeView);
-      return next;
-    });
-  }, [activeView]);
 
   useEffect(() => {
     async function checkOnboarding() {
@@ -102,11 +93,9 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              {mountedViews.has("browse") && (
-                <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
-                  <BrowseView />
-                </Suspense>
-              )}
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+                <BrowseView />
+              </Suspense>
             </div>
           </motion.div>
 
@@ -124,11 +113,9 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              {mountedViews.has("presets") && (
-                <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
-                  <PresetsView />
-                </Suspense>
-              )}
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+                <PresetsView />
+              </Suspense>
             </div>
           </motion.div>
 

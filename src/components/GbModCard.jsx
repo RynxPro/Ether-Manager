@@ -14,11 +14,9 @@ function formatCount(n) {
 
 const BrowseModCard = React.memo(function BrowseModCard({
   mod,
-  gameId,
   onClick,
   onInstall,
   isInstalled,
-  installedFiles,
   hasUpdate,
   isBookmarked = false,
   onToggleBookmark,

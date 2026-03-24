@@ -53,7 +53,12 @@ export function useFetchCache() {
       return { success: true, data: [], fromCache: false };
     }
 
-    const cacheKey = `batch_${modIds.join("_")}`;
+    const cacheKey = generateBatchCacheKey(
+      "batch",
+      modIds.join("_"),
+      "",
+      "",
+    );
     const cached = getCachedBatch(cacheKey);
     if (cached) {
       setCacheHits((prev) => prev + 1);

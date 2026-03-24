@@ -23,6 +23,26 @@ export function useKeyboardNav({
 }) {
   const currentIndexRef = useRef(0);
 
+  const scrollToItem = useCallback(
+    (index) => {
+      if (!ref?.current) return;
+
+      const nodes = ref.current.querySelectorAll('[data-keyboard-index]');
+      if (nodes[index]) {
+        nodes[index].focus();
+        nodes[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        nodes[index].classList.add('keyboard-focused');
+
+        nodes.forEach((item, itemIndex) => {
+          if (itemIndex !== index) {
+            item.classList.remove('keyboard-focused');
+          }
+        });
+      }
+    },
+    [ref],
+  );
+
   // Handle arrow key navigation
   const handleKeyDown = useCallback(
     (e) => {
@@ -30,23 +50,26 @@ export function useKeyboardNav({
 
       const currentIndex = currentIndexRef.current;
       const itemCount = items.length;
+      if (itemCount === 0) return;
 
       switch (e.key) {
         case 'ArrowDown':
-        case 'ArrowRight':
+        case 'ArrowRight': {
           e.preventDefault();
           const nextIndex = (currentIndex + 1) % itemCount;
           currentIndexRef.current = nextIndex;
           scrollToItem(nextIndex);
           break;
+        }
 
         case 'ArrowUp':
-        case 'ArrowLeft':
+        case 'ArrowLeft': {
           e.preventDefault();
           const prevIndex = (currentIndex - 1 + itemCount) % itemCount;
           currentIndexRef.current = prevIndex;
           scrollToItem(prevIndex);
           break;
+        }
 
         case 'Enter':
         case ' ':
@@ -89,27 +112,8 @@ export function useKeyboardNav({
           break;
       }
     },
-    [items, onSelect, onToggle, onDelete, enabled]
+    [enabled, items, onDelete, onSelect, onToggle, ref, scrollToItem]
   );
-
-  // Scroll to item and highlight
-  const scrollToItem = useCallback((index) => {
-    if (!ref?.current) return;
-
-    const items = ref.current.querySelectorAll('[data-keyboard-index]');
-    if (items[index]) {
-      items[index].focus();
-      items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      items[index].classList.add('keyboard-focused');
-
-      // Remove highlight from previous
-      items.forEach((item, i) => {
-        if (i !== index) {
-          item.classList.remove('keyboard-focused');
-        }
-      });
-    }
-  }, []);
 
   // Set up event listeners
   useEffect(() => {
@@ -125,7 +129,7 @@ export function useKeyboardNav({
   }, [items.length]);
 
   return {
-    currentIndex: currentIndexRef.current,
+    currentIndexRef,
     setCurrentIndex: (index) => {
       currentIndexRef.current = Math.min(index, items.length - 1);
     },

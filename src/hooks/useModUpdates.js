@@ -24,7 +24,10 @@ export function useModUpdates(
 
   // Filter mods with GameBanana IDs
   const modsWithId = mods.filter((m) => m.gamebananaId);
-  const gbIds = () => [...new Set(modsWithId.map((m) => m.gamebananaId))];
+  const gbIds = useCallback(
+    () => [...new Set(modsWithId.map((m) => m.gamebananaId))],
+    [modsWithId],
+  );
 
   // Check for updates
   const checkUpdates = useCallback(async () => {
@@ -80,7 +83,7 @@ export function useModUpdates(
     } finally {
       setChecking(false);
     }
-  }, [modsWithId, fetchModsBatch, options.timeBuffer]);
+  }, [modsWithId, fetchModsBatch, gbIds, options.timeBuffer]);
 
   // Auto-check on mount and periodic intervals
   useEffect(() => {

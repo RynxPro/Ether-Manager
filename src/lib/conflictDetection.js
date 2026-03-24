@@ -111,7 +111,6 @@ export function categorizeConflicts(conflictingFiles) {
 
   conflictingFiles.forEach((file) => {
     const ext = path.extname(file).toLowerCase();
-    const dir = path.dirname(file).toLowerCase();
 
     if (ext === '.ini') {
       categories.ini.push(file);

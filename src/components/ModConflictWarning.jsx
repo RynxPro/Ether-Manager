@@ -9,8 +9,6 @@ import { cn } from '../lib/utils';
  */
 export default function ModConflictWarning({
   conflicts = [],
-  isOpen = false,
-  onClose,
   className = '',
 }) {
   const [expandedIndex, setExpandedIndex] = useState(null);

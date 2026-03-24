@@ -34,7 +34,7 @@ export default function LibraryView({ isActive }) {
   const { fetchModsBatch } = useFetchCache();
 
   // Standardized Mod Loading
-  const { mods, loadMods, setMods } = useLoadGameMods(game.id, isActive !== false);
+  const { mods, loadMods } = useLoadGameMods(game.id, isActive !== false);
 
   useEffect(() => {
     const checkUpdates = async () => {
@@ -84,7 +84,7 @@ export default function LibraryView({ isActive }) {
     };
 
     checkUpdates();
-  }, [mods]);
+  }, [fetchModsBatch, mods]);
 
   const handleDisableAllGame = useCallback(() => {
     const enabledMods = mods.filter((m) => m.isEnabled);

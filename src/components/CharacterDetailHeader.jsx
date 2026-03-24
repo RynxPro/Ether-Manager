@@ -1,6 +1,5 @@
 import { motion } from "framer-motion";
 import { Plus, EyeOff } from "lucide-react";
-import { cn } from "../lib/utils";
 
 export default function CharacterDetailHeader({
   game,

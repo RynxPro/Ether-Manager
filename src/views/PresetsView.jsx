@@ -53,11 +53,11 @@ export default function PresetsView() {
     } finally {
       setLoading(false);
     }
-  }, [game.id, configVersion]);
+  }, [game.id]);
 
   useEffect(() => {
     loadPresets();
-  }, [loadPresets]);
+  }, [configVersion, loadPresets]);
 
   // Reset modal state when switching games
   useEffect(() => {
