@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Download, X, AlertCircle, Calendar, Tag, ChevronDown, Check, Monitor, LayoutGrid, Bookmark, Heart, Eye, ChevronLeft, ChevronRight, CheckCircle, ImageIcon, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import SearchableDropdown from "./SearchableDropdown";
+import { sanitizeHtml } from "../lib/sanitizeHtml";
 
 export default function ModDetailModal({
   mod,
@@ -30,6 +31,10 @@ export default function ModDetailModal({
   const baseCharacters = getAllCharacterNames(game.id);
   const characters = ["User Interface", "Miscellaneous", ...baseCharacters];
   const images = mod.allImages || [mod.thumbnailUrl].filter(Boolean);
+  const safeDescriptionHtml = useMemo(
+    () => sanitizeHtml(mod._sText || mod._sDescription || "No description provided."),
+    [mod._sText, mod._sDescription],
+  );
 
   // Auto-select character based on GameBanana Category tag
   useEffect(() => {
@@ -290,7 +295,7 @@ export default function ModDetailModal({
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">About this mod</h3>
               <div 
                 className="text-sm text-text-secondary leading-relaxed gb-description"
-                dangerouslySetInnerHTML={{ __html: mod._sText || mod._sDescription || "No description provided." }}
+                dangerouslySetInnerHTML={{ __html: safeDescriptionHtml }}
               />
             </div>
 

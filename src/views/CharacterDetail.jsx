@@ -25,7 +25,7 @@ export default function CharacterDetail({
 }) {
   const game = useAppStore((state) => state.activeGame);
   const portraitUrl = getCharacterPortrait(character.name, game.id);
-// Removed old useState for mods
+  // Removed old useState for mods
   const [imgLoaded, setImgLoaded] = useState(false);
   const [gbDataMap, setGbDataMap] = useState({});
   const [selectedMod, setSelectedMod] = useState(null);
@@ -38,7 +38,10 @@ export default function CharacterDetail({
   const { fetchMod } = useFetchCache();
 
   // Use standard hook but keep local mods state for the filtered character
-  const { mods: allMods, loadMods: reloadAllMods } = useLoadGameMods(game.id, true);
+  const { mods: allMods, loadMods: reloadAllMods } = useLoadGameMods(
+    game.id,
+    true,
+  );
   const [mods, setMods] = useState([]);
 
   const loadMods = useCallback(async () => {
@@ -54,10 +57,14 @@ export default function CharacterDetail({
 
       // Fetch GameBanana data for mods that have a gamebananaId
       const gbIds = [
-        ...new Set(charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId)),
+        ...new Set(
+          charMods.filter((m) => m.gamebananaId).map((m) => m.gamebananaId),
+        ),
       ];
       if (gbIds.length > 0) {
-        const results = await Promise.allSettled(gbIds.map((id) => fetchMod(id)));
+        const results = await Promise.allSettled(
+          gbIds.map((id) => fetchMod(id)),
+        );
         const map = {};
         results.forEach((res, i) => {
           if (res.status === "fulfilled" && res.value.success) {
@@ -185,13 +192,13 @@ export default function CharacterDetail({
           }),
         ),
       );
-      
-      const failures = results.filter(r => !r.success);
+
+      const failures = results.filter((r) => !r.success);
       if (failures.length > 0) {
         alert(
           `Failed to disable ${failures.length} mod(s).\n\n` +
-          `This usually happens if the game is currently open and locking the files. ` +
-          `Please close the game and try again.`
+            `This usually happens if the game is currently open and locking the files. ` +
+            `Please close the game and try again.`,
         );
       }
 
@@ -405,19 +412,19 @@ export default function CharacterDetail({
             <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col md:flex-row md:items-end justify-between">
               {/* Left: Title & Action */}
               <CharacterDetailHeader
-                 game={game}
-                 character={character}
-                 mods={mods}
-                 disablingAll={disablingAll}
-                 onImport={handleImport}
-                 onDisableAll={handleDisableAll}
+                game={game}
+                character={character}
+                mods={mods}
+                disablingAll={disablingAll}
+                onImport={handleImport}
+                onDisableAll={handleDisableAll}
               />
-              
+
               {/* Right: Glassmorphic Stats Dashboard */}
               <CharacterDetailStats
-                 enabledCount={enabledCount}
-                 disabledCount={disabledCount}
-                 totalCount={mods.length}
+                enabledCount={enabledCount}
+                disabledCount={disabledCount}
+                totalCount={mods.length}
               />
             </div>
           </div>

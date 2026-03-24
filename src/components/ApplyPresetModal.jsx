@@ -15,10 +15,11 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
   const [gbData, setGbData] = useState({});
 
   useEffect(() => {
-    if (!allMods || allMods.length === 0) return;
-
     setLoading(true);
+    setError(null);
     try {
+      const availableMods = Array.isArray(allMods) ? allMods : [];
+
       // 1. Identify Scope (Affected Characters)
       const affectedCharacters = new Set(preset.mods.map(m => m.character));
 
@@ -30,7 +31,7 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       // Check which preset mods exist in allMods and need enabling
       for (const pm of preset.mods) {
         // Find by base id (folder name excluding DISABLED_ prefix)
-        const exists = allMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, ""));
+        const exists = availableMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, ""));
         if (!exists) {
           notFound.push(pm);
         } else if (!exists.isEnabled) {
@@ -39,7 +40,7 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       }
 
       // Check which currently enabled mods should be disabled
-      for (const m of allMods) {
+      for (const m of availableMods) {
         if (m.isEnabled && affectedCharacters.has(m.character)) {
           // Is it part of the preset?
           const isPart = preset.mods.find(pm => pm.modId === m.id || pm.originalFolderName.replace(/^DISABLED_/, "") === m.id);

@@ -21,6 +21,7 @@ export default function PresetsView() {
   const [activePreset, setActivePreset] = useState(null);
   const [importing, setImporting] = useState(false);
   const [gbData, setGbData] = useState({});
+  const [importFeedback, setImportFeedback] = useState(null);
 
   const loadPresets = useCallback(async () => {
     setLoading(true);
@@ -83,21 +84,50 @@ export default function PresetsView() {
 
   const handleImport = async () => {
     setImporting(true);
+    setImportFeedback(null);
     try {
       const result = await window.electronMods.importPreset();
       if (result.success && result.preset) {
-        // Assign new ID and match to current game
+        const importedGameId = result.preset.gameId || null;
+        if (importedGameId && importedGameId !== game.id) {
+          setImportFeedback({
+            type: "error",
+            message: `This preset targets ${importedGameId}, but you are currently on ${game.id}. Switch games before importing it.`,
+          });
+          return;
+        }
+
+        if (!Array.isArray(result.preset.mods)) {
+          setImportFeedback({
+            type: "error",
+            message: "The selected preset file is invalid. Missing mods data.",
+          });
+          return;
+        }
+
+        // Assign a new ID while preserving the preset's actual game scope.
         const imported = {
           ...result.preset,
           id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-          gameId: game.id,
+          gameId: importedGameId || game.id,
           updatedAt: new Date().toISOString(),
         };
-        await window.electronMods.savePreset(imported);
+        const saveResult = await window.electronMods.savePreset(imported);
+        if (!saveResult.success) {
+          throw new Error(saveResult.error || "Failed to save imported preset.");
+        }
         setPresets(prev => [imported, ...prev]);
+        setImportFeedback({
+          type: "success",
+          message: `Imported "${imported.name}" successfully.`,
+        });
       }
     } catch (err) {
       console.error("Import failed", err);
+      setImportFeedback({
+        type: "error",
+        message: err.message || "Failed to import preset.",
+      });
     } finally {
       setImporting(false);
     }
@@ -131,6 +161,18 @@ export default function PresetsView() {
           </Button>
         </div>
       </div>
+
+      {importFeedback && (
+        <div
+          className={`mb-6 mx-2 rounded-2xl border px-4 py-3 text-sm font-medium ${
+            importFeedback.type === "error"
+              ? "border-red-500/20 bg-red-500/10 text-red-400"
+              : "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+          }`}
+        >
+          {importFeedback.message}
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
