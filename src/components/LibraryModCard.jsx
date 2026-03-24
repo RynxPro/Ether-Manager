@@ -66,7 +66,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
               </div>
             ) : null}
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-surface to-transparent" />
+
         </div>
       ) : (
         <div className="relative h-44 w-full bg-linear-to-br from-background to-surface overflow-hidden shrink-0 flex items-center justify-center">

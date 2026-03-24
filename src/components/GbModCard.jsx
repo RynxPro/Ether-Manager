@@ -68,8 +68,7 @@ const BrowseModCard = React.memo(function BrowseModCard({
           </div>
         )}
 
-        {/* Overlays */}
-        <div className="absolute inset-0 bg-linear-to-t from-surface to-transparent opacity-60" />
+
 
         {/* Bookmark Action */}
         <button
