@@ -3,8 +3,8 @@
  * Analyzes mods for potential file conflicts and overlaps
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
 /**
  * Extract all file paths from a mod folder
@@ -68,7 +68,7 @@ export function detectModConflicts(enabledMods) {
   fileToMods.forEach((modIndices, file) => {
     if (modIndices.length > 1) {
       const modNames = modIndices.map((i) => enabledMods[i].name);
-      const conflictKey = modNames.sort().join(' | ');
+      const conflictKey = modNames.sort().join(" | ");
 
       if (!conflicts[conflictKey]) {
         conflicts[conflictKey] = [];
@@ -87,10 +87,10 @@ export function detectModConflicts(enabledMods) {
  */
 export function getConflictDetails(conflicts) {
   return Object.entries(conflicts).map(([modPair, files]) => ({
-    mods: modPair.split(' | '),
+    mods: modPair.split(" | "),
     conflictCount: files.length,
     conflictingFiles: files,
-    severity: files.length > 5 ? 'high' : files.length > 1 ? 'medium' : 'low',
+    severity: files.length > 5 ? "high" : files.length > 1 ? "medium" : "low",
   }));
 }
 
@@ -112,15 +112,15 @@ export function categorizeConflicts(conflictingFiles) {
   conflictingFiles.forEach((file) => {
     const ext = path.extname(file).toLowerCase();
 
-    if (ext === '.ini') {
+    if (ext === ".ini") {
       categories.ini.push(file);
-    } else if (['.dds', '.png', '.jpg', '.bmp'].includes(ext)) {
+    } else if ([".dds", ".png", ".jpg", ".bmp"].includes(ext)) {
       categories.textures.push(file);
-    } else if (['.fbx', '.xsml', '.xml'].includes(ext)) {
+    } else if ([".fbx", ".xsml", ".xml"].includes(ext)) {
       categories.models.push(file);
-    } else if (['.lua', '.py', '.txt'].includes(ext)) {
+    } else if ([".lua", ".py", ".txt"].includes(ext)) {
       categories.scripts.push(file);
-    } else if (['.wav', '.mp3', '.ogg'].includes(ext)) {
+    } else if ([".wav", ".mp3", ".ogg"].includes(ext)) {
       categories.audio.push(file);
     } else {
       categories.other.push(file);

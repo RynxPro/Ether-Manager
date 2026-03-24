@@ -1,9 +1,9 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from "react";
 
 /**
  * Hook for keyboard navigation in mod lists
  * Supports arrow keys for navigation and Enter/Space for selection
- * 
+ *
  * Usage:
  * const ref = useRef(null);
  * useKeyboardNav({
@@ -27,15 +27,15 @@ export function useKeyboardNav({
     (index) => {
       if (!ref?.current) return;
 
-      const nodes = ref.current.querySelectorAll('[data-keyboard-index]');
+      const nodes = ref.current.querySelectorAll("[data-keyboard-index]");
       if (nodes[index]) {
         nodes[index].focus();
-        nodes[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        nodes[index].classList.add('keyboard-focused');
+        nodes[index].scrollIntoView({ block: "nearest", behavior: "smooth" });
+        nodes[index].classList.add("keyboard-focused");
 
         nodes.forEach((item, itemIndex) => {
           if (itemIndex !== index) {
-            item.classList.remove('keyboard-focused');
+            item.classList.remove("keyboard-focused");
           }
         });
       }
@@ -53,8 +53,8 @@ export function useKeyboardNav({
       if (itemCount === 0) return;
 
       switch (e.key) {
-        case 'ArrowDown':
-        case 'ArrowRight': {
+        case "ArrowDown":
+        case "ArrowRight": {
           e.preventDefault();
           const nextIndex = (currentIndex + 1) % itemCount;
           currentIndexRef.current = nextIndex;
@@ -62,8 +62,8 @@ export function useKeyboardNav({
           break;
         }
 
-        case 'ArrowUp':
-        case 'ArrowLeft': {
+        case "ArrowUp":
+        case "ArrowLeft": {
           e.preventDefault();
           const prevIndex = (currentIndex - 1 + itemCount) % itemCount;
           currentIndexRef.current = prevIndex;
@@ -71,23 +71,23 @@ export function useKeyboardNav({
           break;
         }
 
-        case 'Enter':
-        case ' ':
+        case "Enter":
+        case " ":
           e.preventDefault();
           if (items[currentIndex] && onToggle) {
             onToggle(items[currentIndex]);
           }
           break;
 
-        case 'Shift+Enter':
+        case "Shift+Enter":
           e.preventDefault();
           if (items[currentIndex] && onSelect) {
             onSelect(items[currentIndex]);
           }
           break;
 
-        case 'Delete':
-        case 'Backspace':
+        case "Delete":
+        case "Backspace":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             if (items[currentIndex] && onDelete) {
@@ -96,13 +96,13 @@ export function useKeyboardNav({
           }
           break;
 
-        case 'Home':
+        case "Home":
           e.preventDefault();
           currentIndexRef.current = 0;
           scrollToItem(0);
           break;
 
-        case 'End':
+        case "End":
           e.preventDefault();
           currentIndexRef.current = itemCount - 1;
           scrollToItem(itemCount - 1);
@@ -112,15 +112,15 @@ export function useKeyboardNav({
           break;
       }
     },
-    [enabled, items, onDelete, onSelect, onToggle, ref, scrollToItem]
+    [enabled, items, onDelete, onSelect, onToggle, ref, scrollToItem],
   );
 
   // Set up event listeners
   useEffect(() => {
     if (!enabled) return;
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown, enabled]);
 
   // Reset index when items change
@@ -143,10 +143,10 @@ export function useKeyboardNav({
  */
 export function getKeyboardAttrs(index) {
   return {
-    'data-keyboard-index': index,
+    "data-keyboard-index": index,
     tabIndex: -1,
     className:
-      'transition-all duration-200 focus:outline-none keyboard-focused:[&]:ring-2 keyboard-focused:[&]:ring-primary keyboard-focused:[&]:ring-offset-1',
+      "transition-all duration-200 focus:outline-none keyboard-focused:[&]:ring-2 keyboard-focused:[&]:ring-primary keyboard-focused:[&]:ring-offset-1",
   };
 }
 
@@ -155,7 +155,7 @@ export function getKeyboardAttrs(index) {
  * .keyboard-focused {
  *   @apply ring-2 ring-primary ring-offset-2;
  * }
- * 
+ *
  * [data-keyboard-index]:focus {
  *   @apply outline-none;
  * }

@@ -16,7 +16,9 @@ function App() {
   const activeGameId = useAppStore((state) => state.activeGameId);
   const selectedCharacter = useAppStore((state) => state.selectedCharacter);
   const activeView = useAppStore((state) => state.activeView);
-  const setSelectedCharacter = useAppStore((state) => state.setSelectedCharacter);
+  const setSelectedCharacter = useAppStore(
+    (state) => state.setSelectedCharacter,
+  );
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -93,7 +95,16 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+              <Suspense
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center pt-40">
+                    <Loader2
+                      className="animate-spin text-primary opacity-50"
+                      size={32}
+                    />
+                  </div>
+                }
+              >
                 <BrowseView />
               </Suspense>
             </div>
@@ -113,7 +124,16 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+              <Suspense
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center pt-40">
+                    <Loader2
+                      className="animate-spin text-primary opacity-50"
+                      size={32}
+                    />
+                  </div>
+                }
+              >
                 <PresetsView />
               </Suspense>
             </div>
@@ -134,7 +154,9 @@ function App() {
             className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
           >
             <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <LibraryView isActive={activeView === "mods" && !selectedCharacter} />
+              <LibraryView
+                isActive={activeView === "mods" && !selectedCharacter}
+              />
             </div>
           </motion.div>
 
@@ -151,7 +173,16 @@ function App() {
                 style={{ zIndex: 30 }}
               >
                 <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-                  <Suspense fallback={<div className="w-full h-full flex items-center justify-center pt-40"><Loader2 className="animate-spin text-primary opacity-50" size={32} /></div>}>
+                  <Suspense
+                    fallback={
+                      <div className="w-full h-full flex items-center justify-center pt-40">
+                        <Loader2
+                          className="animate-spin text-primary opacity-50"
+                          size={32}
+                        />
+                      </div>
+                    }
+                  >
                     <CharacterDetail
                       character={selectedCharacter}
                       onBack={() => setSelectedCharacter(null)}

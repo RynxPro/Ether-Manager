@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useFetchCache } from './useFetchCache';
+import { useState, useEffect, useCallback } from "react";
+import { useFetchCache } from "./useFetchCache";
 
 /**
  * Custom hook for detecting mod updates
  * Monitors installed mods for newer versions on GameBanana
- * 
+ *
  * @param {Array} mods - Array of installed mods with gamebananaId
  * @param {Object} options - Configuration options
  * @returns {Object} { updates, checking, checkUpdates, dismissUpdate, dismissAll }
@@ -15,7 +15,7 @@ export function useModUpdates(
     autoCheck: true,
     checkInterval: 5 * 60 * 1000, // 5 minutes
     timeBuffer: 300, // 5 minutes in seconds
-  }
+  },
 ) {
   const [updates, setUpdates] = useState({});
   const [checking, setChecking] = useState(false);
@@ -68,7 +68,7 @@ export function useModUpdates(
                 installedDate,
                 latestDate,
                 daysSinceUpdate: Math.floor(
-                  (latestDate - installedDate) / 86400
+                  (latestDate - installedDate) / 86400,
                 ),
               };
             }
@@ -79,7 +79,7 @@ export function useModUpdates(
         setLastChecked(new Date());
       }
     } catch (err) {
-      console.error('Failed to check for updates:', err);
+      console.error("Failed to check for updates:", err);
     } finally {
       setChecking(false);
     }

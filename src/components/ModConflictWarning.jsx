@@ -1,23 +1,23 @@
-import { useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../lib/utils';
+import { useState } from "react";
+import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "../lib/utils";
 
 /**
  * Component to display mod conflicts
  * Shows which mods have overlapping files
  */
-export default function ModConflictWarning({
-  conflicts = [],
-  className = '',
-}) {
+export default function ModConflictWarning({ conflicts = [], className = "" }) {
   const [expandedIndex, setExpandedIndex] = useState(null);
 
   if (!conflicts || conflicts.length === 0) {
     return null;
   }
 
-  const totalConflictingFiles = conflicts.reduce((sum, c) => sum + c.conflictCount, 0);
+  const totalConflictingFiles = conflicts.reduce(
+    (sum, c) => sum + c.conflictCount,
+    0,
+  );
 
   return (
     <motion.div
@@ -25,8 +25,8 @@ export default function ModConflictWarning({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        'bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3',
-        className
+        "bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3",
+        className,
       )}
     >
       {/* Header */}
@@ -35,13 +35,12 @@ export default function ModConflictWarning({
           <AlertTriangle size={16} className="text-yellow-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-white mb-1">
-            Mod Conflicts Detected
-          </h3>
+          <h3 className="font-bold text-white mb-1">Mod Conflicts Detected</h3>
           <p className="text-sm text-text-secondary">
-            {conflicts.length} mod pair{conflicts.length !== 1 ? 's' : ''} have{' '}
-            {conflicts.length !== 1 ? '' : 's'} {totalConflictingFiles} overlapping file
-            {totalConflictingFiles !== 1 ? 's' : ''}.{' '}
+            {conflicts.length} mod pair{conflicts.length !== 1 ? "s" : ""} have{" "}
+            {conflicts.length !== 1 ? "" : "s"} {totalConflictingFiles}{" "}
+            overlapping file
+            {totalConflictingFiles !== 1 ? "s" : ""}.{" "}
             <span className="text-yellow-500">
               Only the last enabled mod's files will be used.
             </span>
@@ -66,29 +65,36 @@ export default function ModConflictWarning({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium text-text-primary">
-                    {conflict.mods.join(' ↔ ')}
+                    {conflict.mods.join(" ↔ ")}
                   </span>
                   <span
                     className={cn(
-                      'px-2 py-0.5 rounded text-[10px] font-bold tracking-wider',
-                      conflict.severity === 'high'
-                        ? 'bg-red-500/20 text-red-400'
-                        : conflict.severity === 'medium'
-                          ? 'bg-yellow-500/20 text-yellow-400'
-                          : 'bg-blue-500/20 text-blue-400'
+                      "px-2 py-0.5 rounded text-[10px] font-bold tracking-wider",
+                      conflict.severity === "high"
+                        ? "bg-red-500/20 text-red-400"
+                        : conflict.severity === "medium"
+                          ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-blue-500/20 text-blue-400",
                     )}
                   >
                     {conflict.severity.toUpperCase()}
                   </span>
                 </div>
                 <p className="text-xs text-text-muted">
-                  {conflict.conflictCount} file{conflict.conflictCount !== 1 ? 's' : ''}
+                  {conflict.conflictCount} file
+                  {conflict.conflictCount !== 1 ? "s" : ""}
                 </p>
               </div>
               {expandedIndex === index ? (
-                <ChevronUp size={16} className="text-text-muted flex-shrink-0" />
+                <ChevronUp
+                  size={16}
+                  className="text-text-muted flex-shrink-0"
+                />
               ) : (
-                <ChevronDown size={16} className="text-text-muted flex-shrink-0" />
+                <ChevronDown
+                  size={16}
+                  className="text-text-muted flex-shrink-0"
+                />
               )}
             </button>
 
@@ -97,7 +103,7 @@ export default function ModConflictWarning({
               {expandedIndex === index && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
+                  animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.2 }}
                   className="bg-background border-t border-yellow-500/20 px-4 py-3 max-h-64 overflow-y-auto"
@@ -115,7 +121,7 @@ export default function ModConflictWarning({
                     {conflict.conflictingFiles.length > 10 && (
                       <div className="text-xs text-text-muted italic pt-2">
                         +{conflict.conflictingFiles.length - 10} more file
-                        {conflict.conflictingFiles.length - 10 !== 1 ? 's' : ''}
+                        {conflict.conflictingFiles.length - 10 !== 1 ? "s" : ""}
                       </div>
                     )}
                   </div>
