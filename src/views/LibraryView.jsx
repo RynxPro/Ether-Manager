@@ -1,11 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
-import CharacterDetail from "./CharacterDetail";
 import ConfirmDialog from "../components/ConfirmDialog";
 import {
   getAllCharacterNames,
-  GLOBAL_CATEGORIES,
 } from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
@@ -14,6 +12,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
 import { getModClassification } from "../lib/modClassification";
+
+const CharacterDetail = lazy(() => import("./CharacterDetail"));
 
 const TABS = [
   { id: "characters", label: "Characters", icon: User },
@@ -371,15 +371,23 @@ export default function LibraryView({ isActive }) {
               </motion.div>
             )
           ) : (
-            <CharacterDetail
-              game={game}
-              character={{
-                name: activeTab === "ui" ? "User Interface" : "Miscellaneous",
-              }}
-              hideHeader={true}
-              searchQuery={searchQuery}
-              onBack={() => {}}
-            />
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center p-24 text-text-muted">
+                  Loading collection...
+                </div>
+              }
+            >
+              <CharacterDetail
+                game={game}
+                character={{
+                  name: activeTab === "ui" ? "User Interface" : "Miscellaneous",
+                }}
+                hideHeader={true}
+                searchQuery={searchQuery}
+                onBack={() => {}}
+              />
+            </Suspense>
           )}
         </motion.div>
       </AnimatePresence>

@@ -1,17 +1,17 @@
-// Load all images from the character-portraits (ZZZ) and ww-characters (WW) folders
+// Keep portrait metadata synchronous, but defer the asset URL import until needed.
 const zzzPortraits = import.meta.glob(
   "../assets/character-portraits/*.{png,jpg,jpeg,webp}",
-  { eager: true, import: "default" },
+  { import: "default" },
 );
 
 const wwPortraits = import.meta.glob(
   "../assets/ww-characters/*.{png,jpg,jpeg,webp}",
-  { eager: true, import: "default" },
+  { import: "default" },
 );
 
 const genshinPortraits = import.meta.glob(
   "../assets/Genshin Splash Art/*.{png,jpg,jpeg,webp}",
-  { eager: true, import: "default" },
+  { import: "default" },
 );
 
 const portraits = {
@@ -19,7 +19,7 @@ const portraits = {
   wwmi: {},
   gimi: {},
   srmi: {},
-  himi: {}
+  himi: {},
 };
 
 export const GLOBAL_CATEGORIES = ["User Interface", "Miscellaneous"];
@@ -32,7 +32,20 @@ export function getGlobalCategories() {
   return GLOBAL_CATEGORIES;
 }
 
-const processPortraits = (modules, gameId, prefixToRemove = "", suffixesToRemove = []) => {
+function normalizePortraitName(name) {
+  return (name || "")
+    .toLowerCase()
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const processPortraits = (
+  modules,
+  gameId,
+  prefixToRemove = "",
+  suffixesToRemove = [],
+) => {
   for (const path in modules) {
     const filename = path.split("/").pop();
     
@@ -69,10 +82,11 @@ const processPortraits = (modules, gameId, prefixToRemove = "", suffixesToRemove
       .trim();
 
     const entryName = cleanName.toLowerCase();
-    
+
     portraits[gameId][entryName] = {
-      url: modules[path],
-      displayName: cleanName
+      displayName: cleanName,
+      loader: modules[path],
+      url: null,
     };
   }
 };
@@ -87,23 +101,19 @@ export function getAllCharacterNames(gameId) {
   return Object.values(gamePortraits).map(p => p.displayName).sort((a, b) => a.localeCompare(b));
 }
 
-export function getCharacterPortrait(characterName, gameId) {
+function findCharacterPortraitEntry(characterName, gameId) {
   if (!characterName) return null;
-  const normalized = characterName.toLowerCase()
-    .replace(/[-_]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
+  const normalized = normalizePortraitName(characterName);
   const gId = (gameId || "").toLowerCase();
 
   // If gameId is provided, look only in that game
   if (gId && portraits[gId]) {
     const gamePortraits = portraits[gId];
-    if (gamePortraits[normalized]) return gamePortraits[normalized].url;
+    if (gamePortraits[normalized]) return gamePortraits[normalized];
 
     for (const [key, data] of Object.entries(gamePortraits)) {
       if (key.includes(normalized) || normalized.includes(key)) {
-        return data.url;
+        return data;
       }
     }
     return null;
@@ -112,13 +122,27 @@ export function getCharacterPortrait(characterName, gameId) {
   // Fallback: search all games (useful if gameId is unknown)
   for (const groupKey in portraits) {
     const gamePortraits = portraits[groupKey];
-    if (gamePortraits[normalized]) return gamePortraits[normalized].url;
+    if (gamePortraits[normalized]) return gamePortraits[normalized];
     for (const [key, data] of Object.entries(gamePortraits)) {
       if (key.includes(normalized) || normalized.includes(key)) {
-        return data.url;
+        return data;
       }
     }
   }
 
   return null;
+}
+
+export function getCharacterPortrait(characterName, gameId) {
+  return findCharacterPortraitEntry(characterName, gameId)?.url || null;
+}
+
+export async function loadCharacterPortrait(characterName, gameId) {
+  const entry = findCharacterPortraitEntry(characterName, gameId);
+  if (!entry) return null;
+  if (entry.url) return entry.url;
+
+  const url = await entry.loader();
+  entry.url = url;
+  return url;
 }

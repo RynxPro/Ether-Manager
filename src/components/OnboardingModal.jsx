@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   X, 
   ChevronRight, 
   ChevronLeft, 
@@ -11,7 +11,7 @@ import {
   Rocket
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { getCharacterPortrait } from "../lib/portraits";
+import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 
 const STEPS = [
   {
@@ -53,6 +53,9 @@ const STEPS = [
 
 export default function OnboardingModal({ isOpen, onClose }) {
   const [currentStep, setCurrentStep] = useState(0);
+  const step = STEPS[currentStep];
+  const Icon = step.icon;
+  const portraitUrl = useCharacterPortrait(step.portrait, step.game);
 
   const nextStep = () => {
     if (currentStep < STEPS.length - 1) {
@@ -69,10 +72,6 @@ export default function OnboardingModal({ isOpen, onClose }) {
   };
 
   if (!isOpen) return null;
-
-  const step = STEPS[currentStep];
-  const Icon = step.icon;
-  const portraitUrl = getCharacterPortrait(step.portrait, step.game);
 
   return (
     <AnimatePresence>

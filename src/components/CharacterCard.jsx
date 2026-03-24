@@ -1,8 +1,8 @@
 import { cn } from "../lib/utils";
 import { User, Monitor, Box } from "lucide-react";
-import { getCharacterPortrait } from "../lib/portraits";
 import { motion } from "framer-motion";
 import { useState, memo } from "react";
+import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 
 import UpdateBadge from "./UpdateBadge";
 
@@ -16,7 +16,7 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
   const isMisc = character.name === "Miscellaneous";
   const isGlobal = isUI || isMisc;
 
-  const portraitUrl = isGlobal ? null : getCharacterPortrait(character.name, game.id);
+  const portraitUrl = useCharacterPortrait(character.name, game.id, !isGlobal);
   const [imgLoaded, setImgLoaded] = useState(false);
   const hasMods = character.totalMods > 0;
 

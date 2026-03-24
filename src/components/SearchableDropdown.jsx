@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Search, ChevronDown, User, Monitor, Box, Clock, Heart, Download, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
-import { getCharacterPortrait, GLOBAL_CATEGORIES } from "../lib/portraits";
+import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 
 export default function SearchableDropdown({ 
   items, 
@@ -48,16 +48,8 @@ export default function SearchableDropdown({
     if (label === "most liked") return <Heart size={size} className="text-white/40" />;
     if (label === "most downloaded") return <Download size={size} className="text-white/40" />;
     if (label === "most viewed") return <Eye size={size} className="text-white/40" />;
-    
-    const portrait = getCharacterPortrait(item, gameId);
-    if (portrait) {
-      return (
-        <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10 shrink-0">
-          <img src={portrait} alt="" className="w-full h-full object-cover" />
-        </div>
-      );
-    }
-    return <User size={size} />;
+
+    return <CharacterIcon item={item} gameId={gameId} size={size} />;
   };
 
   return (
@@ -149,4 +141,18 @@ export default function SearchableDropdown({
       </AnimatePresence>
     </div>
   );
+}
+
+function CharacterIcon({ item, gameId, size }) {
+  const portraitUrl = useCharacterPortrait(item, gameId);
+
+  if (portraitUrl) {
+    return (
+      <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10 shrink-0">
+        <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  return <User size={size} />;
 }

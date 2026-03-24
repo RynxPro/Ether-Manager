@@ -6,14 +6,12 @@ import CharacterDetailHeader from "../components/CharacterDetailHeader";
 import CharacterDetailStats from "../components/CharacterDetailStats";
 import CharacterDetailGrid from "../components/CharacterDetailGrid";
 import ConfirmDialog from "../components/ConfirmDialog";
-import {
-  getCharacterPortrait,
-} from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 import { isModInCollection } from "../lib/modClassification";
+import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 
 export default function CharacterDetail({
   character,
@@ -22,7 +20,7 @@ export default function CharacterDetail({
   searchQuery = "",
 }) {
   const game = useAppStore((state) => state.activeGame);
-  const portraitUrl = getCharacterPortrait(character.name, game.id);
+  const portraitUrl = useCharacterPortrait(character.name, game.id);
   // Removed old useState for mods
   const [imgLoaded, setImgLoaded] = useState(false);
   const [gbDataMap, setGbDataMap] = useState({});
