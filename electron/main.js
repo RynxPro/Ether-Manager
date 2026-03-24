@@ -760,6 +760,8 @@ ipcMain.handle(
       app.getPath("temp"),
       `aether_${Date.now()}_${fileName}`,
     );
+    let extractSandboxPath = null;
+    const installedFolderPaths = [];
 
     try {
       // Resolve mods dir
@@ -849,7 +851,7 @@ ipcMain.handle(
 
       // Create a dedicated Sandbox extraction folder to trap "Flat Zips" (zips without root folders)
       const extractSandboxName = `.aether_tmp_extract_${Date.now()}`;
-      const extractSandboxPath = path.join(modsPath, extractSandboxName);
+      extractSandboxPath = path.join(modsPath, extractSandboxName);
       fs.mkdirSync(extractSandboxPath, { recursive: true });
 
       // Extract the archive into the Sandbox
@@ -879,8 +881,8 @@ ipcMain.handle(
         extractedRootFolders.push(extractSandboxPath);
       }
 
-      // Rename each top-level root folder with the character prefix and write metadata, moving it OUT of the sandbox
-      const renamedFolders = [];
+      // Precompute target folders before moving anything so collisions fail safely.
+      const installationTargets = [];
       for (const srcPath of extractedRootFolders) {
         if (!fs.existsSync(srcPath)) continue;
 
@@ -898,13 +900,20 @@ ipcMain.handle(
         }
 
         const finalTargetPath = path.join(modsPath, targetName);
-        
-        // Prevent extremely rare naming collision if a folder with this exact final name was manually dragged there
         if (fs.existsSync(finalTargetPath)) {
-          fs.rmSync(finalTargetPath, { recursive: true, force: true });
+          throw new Error(
+            `A mod folder named "${targetName}" already exists. Remove or rename the existing folder before installing this archive.`,
+          );
         }
 
+        installationTargets.push({ srcPath, targetName, finalTargetPath });
+      }
+
+      // Rename each top-level root folder with the character prefix and write metadata, moving it OUT of the sandbox
+      const renamedFolders = [];
+      for (const { srcPath, targetName, finalTargetPath } of installationTargets) {
         fs.renameSync(srcPath, finalTargetPath);
+        installedFolderPaths.push(finalTargetPath);
 
         // Write aether.json inside the packaged directory
         const aetherJson = {
@@ -933,7 +942,14 @@ ipcMain.handle(
       return { success: true, installedFolders: renamedFolders };
     } catch (err) {
       console.error("Failed to install GB mod:", err);
-      // Cleanup temp if error
+      for (const folderPath of installedFolderPaths) {
+        if (fs.existsSync(folderPath)) {
+          fs.rmSync(folderPath, { recursive: true, force: true });
+        }
+      }
+      if (extractSandboxPath && fs.existsSync(extractSandboxPath)) {
+        fs.rmSync(extractSandboxPath, { recursive: true, force: true });
+      }
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
       return { success: false, error: err.message };
     }

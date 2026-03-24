@@ -19,8 +19,16 @@ const ACCENT_COLORS = [
   { label: "White", value: "#e2e8f0" },
 ];
 
-export default function PresetDetailModal({ preset: initialPreset, importerPath, onClose, onSaved, onDeleted }) {
+export default function PresetDetailModal({
+  preset: initialPreset,
+  importerPath,
+  onClose,
+  onUpdated,
+  onSaved,
+  onDeleted,
+}) {
   const game = useAppStore((state) => state.activeGame);
+  const notifyPresetChanged = onUpdated || onSaved;
   const [preset, setPreset] = useState(initialPreset);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState("mods");
@@ -133,7 +141,7 @@ export default function PresetDetailModal({ preset: initialPreset, importerPath,
         };
         await window.electronMods.savePreset(updated);
         setPreset(updated);
-        onUpdated?.(updated);
+        notifyPresetChanged?.(updated);
         setIsEditMode(false);
         setShowAddPanel(false);
       } finally {
@@ -196,7 +204,7 @@ export default function PresetDetailModal({ preset: initialPreset, importerPath,
       updatedAt: new Date().toISOString(),
     };
     await window.electronMods.savePreset(duped);
-    onUpdated?.(duped);
+    notifyPresetChanged?.(duped);
     onClose();
   };
 
@@ -413,7 +421,7 @@ export default function PresetDetailModal({ preset: initialPreset, importerPath,
                             try {
                               await window.electronMods.savePreset(updated);
                               setPreset(updated);
-                              onUpdated?.(updated);
+                              notifyPresetChanged?.(updated);
                             } finally {
                               setSaving(false);
                             }
@@ -633,7 +641,7 @@ export default function PresetDetailModal({ preset: initialPreset, importerPath,
             onClose={() => setShowApply(false)}
             onApplied={() => {
               setShowApply(false);
-              onUpdated?.(preset);
+              notifyPresetChanged?.(preset);
             }}
           />
         )}
