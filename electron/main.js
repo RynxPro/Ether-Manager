@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import {
   assertAllowedOpenFolder,
   readConfigFile,
+  setConfigPathProvider,
   writeConfigFile,
 } from "./services/config.js";
 import {
@@ -37,6 +38,10 @@ const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow;
+
+setConfigPathProvider(() =>
+  path.join(app.getPath("userData"), "aether_manager_config.json"),
+);
 
 function isSafeExternalUrl(rawUrl) {
   if (!rawUrl) return false;

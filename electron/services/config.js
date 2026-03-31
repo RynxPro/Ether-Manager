@@ -1,4 +1,3 @@
-import { app } from "electron";
 import fs from "fs";
 import path from "path";
 import {
@@ -15,8 +14,17 @@ export const CONFIGURED_GAME_IDS = new Set([
   "HIMI",
 ]);
 
+let configPathProvider = null;
+
+export function setConfigPathProvider(provider) {
+  configPathProvider = provider;
+}
+
 export function getConfigPath() {
-  return path.join(app.getPath("userData"), "aether_manager_config.json");
+  if (!configPathProvider) {
+    throw new Error("Config path provider has not been initialized.");
+  }
+  return configPathProvider();
 }
 
 export function readConfigFile() {
