@@ -7,6 +7,9 @@ import {
   assertString,
   assertStringArray,
 } from "./validation.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("presets");
 
 export function getPresets(gameId) {
   const validGameId = assertString(gameId, "gameId", { maxLength: 32 });
@@ -155,8 +158,8 @@ export function executePresetDiff({ importerPath, enableList, disableList }) {
           fs.renameSync(action.tempPath, action.fromPath);
         }
       } catch (rollbackError) {
-        console.error(
-          `Failed to roll back preset action ${action.toName} -> ${action.fromName}:`,
+        logger.error(
+          `Failed to roll back preset action ${action.toName} -> ${action.fromName}`,
           rollbackError,
         );
         return {

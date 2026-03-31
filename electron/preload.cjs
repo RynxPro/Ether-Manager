@@ -1,8 +1,6 @@
 /* global require */
 const { contextBridge, ipcRenderer } = require("electron");
 
-console.log("Preload: Script starting...");
-
 contextBridge.exposeInMainWorld("electronConfig", {
   getConfig: () => ipcRenderer.invoke("get-config"),
   setConfig: (config) => ipcRenderer.invoke("set-config", config),

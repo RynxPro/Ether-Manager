@@ -31,6 +31,12 @@ import {
   importPresetFromFile,
   savePreset,
 } from "./services/presets.js";
+import {
+  ok,
+  withRawFallback,
+  withResultEnvelope,
+} from "./services/ipc.js";
+import { createLogger } from "./services/logger.js";
 import { assertPlainObject, assertString } from "./services/validation.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +44,7 @@ const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow;
+const logger = createLogger("main");
 
 setConfigPathProvider(() =>
   path.join(app.getPath("userData"), "aether_manager_config.json"),
@@ -77,11 +84,11 @@ function createWindow() {
     },
   });
 
-  console.log("Main Process: Preload path is:", preloadPath);
+  logger.debug("Preload path resolved", preloadPath);
   if (fs.existsSync(preloadPath)) {
-    console.log("Main Process: Preload file EXISTS");
+    logger.debug("Preload file exists");
   } else {
-    console.error("Main Process: Preload file NOT FOUND at path!");
+    logger.error("Preload file not found", preloadPath);
   }
 
   if (isDev) {
@@ -135,30 +142,22 @@ app.on("window-all-closed", () => {
   }
 });
 
-handleIpc("get-config", () => {
-  try {
-    return readConfigFile();
-  } catch (error) {
-    console.error("Failed to read config", error);
-    return {};
-  }
-});
+handleIpc("get-config", withRawFallback("Failed to read config", {}, () => readConfigFile()));
 
-handleIpc("set-config", (event, newConfig) => {
-  try {
+handleIpc(
+  "set-config",
+  withRawFallback("Failed to write config", false, (event, newConfig) => {
     assertPlainObject(newConfig, "config");
     const config = { ...readConfigFile(), ...newConfig };
     writeConfigFile(config);
     return true;
-  } catch (error) {
-    console.error("Failed to write config", error);
-    return false;
-  }
-});
+  }),
+);
 
-handleIpc("choose-folder", async (event) => {
-  console.log("Main Process: ipcMain handle 'choose-folder' triggered");
-  try {
+handleIpc(
+  "choose-folder",
+  withRawFallback("Main Process: Error showing open dialog:", null, async (event) => {
+    logger.debug("choose-folder invoked");
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
       win.focus();
@@ -171,53 +170,42 @@ handleIpc("choose-folder", async (event) => {
       defaultPath: app.getPath("documents"),
     });
 
-    console.log("Main Process: dialog result:", result);
+    logger.debug("choose-folder dialog result", result);
     if (result.canceled) {
-      console.log("Main Process: dialog was canceled");
+      logger.debug("choose-folder dialog canceled");
       return null;
     }
 
     return result.filePaths[0];
-  } catch (error) {
-    console.error("Main Process: Error showing open dialog:", error);
-    return null;
-  }
-});
+  }),
+);
 
-handleIpc("open-external", async (event, url) => {
-  try {
+handleIpc(
+  "open-external",
+  withResultEnvelope("Failed to open external URL:", async (event, url) => {
     assertString(url, "url");
     if (!isSafeExternalUrl(url)) {
-      return { success: false, error: "Blocked unsafe external URL." };
+      throw new Error("Blocked unsafe external URL.");
     }
 
     await shell.openExternal(url);
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to open external URL:", error);
-    return { success: false, error: error.message };
-  }
-});
+    return ok();
+  }),
+);
 
 handleIpc("get-mods", (event, importerPath, knownCharacters = [], expectedGameId = null, options = {}) =>
   getMods(importerPath, knownCharacters, expectedGameId, options),
 );
 
-handleIpc("toggle-mod", (event, args) => {
-  try {
-    return toggleMod(args);
-  } catch (error) {
-    console.error("Failed to toggle mod", error);
-    return { success: false, error: error.message };
-  }
-});
+handleIpc("toggle-mod", withResultEnvelope("Failed to toggle mod", (event, args) => toggleMod(args)));
 
 handleIpc("open-folder", (event, folderPath) => {
   shell.showItemInFolder(assertAllowedOpenFolder(folderPath));
 });
 
-handleIpc("import-mod", async (event, args) => {
-  try {
+handleIpc(
+  "import-mod",
+  withResultEnvelope("Failed to import mod:", async (event, args) => {
     const payload = assertPlainObject(args, "importArgs");
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(win || mainWindow, {
@@ -236,125 +224,99 @@ handleIpc("import-mod", async (event, args) => {
       characterName: payload.characterName,
       gameId: payload.gameId,
     });
-  } catch (error) {
-    console.error("Failed to import mod:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("assign-mod", async (event, args) => {
-  try {
-    return assignMod(args);
-  } catch (error) {
-    console.error("Failed to assign mod:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("set-custom-thumbnail", async (event, args) => {
-  try {
-    return setCustomThumbnail(args);
-  } catch (error) {
-    console.error("Failed to set custom thumbnail:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("delete-mod", async (event, args) => {
-  try {
-    return await deleteMod(args, {
-      trashItem: (folderPath) => shell.trashItem(folderPath),
-    });
-  } catch (error) {
-    console.error("Failed to delete mod:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("fetch-gb-mod", async (event, gamebananaId) => {
-  try {
-    return { success: true, data: await fetchGbMod(gamebananaId) };
-  } catch (error) {
-    console.error("Failed to fetch GB mod:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("fetch-gb-mods-batch", async (event, ids) => {
-  try {
-    return { success: true, data: await fetchGbModsBatch(ids) };
-  } catch (error) {
-    console.error("[BatchUpdate] Fatal error in parallel fetch:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("fetch-gb-mods-summaries", async (event, ids) => {
-  try {
-    return { success: true, data: await fetchGbModsSummaries(ids) };
-  } catch (error) {
-    console.error("[BookmarkSummary] Fatal error:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("browse-gb-mods", async (event, args = {}) => {
-  try {
-    const result = await browseGbMods(args);
-    return { success: true, ...result };
-  } catch (error) {
-    console.error("Failed to browse GB mods:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-handleIpc("install-gb-mod", async (event, args = {}) =>
-  installGbMod(args, {
-    tempDir: app.getPath("temp"),
-    isSafeExternalUrl,
-    onDownloadProgress: (data) => event.sender.send("download-progress", data),
-    trashItem: (folderPath) => shell.trashItem(folderPath),
   }),
 );
 
-handleIpc("get-presets", (event, gameId) => {
-  try {
-    return getPresets(gameId);
-  } catch (error) {
-    console.error("get-presets error:", error);
-    return [];
-  }
-});
+handleIpc(
+  "assign-mod",
+  withResultEnvelope("Failed to assign mod:", async (event, args) =>
+    assignMod(args),
+  ),
+);
 
-handleIpc("save-preset", (event, preset) => {
-  try {
-    return savePreset(preset);
-  } catch (error) {
-    console.error("save-preset error:", error);
-    return { success: false, error: error.message };
-  }
-});
+handleIpc(
+  "set-custom-thumbnail",
+  withResultEnvelope("Failed to set custom thumbnail:", async (event, args) =>
+    setCustomThumbnail(args),
+  ),
+);
 
-handleIpc("delete-preset", (event, gameId, presetId) => {
-  try {
-    return deletePreset(gameId, presetId);
-  } catch (error) {
-    console.error("delete-preset error:", error);
-    return { success: false, error: error.message };
-  }
-});
+handleIpc(
+  "delete-mod",
+  withResultEnvelope("Failed to delete mod:", async (event, args) =>
+    deleteMod(args, {
+      trashItem: (folderPath) => shell.trashItem(folderPath),
+    }),
+  ),
+);
 
-handleIpc("execute-preset-diff", (event, args) => {
-  try {
-    return executePresetDiff(args);
-  } catch (error) {
-    console.error("execute-preset-diff error:", error);
-    return { success: false, error: error.message };
-  }
-});
+handleIpc(
+  "fetch-gb-mod",
+  withResultEnvelope("Failed to fetch GB mod:", async (event, gamebananaId) => ({
+    data: await fetchGbMod(gamebananaId),
+  })),
+);
 
-handleIpc("export-preset", async (event, preset) => {
-  try {
+handleIpc(
+  "fetch-gb-mods-batch",
+  withResultEnvelope("[BatchUpdate] Fatal error in parallel fetch:", async (event, ids) => ({
+    data: await fetchGbModsBatch(ids),
+  })),
+);
+
+handleIpc(
+  "fetch-gb-mods-summaries",
+  withResultEnvelope("[BookmarkSummary] Fatal error:", async (event, ids) => ({
+    data: await fetchGbModsSummaries(ids),
+  })),
+);
+
+handleIpc(
+  "browse-gb-mods",
+  withResultEnvelope("Failed to browse GB mods:", async (event, args = {}) =>
+    browseGbMods(args),
+  ),
+);
+
+handleIpc(
+  "install-gb-mod",
+  withResultEnvelope("install-gb-mod error:", async (event, args = {}) =>
+    installGbMod(args, {
+      tempDir: app.getPath("temp"),
+      isSafeExternalUrl,
+      onDownloadProgress: (data) => event.sender.send("download-progress", data),
+      trashItem: (folderPath) => shell.trashItem(folderPath),
+    }),
+  ),
+);
+
+handleIpc(
+  "get-presets",
+  withRawFallback("get-presets error:", [], (event, gameId) => getPresets(gameId)),
+);
+
+handleIpc(
+  "save-preset",
+  withResultEnvelope("save-preset error:", (event, preset) => savePreset(preset)),
+);
+
+handleIpc(
+  "delete-preset",
+  withResultEnvelope("delete-preset error:", (event, gameId, presetId) =>
+    deletePreset(gameId, presetId),
+  ),
+);
+
+handleIpc(
+  "execute-preset-diff",
+  withResultEnvelope("execute-preset-diff error:", (event, args) =>
+    executePresetDiff(args),
+  ),
+);
+
+handleIpc(
+  "export-preset",
+  withResultEnvelope("export-preset error:", async (event, preset) => {
     const validPreset = assertPlainObject(preset, "preset");
     const presetName = assertString(validPreset.name || "preset", "preset.name", {
       maxLength: 120,
@@ -371,14 +333,12 @@ handleIpc("export-preset", async (event, preset) => {
     }
 
     return exportPresetToFile(result.filePath, validPreset);
-  } catch (error) {
-    console.error("export-preset error:", error);
-    return { success: false, error: error.message };
-  }
-});
+  }),
+);
 
-handleIpc("import-preset", async (event) => {
-  try {
+handleIpc(
+  "import-preset",
+  withResultEnvelope("import-preset error:", async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(win || mainWindow, {
       title: "Import Preset",
@@ -391,11 +351,7 @@ handleIpc("import-preset", async (event) => {
     }
 
     return {
-      success: true,
       preset: importPresetFromFile(result.filePaths[0]),
     };
-  } catch (error) {
-    console.error("import-preset error:", error);
-    return { success: false, error: error.message };
-  }
-});
+  }),
+);

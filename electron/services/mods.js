@@ -14,6 +14,9 @@ import {
   assertString,
   assertStringArray,
 } from "./validation.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("mods");
 
 export function getMods(
   importerPath,
@@ -21,12 +24,7 @@ export function getMods(
   expectedGameId = null,
   options = {},
 ) {
-  console.log(
-    "Fetching mods for path:",
-    importerPath,
-    "Expected Game ID:",
-    expectedGameId,
-  );
+  logger.debug("Scanning mods path", { importerPath, expectedGameId });
   assertStringArray(knownCharacters, "knownCharacters");
   assertOptionalString(expectedGameId, "expectedGameId");
   assertPlainObject(options, "options");
@@ -40,10 +38,10 @@ export function getMods(
     modsPath = path.join(modsPath, "Mods");
   }
 
-  console.log("Final mods directory path:", modsPath);
+  logger.debug("Resolved mods directory path", modsPath);
 
   if (!fs.existsSync(modsPath)) {
-    console.log("Mods directory does not exist at:", modsPath);
+    logger.info("Mods directory does not exist", modsPath);
     return [];
   }
 
@@ -53,7 +51,7 @@ export function getMods(
       .filter((dirent) => dirent.isDirectory())
       .map((dirent) => dirent.name);
 
-    console.log(`Found ${modFolders.length} folders in Mods directory`);
+    logger.debug(`Found ${modFolders.length} folders in Mods directory`);
 
     const mods = [];
     const sharedImporterAcrossGames = Boolean(options?.sharedImporterAcrossGames);
@@ -156,8 +154,8 @@ export function getMods(
               ),
             );
           } catch (migrationErr) {
-            console.warn(
-              `Failed to backfill gameId for legacy mod "${folderName}":`,
+            logger.warn(
+              `Failed to backfill gameId for legacy mod "${folderName}"`,
               migrationErr.message,
             );
           }
@@ -187,7 +185,7 @@ export function getMods(
 
     return mods;
   } catch (error) {
-    console.error("Failed to read mods", error);
+    logger.error("Failed to read mods", error);
     return [];
   }
 }
@@ -323,7 +321,7 @@ export function setCustomThumbnail({
     try {
       aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
     } catch (error) {
-      console.error("Error reading aether.json:", error);
+      logger.warn("Error reading aether.json", error);
     }
   }
 
@@ -409,12 +407,12 @@ export async function installGbMod(
           data.gamebananaId === normalizedGbModId &&
           data.installedFile === fileName
         ) {
-          console.log(`Moving old mod version to Recycle Bin: ${folder}`);
+          logger.info(`Moving old mod version to recycle bin: ${folder}`);
           try {
             await trashItem(path.join(modsPath, folder));
           } catch (trashErr) {
-            console.warn(
-              `trashItem failed for ${folder}, falling back to rmSync:`,
+            logger.warn(
+              `trashItem failed for ${folder}, falling back to rmSync`,
               trashErr.message,
             );
             fs.rmSync(path.join(modsPath, folder), {
@@ -424,10 +422,7 @@ export async function installGbMod(
           }
         }
       } catch (error) {
-        console.error(
-          `Failed to read aether.json in ${folder} during cleanup`,
-          error,
-        );
+        logger.warn(`Failed to read aether.json in ${folder} during cleanup`, error);
       }
     }
 
@@ -547,7 +542,7 @@ export async function installGbMod(
 
     return { success: true, installedFolders: renamedFolders };
   } catch (error) {
-    console.error("Failed to install GB mod:", error);
+    logger.error("Failed to install GB mod", error);
     for (const folderPath of installedFolderPaths) {
       if (fs.existsSync(folderPath)) {
         fs.rmSync(folderPath, { recursive: true, force: true });

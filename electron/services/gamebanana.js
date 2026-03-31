@@ -1,48 +1,242 @@
-import { assertInteger, assertIntegerArray, assertOptionalString, assertPlainObject } from "./validation.js";
+import {
+  assertInteger,
+  assertIntegerArray,
+  assertOptionalString,
+  assertPlainObject,
+} from "./validation.js";
+import { createLogger } from "./logger.js";
 
 const GB_API = "https://gamebanana.com/apiv10";
 const GB_PROPERTIES =
   "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame,_aCategory,_aRootCategory";
 
 const characterCategoryCache = {};
+const logger = createLogger("gamebanana");
+const DEFAULT_TIMEOUT_MS = 12000;
+const DEFAULT_RETRY_COUNT = 1;
+
+const runtime = {
+  fetchImpl: (...args) => fetch(...args),
+  sleepImpl: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  timeoutMs: DEFAULT_TIMEOUT_MS,
+  retryCount: DEFAULT_RETRY_COUNT,
+};
+
+export function setGameBananaRuntime(overrides = {}) {
+  if (typeof overrides.fetchImpl === "function") {
+    runtime.fetchImpl = overrides.fetchImpl;
+  }
+  if (typeof overrides.sleepImpl === "function") {
+    runtime.sleepImpl = overrides.sleepImpl;
+  }
+  if (Number.isFinite(overrides.timeoutMs) && overrides.timeoutMs > 0) {
+    runtime.timeoutMs = overrides.timeoutMs;
+  }
+  if (
+    Number.isInteger(overrides.retryCount) &&
+    overrides.retryCount >= 0 &&
+    overrides.retryCount <= 5
+  ) {
+    runtime.retryCount = overrides.retryCount;
+  }
+}
+
+function toIntegerOr(fallback, value) {
+  return Number.isInteger(value) ? value : fallback;
+}
+
+function toStringOr(fallback, value) {
+  return typeof value === "string" ? value : fallback;
+}
+
+function normalizeImage(image) {
+  if (!image || typeof image !== "object") {
+    return null;
+  }
+
+  const baseUrl = toStringOr("", image._sBaseUrl);
+  const file530 = toStringOr("", image._sFile530);
+  const file220 = toStringOr("", image._sFile220);
+  const file = toStringOr("", image._sFile);
+
+  return {
+    ...image,
+    _sBaseUrl: baseUrl,
+    _sFile530: file530,
+    _sFile220: file220,
+    _sFile: file,
+  };
+}
+
+function normalizePreviewMedia(previewMedia) {
+  const rawImages = Array.isArray(previewMedia?._aImages)
+    ? previewMedia._aImages
+    : [];
+  const images = rawImages.map(normalizeImage).filter(Boolean);
+  return {
+    ...(previewMedia && typeof previewMedia === "object" ? previewMedia : {}),
+    _aImages: images,
+  };
+}
+
+function normalizeSubmitter(submitter) {
+  if (!submitter || typeof submitter !== "object") {
+    return null;
+  }
+
+  return {
+    ...submitter,
+    _idRow: toIntegerOr(0, submitter._idRow),
+    _sName: toStringOr("Unknown", submitter._sName),
+    _sAvatarUrl: toStringOr("", submitter._sAvatarUrl),
+    _sProfileUrl: toStringOr("", submitter._sProfileUrl),
+  };
+}
+
+function normalizeCategory(category) {
+  if (!category || typeof category !== "object") {
+    return null;
+  }
+
+  return {
+    ...category,
+    _idRow: toIntegerOr(0, category._idRow),
+    _sName: toStringOr("", category._sName),
+  };
+}
+
+function normalizeFileEntry(file) {
+  if (!file || typeof file !== "object") {
+    return null;
+  }
+
+  return {
+    ...file,
+    _idRow: toIntegerOr(0, file._idRow),
+    _sFile: toStringOr("", file._sFile),
+    _sDownloadUrl: toStringOr("", file._sDownloadUrl),
+    _nFilesize: Number.isFinite(file._nFilesize) ? file._nFilesize : 0,
+    _sDescription: toStringOr("", file._sDescription),
+  };
+}
+
+function buildThumbnailUrl(previewMedia) {
+  const images = previewMedia?._aImages;
+  if (!images || images.length === 0) return null;
+  const firstImage = images[0];
+  const fileName =
+    firstImage._sFile530 || firstImage._sFile || firstImage._sFile220;
+  return fileName ? `${firstImage._sBaseUrl}/${fileName}` : null;
+}
+
+function normalizeModRecord(mod) {
+  if (!mod || typeof mod !== "object") {
+    return null;
+  }
+
+  const previewMedia = normalizePreviewMedia(mod._aPreviewMedia);
+  const files = Array.isArray(mod._aFiles)
+    ? mod._aFiles.map(normalizeFileEntry).filter(Boolean)
+    : [];
+
+  return {
+    ...mod,
+    _idRow: toIntegerOr(0, mod._idRow),
+    _sName: toStringOr("Unknown Mod", mod._sName),
+    _sDescription: toStringOr("", mod._sDescription),
+    _sText: toStringOr("", mod._sText),
+    _tsDateUpdated: Number.isFinite(mod._tsDateUpdated) ? mod._tsDateUpdated : 0,
+    _nLikeCount: Number.isFinite(mod._nLikeCount) ? mod._nLikeCount : 0,
+    _nDownloadCount: Number.isFinite(mod._nDownloadCount)
+      ? mod._nDownloadCount
+      : 0,
+    _nViewCount: Number.isFinite(mod._nViewCount) ? mod._nViewCount : 0,
+    _sProfileUrl: toStringOr("", mod._sProfileUrl),
+    _aPreviewMedia: previewMedia,
+    _aSubmitter: normalizeSubmitter(mod._aSubmitter),
+    _aGame: normalizeCategory(mod._aGame),
+    _aCategory: normalizeCategory(mod._aCategory),
+    _aRootCategory: normalizeCategory(mod._aRootCategory),
+    _aFiles: files,
+    thumbnailUrl: buildThumbnailUrl(previewMedia),
+  };
+}
+
+function buildAllImages(previewMedia) {
+  const images = previewMedia?._aImages || [];
+  return images
+    .map((img) => {
+      const fileName = img._sFile530 || img._sFile;
+      return fileName ? `${img._sBaseUrl}/${fileName}` : null;
+    })
+    .filter(Boolean);
+}
+
+function shouldRetryRequest(error, status) {
+  if (status === 408 || status === 429) {
+    return true;
+  }
+  if (status >= 500) {
+    return true;
+  }
+  return (
+    error?.name === "AbortError" ||
+    error?.code === "ETIMEDOUT" ||
+    error?.code === "ECONNRESET" ||
+    error?.code === "ENOTFOUND"
+  );
+}
 
 function withThumbnail(mod) {
-  const images = mod._aPreviewMedia?._aImages;
-  let thumbnailUrl = null;
-  if (images && images.length > 0) {
-    const img = images[0];
-    const fileName = img._sFile530 || img._sFile || img._sFile220;
-    thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
-  }
-  return { ...mod, thumbnailUrl };
+  const normalized = normalizeModRecord(mod);
+  return normalized;
 }
 
 export async function fetchFromGB(url) {
-  const res = await fetch(url, {
-    headers: { "User-Agent": "AetherManager/1.0.0" },
-  });
-  if (!res.ok) throw new Error(`GB API error: ${res.status}`);
-  return res.json();
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= runtime.retryCount; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), runtime.timeoutMs);
+
+    try {
+      const res = await runtime.fetchImpl(url, {
+        headers: { "User-Agent": "AetherManager/1.0.0" },
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const error = new Error(`GB API error: ${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+
+      const data = await res.json();
+      if (!data || typeof data !== "object") {
+        throw new Error("GB API returned an invalid response payload.");
+      }
+      return data;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= runtime.retryCount || !shouldRetryRequest(error, error.status)) {
+        throw error;
+      }
+      await runtime.sleepImpl(250 * (attempt + 1));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError || new Error("GB API request failed.");
 }
 
 export async function fetchGbMod(gamebananaId) {
   const id = assertInteger(gamebananaId, "gamebananaId", { min: 1 });
-  const data = await fetchFromGB(
+  const rawData = await fetchFromGB(
     `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
   );
-
-  const allImages = [];
-  const images = data._aPreviewMedia?._aImages;
-  if (images) {
-    images.forEach((img) => {
-      const url = img._sFile530
-        ? `${img._sBaseUrl}/${img._sFile530}`
-        : img._sFile
-          ? `${img._sBaseUrl}/${img._sFile}`
-          : null;
-      if (url) allImages.push(url);
-    });
-  }
+  const data = normalizeModRecord(rawData);
+  const allImages = buildAllImages(data._aPreviewMedia);
 
   return {
     ...data,
@@ -58,11 +252,12 @@ export async function fetchGbModsBatch(ids) {
   const results = await Promise.all(
     validIds.map(async (id) => {
       try {
-        return await fetchFromGB(
+        const data = await fetchFromGB(
           `${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated,_aPreviewMedia`,
         );
+        return normalizeModRecord(data);
       } catch (error) {
-        console.error(`[BatchUpdate] Failed to fetch mod ${id}:`, error.message);
+        logger.warn(`Batch update fetch failed for mod ${id}`, error.message);
         return null;
       }
     }),
@@ -84,12 +279,9 @@ export async function fetchGbModsSummaries(ids) {
         const data = await fetchFromGB(
           `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(summaryProperties)}`,
         );
-        return withThumbnail(data);
+        return normalizeModRecord(data);
       } catch (error) {
-        console.error(
-          `[BookmarkSummary] Failed to fetch mod ${id}:`,
-          error.message,
-        );
+        logger.warn(`Bookmark summary fetch failed for mod ${id}`, error.message);
         return null;
       }
     }),
@@ -115,7 +307,7 @@ async function resolveCharCategory(gameId, charName) {
   try {
     const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
     const searchRes = await fetchFromGB(searchUrl);
-    if (!searchRes._aRecords) return null;
+    if (!Array.isArray(searchRes._aRecords)) return null;
 
     for (const mod of searchRes._aRecords) {
       const modData = await fetchFromGB(
@@ -163,7 +355,7 @@ async function resolveCharCategory(gameId, charName) {
       }
     }
   } catch (error) {
-    console.error("Failed to auto-discover category ID:", error.message);
+    logger.warn("Failed to auto-discover category ID", error.message);
   }
 
   return null;
@@ -228,11 +420,16 @@ export async function browseGbMods(args = {}) {
     url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
   }
 
-  console.log("GB API Request URL:", url);
+  logger.debug("GB API request", url);
   const data = await fetchFromGB(url);
+  const records = Array.isArray(data._aRecords)
+    ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
+    : [];
 
   return {
-    records: (data._aRecords || []).map(withThumbnail),
-    total: data._aMetadata?._nRecordCount || 0,
+    records,
+    total: Number.isFinite(data._aMetadata?._nRecordCount)
+      ? data._aMetadata._nRecordCount
+      : records.length,
   };
 }
