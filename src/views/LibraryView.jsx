@@ -14,6 +14,7 @@ import { Input } from "../components/ui/Input";
 import { getModClassification } from "../lib/modClassification";
 import PageHeader from "../components/layout/PageHeader";
 import { StatePanel } from "../components/ui/StatePanel";
+import { Button } from "../components/ui/Button";
 
 const CharacterDetail = lazy(() => import("./CharacterDetail"));
 
@@ -228,42 +229,15 @@ export default function LibraryView({ isActive }) {
         actions={
           <>
             {totalEnabledMods > 0 && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <Button
+                variant="secondary"
                 onClick={handleDisableAllGame}
                 disabled={disablingAll}
-                className="flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-2.5 text-xs font-black uppercase tracking-widest text-text-muted shadow-sm transition-all hover:bg-white/5 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
+                icon={EyeOff}
               >
-                {disablingAll ? (
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                    />
-                  </svg>
-                ) : (
-                  <EyeOff size={15} />
-                )}
                 {disablingAll ? "Disabling…" : `Disable All (${totalEnabledMods})`}
-              </motion.button>
+              </Button>
             )}
 
             <div className="relative w-full sm:w-64 xl:w-72">
@@ -281,7 +255,15 @@ export default function LibraryView({ isActive }) {
           </>
         }
       >
-        <nav className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+            {mods.length} installed
+          </div>
+          <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+            {totalEnabledMods} enabled
+          </div>
+        </div>
+        <nav className="flex flex-wrap items-center gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -293,14 +275,14 @@ export default function LibraryView({ isActive }) {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "group relative flex items-center gap-2 pb-2 transition-all",
+                  "ui-focus-ring group relative flex items-center gap-2 rounded-[var(--radius-md)] border px-4 py-2.5 transition-all",
                   isActive
-                    ? "text-primary"
-                    : "text-text-muted hover:text-text-primary",
+                    ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
+                    : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
                 )}
               >
                 <Icon size={16} />
-                <span className="text-sm font-bold uppercase tracking-widest">
+                <span className="text-xs font-bold uppercase tracking-[0.16em]">
                   {tab.label}
                 </span>
                 {hasUpdate && (
@@ -317,12 +299,6 @@ export default function LibraryView({ isActive }) {
                   >
                     {count}
                   </span>
-                )}
-                {isActive && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                  />
                 )}
               </button>
             );

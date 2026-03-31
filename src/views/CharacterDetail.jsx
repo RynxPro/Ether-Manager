@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, User, Plus, Trash2, EyeOff } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, FolderKanban } from "lucide-react";
+import { motion } from "framer-motion";
 import ModDetailModal from "../components/ModDetailModal";
 import CharacterDetailHeader from "../components/CharacterDetailHeader";
 import CharacterDetailStats from "../components/CharacterDetailStats";
@@ -12,6 +12,7 @@ import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 import { isModInCollection } from "../lib/modClassification";
 import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
+import { StatePanel } from "../components/ui/StatePanel";
 
 export default function CharacterDetail({
   character,
@@ -337,55 +338,27 @@ export default function CharacterDetail({
       )}
     >
       {!hideHeader && (
-        <div className="relative mb-12 group">
-          {/* Breadcrumb row - Floats over banner */}
-          <div className="absolute top-0 left-0 z-30 flex items-center gap-2 text-sm text-primary/80 drop-shadow-md">
+        <section className="ui-panel mb-8 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-4 text-sm">
             <button
               onClick={onBack}
-              className="flex items-center hover:text-primary transition-colors focus:outline-none"
+              className="ui-focus-ring inline-flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1 text-text-secondary transition-colors hover:text-primary"
             >
-              <ArrowLeft size={16} className="mr-1" />
+              <ArrowLeft size={16} />
               {game.name}
             </button>
-            <span className="text-white/20">/</span>
-            <span className="text-white/60 font-medium">{character.name}</span>
+            <span className="text-text-muted">/</span>
+            <span className="font-medium text-text-primary">{character.name}</span>
+            <div className="ml-auto rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+              <FolderKanban size={12} className="mr-1 inline-block" />
+              Local Collection
+            </div>
           </div>
 
-          {/* Premium Hero Banner */}
-          <div className="relative h-72 md:h-[340px] w-full rounded-4xl overflow-hidden bg-card border border-white/10 shadow-2xl mt-8">
-            {/* Massive Background Text Watermark */}
-            <div className="absolute -right-12 -bottom-20 text-[180px] md:text-[320px] font-black italic text-white/5 leading-none tracking-tighter pointer-events-none select-none z-0 whitespace-nowrap overflow-hidden">
-              {character.name.toUpperCase()}
-            </div>
-
-            {/* High-Tech Grid Pattern */}
-            <div
-              className="absolute inset-0 opacity-[0.03] pointer-events-none z-0"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-                backgroundSize: "32px 32px",
-              }}
-            />
-
-            {/* Background Glow */}
-            <div
-              className="absolute inset-0 transition-opacity duration-1000 z-0 opacity-20"
-              style={{
-                background: `radial-gradient(circle at 20% 50%, var(--color-primary) 0%, transparent 60%), 
-                             linear-gradient(to right, rgba(0,0,0,0.8) 0%, transparent 100%)`,
-              }}
-            />
-
-            {/* The Artwork */}
-            <AnimatePresence>
-              {portraitUrl && (
-                <motion.div
-                  initial={{ opacity: 0, x: -40, scale: 1.05 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="absolute inset-0 z-10 pointer-events-none"
-                >
+          <div className="grid gap-6 px-6 py-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-end">
+            <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--color-primary),transparent_84%)_0%,transparent_36%),linear-gradient(135deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] p-6 md:p-8">
+              <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-72 overflow-hidden md:block">
+                {portraitUrl ? (
                   <img
                     src={portraitUrl}
                     alt={character.name}
@@ -393,20 +366,12 @@ export default function CharacterDetail({
                     loading="lazy"
                     decoding="async"
                     className={cn(
-                      "h-full w-auto object-contain object-left scale-[1.8] md:scale-[1.6] translate-x-12 md:translate-x-32 translate-y-24 md:translate-y-36 transition-all duration-700",
-                      imgLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl",
+                      "absolute right-[-3rem] top-6 h-[120%] w-auto object-contain opacity-30 transition-all duration-700",
+                      imgLoaded ? "blur-0" : "blur-xl",
                     )}
                   />
-                  {/* Bottom Vignette for text legibility */}
-                  <div className="absolute inset-0 bg-linear-to-t from-[#09090b]/90 via-[#09090b]/20 to-transparent" />
-                  <div className="absolute inset-0 bg-linear-to-r from-[#09090b]/80 via-transparent to-transparent" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Banner Content Layout */}
-            <div className="absolute inset-0 z-20 p-8 md:p-12 flex flex-col md:flex-row md:items-end justify-between">
-              {/* Left: Title & Action */}
+                ) : null}
+              </div>
               <CharacterDetailHeader
                 game={game}
                 character={character}
@@ -415,16 +380,15 @@ export default function CharacterDetail({
                 onImport={handleImport}
                 onDisableAll={handleDisableAll}
               />
-
-              {/* Right: Glassmorphic Stats Dashboard */}
-              <CharacterDetailStats
-                enabledCount={enabledCount}
-                disabledCount={disabledCount}
-                totalCount={mods.length}
-              />
             </div>
+
+            <CharacterDetailStats
+              enabledCount={enabledCount}
+              disabledCount={disabledCount}
+              totalCount={mods.length}
+            />
           </div>
-        </div>
+        </section>
       )}
 
       {/* Mods Grid */}
@@ -441,6 +405,14 @@ export default function CharacterDetail({
         onAssign={handleAssign}
         onDelete={handleDelete}
       />
+
+      {!hideHeader && mods.length === 0 && (
+        <StatePanel
+          title="Nothing installed here yet"
+          message="Import a mod into this collection to start managing it from the library."
+          className="hidden"
+        />
+      )}
 
       {/* Mod Detail Modal */}
       {selectedMod && (

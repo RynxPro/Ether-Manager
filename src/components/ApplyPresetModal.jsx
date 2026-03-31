@@ -4,6 +4,7 @@ import { Zap, CheckCircle, XCircle, AlertTriangle, Loader2, X } from "lucide-rea
 import { cn } from "../lib/utils";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
+import { StatePanel } from "./ui/StatePanel";
 
 export default function ApplyPresetModal({ preset, importerPath, onClose, onApplied }) {
   const game = useAppStore((state) => state.activeGame);
@@ -149,6 +150,17 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
 
           {diff && !loading && (
             <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <DiffSummaryCard label="Enable" value={diff.willEnable.length} tone="emerald" />
+                <DiffSummaryCard label="Disable" value={diff.willDisable.length} tone="red" />
+                <DiffSummaryCard label="Missing" value={diff.notFound.length} tone="yellow" />
+                <DiffSummaryCard
+                  label="Total Changes"
+                  value={diff.willEnable.length + diff.willDisable.length}
+                  tone="neutral"
+                />
+              </div>
+
               {/* Will Enable */}
               {diff.willEnable.length > 0 && (
                 <Section
@@ -184,11 +196,13 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
 
               {/* No changes */}
               {diff.willEnable.length === 0 && diff.willDisable.length === 0 && diff.notFound.length === 0 && (
-                <div className="text-center py-8 text-text-muted">
-                  <CheckCircle size={32} className="mx-auto mb-3 text-emerald-400 opacity-60" />
-                  <p className="font-medium">No changes needed</p>
-                  <p className="text-xs mt-1">All mods in this preset are already in their correct state.</p>
-                </div>
+                <StatePanel
+                  icon={CheckCircle}
+                  title="No changes needed"
+                  message="All mods in this preset are already in their correct state."
+                  tone="success"
+                  className="min-h-[12rem]"
+                />
               )}
             </div>
           )}
@@ -219,6 +233,22 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function DiffSummaryCard({ label, value, tone }) {
+  const toneClass = {
+    emerald: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+    red: "border-red-500/20 bg-red-500/10 text-red-400",
+    yellow: "border-yellow-500/20 bg-yellow-500/10 text-yellow-400",
+    neutral: "border-border bg-background text-text-muted",
+  };
+
+  return (
+    <div className={cn("rounded-2xl border p-4 shadow-card", toneClass[tone])}>
+      <div className="text-[10px] font-black uppercase tracking-[0.18em]">{label}</div>
+      <div className="mt-2 text-2xl font-black tracking-tight text-text-primary">{value}</div>
+    </div>
   );
 }
 

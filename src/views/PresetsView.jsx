@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Plus, Upload, Package, ChevronRight } from "lucide-react";
+import { Zap, Plus, Upload, Package, ChevronRight, Layers3 } from "lucide-react";
 import CreatePresetModal from "../components/CreatePresetModal";
 import PresetDetailModal from "../components/PresetDetailModal";
 import { Button } from "../components/ui/Button";
@@ -29,6 +29,13 @@ export default function PresetsView() {
   const [importing, setImporting] = useState(false);
   const [gbData, setGbData] = useState({});
   const [importFeedback, setImportFeedback] = useState(null);
+  const totalModsAcrossPresets = presets.reduce(
+    (sum, preset) => sum + preset.mods.length,
+    0,
+  );
+  const totalCharactersAcrossPresets = new Set(
+    presets.flatMap((preset) => preset.mods.map((mod) => mod.character)),
+  ).size;
 
   const loadPresets = useCallback(async () => {
     setLoading(true);
@@ -180,6 +187,33 @@ export default function PresetsView() {
         </StatusBanner>
       )}
 
+      {!loading && (
+        <section className="ui-panel mb-6 p-5">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="ui-eyebrow">Preset Workflow</p>
+              <h2 className="mt-1 text-lg font-black tracking-tight text-text-primary">
+                Save setups, compare changes, then apply safely
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+                Each loadout captures a reusable local state. Open one to review its contents, compare against your current library, and apply only the changes you want.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <SummaryPill label="Loadouts" value={presets.length} />
+            <SummaryPill label="Saved Mods" value={totalModsAcrossPresets} />
+            <SummaryPill label="Characters" value={totalCharactersAcrossPresets} />
+            <SummaryPill
+              label="Apply Status"
+              value={importerPath ? "Ready" : "Needs Mods Path"}
+              tone={importerPath ? "primary" : "warning"}
+            />
+          </div>
+        </section>
+      )}
+
       {/* Content */}
       {loading ? (
         <StateGridSkeleton
@@ -237,9 +271,9 @@ export default function PresetsView() {
 
       {/* No importer path warning */}
       {!loading && !importerPath && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-5 py-3 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-black uppercase tracking-widest shadow-lg">
-          ⚠ Set your mods folder in Settings to apply presets
-        </div>
+        <StatusBanner tone="danger" className="mt-6">
+          Set your mods folder in Settings before applying presets.
+        </StatusBanner>
       )}
     </div>
   );
@@ -280,11 +314,10 @@ function PresetCard({ preset, index, onClick, gbData }) {
           </div>
         )}
         
-        {/* Preset Color Badge */}
         <div className="absolute top-4 right-4 z-10">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[9px] font-black uppercase tracking-widest text-white shadow-xl">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-md">
              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 10px ${preset.color}` }} />
-             Preset
+             Ready To Compare
           </div>
         </div>
         
@@ -296,14 +329,20 @@ function PresetCard({ preset, index, onClick, gbData }) {
       <div className="flex flex-col flex-1 p-5 bg-surface min-h-36 relative z-10">
         <div className="flex items-center gap-2 mb-2 opacity-30 group-hover:opacity-100 transition-opacity">
            <div className="w-1 h-3 rounded-full shadow-[0_0_5px_var(--color-primary)]" style={{ backgroundColor: preset.color || 'var(--color-primary)' }} />
-           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">PRESET PACKAGE</span>
+           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">LOADOUT SNAPSHOT</span>
         </div>
 
         <h3 className="text-base font-bold text-text-primary line-clamp-2 leading-tight mb-4 transition-colors group-hover:text-primary tracking-tight">
           {preset.name}
         </h3>
+
+        {preset.description && (
+          <p className="mb-4 line-clamp-2 text-sm leading-5 text-text-secondary">
+            {preset.description}
+          </p>
+        )}
         
-        <div className="flex items-center gap-6 mb-6">
+        <div className="mb-6 flex items-center gap-6">
            <div className="flex flex-col">
              <span className="text-white font-black text-sm leading-none">{preset.mods.length}</span>
              <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Mods</span>
@@ -314,20 +353,35 @@ function PresetCard({ preset, index, onClick, gbData }) {
            </div>
         </div>
 
+        <div className="mb-4 rounded-[var(--radius-md)] border border-border bg-background px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">
+          {preset.updatedAt
+            ? `Updated ${new Date(preset.updatedAt).toLocaleDateString()}`
+            : "Ready to review"}
+        </div>
+
         {/* Action Button (Matches card style) */}
         <div className="mt-auto">
           <div className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-background border border-border text-[10px] font-black text-text-muted uppercase tracking-[0.2em] group-hover:border-primary/30 group-hover:text-primary transition-all duration-300">
-            View Details <ChevronRight size={14} strokeWidth={4} className="group-hover:translate-x-1 transition-transform" />
+            Review & Apply <ChevronRight size={14} strokeWidth={4} className="group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
       </div>
-      
-      {/* External Bloom Ring */}
-      <div className="absolute inset-0 rounded-2xl border border-white/0 group-hover:border-primary/20 transition-all pointer-events-none z-20" />
-      
-      {/* Optimized Shadow Layer */}
-      <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_rgba(255,255,255,0.05)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </InteractiveCard>
+  );
+}
+
+function SummaryPill({ label, value, tone = "neutral" }) {
+  const toneClass =
+    tone === "primary"
+      ? "border-primary/20 bg-primary/10 text-primary"
+      : tone === "warning"
+        ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-400"
+        : "border-border bg-background text-text-muted";
+
+  return (
+    <div className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${toneClass}`}>
+      {label}: <span className="text-text-primary">{value}</span>
+    </div>
   );
 }
 

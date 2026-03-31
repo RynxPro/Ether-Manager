@@ -6,7 +6,19 @@ import SearchableDropdown from "./SearchableDropdown";
 import { motion } from "framer-motion";
 import { InteractiveCard } from "./ui/InteractiveCard";
 
-const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false, gameId }) {
+const ModCard = memo(function ModCard({
+  mod,
+  gbData,
+  isUnassignedMode,
+  onToggle,
+  onOpenFolder,
+  onAssign,
+  onDelete,
+  characters = [],
+  onClick,
+  hideCategoryTag = false,
+  gameId,
+}) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
@@ -20,26 +32,28 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
         mod.isEnabled
           ? "bg-surface border border-border"
           : "bg-surface/50 border border-border opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
-        mod.isEnabled && "border-primary/20"
+        mod.isEnabled && "border-primary/20",
       )}
     >
       {/* Thumbnail strip (shown only when GB data available) */}
       {thumbnailUrl ? (
         <div className="relative h-44 w-full shrink-0 overflow-hidden bg-background">
-          {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
-          
+          {!imgLoaded && (
+            <div className="absolute inset-0 bg-white/5 animate-pulse" />
+          )}
+
           <img
             src={thumbnailUrl}
             alt={mod.name}
             onLoad={() => setImgLoaded(true)}
             className={cn(
               "absolute inset-0 w-full h-full object-cover transition-all duration-1000",
-              imgLoaded ? "opacity-100" : "opacity-0"
+              imgLoaded ? "opacity-100" : "opacity-0",
             )}
             loading="lazy"
             decoding="async"
           />
-          
+
           {/* Status overlay */}
           <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
             <div
@@ -47,7 +61,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
                 "px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase shadow-lg",
                 mod.isEnabled
                   ? "bg-primary text-black shadow-primary/20"
-                  : "bg-black/80 text-white/50 border border-white/10"
+                  : "bg-black/80 text-white/50 border border-white/10",
               )}
             >
               {mod.isEnabled ? "Active" : "Disabled"}
@@ -61,7 +75,6 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
               </div>
             ) : null}
           </div>
-
         </div>
       ) : (
         <div className="relative h-44 w-full bg-linear-to-br from-background to-surface overflow-hidden shrink-0 flex items-center justify-center">
@@ -75,7 +88,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
                 "px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase shadow-lg",
                 mod.isEnabled
                   ? "bg-primary text-black shadow-primary/20"
-                  : "bg-black/80 text-white/50 border border-white/10"
+                  : "bg-black/80 text-white/50 border border-white/10",
               )}
             >
               {mod.isEnabled ? "Active" : "Disabled"}
@@ -96,22 +109,27 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
       {/* Info Section */}
       <div className="p-5 flex flex-col flex-1 bg-surface min-h-36 relative z-10">
         <div className="flex-1">
-          {mod.category && 
-           !hideCategoryTag &&
-           !mod.category.toLowerCase().includes("skin") && 
-           !mod.category.toLowerCase().includes("character") && (
-            <div className="mb-2 flex">
-              <span className="px-2 py-0.5 rounded-full bg-surface/50 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
-                {mod.category === "User Interface" || mod.category === "UI" ? "UI" 
-                 : mod.category === "Other/Misc" || mod.category === "Miscellaneous" ? "MISC" 
-                 : mod.category}
-              </span>
-            </div>
-          )}
+          {mod.category &&
+            !hideCategoryTag &&
+            !mod.category.toLowerCase().includes("skin") &&
+            !mod.category.toLowerCase().includes("character") && (
+              <div className="mb-2 flex">
+                <span className="px-2 py-0.5 rounded-full bg-surface/50 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
+                  {mod.category === "User Interface" || mod.category === "UI"
+                    ? "UI"
+                    : mod.category === "Other/Misc" ||
+                        mod.category === "Miscellaneous"
+                      ? "MISC"
+                      : mod.category}
+                </span>
+              </div>
+            )}
           <h3
             className={cn(
               "text-base font-bold leading-tight line-clamp-2 min-h-12 transition-colors tracking-tight",
-              mod.isEnabled ? "text-text-primary group-hover:text-primary" : "text-text-muted group-hover:text-text-primary"
+              mod.isEnabled
+                ? "text-text-primary group-hover:text-primary"
+                : "text-text-muted group-hover:text-text-primary",
             )}
             title={mod.name}
           >
@@ -154,16 +172,16 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
               <div
                 className={cn(
                   "toggle-label w-12 h-6 rounded-full transition-all duration-500 relative shadow-inner",
-                  mod.isEnabled 
-                    ? "bg-primary shadow-[0_0_15px_var(--color-primary)]/20" 
+                  mod.isEnabled
+                    ? "bg-primary shadow-[0_0_15px_var(--color-primary)]/20"
                     : "bg-background border border-border",
                 )}
               >
                 <div
                   className={cn(
                     "absolute w-4 h-4 rounded-full top-1 transition-all duration-500 shadow-xl",
-                    mod.isEnabled 
-                      ? "left-7 bg-black" 
+                    mod.isEnabled
+                      ? "left-7 bg-black"
                       : "left-1 bg-white/20 group-hover/toggle:bg-white/40",
                   )}
                 ></div>
@@ -203,10 +221,10 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
           </div>
         </div>
       </div>
-      
+
       {/* Bloom Effect Ring */}
       <div className="absolute inset-0 rounded-2xl border border-white/0 group-hover:border-primary/20 transition-all pointer-events-none" />
-      
+
       {/* Optimized Box Shadow Hover Layer */}
       <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_85%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </InteractiveCard>

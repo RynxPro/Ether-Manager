@@ -228,6 +228,11 @@ export default function PresetDetailModal({
 
   const displayMods = isEditMode ? editMods : preset.mods;
   const characters = [...new Set(displayMods.map(m => m.character))];
+  const missingCount = displayMods.filter(
+    (pm) => !allLibraryMods.find(
+      (m) => m.id === pm.modId || m.id === pm.originalFolderName?.replace(/^DISABLED_/, ""),
+    ),
+  ).length;
 
   return (
     <>
@@ -399,7 +404,7 @@ export default function PresetDetailModal({
                   activeTab === tab ? "text-text-primary border-primary" : "text-text-muted border-transparent hover:text-text-primary"
                 )}
               >
-                {tab === "mods" ? `Mods (${displayMods.length})` : "Info"}
+                {tab === "mods" ? `Contents (${displayMods.length})` : "Details"}
               </button>
             ))}
           </div>
@@ -408,6 +413,21 @@ export default function PresetDetailModal({
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {activeTab === "mods" && (
               <div className="p-6">
+                <div className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
+                  <OverviewStat label="Saved Mods" value={displayMods.length} tone="neutral" />
+                  <OverviewStat label="Characters" value={characters.length} tone="neutral" />
+                  <OverviewStat label="Missing" value={missingCount} tone={missingCount > 0 ? "warning" : "neutral"} />
+                  <OverviewStat label="Apply Flow" value={isEditMode ? "Editing" : "Ready"} tone={!isEditMode ? "primary" : "neutral"} />
+                </div>
+
+                {!isEditMode && (
+                  <div className="mb-6 rounded-3xl border border-border bg-background px-5 py-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-text-muted">How This Works</p>
+                    <p className="mt-3 text-sm leading-6 text-text-secondary">
+                      Review the saved contents here, then use <span className="text-text-primary font-semibold">Apply Loadout</span> to compare against your current library before any folders are changed on disk.
+                    </p>
+                  </div>
+                )}
                 
                 {(() => {
                   const ghostMods = displayMods.filter(pm => !allLibraryMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, "")));
@@ -663,6 +683,22 @@ function InfoRow({ label, value }) {
     <div className="flex items-start gap-6 py-3 border-b border-white/5 last:border-0">
       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted w-32 shrink-0 pt-0.5">{label}</span>
       <span className="text-sm font-medium text-white">{value}</span>
+    </div>
+  );
+}
+
+function OverviewStat({ label, value, tone }) {
+  const toneClass =
+    tone === "primary"
+      ? "border-primary/20 bg-primary/10 text-primary"
+      : tone === "warning"
+        ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-400"
+        : "border-border bg-background text-text-muted";
+
+  return (
+    <div className={cn("rounded-2xl border px-4 py-4 shadow-card", toneClass)}>
+      <div className="text-[10px] font-black uppercase tracking-[0.18em]">{label}</div>
+      <div className="mt-2 text-2xl font-black tracking-tight text-text-primary">{value}</div>
     </div>
   );
 }
