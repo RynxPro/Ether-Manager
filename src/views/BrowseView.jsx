@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -26,6 +26,10 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
+import {
+  createUnavailableBookmarkPlaceholder,
+  normalizeBookmarkConfig,
+} from "../lib/bookmarks";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -62,8 +66,9 @@ export default function BrowseView() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // Reduced from 400ms for better responsiveness
 
-  const [bookmarks, setBookmarks] = useState({});
+  const [bookmarkIdsByGame, setBookmarkIdsByGame] = useState({});
   const [bookmarkedCreators, setBookmarkedCreators] = useState([]);
+  const [savedModsCatalog, setSavedModsCatalog] = useState({});
 
   const [featuredMods, setFeaturedMods] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
@@ -71,11 +76,20 @@ export default function BrowseView() {
 
   // Use fetch cache for individual mod details
   const { fetchMod } = useFetchCache();
+  const currentBookmarkIds = useMemo(
+    () => bookmarkIdsByGame[game.id] || [],
+    [bookmarkIdsByGame, game.id],
+  );
+  const bookmarkSignature = currentBookmarkIds.join(",");
+  const currentBookmarkIdSet = useMemo(
+    () => new Set(currentBookmarkIds),
+    [currentBookmarkIds],
+  );
 
   // Fetch Featured Mods (Randomized popular mods per session)
   useEffect(() => {
     const fetchFeatured = async () => {
-      if (!game.gbGameId) return;
+      if (!game.gbGameId || !window.electronMods?.browseGbMods) return;
       setLoadingFeatured(true);
       try {
         // Randomly grab page 1, 2, or 3 of the most liked mods
@@ -107,9 +121,15 @@ export default function BrowseView() {
     const loadConfigAndPath = async () => {
       if (window.electronConfig) {
         const config = await window.electronConfig.getConfig();
+        const normalizedBookmarks = normalizeBookmarkConfig(config.bookmarks);
         setImporterPath(config[game.id] || null);
-        setBookmarks(config.bookmarks || {});
+        setBookmarkIdsByGame(normalizedBookmarks.bookmarks);
         setBookmarkedCreators(config.bookmarkedCreators || []);
+        if (normalizedBookmarks.migrated) {
+          window.electronConfig.setConfig({
+            bookmarks: normalizedBookmarks.bookmarks,
+          });
+        }
       }
     };
     loadConfigAndPath();
@@ -117,9 +137,13 @@ export default function BrowseView() {
 
   const handleToggleBookmark = useCallback(
     (mod) => {
-      setBookmarks((prev) => {
+      setBookmarkIdsByGame((prev) => {
         const gameBookmarks = prev[game.id] || [];
-        const index = gameBookmarks.findIndex((m) => m._idRow === mod._idRow);
+        const modId = mod?._idRow;
+        if (!Number.isInteger(modId)) {
+          return prev;
+        }
+        const index = gameBookmarks.indexOf(modId);
         let newGameBookmarks;
         if (index >= 0) {
           newGameBookmarks = [
@@ -127,12 +151,32 @@ export default function BrowseView() {
             ...gameBookmarks.slice(index + 1),
           ];
         } else {
-          newGameBookmarks = [mod, ...gameBookmarks]; // Add new at top
+          newGameBookmarks = [modId, ...gameBookmarks];
         }
         const newBookmarks = { ...prev, [game.id]: newGameBookmarks };
         if (window.electronConfig) {
           window.electronConfig.setConfig({ bookmarks: newBookmarks });
         }
+
+        setSavedModsCatalog((current) => {
+          const currentSaved = current[game.id] || [];
+          if (index >= 0) {
+            return {
+              ...current,
+              [game.id]: currentSaved.filter((entry) => entry._idRow !== modId),
+            };
+          }
+
+          if (currentSaved.some((entry) => entry._idRow === modId)) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [game.id]: [mod, ...currentSaved],
+          };
+        });
+
         return newBookmarks;
       });
     },
@@ -186,6 +230,14 @@ export default function BrowseView() {
   const fetchMods = useCallback(async () => {
     if (activeTab === "saved") return;
 
+    if (!window.electronMods?.browseGbMods) {
+      setLoading(false);
+      setError(
+        "GameBanana browser is unavailable because the Electron bridge failed to load.",
+      );
+      return;
+    }
+
     if (!game.gbGameId) {
       setError("GameBanana integration is not yet available for this game.");
       return;
@@ -236,68 +288,80 @@ export default function BrowseView() {
     if (activeTab !== "saved") {
       fetchMods();
     } else {
-      setLoading(false); // Instantly ensure no skeletons when switching to saved tab
+      setError(null);
     }
   }, [fetchMods, activeTab, debouncedSearchQuery]);
 
-  // Handle local Saved tab filtering
   useEffect(() => {
-    if (activeTab === "saved") {
-      setLoading(false); // Instantly ensure no skeletons
-      const savedMods = bookmarks[game.id] || [];
-      const searchTarget = debouncedSearchQuery.toLowerCase();
-      const filtered = searchTarget
-        ? savedMods.filter((m) => m._sName.toLowerCase().includes(searchTarget))
-        : savedMods;
+    if (activeTab !== "saved") return;
 
-      setTotal(filtered.length);
-      
-      const pageMods = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-      setMods(pageMods); // Optimistic load
-
-      // Live-update metadata in background
-      if (pageMods.length > 0) {
-        const modIds = pageMods.map((m) => m._idRow).filter(Boolean);
-        if (modIds.length > 0) {
-          window.electronMods.fetchGbModsBatch(modIds).then((result) => {
-            if (result.success && result.data) {
-              const liveDataMap = {};
-              result.data.forEach((m) => {
-                liveDataMap[m._idRow] = m;
-              });
-
-              setMods((currentMods) =>
-                currentMods.map((mod) => {
-                  if (liveDataMap[mod._idRow]) {
-                    const live = liveDataMap[mod._idRow];
-                    
-                    // Re-construct thumbnail if updated
-                    let thumbnailUrl = mod.thumbnailUrl;
-                    const images = live._aPreviewMedia?._aImages;
-                    if (images && images.length > 0) {
-                      const img = images[0];
-                      const fileName = img._sFile530 || img._sFile || img._sFile220;
-                      thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
-                    }
-
-                    return {
-                      ...mod,
-                      _nLikeCount: live._nLikeCount ?? mod._nLikeCount,
-                      _nDownloadCount: live._nDownloadCount ?? mod._nDownloadCount,
-                      _nViewCount: live._nViewCount ?? mod._nViewCount,
-                      _tsDateUpdated: live._tsDateUpdated ?? mod._tsDateUpdated,
-                      thumbnailUrl,
-                    };
-                  }
-                  return mod;
-                }),
-              );
-            }
-          }).catch((err) => console.error("Failed to live-update bookmarks:", err));
-        }
-      }
+    if (currentBookmarkIds.length === 0) {
+      setSavedModsCatalog((prev) => ({ ...prev, [game.id]: [] }));
+      setMods([]);
+      setTotal(0);
+      setError(null);
+      setLoading(false);
+      return;
     }
-  }, [activeTab, bookmarks, game.id, debouncedSearchQuery, page]);
+
+    if (!window.electronMods?.fetchGbModsSummaries) {
+      setError(
+        "Saved bookmarks are unavailable because the Electron bridge failed to load.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    window.electronMods
+      .fetchGbModsSummaries(currentBookmarkIds)
+      .then((result) => {
+        if (cancelled) return;
+
+        if (!result.success) {
+          setError(result.error || "Failed to load saved bookmarks.");
+          return;
+        }
+
+        const summaryMap = new Map(
+          (result.data || []).map((mod) => [mod._idRow, mod]),
+        );
+        const orderedMods = currentBookmarkIds.map(
+          (id) => summaryMap.get(id) || createUnavailableBookmarkPlaceholder(id),
+        );
+        setSavedModsCatalog((prev) => ({ ...prev, [game.id]: orderedMods }));
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message || "Failed to load saved bookmarks.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, currentBookmarkIds, bookmarkSignature, game.id]);
+
+  useEffect(() => {
+    if (activeTab !== "saved" || loading) return;
+
+    const savedMods = savedModsCatalog[game.id] || [];
+    const searchTarget = debouncedSearchQuery.toLowerCase();
+    const filtered = searchTarget
+      ? savedMods.filter((m) => (m._sName || "").toLowerCase().includes(searchTarget))
+      : savedMods;
+
+    setTotal(filtered.length);
+    setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
+  }, [activeTab, savedModsCatalog, game.id, debouncedSearchQuery, page, loading]);
 
   const handleInstall = useCallback(
     async ({ characterName, gbModId, fileUrl, fileName, category }) => {
@@ -757,9 +821,7 @@ export default function BrowseView() {
                     return mod._tsDateUpdated > installedDate + 300;
                   });
                 }
-                const isBookmarked = (bookmarks[game.id] || []).some(
-                  (m) => m._idRow === mod._idRow,
-                );
+                const isBookmarked = currentBookmarkIdSet.has(mod._idRow);
 
                 return (
                   <GbModCard
@@ -823,7 +885,7 @@ export default function BrowseView() {
           creator={activeCreatorProfile}
           game={game}
           installedModsInfo={installedModsInfo}
-          bookmarks={bookmarks}
+          bookmarkIds={currentBookmarkIds}
           onToggleBookmark={handleToggleBookmark}
           isCreatorBookmarked={bookmarkedCreators.some(
             (c) => c._idRow === activeCreatorProfile._idRow,
@@ -842,9 +904,7 @@ export default function BrowseView() {
           installedFileInfo={installedModsInfo[installTarget._idRow]}
           onClose={() => setInstallTarget(null)}
           onInstall={handleInstall}
-          isBookmarked={(bookmarks[game.id] || []).some(
-            (m) => m._idRow === installTarget._idRow,
-          )}
+          isBookmarked={currentBookmarkIdSet.has(installTarget._idRow)}
           onToggleBookmark={() => handleToggleBookmark(installTarget)}
           onCreatorClick={handleCreatorClick}
         />

@@ -19,7 +19,7 @@ export default function CreatorProfileModal({
   game,
   onClose,
   installedModsInfo,
-  bookmarks,
+  bookmarkIds,
   onToggleBookmark,
   isCreatorBookmarked,
   onToggleCreatorBookmark,
@@ -33,6 +33,13 @@ export default function CreatorProfileModal({
 
   const fetchMods = useCallback(async () => {
     if (!game.gbGameId || !creator._idRow) return;
+    if (!window.electronMods?.browseGbMods) {
+      setLoading(false);
+      setError(
+        "GameBanana browser is unavailable because the Electron bridge failed to load.",
+      );
+      return;
+    }
     
     setLoading(true);
     setError(null);
@@ -163,15 +170,17 @@ export default function CreatorProfileModal({
 
               <div className="flex items-center gap-2.5">
                  {creator._sProfileUrl && (
-                    <a 
-                      href={creator._sProfileUrl} 
-                      target="_blank" 
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.electronConfig?.openExternal?.(creator._sProfileUrl);
+                      }}
                       className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/50 hover:text-white transition-all shadow-lg group/link"
                       title="View GameBanana Profile"
                     >
                       <ExternalLink size={18} className="group-hover/link:scale-110 transition-transform" />
-                    </a>
+                    </button>
                  )}
                  <button
                     onClick={onClose}
@@ -256,7 +265,7 @@ export default function CreatorProfileModal({
                       });
                     }
                     
-                    const isBookmarked = (bookmarks[game.id] || []).some(m => m._idRow === mod._idRow);
+                    const isBookmarked = (bookmarkIds || []).includes(mod._idRow);
 
                     return (
                       <GbModCard

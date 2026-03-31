@@ -13,7 +13,19 @@ const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow;
 
+function isSafeExternalUrl(rawUrl) {
+  if (!rawUrl) return false;
+
+  try {
+    const url = new URL(rawUrl);
+    return ["https:", "http:", "mailto:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
 function createWindow() {
+  const preloadPath = path.join(__dirname, "preload.cjs");
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -21,10 +33,11 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: "#0a0a0f",
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false, // Sometimes helpful for custom bridges
+      sandbox: true,
+      webviewTag: false,
     },
     titleBarStyle: "hidden",
     titleBarOverlay: {
@@ -36,9 +49,9 @@ function createWindow() {
 
   console.log(
     "Main Process: Preload path is:",
-    path.join(__dirname, "preload.js"),
+    preloadPath,
   );
-  if (fs.existsSync(path.join(__dirname, "preload.js"))) {
+  if (fs.existsSync(preloadPath)) {
     console.log("Main Process: Preload file EXISTS");
   } else {
     console.error("Main Process: Preload file NOT FOUND at path!");
@@ -52,8 +65,18 @@ function createWindow() {
   }
 
   // Prevent drag-drop navigation
-  mainWindow.webContents.on("will-navigate", (event) => {
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
     event.preventDefault();
+    if (isSafeExternalUrl(navigationUrl)) {
+      shell.openExternal(navigationUrl);
+    }
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
   });
 }
 
@@ -75,29 +98,170 @@ app.on("window-all-closed", function () {
 const getConfigPath = () =>
   path.join(app.getPath("userData"), "aether_manager_config.json");
 
-ipcMain.handle("get-config", () => {
-  try {
-    const configPath = getConfigPath();
-    if (fs.existsSync(configPath)) {
-      const data = fs.readFileSync(configPath, "utf-8");
-      return JSON.parse(data);
-    }
+const CONFIGURED_GAME_IDS = new Set(["GIMI", "WWMI", "ZZMI", "SRMI", "HIMI"]);
+
+function readConfigFile() {
+  const configPath = getConfigPath();
+  if (!fs.existsSync(configPath)) {
     return {};
+  }
+  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+}
+
+function writeConfigFile(config) {
+  fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2));
+}
+
+function assertTrustedSender(event) {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!senderWindow || senderWindow !== mainWindow) {
+    throw new Error("Blocked IPC call from untrusted renderer.");
+  }
+}
+
+function handleIpc(channel, handler) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    assertTrustedSender(event);
+    return handler(event, ...args);
+  });
+}
+
+function assertPlainObject(value, name) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`Invalid ${name}. Expected an object.`);
+  }
+  return value;
+}
+
+function assertString(value, name, { allowEmpty = false, maxLength = 4096 } = {}) {
+  if (typeof value !== "string") {
+    throw new Error(`Invalid ${name}. Expected a string.`);
+  }
+  if (value.includes("\0")) {
+    throw new Error(`Invalid ${name}.`);
+  }
+  if (!allowEmpty && value.trim().length === 0) {
+    throw new Error(`Invalid ${name}.`);
+  }
+  if (value.length > maxLength) {
+    throw new Error(`Invalid ${name}.`);
+  }
+  return value;
+}
+
+function assertOptionalString(value, name, options = {}) {
+  if (value == null) return null;
+  return assertString(value, name, options);
+}
+
+function assertBoolean(value, name) {
+  if (typeof value !== "boolean") {
+    throw new Error(`Invalid ${name}. Expected a boolean.`);
+  }
+  return value;
+}
+
+function assertInteger(value, name, { min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const num = Number(value);
+  if (!Number.isInteger(num) || num < min || num > max) {
+    throw new Error(`Invalid ${name}. Expected an integer.`);
+  }
+  return num;
+}
+
+function assertStringArray(value, name, { maxItems = 500 } = {}) {
+  if (!Array.isArray(value) || value.length > maxItems) {
+    throw new Error(`Invalid ${name}. Expected a string array.`);
+  }
+  value.forEach((item, index) => {
+    assertString(item, `${name}[${index}]`);
+  });
+  return value;
+}
+
+function assertIntegerArray(value, name, { maxItems = 200 } = {}) {
+  if (!Array.isArray(value) || value.length > maxItems) {
+    throw new Error(`Invalid ${name}. Expected an integer array.`);
+  }
+  return value.map((item, index) =>
+    assertInteger(item, `${name}[${index}]`, { min: 1 }),
+  );
+}
+
+function isSubPath(basePath, targetPath) {
+  const resolvedBase = path.resolve(basePath);
+  const resolvedTarget = path.resolve(targetPath);
+  return (
+    resolvedTarget === resolvedBase ||
+    resolvedTarget.startsWith(`${resolvedBase}${path.sep}`)
+  );
+}
+
+function assertPathValue(value, name) {
+  return assertString(value, name, { maxLength: 8192 });
+}
+
+function assertFolderName(value, name) {
+  const folderName = assertString(value, name, { maxLength: 255 });
+  if (
+    path.basename(folderName) !== folderName ||
+    folderName.includes("/") ||
+    folderName.includes("\\")
+  ) {
+    throw new Error(`Invalid ${name}.`);
+  }
+  return folderName;
+}
+
+function getConfiguredModsRoots() {
+  try {
+    const config = readConfigFile();
+    return Object.entries(config)
+      .filter(([key, value]) => CONFIGURED_GAME_IDS.has(key) && typeof value === "string" && value.trim())
+      .map(([, value]) => path.resolve(resolveModsPath(value)))
+      .filter((modsPath) => fs.existsSync(modsPath));
+  } catch {
+    return [];
+  }
+}
+
+function assertAllowedOpenFolder(targetPath) {
+  const resolvedPath = path.resolve(assertPathValue(targetPath, "folderPath"));
+  const allowedRoots = getConfiguredModsRoots();
+  if (!allowedRoots.some((root) => isSubPath(root, resolvedPath))) {
+    throw new Error("Blocked folder path outside configured Mods directories.");
+  }
+  return resolvedPath;
+}
+
+function resolveValidatedModsPath(importerPath) {
+  return resolveModsPath(assertPathValue(importerPath, "importerPath"));
+}
+
+function resolveModFolderPath(modsPath, folderName, name = "folderName") {
+  const safeFolderName = assertFolderName(folderName, name);
+  const resolvedPath = path.resolve(modsPath, safeFolderName);
+  if (!isSubPath(modsPath, resolvedPath)) {
+    throw new Error(`Invalid ${name}.`);
+  }
+  return { folderName: safeFolderName, folderPath: resolvedPath };
+}
+
+handleIpc("get-config", () => {
+  try {
+    return readConfigFile();
   } catch (err) {
     console.error("Failed to read config", err);
     return {};
   }
 });
 
-ipcMain.handle("set-config", (event, newConfig) => {
+handleIpc("set-config", (event, newConfig) => {
   try {
-    const configPath = getConfigPath();
-    let config = {};
-    if (fs.existsSync(configPath)) {
-      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    }
+    assertPlainObject(newConfig, "config");
+    let config = readConfigFile();
     config = { ...config, ...newConfig };
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    writeConfigFile(config);
     return true;
   } catch (err) {
     console.error("Failed to write config", err);
@@ -105,7 +269,7 @@ ipcMain.handle("set-config", (event, newConfig) => {
   }
 });
 
-ipcMain.handle("choose-folder", async (event) => {
+handleIpc("choose-folder", async (event) => {
   console.log("Main Process: ipcMain handle 'choose-folder' triggered");
   try {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -131,8 +295,23 @@ ipcMain.handle("choose-folder", async (event) => {
   }
 });
 
+handleIpc("open-external", async (event, url) => {
+  try {
+    assertString(url, "url");
+    if (!isSafeExternalUrl(url)) {
+      return { success: false, error: "Blocked unsafe external URL." };
+    }
+
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to open external URL:", err);
+    return { success: false, error: err.message };
+  }
+});
+
 // Mods management
-ipcMain.handle(
+handleIpc(
   "get-mods",
   (
     event,
@@ -147,9 +326,12 @@ ipcMain.handle(
       "Expected Game ID:",
       expectedGameId,
     );
+    assertStringArray(knownCharacters, "knownCharacters");
+    assertOptionalString(expectedGameId, "expectedGameId");
+    assertPlainObject(options, "options");
     if (!importerPath) return [];
 
-    let modsPath = importerPath;
+    let modsPath = resolveValidatedModsPath(importerPath);
     // If the selected path doesn't end in 'Mods', and there's a 'Mods' subfolder, use it.
     // Otherwise, if the path itself is the Mods folder, use it as is.
     if (
@@ -328,33 +510,32 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
+handleIpc(
   "toggle-mod",
   (event, { importerPath, originalFolderName, enable }) => {
     try {
-      let modsPath = importerPath;
-      if (
-        !modsPath.toLowerCase().endsWith("mods") &&
-        fs.existsSync(path.join(modsPath, "Mods"))
-      ) {
-        modsPath = path.join(modsPath, "Mods");
+      const modsPath = resolveValidatedModsPath(importerPath);
+      const { folderName: safeOriginalFolderName, folderPath: oldPath } =
+        resolveModFolderPath(modsPath, originalFolderName, "originalFolderName");
+      assertBoolean(enable, "enable");
+
+      let newFolderName = safeOriginalFolderName;
+      if (enable && safeOriginalFolderName.startsWith("DISABLED_")) {
+        newFolderName = safeOriginalFolderName.replace(/^DISABLED_/, "");
+      } else if (!enable && !safeOriginalFolderName.startsWith("DISABLED_")) {
+        newFolderName = `DISABLED_${safeOriginalFolderName}`;
       }
 
-      const oldPath = path.join(modsPath, originalFolderName);
-
-      let newFolderName = originalFolderName;
-      if (enable && originalFolderName.startsWith("DISABLED_")) {
-        newFolderName = originalFolderName.replace(/^DISABLED_/, "");
-      } else if (!enable && !originalFolderName.startsWith("DISABLED_")) {
-        newFolderName = `DISABLED_${originalFolderName}`;
-      }
-
-      if (newFolderName !== originalFolderName) {
-        const newPath = path.join(modsPath, newFolderName);
+      if (newFolderName !== safeOriginalFolderName) {
+        const { folderPath: newPath } = resolveModFolderPath(
+          modsPath,
+          newFolderName,
+          "newFolderName",
+        );
         fs.renameSync(oldPath, newPath);
         return { success: true, newFolderName };
       }
-      return { success: true, newFolderName: originalFolderName };
+      return { success: true, newFolderName: safeOriginalFolderName };
     } catch (err) {
       console.error("Failed to toggle mod", err);
       return { success: false, error: err.message };
@@ -362,15 +543,17 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("open-folder", (event, folderPath) => {
-  shell.showItemInFolder(folderPath);
+handleIpc("open-folder", (event, folderPath) => {
+  shell.showItemInFolder(assertAllowedOpenFolder(folderPath));
 });
 
 // Import Mod Flow
-ipcMain.handle(
+handleIpc(
   "import-mod",
   async (event, { importerPath, characterName, gameId }) => {
     try {
+      assertOptionalString(characterName, "characterName", { allowEmpty: true });
+      assertOptionalString(gameId, "gameId");
       const win = BrowserWindow.fromWebContents(event.sender);
       const result = await dialog.showOpenDialog(win || mainWindow, {
         properties: ["openDirectory"],
@@ -386,13 +569,7 @@ ipcMain.handle(
       const sourceFolderName = path.basename(sourcePath);
 
       // Resolve Mods directory
-      let modsPath = importerPath;
-      if (
-        !modsPath.toLowerCase().endsWith("mods") &&
-        fs.existsSync(path.join(modsPath, "Mods"))
-      ) {
-        modsPath = path.join(modsPath, "Mods");
-      }
+      let modsPath = resolveValidatedModsPath(importerPath);
 
       if (!fs.existsSync(modsPath)) {
         return {
@@ -449,28 +626,23 @@ ipcMain.handle(
 );
 
 // Assign Unassigned Mod to Character
-ipcMain.handle(
+handleIpc(
   "assign-mod",
   async (event, { importerPath, originalFolderName, newCharacterName }) => {
     try {
-      let modsPath = importerPath;
-      if (
-        !modsPath.toLowerCase().endsWith("mods") &&
-        fs.existsSync(path.join(modsPath, "Mods"))
-      ) {
-        modsPath = path.join(modsPath, "Mods");
-      }
-
-      const oldPath = path.join(modsPath, originalFolderName);
+      const modsPath = resolveValidatedModsPath(importerPath);
+      assertString(newCharacterName, "newCharacterName");
+      const { folderName: safeOriginalFolderName, folderPath: oldPath } =
+        resolveModFolderPath(modsPath, originalFolderName, "originalFolderName");
       if (!fs.existsSync(oldPath)) {
         return { success: false, error: "Original mod folder not found." };
       }
 
       // Handle whether it was disabled
-      const isDisabled = originalFolderName.startsWith("DISABLED_");
+      const isDisabled = safeOriginalFolderName.startsWith("DISABLED_");
       const realName = isDisabled
-        ? originalFolderName.replace(/^DISABLED_/, "")
-        : originalFolderName;
+        ? safeOriginalFolderName.replace(/^DISABLED_/, "")
+        : safeOriginalFolderName;
 
       const cleanCharName = newCharacterName.replace(/\s+/g, "");
 
@@ -478,7 +650,11 @@ ipcMain.handle(
       let newRealName = `${cleanCharName}_${realName}`;
       let newFolderName = isDisabled ? `DISABLED_${newRealName}` : newRealName;
 
-      const newPath = path.join(modsPath, newFolderName);
+      const { folderPath: newPath } = resolveModFolderPath(
+        modsPath,
+        newFolderName,
+        "newFolderName",
+      );
 
       if (fs.existsSync(newPath) && newPath !== oldPath) {
         return {
@@ -496,18 +672,19 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
+handleIpc(
   "set-custom-thumbnail",
   async (event, { importerPath, originalFolderName, thumbnailUrl }) => {
     try {
-      let modsPath = importerPath;
-      if (
-        !modsPath.toLowerCase().endsWith("mods") &&
-        fs.existsSync(path.join(modsPath, "Mods"))
-      ) {
-        modsPath = path.join(modsPath, "Mods");
+      const modsPath = resolveValidatedModsPath(importerPath);
+      if (thumbnailUrl !== null) {
+        assertString(thumbnailUrl, "thumbnailUrl", { maxLength: 8192 });
       }
-      const folderPath = path.join(modsPath, originalFolderName);
+      const { folderPath } = resolveModFolderPath(
+        modsPath,
+        originalFolderName,
+        "originalFolderName",
+      );
       if (!fs.existsSync(folderPath)) {
         throw new Error(`Folder "${originalFolderName}" not found`);
       }
@@ -537,18 +714,16 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
+handleIpc(
   "delete-mod",
   async (event, { importerPath, originalFolderName }) => {
     try {
-      let modsPath = importerPath;
-      if (
-        !modsPath.toLowerCase().endsWith("mods") &&
-        fs.existsSync(path.join(modsPath, "Mods"))
-      ) {
-        modsPath = path.join(modsPath, "Mods");
-      }
-      const folderPath = path.join(modsPath, originalFolderName);
+      const modsPath = resolveValidatedModsPath(importerPath);
+      const { folderPath } = resolveModFolderPath(
+        modsPath,
+        originalFolderName,
+        "originalFolderName",
+      );
       if (!fs.existsSync(folderPath)) {
         throw new Error(`Folder "${originalFolderName}" not found`);
       }
@@ -578,8 +753,9 @@ async function fetchFromGB(url) {
 }
 
 // Fetch single mod metadata from GameBanana
-ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
+handleIpc("fetch-gb-mod", async (event, gamebananaId) => {
   try {
+    gamebananaId = assertInteger(gamebananaId, "gamebananaId", { min: 1 });
     const data = await fetchFromGB(
       `${GB_API}/Mod/${gamebananaId}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
     );
@@ -606,9 +782,10 @@ ipcMain.handle("fetch-gb-mod", async (event, gamebananaId) => {
 });
 
 // Fetch multiple mods in parallel for update checks
-ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
+handleIpc("fetch-gb-mods-batch", async (event, ids) => {
   try {
     if (!ids || ids.length === 0) return { success: true, data: [] };
+    ids = assertIntegerArray(ids, "ids");
 
     // Using individual fetches in parallel is more reliable than the V10 batch API
     const results = await Promise.all(
@@ -634,25 +811,75 @@ ipcMain.handle("fetch-gb-mods-batch", async (event, ids) => {
   }
 });
 
+handleIpc("fetch-gb-mods-summaries", async (event, ids) => {
+  try {
+    if (!ids || ids.length === 0) return { success: true, data: [] };
+    ids = assertIntegerArray(ids, "ids");
+
+    const summaryProperties =
+      "_idRow,_sName,_aPreviewMedia,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_aSubmitter,_sProfileUrl";
+
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const data = await fetchFromGB(
+            `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(summaryProperties)}`,
+          );
+
+          const images = data._aPreviewMedia?._aImages;
+          let thumbnailUrl = null;
+          if (images && images.length > 0) {
+            const img = images[0];
+            const fileName = img._sFile530 || img._sFile || img._sFile220;
+            thumbnailUrl = fileName ? `${img._sBaseUrl}/${fileName}` : null;
+          }
+
+          return { ...data, thumbnailUrl };
+        } catch (err) {
+          console.error(`[BookmarkSummary] Failed to fetch mod ${id}:`, err.message);
+          return null;
+        }
+      }),
+    );
+
+    return {
+      success: true,
+      data: results.filter(Boolean),
+    };
+  } catch (err) {
+    console.error("[BookmarkSummary] Fatal error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
 const characterCategoryCache = {}; // Cache to map character name -> GameBanana subcategory ID
 
 // Fetch a page of mods from GameBanana for a given game
 // Dual-mode: keyword search via Util/Search/Results, general browse via Mod/Index
-ipcMain.handle(
+handleIpc(
   "browse-gb-mods",
-  async (
-    event,
-    {
-      gbGameId,
-      page = 1,
-      perPage = 20,
-      sort = "",
-      context = "",
-      search = "",
-      submitterId = null,
-    },
-  ) => {
+  async (event, args = {}) => {
     try {
+      assertPlainObject(args, "browseArgs");
+      const gbGameId = assertInteger(args.gbGameId, "gbGameId", { min: 1 });
+      const page = assertInteger(args.page ?? 1, "page", { min: 1, max: 1000 });
+      const perPage = assertInteger(args.perPage ?? 20, "perPage", { min: 1, max: 100 });
+      const sort = assertOptionalString(args.sort ?? "", "sort", {
+        allowEmpty: true,
+        maxLength: 32,
+      }) || "";
+      const context = assertOptionalString(args.context ?? "", "context", {
+        allowEmpty: true,
+        maxLength: 120,
+      }) || "";
+      const search = assertOptionalString(args.search ?? "", "search", {
+        allowEmpty: true,
+        maxLength: 240,
+      }) || "";
+      const submitterId = args.submitterId == null
+        ? null
+        : assertInteger(args.submitterId, "submitterId", { min: 1 });
+
       const browseFields =
         "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
 
@@ -798,20 +1025,27 @@ ipcMain.handle(
 );
 
 // Download and install a mod from GameBanana
-ipcMain.handle(
+handleIpc(
   "install-gb-mod",
-  async (
-    event,
-    {
-      importerPath,
-      characterName,
-      gbModId,
-      fileUrl,
-      fileName,
-      category,
-      gameId,
-    },
-  ) => {
+  async (event, args = {}) => {
+    assertPlainObject(args, "installArgs");
+    const importerPath = resolveValidatedModsPath(args.importerPath);
+    const characterName = assertOptionalString(args.characterName, "characterName", {
+      allowEmpty: true,
+      maxLength: 120,
+    });
+    const gbModId = assertInteger(args.gbModId, "gbModId", { min: 1 });
+    const fileUrl = assertString(args.fileUrl, "fileUrl", { maxLength: 4096 });
+    const fileName = assertString(args.fileName, "fileName", { maxLength: 255 });
+    const category = assertOptionalString(args.category, "category", {
+      allowEmpty: true,
+      maxLength: 120,
+    });
+    const gameId = assertOptionalString(args.gameId, "gameId", { maxLength: 32 });
+    if (!isSafeExternalUrl(fileUrl)) {
+      return { success: false, error: "Blocked unsafe download URL." };
+    }
+
     const tmpPath = path.join(
       app.getPath("temp"),
       `aether_${Date.now()}_${fileName}`,
@@ -822,12 +1056,6 @@ ipcMain.handle(
     try {
       // Resolve mods dir
       let modsPath = importerPath;
-      if (
-        !modsPath.toLowerCase().endsWith("mods") &&
-        fs.existsSync(path.join(modsPath, "Mods"))
-      ) {
-        modsPath = path.join(modsPath, "Mods");
-      }
       if (!fs.existsSync(modsPath)) {
         return { success: false, error: "Mods directory not found." };
       }
@@ -1029,11 +1257,10 @@ function resolveModsPath(importerPath) {
 }
 
 /** Read all presets for a game from config */
-ipcMain.handle("get-presets", (event, gameId) => {
+handleIpc("get-presets", (event, gameId) => {
   try {
-    const configPath = getConfigPath();
-    if (!fs.existsSync(configPath)) return [];
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    gameId = assertString(gameId, "gameId", { maxLength: 32 });
+    const config = readConfigFile();
     return (config.presets || {})[gameId] || [];
   } catch (err) {
     console.error("get-presets error:", err);
@@ -1042,15 +1269,16 @@ ipcMain.handle("get-presets", (event, gameId) => {
 });
 
 /** Create or update a preset (identified by preset.id) */
-ipcMain.handle("save-preset", (event, preset) => {
+handleIpc("save-preset", (event, preset) => {
   try {
-    const configPath = getConfigPath();
-    let config = {};
-    if (fs.existsSync(configPath)) {
-      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    preset = assertPlainObject(preset, "preset");
+    assertString(preset.id, "preset.id", { maxLength: 128 });
+    const gameId = assertString(preset.gameId, "preset.gameId", { maxLength: 32 });
+    if (!Array.isArray(preset.mods)) {
+      throw new Error("Invalid preset.mods. Expected an array.");
     }
+    let config = readConfigFile();
     if (!config.presets) config.presets = {};
-    const gameId = preset.gameId;
     if (!config.presets[gameId]) config.presets[gameId] = [];
 
     const index = config.presets[gameId].findIndex((p) => p.id === preset.id);
@@ -1060,7 +1288,7 @@ ipcMain.handle("save-preset", (event, preset) => {
       config.presets[gameId].unshift(preset); // newest first
     }
 
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    writeConfigFile(config);
     return { success: true };
   } catch (err) {
     console.error("save-preset error:", err);
@@ -1069,17 +1297,17 @@ ipcMain.handle("save-preset", (event, preset) => {
 });
 
 /** Delete a preset by id */
-ipcMain.handle("delete-preset", (event, gameId, presetId) => {
+handleIpc("delete-preset", (event, gameId, presetId) => {
   try {
-    const configPath = getConfigPath();
-    if (!fs.existsSync(configPath)) return { success: true };
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    gameId = assertString(gameId, "gameId", { maxLength: 32 });
+    presetId = assertString(presetId, "presetId", { maxLength: 128 });
+    const config = readConfigFile();
     if (config.presets && config.presets[gameId]) {
       config.presets[gameId] = config.presets[gameId].filter(
         (p) => p.id !== presetId,
       );
     }
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    writeConfigFile(config);
     return { success: true };
   } catch (err) {
     console.error("delete-preset error:", err);
@@ -1090,41 +1318,137 @@ ipcMain.handle("delete-preset", (event, gameId, presetId) => {
 /**
  * Execute a calculated preset diff: applies exact enable/disable folder renames.
  */
-ipcMain.handle(
+handleIpc(
   "execute-preset-diff",
   (event, { importerPath, enableList, disableList }) => {
     try {
-      const modsPath = resolveModsPath(importerPath);
+      const modsPath = resolveValidatedModsPath(importerPath);
       if (!fs.existsSync(modsPath))
         return { success: false, error: "Mods directory not found." };
 
-      const toEnable = Array.isArray(enableList) ? enableList : [];
-      const toDisable = Array.isArray(disableList) ? disableList : [];
+      const toEnable = enableList ? assertStringArray(enableList, "enableList") : [];
+      const toDisable = disableList ? assertStringArray(disableList, "disableList") : [];
 
-      for (const folderName of toEnable) {
-        const disabledName = folderName.startsWith("DISABLED_") ? folderName : `DISABLED_${folderName}`;
-        const baseName = disabledName.replace(/^DISABLED_/, "");
-        
-        if (fs.existsSync(path.join(modsPath, disabledName))) {
-          fs.renameSync(
-            path.join(modsPath, disabledName),
-            path.join(modsPath, baseName),
-          );
+      const renameActions = [
+        ...toEnable.map((folderName) => {
+          const fromName = folderName.startsWith("DISABLED_")
+            ? folderName
+            : `DISABLED_${folderName}`;
+          const toName = fromName.replace(/^DISABLED_/, "");
+          return { fromName, toName };
+        }),
+        ...toDisable.map((folderName) => {
+          const fromName = folderName.replace(/^DISABLED_/, "");
+          return { fromName, toName: `DISABLED_${fromName}` };
+        }),
+      ];
+
+      if (renameActions.length === 0) {
+        return { success: true, applied: 0 };
+      }
+
+      const sourceNames = new Set();
+      const targetNames = new Set();
+      for (const action of renameActions) {
+        assertFolderName(action.fromName, "renameActions.fromName");
+        assertFolderName(action.toName, "renameActions.toName");
+        if (action.fromName === action.toName) {
+          return {
+            success: false,
+            error: `Invalid preset diff for "${action.fromName}".`,
+          };
+        }
+
+        if (sourceNames.has(action.fromName)) {
+          return {
+            success: false,
+            error: `Preset diff contains duplicate source folder "${action.fromName}".`,
+          };
+        }
+        if (targetNames.has(action.toName)) {
+          return {
+            success: false,
+            error: `Preset diff contains duplicate target folder "${action.toName}".`,
+          };
+        }
+
+        sourceNames.add(action.fromName);
+        targetNames.add(action.toName);
+      }
+
+      for (const action of renameActions) {
+        const fromPath = path.join(modsPath, action.fromName);
+        if (!fs.existsSync(fromPath)) {
+          return {
+            success: false,
+            error: `Preset apply aborted because "${action.fromName}" no longer exists on disk. Refresh the library and try again.`,
+          };
+        }
+
+        const toPath = path.join(modsPath, action.toName);
+        if (
+          fs.existsSync(toPath) &&
+          !sourceNames.has(action.toName)
+        ) {
+          return {
+            success: false,
+            error: `Preset apply aborted because "${action.toName}" already exists.`,
+          };
         }
       }
 
-      for (const folderName of toDisable) {
-        const baseName = folderName.replace(/^DISABLED_/, "");
-        
-        if (fs.existsSync(path.join(modsPath, baseName))) {
-          fs.renameSync(
-            path.join(modsPath, baseName),
-            path.join(modsPath, `DISABLED_${baseName}`),
-          );
+      const txId = `.aether_preset_txn_${Date.now()}`;
+      const stagedActions = renameActions.map((action, index) => ({
+        ...action,
+        fromPath: path.join(modsPath, action.fromName),
+        toPath: path.join(modsPath, action.toName),
+        tempName: `${txId}_${index}_${action.fromName}`,
+        tempPath: path.join(modsPath, `${txId}_${index}_${action.fromName}`),
+        state: "pending",
+      }));
+
+      try {
+        // Phase 1: move every source out of the way so target names become free.
+        for (const action of stagedActions) {
+          fs.renameSync(action.fromPath, action.tempPath);
+          action.state = "staged";
         }
+
+        // Phase 2: move staged folders into their final names.
+        for (const action of stagedActions) {
+          fs.renameSync(action.tempPath, action.toPath);
+          action.state = "finalized";
+        }
+      } catch (err) {
+        for (const action of [...stagedActions].reverse()) {
+          try {
+            if (action.state === "finalized" && fs.existsSync(action.toPath)) {
+              fs.renameSync(action.toPath, action.fromPath);
+            } else if (
+              action.state === "staged" &&
+              fs.existsSync(action.tempPath)
+            ) {
+              fs.renameSync(action.tempPath, action.fromPath);
+            }
+          } catch (rollbackErr) {
+            console.error(
+              `Failed to roll back preset action ${action.toName} -> ${action.fromName}:`,
+              rollbackErr,
+            );
+            return {
+              success: false,
+              error: `Preset apply failed and rollback was incomplete. Check the Mods folder before retrying. Original error: ${err.message}`,
+            };
+          }
+        }
+
+        return {
+          success: false,
+          error: `Preset apply failed before completion. No changes were kept. ${err.message}`,
+        };
       }
 
-      return { success: true };
+      return { success: true, applied: stagedActions.length };
     } catch (err) {
       console.error("execute-preset-diff error:", err);
       return { success: false, error: err.message };
@@ -1133,12 +1457,16 @@ ipcMain.handle(
 );
 
 /** Export preset to a .aether-preset file via Save dialog */
-ipcMain.handle("export-preset", async (event, preset) => {
+handleIpc("export-preset", async (event, preset) => {
   try {
+    preset = assertPlainObject(preset, "preset");
+    const presetName = assertString(preset.name || "preset", "preset.name", {
+      maxLength: 120,
+    });
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showSaveDialog(win || mainWindow, {
       title: "Export Preset",
-      defaultPath: `${preset.name.replace(/[^a-z0-9]/gi, "_")}.aether-preset`,
+      defaultPath: `${presetName.replace(/[^a-z0-9]/gi, "_")}.aether-preset`,
       filters: [{ name: "Aether Preset", extensions: ["aether-preset"] }],
     });
     if (result.canceled || !result.filePath)
@@ -1152,7 +1480,7 @@ ipcMain.handle("export-preset", async (event, preset) => {
 });
 
 /** Import preset from a .aether-preset file via Open dialog */
-ipcMain.handle("import-preset", async (event) => {
+handleIpc("import-preset", async (event) => {
   try {
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(win || mainWindow, {
