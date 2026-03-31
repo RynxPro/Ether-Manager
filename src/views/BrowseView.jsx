@@ -26,10 +26,12 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
+import PageHeader from "../components/layout/PageHeader";
 import {
   createUnavailableBookmarkPlaceholder,
   normalizeBookmarkConfig,
 } from "../lib/bookmarks";
+import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -405,7 +407,13 @@ export default function BrowseView() {
   );
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const isFiltering = activeTab !== "all" || !!debouncedSearchQuery;
+  const isSavedView = activeTab === "saved";
+  const isFiltering = activeTab !== "all" || !!debouncedSearchQuery || !!sort;
+  const showFeaturedHero = activeTab === "all" && !debouncedSearchQuery;
+  const showCharacterFilter = activeTab === "characters";
+  const showSortControl = activeTab !== "saved";
+  const hasActiveRefinements =
+    !!searchQuery || !!characterFilter || !!sort || activeTab !== "all";
   const activeSearchLabel = [
     activeTab === "ui"
       ? "User Interface"
@@ -416,37 +424,53 @@ export default function BrowseView() {
   ]
     .filter(Boolean)
     .join(" + ");
+  const title =
+    activeTab === "all"
+      ? "Discover Mods"
+      : activeTab === "characters"
+        ? characterFilter
+          ? `${characterFilter} Mods`
+          : "Browse Character Mods"
+        : activeTab === "ui"
+          ? "User Interface Mods"
+          : activeTab === "saved"
+            ? "Saved Mods"
+            : "Miscellaneous Mods";
+  const description = loading
+    ? "Loading the latest listings and saved items."
+    : activeTab === "saved"
+      ? `${Math.max(0, total).toLocaleString()} mod${total !== 1 ? "s" : ""} in your personal saved collection for ${game.name}.`
+      : isFiltering
+        ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} from GameBanana for ${activeSearchLabel || game.name}.`
+        : `${Math.max(0, total).toLocaleString()} mods currently available on GameBanana for ${game.name}.`;
+  const searchPlaceholder = isSavedView
+    ? "Search saved mods..."
+    : activeTab === "characters"
+      ? "Search character mods..."
+      : activeTab === "ui"
+        ? "Search UI mods..."
+        : activeTab === "misc"
+          ? "Search miscellaneous mods..."
+          : "Search GameBanana...";
+
+  const handleResetFilters = () => {
+    setActiveTab("all");
+    setCharacterFilter("");
+    setSearchQuery("");
+    setSort("");
+    setPage(1);
+  };
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {/* Header Title */}
-      <div className="mb-6 w-full px-2">
-        <h1 className="text-4xl md:text-[2.75rem] font-bold text-text-primary mb-2 tracking-tighter drop-shadow-xl">
-          {activeTab === "all"
-            ? "All Mods"
-            : activeTab === "characters"
-              ? isFiltering
-                ? `${characterFilter} Mods`
-                : "Browse Character Mods"
-              : activeTab === "ui"
-                ? "User Interface Mods"
-                : activeTab === "saved"
-                  ? "Saved Mods"
-                  : "Miscellaneous Mods"}
-        </h1>
-        <p className="text-text-secondary font-medium">
-          {loading
-            ? "Loading..."
-            : activeTab === "saved"
-              ? `${Math.max(0, total).toLocaleString()} mod${total !== 1 ? "s" : ""} in your saved list`
-              : isFiltering
-                ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} on GameBanana`
-                : `${Math.max(0, total).toLocaleString()} mods on GameBanana`}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Browse"
+        title={title}
+        description={description}
+      />
 
       {/* Featured Hero Loading Skeleton to strictly prevent layout shifting & bouncing frames */}
-      {activeTab === "all" && !debouncedSearchQuery && loadingFeatured && (
+      {showFeaturedHero && loadingFeatured && (
         <div className="mb-4 w-full">
           <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
             <Rocket className="text-text-muted" size={20} />
@@ -468,8 +492,7 @@ export default function BrowseView() {
       {/* Featured Hero Carousel (Now spans full width) */}
       {!loadingFeatured &&
         featuredMods.length > 0 &&
-        activeTab === "all" &&
-        !debouncedSearchQuery &&
+        showFeaturedHero &&
         (() => {
           const timeframes = [
             {
@@ -650,9 +673,13 @@ export default function BrowseView() {
           );
         })()}
 
-      {/* Category Tabs */}
-      <div className="flex items-center gap-6 border-b border-white/5 w-full mt-4 mb-6 relative">
-        <nav className="flex items-center gap-8 -mb-px">
+      {/* Secondary navigation */}
+      <section className="ui-panel mb-4 p-3">
+        <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-text-muted">
+          <SlidersHorizontal size={14} />
+          Browse Sections
+        </div>
+        <nav className="flex flex-wrap items-center gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -665,10 +692,10 @@ export default function BrowseView() {
                   setPage(1);
                 }}
                 className={cn(
-                  "group relative pb-4 flex items-center gap-2 transition-all",
+                  "ui-focus-ring group relative inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-4 py-2.5 transition-all",
                   isActive
-                    ? "text-primary"
-                    : "text-text-muted hover:text-text-primary",
+                    ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
+                    : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
                 )}
               >
                 <Icon
@@ -677,93 +704,113 @@ export default function BrowseView() {
                     isActive && "drop-shadow-[0_0_8px_var(--color-primary)]",
                   )}
                 />
-                <span className="text-[13px] font-black uppercase tracking-[0.15em]">
+                <span className="text-[12px] font-black uppercase tracking-[0.15em]">
                   {tab.label}
                 </span>
-                {isActive && (
-                  <motion.div
-                    layoutId="browseTab"
-                    className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-primary shadow-[0_-2px_10px_var(--color-primary)]"
-                  />
-                )}
               </button>
             );
           })}
         </nav>
-      </div>
+      </section>
 
       {/* Action Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 w-full z-20 relative">
-        {/* Global Search */}
-        <div className="w-full sm:max-w-md xl:max-w-lg shrink">
-          <Input
-            icon={Search}
-            placeholder="Search GameBanana..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(1);
-            }}
-            className="backdrop-blur-md shadow-inner rounded-2xl"
-          />
+      <section className="ui-panel mb-8 p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="ui-eyebrow">Refine Results</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-text-primary">
+              {isSavedView ? "Your saved collection" : "GameBanana listings"}
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+              {isSavedView
+                ? "Search the mods you bookmarked and jump directly into creator pages."
+                : "Use search and filters to narrow the remote catalog before installing."}
+            </p>
+          </div>
+          {hasActiveRefinements && (
+            <Button variant="ghost" onClick={handleResetFilters}>
+              Reset Filters
+            </Button>
+          )}
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap relative z-30">
-          {/* Character Filter */}
-          {activeTab === "characters" && (
-            <div className="w-48 sm:w-64 shrink-0">
-              <SearchableDropdown
-                items={["All Characters", ...getAllCharacterNames(game.id)]}
-                value={characterFilter || "All Characters"}
-                onChange={(val) => {
-                  setCharacterFilter(val === "All Characters" ? "" : val);
-                  setPage(1);
-                }}
-                placeholder="All Characters"
-                gameId={game.id}
-              />
-            </div>
-          )}
-
-          {/* Sort Dropdown */}
-          <div className="w-40 sm:w-48 shrink-0">
-            <SearchableDropdown
-              items={SORT_OPTIONS}
-              value={sort}
-              onChange={(val) => {
-                setSort(val);
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="w-full xl:max-w-xl 2xl:max-w-2xl">
+            <Input
+              icon={Search}
+              placeholder={searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              placeholder="Sort by..."
+              className="rounded-2xl shadow-inner"
             />
           </div>
+
+          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+            {showCharacterFilter && (
+              <div className="w-full sm:w-64 shrink-0">
+                <SearchableDropdown
+                  items={["All Characters", ...getAllCharacterNames(game.id)]}
+                  value={characterFilter || "All Characters"}
+                  onChange={(val) => {
+                    setCharacterFilter(val === "All Characters" ? "" : val);
+                    setPage(1);
+                  }}
+                  placeholder="All Characters"
+                  gameId={game.id}
+                />
+              </div>
+            )}
+
+            {showSortControl && (
+              <div className="w-full sm:w-48 shrink-0">
+                <SearchableDropdown
+                  items={SORT_OPTIONS}
+                  value={sort}
+                  onChange={(val) => {
+                    setSort(val);
+                    setPage(1);
+                  }}
+                  placeholder="Sort by..."
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+            Source: {isSavedView ? "Bookmarks" : "GameBanana"}
+          </div>
+          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+            Scope: {activeTab === "all" ? game.name : title}
+          </div>
+          {showSortControl && sort && (
+            <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+              Sorted by {SORT_OPTIONS.find((option) => option.value === sort)?.label || "Latest"}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Content wrapper with guaranteed min-height to prevent layout jumping */}
       <div className="min-h-[60vh] relative w-full flex flex-col">
         {/* Error state */}
         {error && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-12 bg-surface/50 border border-border rounded-2xl border-dashed">
-            <p className="text-text-primary font-medium">Could not load mods</p>
-            <p className="text-text-secondary text-sm max-w-sm">{error}</p>
-            <Button onClick={fetchMods} size="sm" className="mt-2">
-              Retry
-            </Button>
-          </div>
+          <StatePanel
+            title="Could not load mods"
+            message={error}
+            tone="danger"
+            actionLabel="Retry"
+            onAction={fetchMods}
+          />
         )}
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {Array.from({ length: PER_PAGE }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl bg-surface border border-border h-56 animate-pulse"
-              />
-            ))}
-          </div>
+          <StateGridSkeleton count={PER_PAGE} />
         )}
 
         {/* Mod grid */}
@@ -771,18 +818,26 @@ export default function BrowseView() {
           <>
             {/* Saved Creators Section */}
             {activeTab === "saved" && bookmarkedCreators.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
-                  <Bookmark className="text-primary" size={20} /> Saved Creators
-                </h3>
+              <section className="ui-panel mb-8 p-5">
+                <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="ui-eyebrow">Quick Access</p>
+                    <h3 className="mt-1 flex items-center gap-2 text-xl font-black tracking-tight text-text-primary">
+                      <Bookmark className="text-primary" size={18} /> Saved Creators
+                    </h3>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Keep your favorite creators close without mixing them into the main results grid.
+                    </p>
+                  </div>
+                </div>
                 <div className="flex gap-4 overflow-x-auto scroller-hidden pb-4">
                   {bookmarkedCreators.map((creator) => (
                     <button
                       key={creator._idRow}
                       onClick={() => handleCreatorClick(creator)}
-                      className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-surface border border-border hover:bg-surface/80 transition-all min-w-[120px] group/savedcreator shrink-0 shadow-card"
+                      className="ui-focus-ring group/savedcreator min-w-[140px] shrink-0 rounded-[var(--radius-md)] border border-border bg-background px-4 py-4 text-left shadow-card transition-all hover:border-primary/20 hover:bg-white/4"
                     >
-                      <div className="w-16 h-16 rounded-full overflow-hidden bg-background border border-border flex items-center justify-center shadow-surface group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20 transition-all">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-border bg-surface shadow-surface transition-all group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20">
                         {creator._sAvatarUrl ? (
                           <img
                             src={creator._sAvatarUrl}
@@ -796,14 +851,13 @@ export default function BrowseView() {
                           />
                         )}
                       </div>
-                      <span className="text-sm font-bold text-text-primary text-center w-full truncate group-hover/savedcreator:text-primary transition-colors">
+                      <span className="block w-full truncate pt-3 text-center text-sm font-bold text-text-primary transition-colors group-hover/savedcreator:text-primary">
                         {creator._sName}
                       </span>
                     </button>
                   ))}
                 </div>
-                <div className="w-full h-px bg-border my-6" />
-              </div>
+              </section>
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -840,10 +894,20 @@ export default function BrowseView() {
                 );
               })}
               {mods.length === 0 && (
-                <div className="col-span-full py-16 text-center text-gray-500">
-                  {isFiltering
-                    ? `No results for "${activeSearchLabel}"`
-                    : "No mods found."}
+                <div className="col-span-full">
+                  <StatePanel
+                    title={
+                      isFiltering
+                        ? `No results for "${activeSearchLabel}"`
+                        : "No mods found"
+                    }
+                    message={
+                      isFiltering
+                        ? "Try a broader search, reset your filters, or switch categories."
+                        : "No listings matched this section right now."
+                    }
+                    className="min-h-[14rem]"
+                  />
                 </div>
               )}
             </div>

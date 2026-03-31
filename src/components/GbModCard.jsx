@@ -4,6 +4,7 @@ import { cn } from "../lib/utils";
 import { motion } from "framer-motion";
 
 import UpdateBadge from "./UpdateBadge";
+import { InteractiveCard } from "./ui/InteractiveCard";
 
 function formatCount(n) {
   if (!n) return "0";
@@ -25,18 +26,12 @@ const BrowseModCard = React.memo(function BrowseModCard({
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <motion.div
+    <InteractiveCard
       onClick={() => onClick?.(mod)}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      whileHover={{
-        y: -10,
-        scale: 1.01
-      }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl overflow-hidden group relative flex flex-col shadow-card hover:shadow-surface transition-all duration-300",
-        "bg-surface border border-border cursor-pointer",
+        "cursor-pointer",
         isInstalled && "border-primary/20"
       )}
     >
@@ -198,7 +193,7 @@ const BrowseModCard = React.memo(function BrowseModCard({
       
       {/* Optimized Shadow Layer (animating opacity instead of box-shadow is virtually free for the GPU) */}
       <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
-    </motion.div>
+    </InteractiveCard>
   );
 });
 

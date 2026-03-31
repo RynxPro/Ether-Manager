@@ -1,5 +1,4 @@
-import { useEffect, useState, Suspense, lazy } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState, lazy } from "react";
 import { GAME_CONFIG } from "./gameConfig";
 import { useAppStore } from "./store/useAppStore";
 import Navbar from "./components/Navbar";
@@ -7,6 +6,7 @@ import LibraryView from "./views/LibraryView";
 import OnboardingModal from "./components/OnboardingModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
+import AppViewShell from "./components/layout/AppViewShell";
 
 const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
 const BrowseView = lazy(() => import("./views/BrowseView"));
@@ -81,115 +81,36 @@ function App() {
 
       <main className="flex-1 w-full relative z-10 overflow-hidden">
         <ErrorBoundary>
-          {/* BROWSE VIEW VIEWPORT */}
-          <motion.div
-            initial={false}
-            animate={{
-              opacity: activeView === "browse" ? 1 : 0,
-              y: activeView === "browse" ? 0 : 15,
-              scale: activeView === "browse" ? 1 : 0.98,
-              pointerEvents: activeView === "browse" ? "auto" : "none",
-              zIndex: activeView === "browse" ? 20 : 0,
-            }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
-          >
-            <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <Suspense
-                fallback={
-                  <div className="w-full h-full flex items-center justify-center pt-40">
-                    <Loader2
-                      className="animate-spin text-primary opacity-50"
-                      size={32}
-                    />
-                  </div>
-                }
-              >
-                <BrowseView />
-              </Suspense>
-            </div>
-          </motion.div>
+          <AppViewShell isActive={activeView === "browse"}>
+            <BrowseView />
+          </AppViewShell>
 
-          {/* PRESETS / LOADOUTS VIEWPORT */}
-          <motion.div
-            initial={false}
-            animate={{
-              opacity: activeView === "presets" ? 1 : 0,
-              y: activeView === "presets" ? 0 : 15,
-              scale: activeView === "presets" ? 1 : 0.98,
-              pointerEvents: activeView === "presets" ? "auto" : "none",
-              zIndex: activeView === "presets" ? 20 : 0,
-            }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
-          >
-            <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <Suspense
-                fallback={
-                  <div className="w-full h-full flex items-center justify-center pt-40">
-                    <Loader2
-                      className="animate-spin text-primary opacity-50"
-                      size={32}
-                    />
-                  </div>
-                }
-              >
-                <PresetsView />
-              </Suspense>
-            </div>
-          </motion.div>
+          <AppViewShell isActive={activeView === "presets"}>
+            <PresetsView />
+          </AppViewShell>
 
-          {/* LIBRARY ALL CHARACTERS VIEWPORT */}
-          <motion.div
-            initial={false}
-            animate={{
-              opacity: activeView === "mods" && !selectedCharacter ? 1 : 0,
-              y: activeView === "mods" && !selectedCharacter ? 0 : 15,
-              scale: activeView === "mods" && !selectedCharacter ? 1 : 0.98,
-              pointerEvents:
-                activeView === "mods" && !selectedCharacter ? "auto" : "none",
-              zIndex: activeView === "mods" && !selectedCharacter ? 20 : 0,
-            }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
-          >
-            <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-              <LibraryView
-                isActive={activeView === "mods" && !selectedCharacter}
-              />
-            </div>
-          </motion.div>
+          <AppViewShell isActive={activeView === "mods" && !selectedCharacter}>
+            <LibraryView isActive={activeView === "mods" && !selectedCharacter} />
+          </AppViewShell>
 
           {/* MOD DETAIL VIEWPORT (conditionally rendered to save memory when inactive) */}
           <AnimatePresence>
             {activeView === "mods" && selectedCharacter && (
-              <motion.div
-                key="mod-detail"
-                initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -15, scale: 1.02 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute inset-0 w-full h-full overflow-y-auto overflow-x-hidden scroller-hidden"
-                style={{ zIndex: 30 }}
-              >
-                <div className="w-full max-w-[1500px] mx-auto px-10 py-8 min-h-full">
-                  <Suspense
-                    fallback={
-                      <div className="w-full h-full flex items-center justify-center pt-40">
-                        <Loader2
-                          className="animate-spin text-primary opacity-50"
-                          size={32}
-                        />
-                      </div>
-                    }
-                  >
-                    <CharacterDetail
-                      character={selectedCharacter}
-                      onBack={() => setSelectedCharacter(null)}
-                    />
-                  </Suspense>
-                </div>
-              </motion.div>
+              <AppViewShell isActive={true} zIndex={30}>
+                <motion.div
+                  key="mod-detail"
+                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -15, scale: 1.02 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  className="h-full w-full"
+                >
+                  <CharacterDetail
+                    character={selectedCharacter}
+                    onBack={() => setSelectedCharacter(null)}
+                  />
+                </motion.div>
+              </AppViewShell>
             )}
           </AnimatePresence>
         </ErrorBoundary>

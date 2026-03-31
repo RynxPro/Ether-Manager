@@ -12,6 +12,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
 import { getModClassification } from "../lib/modClassification";
+import PageHeader from "../components/layout/PageHeader";
+import { StatePanel } from "../components/ui/StatePanel";
 
 const CharacterDetail = lazy(() => import("./CharacterDetail"));
 
@@ -219,117 +221,114 @@ export default function LibraryView({ isActive }) {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">{game.name}</h1>
-          <nav className="flex items-center gap-6 mt-4">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              const count = counts[tab.id];
-              const hasUpdate = updatesMap[tab.id];
-
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "group relative pb-2 flex items-center gap-2 transition-all",
-                    isActive
-                      ? "text-primary"
-                      : "text-text-muted hover:text-text-primary",
-                  )}
-                >
-                  <Icon size={16} />
-                  <span className="text-sm font-bold uppercase tracking-widest">
-                    {tab.label}
-                  </span>
-                  {hasUpdate && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-update shadow-[0_0_8px_var(--color-update)]" />
-                  )}
-                  {count > 0 && (
-                    <span
-                      className={cn(
-                        "text-[10px] px-1.5 py-0.5 rounded-full font-black",
-                        isActive
-                          ? "bg-primary text-black"
-                          : "bg-white/10 text-text-muted group-hover:bg-white/20",
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+      <PageHeader
+        eyebrow="Library"
+        title={`${game.name} Library`}
+        description={`${mods.length.toLocaleString()} installed mod${mods.length !== 1 ? "s" : ""} with ${totalEnabledMods.toLocaleString()} currently enabled.`}
+        actions={
+          <>
+            {totalEnabledMods > 0 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDisableAllGame}
+                disabled={disablingAll}
+                className="flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-2.5 text-xs font-black uppercase tracking-widest text-text-muted shadow-sm transition-all hover:bg-white/5 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
+              >
+                {disablingAll ? (
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
                     />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
+                  </svg>
+                ) : (
+                  <EyeOff size={15} />
+                )}
+                {disablingAll ? "Disabling…" : `Disable All (${totalEnabledMods})`}
+              </motion.button>
+            )}
 
-        <div className="flex items-end gap-3 mt-4 sm:mt-0 flex-wrap self-end justify-end">
-          {/* Global Disable All Button */}
-          {totalEnabledMods > 0 && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleDisableAllGame}
-              disabled={disablingAll}
-              className="flex items-center gap-2 px-5 py-2.5 bg-surface hover:bg-white/5 border border-border text-text-muted hover:text-text-primary rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
-            >
-              {disablingAll ? (
-                <svg
-                  className="animate-spin h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                  />
-                </svg>
-              ) : (
-                <EyeOff size={15} />
-              )}
-              {disablingAll
-                ? "Disabling…"
-                : `Disable All (${totalEnabledMods})`}
-            </motion.button>
-          )}
+            <div className="relative w-full sm:w-64 xl:w-72">
+              <Input
+                icon={Search}
+                placeholder={
+                  activeTab === "characters"
+                    ? "Search characters..."
+                    : "Search mods..."
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </>
+        }
+      >
+        <nav className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const count = counts[tab.id];
+            const hasUpdate = updatesMap[tab.id];
 
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-64 xl:w-72">
-            <Input
-              icon={Search}
-              placeholder={
-                activeTab === "characters"
-                  ? "Search characters..."
-                  : "Search mods..."
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "group relative flex items-center gap-2 pb-2 transition-all",
+                  isActive
+                    ? "text-primary"
+                    : "text-text-muted hover:text-text-primary",
+                )}
+              >
+                <Icon size={16} />
+                <span className="text-sm font-bold uppercase tracking-widest">
+                  {tab.label}
+                </span>
+                {hasUpdate && (
+                  <div className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-update shadow-[0_0_8px_var(--color-update)]" />
+                )}
+                {count > 0 && (
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 py-0.5 text-[10px] font-black",
+                      isActive
+                        ? "bg-primary text-black"
+                        : "bg-white/10 text-text-muted group-hover:bg-white/20",
+                    )}
+                  >
+                    {count}
+                  </span>
+                )}
+                {isActive && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </PageHeader>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -342,16 +341,15 @@ export default function LibraryView({ isActive }) {
         >
           {activeTab === "characters" ? (
             displayItems.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-24 bg-surface/50 border-2 border-border rounded-2xl border-dashed">
-                <h3 className="text-xl font-medium text-white mb-2">
-                  No {activeTab} mods found
-                </h3>
-                <p className="text-text-secondary max-w-sm">
-                  {searchQuery
+              <StatePanel
+                title={`No ${activeTab} mods found`}
+                message={
+                  searchQuery
                     ? `No results matching "${searchQuery}" in this category.`
-                    : `You haven't installed any ${activeTab} mods yet.`}
-                </p>
-              </div>
+                    : `You haven't installed any ${activeTab} mods yet.`
+                }
+                className="p-24"
+              />
             ) : (
               <motion.div
                 className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12"
@@ -373,9 +371,11 @@ export default function LibraryView({ isActive }) {
           ) : (
             <Suspense
               fallback={
-                <div className="flex-1 flex items-center justify-center p-24 text-text-muted">
-                  Loading collection...
-                </div>
+                <StatePanel
+                  title="Loading collection"
+                  message="Pulling the latest local mod state for this section."
+                  className="p-24"
+                />
               }
             >
               <CharacterDetail

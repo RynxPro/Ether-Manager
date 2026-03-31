@@ -1,54 +1,84 @@
 @import "tailwindcss";
 
 @theme {
-  /* Strict 2-Color System */
+  /* Core palette */
   --color-primary: var(--color-primary);
   --color-background: var(--color-background);
   --color-surface: var(--color-surface);
-  
   --color-neutral: rgba(255, 255, 255, 0.1);
-  
-  /* Text & Borders */
+
+  /* Text & borders */
   --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
   --color-text-muted: var(--color-text-muted);
   --color-border: var(--color-border);
 
-  /* Unified Shadows */
+  /* Status */
+  --color-danger: var(--color-danger);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
+  --color-update: var(--color-update);
+
+  /* Unified shadows */
   --shadow-surface: 0 8px 30px rgba(0,0,0,0.5);
   --shadow-card: 0 4px 20px rgba(0,0,0,0.4);
+  --shadow-interactive: 0 0 0 1px rgba(255,255,255,0.04), 0 10px 30px rgba(0,0,0,0.35);
 
-  /* Unified Typography */
+  /* Unified typography */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
 }
 @layer base {
   :root {
-    /* Base Strict Palette */
+    /* Base palette */
     --color-background: #000000;
     --color-surface: #0a0a0a;
-    
-    /* Variables mapped backwards for Tailwind legacy compliance if needed */
     --background: var(--color-background);
-    
+
     /* Text */
     --color-text-primary: #ffffff;
     --color-text-secondary: #a1a1aa;
     --color-text-muted: #71717a;
-    
+
     /* Status */
     --color-danger: #ef4444;
     --color-warning: #f59e0b;
     --color-success: #10b981;
     --color-update: #eab308;
-    
-    /* UI Lines */
+
+    /* UI lines */
     --color-border: rgba(255, 255, 255, 0.08);
-    --color-primary: #00f5cc; /* Default to GIMI Accent */
+    --color-primary: #00f5cc;
+
+    /* Spacing rhythm */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+
+    /* Radius scale */
+    --radius-sm: 0.75rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 2rem;
+
+    /* Control sizing */
+    --control-height-sm: 2rem;
+    --control-height-md: 2.75rem;
+    --control-height-lg: 3.25rem;
+
+    /* Surfaces */
+    --surface-elevated: color-mix(in srgb, var(--color-surface) 88%, white 12%);
+    --surface-muted: color-mix(in srgb, var(--color-surface) 72%, var(--color-background) 28%);
+    --surface-ghost: rgba(255, 255, 255, 0.04);
+    --focus-ring: color-mix(in srgb, var(--color-primary) 38%, transparent);
   }
 
   body {
     background-color: var(--background);
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -107,9 +137,187 @@
     z-index: 10;
   }
 
+  .ui-eyebrow {
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 900;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+
+  .ui-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ui-panel-hover {
+    transition:
+      background-color 220ms ease,
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      transform 220ms ease;
+  }
+
+  .ui-panel-hover:hover {
+    background: color-mix(in srgb, var(--color-surface) 82%, white 18%);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: var(--shadow-surface);
+  }
+
+  .ui-focus-ring {
+    outline: none;
+    box-shadow: 0 0 0 0 transparent;
+    transition:
+      box-shadow 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease;
+  }
+
+  .ui-focus-ring:focus-visible {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-primary) 55%, transparent),
+      0 0 0 4px var(--focus-ring);
+  }
+
+  .ui-button-base {
+    align-items: center;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    display: inline-flex;
+    font-weight: 800;
+    justify-content: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition:
+      transform 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .ui-button-base:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .ui-button-base:not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  .ui-button-sm {
+    gap: 0.5rem;
+    min-height: var(--control-height-sm);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.75rem;
+  }
+
+  .ui-button-md {
+    gap: 0.625rem;
+    min-height: var(--control-height-md);
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8125rem;
+  }
+
+  .ui-button-lg {
+    gap: 0.75rem;
+    min-height: var(--control-height-lg);
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .ui-button-primary {
+    background: var(--color-primary);
+    color: #050505;
+    box-shadow: var(--shadow-card);
+  }
+
+  .ui-button-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    box-shadow:
+      var(--shadow-card),
+      0 0 0 1px color-mix(in srgb, var(--color-primary) 35%, transparent);
+  }
+
+  .ui-button-secondary {
+    background: var(--surface-elevated);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-interactive);
+    color: var(--color-text-primary);
+  }
+
+  .ui-button-secondary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--surface-elevated) 82%, white 18%);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  .ui-button-ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  .ui-button-ghost:hover:not(:disabled) {
+    background: var(--surface-ghost);
+    color: var(--color-text-primary);
+  }
+
+  .ui-button-danger {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger) 22%, transparent);
+    color: var(--color-danger);
+  }
+
+  .ui-button-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+  }
+
+  .ui-input-shell {
+    position: relative;
+    width: 100%;
+  }
+
+  .ui-input-control {
+    background: var(--surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-height: var(--control-height-md);
+    width: 100%;
+  }
+
+  .ui-input-control::placeholder {
+    color: var(--color-text-secondary);
+  }
+
+  .ui-input-control:hover {
+    background: color-mix(in srgb, var(--surface-muted) 86%, white 14%);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .ui-input-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .ui-input-icon {
+    color: var(--color-text-muted);
+    left: 0.95rem;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
   .glass-card {
-    background: var(--card);
-    border: 1px solid var(--border);
+    background: var(--surface-elevated);
+    border: 1px solid var(--color-border);
     backdrop-filter: blur(12px);
   }
 

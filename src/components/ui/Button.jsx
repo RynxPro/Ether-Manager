@@ -3,16 +3,16 @@ import { cn } from '../../lib/utils';
 import { Loader2 } from 'lucide-react';
 
 const variants = {
-  primary: 'bg-primary text-black hover:brightness-110 shadow-card',
-  secondary: 'bg-surface text-text-primary border border-border hover:bg-white/5',
-  ghost: 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5',
-  danger: 'bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 hover:border-danger/40',
+  primary: 'ui-button-primary',
+  secondary: 'ui-button-secondary',
+  ghost: 'ui-button-ghost',
+  danger: 'ui-button-danger',
 };
 
 const sizes = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-5 py-2.5 text-sm',
-  lg: 'px-6 py-3.5 text-base',
+  sm: 'ui-button-sm',
+  md: 'ui-button-md',
+  lg: 'ui-button-lg',
 };
 
 export function Button({ 
@@ -29,7 +29,7 @@ export function Button({
     <button
       disabled={disabled || isLoading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 rounded-xl outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed',
+        'ui-button-base ui-focus-ring',
         variants[variant],
         sizes[size],
         className

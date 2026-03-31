@@ -4,23 +4,18 @@ import { cn } from "../lib/utils";
 import UpdateBadge from "./UpdateBadge";
 import SearchableDropdown from "./SearchableDropdown";
 import { motion } from "framer-motion";
+import { InteractiveCard } from "./ui/InteractiveCard";
 
 const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle, onOpenFolder, onAssign, onDelete, characters = [], onClick, hideCategoryTag = false, gameId }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbnailUrl = mod.customThumbnail || gbData?.thumbnailUrl;
 
   return (
-    <motion.div
+    <InteractiveCard
       onClick={() => onClick && onClick(mod)}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ 
-        y: -8, 
-        scale: 1.01
-      }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl overflow-hidden group relative transition-all duration-300 flex flex-col shadow-card hover:shadow-surface",
         onClick ? "cursor-pointer" : "",
         mod.isEnabled
           ? "bg-surface border border-border"
@@ -214,7 +209,7 @@ const ModCard = memo(function ModCard({ mod, gbData, isUnassignedMode, onToggle,
       
       {/* Optimized Box Shadow Hover Layer */}
       <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_85%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
-    </motion.div>
+    </InteractiveCard>
   );
 });
 

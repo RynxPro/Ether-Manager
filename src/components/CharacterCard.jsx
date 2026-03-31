@@ -5,6 +5,7 @@ import { useState, memo } from "react";
 import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 
 import UpdateBadge from "./UpdateBadge";
+import { InteractiveCard } from "./ui/InteractiveCard";
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -21,17 +22,11 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
   const hasMods = character.totalMods > 0;
 
   return (
-    <motion.div
+    <InteractiveCard
       variants={itemVariants}
       onClick={() => onClick(character)}
-      whileHover={{ 
-        y: -10, 
-        scale: 1.01
-      }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl overflow-hidden group relative transition-all duration-300",
-        "bg-surface border border-border cursor-pointer shadow-card hover:shadow-surface",
+        "cursor-pointer",
         !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
         hasMods && "hover:border-primary/40"
       )}
@@ -126,7 +121,7 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
       
       {/* Optimized Box Shadow Hover Layer */}
       <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
-    </motion.div>
+    </InteractiveCard>
   );
 });
 

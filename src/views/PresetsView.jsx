@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Plus, Upload, Package, ChevronRight, Loader2 } from "lucide-react";
+import { Zap, Plus, Upload, Package, ChevronRight } from "lucide-react";
 import CreatePresetModal from "../components/CreatePresetModal";
 import PresetDetailModal from "../components/PresetDetailModal";
 import { Button } from "../components/ui/Button";
 import { useAppStore } from "../store/useAppStore";
+import PageHeader from "../components/layout/PageHeader";
+import { InteractiveCard } from "../components/ui/InteractiveCard";
+import {
+  StateGridSkeleton,
+  StatePanel,
+  StatusBanner,
+} from "../components/ui/StatePanel";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -135,52 +142,51 @@ export default function PresetsView() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="mb-8 w-full px-2 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl md:text-[2.75rem] font-bold text-text-primary mb-2 tracking-tighter drop-shadow-xl">Loadouts</h1>
-          <p className="text-text-secondary font-medium">
-            {loading ? "Loading..." : `${presets.length} preset${presets.length !== 1 ? "s" : ""} for ${game.id}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <Button
-            variant="secondary"
-            onClick={handleImport}
-            disabled={importing}
-            icon={Upload}
-          >
-            Import
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowCreate(true)}
-            icon={Plus}
-          >
-            New Preset
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Presets"
+        title="Loadouts"
+        description={
+          loading
+            ? "Loading your saved setups."
+            : `${presets.length} preset${presets.length !== 1 ? "s" : ""} available for ${game.name}.`
+        }
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={handleImport}
+              disabled={importing}
+              icon={Upload}
+            >
+              Import
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => setShowCreate(true)}
+              icon={Plus}
+            >
+              New Preset
+            </Button>
+          </>
+        }
+      />
 
       {importFeedback && (
-        <div
-          className={`mb-6 mx-2 rounded-2xl border px-4 py-3 text-sm font-medium ${
-            importFeedback.type === "error"
-              ? "border-red-500/20 bg-red-500/10 text-red-400"
-              : "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-          }`}
+        <StatusBanner
+          tone={importFeedback.type === "error" ? "danger" : "success"}
+          className="mb-6 mx-2"
         >
           {importFeedback.message}
-        </div>
+        </StatusBanner>
       )}
 
       {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-52 rounded-2xl bg-surface border border-border animate-pulse shadow-card" />
-          ))}
-        </div>
+        <StateGridSkeleton
+          count={6}
+          columnsClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          itemClassName="h-52"
+        />
       ) : presets.length === 0 ? (
         <EmptyState onCreateClick={() => setShowCreate(true)} />
       ) : (
@@ -248,13 +254,11 @@ function PresetCard({ preset, index, onClick, gbData }) {
   });
 
   return (
-    <motion.div
+    <InteractiveCard
       custom={index}
       variants={cardVariants}
       onClick={onClick}
-      whileHover={{ y: -10, scale: 1.01 }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
-      className="rounded-2xl overflow-hidden group relative flex flex-col shadow-card hover:shadow-surface bg-surface border border-border cursor-pointer transition-all duration-300"
+      className="cursor-pointer"
     >
       {/* Thumbnail Area (Matches GbModCard h-44) */}
       <div className="relative h-44 w-full bg-background overflow-hidden shrink-0 grid grid-cols-2 gap-px border-b border-border">
@@ -323,33 +327,22 @@ function PresetCard({ preset, index, onClick, gbData }) {
       
       {/* Optimized Shadow Layer */}
       <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_rgba(255,255,255,0.05)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
-    </motion.div>
+    </InteractiveCard>
   );
 }
 
 function EmptyState({ onCreateClick }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-6 py-20">
-      <div className="relative">
-        <div className="w-20 h-20 rounded-2xl bg-surface border border-border flex items-center justify-center shadow-surface">
-          <Package size={36} className="text-text-secondary" />
-        </div>
-        <div
-          className="absolute -inset-3 rounded-full blur-2xl opacity-20 pointer-events-none"
-          style={{ background: "var(--color-primary)" }}
-        />
-      </div>
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-text-primary tracking-tight mb-2">No Loadouts Yet</h2>
-        <p className="text-text-secondary max-w-sm text-sm">
-          Create a preset to save and apply groups of mods with a single click.
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
+    <StatePanel
+      icon={Package}
+      title="No Loadouts Yet"
+      message="Create a preset to save and apply groups of mods with a single click."
+      action={(
         <Button onClick={onCreateClick} icon={Plus}>
           Create First Preset
         </Button>
-      </div>
-    </div>
+      )}
+      className="py-20"
+    />
   );
 }
