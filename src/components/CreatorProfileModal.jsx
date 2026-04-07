@@ -1,9 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
-import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Bookmark, Check, ExternalLink, Globe } from "lucide-react";
+import { useState, useEffect, useCallback, useId } from "react";
+import {
+  X,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  Bookmark,
+  Check,
+  ExternalLink,
+  Globe,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import GbModCard from "./GbModCard";
 import { cn } from "../lib/utils";
-import { StatePanel } from "./ui/StatePanel";
+import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
 
 const PER_PAGE = 20;
 
@@ -26,6 +35,7 @@ export default function CreatorProfileModal({
   onToggleCreatorBookmark,
   onModClick,
 }) {
+  const titleId = useId();
   const [mods, setMods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -71,7 +81,6 @@ export default function CreatorProfileModal({
   }, [fetchMods]);
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const heroImage = mods.length > 0 ? mods[0].thumbnailUrl : null;
 
   return (
     <motion.div
@@ -86,50 +95,35 @@ export default function CreatorProfileModal({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-7xl bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[85vh] relative"
+        aria-labelledby={titleId}
+        className="relative flex h-full max-h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0a0a0a] shadow-[0_30px_100px_rgba(0,0,0,0.8)]"
       >
-        {/* Immersive Hero Header */}
-        <div className="relative h-44 shrink-0 overflow-hidden border-b border-white/10 bg-background">
-          {/* Background Layer (Blurred Image) */}
-          <div className="absolute inset-0 grayscale-[0.5] opacity-20 hidden md:block">
-             {heroImage ? (
-                <div className="relative w-full h-full">
-                  <img src={heroImage} alt="" className="w-full h-full object-cover scale-105 blur-lg" />
-                  <div className="absolute inset-0 bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
-                  <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent opacity-90" />
-                </div>
-             ) : (
-                <div className="w-full h-full bg-linear-to-br from-white/5 to-transparent opacity-30" />
-             )}
-          </div>
-
-          <div className="absolute inset-0 p-6 flex items-center justify-between gap-6 z-10">
-            <div className="flex items-center gap-6">
-              {/* Creator Avatar with Premium Border */}
-              <div className="relative w-20 h-20 group shrink-0">
-                 <div className="relative w-full h-full rounded-2xl border border-white/10 p-1 bg-[#0a0a0a] shadow-xl overflow-hidden">
-                    {creator._sAvatarUrl ? (
-                      <img 
-                        src={creator._sAvatarUrl} 
-                        alt={creator._sName} 
-                        className="w-full h-full rounded-xl object-cover" 
-                        style={{ imageRendering: "pixelated" }}
-                      />
-                    ) : (
-                      <div className="w-full h-full rounded-xl bg-white/5 flex items-center justify-center">
-                        <User size={30} className="text-white/20" />
-                      </div>
-                    )}
-                 </div>
+        <div className="shrink-0 border-b border-white/10 bg-background/70 px-6 py-5 backdrop-blur-md sm:px-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                {creator._sAvatarUrl ? (
+                  <img
+                    src={creator._sAvatarUrl}
+                    alt={creator._sName}
+                    className="h-full w-full object-cover"
+                    style={{ imageRendering: "pixelated" }}
+                  />
+                ) : (
+                  <User size={24} className="text-white/25" />
+                )}
               </div>
 
-              {/* Identity & Global Stats */}
-              <div className="flex flex-col gap-1.5 z-10 w-full">
-                <h2 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-2xl leading-none">{creator._sName}</h2>
-                
+              <div className="min-w-0">
+                <h2
+                  id={titleId}
+                  className="truncate text-2xl font-black tracking-tight text-white sm:text-3xl"
+                >
+                  {creator._sName}
+                </h2>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/65">
-                    {total > 0 ? total : "—"} Mods
+                    {total.toLocaleString()} Mods
                   </div>
                   <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
                     {game.name}
@@ -138,155 +132,152 @@ export default function CreatorProfileModal({
               </div>
             </div>
 
-            {/* Actions Bar */}
-            <div className="flex flex-col gap-2.5 items-end">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleCreatorBookmark?.(creator);
                 }}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-xl",
-                  isCreatorBookmarked 
-                    ? "bg-primary text-black border-primary hover:brightness-110" 
-                    : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
+                  "ui-focus-ring inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.18em] transition-all",
+                  isCreatorBookmarked
+                    ? "border-primary bg-primary text-black hover:brightness-110"
+                    : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white",
                 )}
               >
                 {isCreatorBookmarked ? (
                   <>
-                    <Check size={14} strokeWidth={4} />
+                    <Check size={14} strokeWidth={3.5} />
                     Saved
                   </>
                 ) : (
                   <>
-                    <Bookmark size={14} strokeWidth={2.5} />
+                    <Bookmark size={14} strokeWidth={2.4} />
                     Follow
                   </>
                 )}
               </button>
 
-              <div className="flex items-center gap-2.5">
-                 {creator._sProfileUrl && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.electronConfig?.openExternal?.(creator._sProfileUrl);
-                      }}
-                      className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/50 hover:text-white transition-all shadow-lg"
-                      title="View GameBanana Profile"
-                    >
-                      <ExternalLink size={18} />
-                    </button>
-                 )}
-                 <button
-                    onClick={onClose}
-                    className="p-2.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 rounded-xl transition-all shadow-lg"
-                 >
-                    <X size={18} />
-                 </button>
-              </div>
+              {creator._sProfileUrl ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.electronConfig?.openExternal?.(creator._sProfileUrl);
+                  }}
+                  className="ui-focus-ring flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                  title="Open GameBanana profile"
+                >
+                  <ExternalLink size={16} />
+                </button>
+              ) : null}
+
+              <button
+                onClick={onClose}
+                className="ui-focus-ring flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close creator panel"
+              >
+                <X size={18} />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Content Body */}
-        <div className="flex-1 flex flex-col min-h-0 bg-[#0a0a0a]">
-           {/* Section Label */}
-           <div className="px-10 py-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-background">
-             <div className="flex items-center gap-3">
-                <LayoutGrid size={14} className="text-primary" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Catalog</h3>
-             </div>
-             
-             {totalPages > 1 && (
-                <div className="flex items-center gap-4 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
+        <div className="flex min-h-0 flex-1 flex-col bg-[#0a0a0a]">
+          <div className="shrink-0 border-b border-white/10 bg-background/55 px-6 py-4 sm:px-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-semibold text-text-secondary">
+                {total.toLocaleString()} mod{total !== 1 ? "s" : ""}
+              </div>
+
+              {totalPages > 1 ? (
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="text-white/50 hover:text-white disabled:opacity-20 transition-colors"
+                    className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    aria-label="Previous page"
                   >
-                    <ChevronLeft size={14} />
+                    <ChevronLeft size={16} />
                   </button>
-                  <span className="text-[9px] font-black tracking-widest uppercase text-white/40">
-                    Page <span className="text-white">{page}</span> / {totalPages}
-                  </span>
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-white/60">
+                    {page} / {totalPages}
+                  </div>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="text-white/50 hover:text-white disabled:opacity-20 transition-colors"
+                    className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    aria-label="Next page"
                   >
-                    <ChevronRight size={14} />
+                    <ChevronRight size={16} />
                   </button>
                 </div>
-             )}
-           </div>
+              ) : null}
+            </div>
+          </div>
 
-           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              {loading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className="rounded-3xl bg-white/5 border border-white/5 h-64 animate-pulse shadow-inner" />
-                  ))}
-                </div>
-              ) : error ? (
-                <StatePanel
-                  icon={Globe}
-                  title="Could not load creator mods"
-                  message={error}
-                  tone="danger"
-                  actionLabel="Retry"
-                  onAction={fetchMods}
-                  className="min-h-[20rem]"
-                />
-              ) : (
-                <motion.div 
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="show"
-                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-8"
-                >
-                  {mods.map((mod) => {
-                    const installedInfo = installedModsInfo[mod._idRow];
-                    const isInstalled = !!installedInfo;
-                    let hasUpdate = false;
-                    
-                    if (isInstalled && installedInfo.installedFiles.length > 0) {
-                      hasUpdate = installedInfo.installedFiles.some(f => {
-                        if (!f.installedAt) return false;
-                        const installedDate = new Date(f.installedAt).getTime() / 1000;
-                        return mod._tsDateUpdated > installedDate + 300; // Consistent with CharacterGrid
-                      });
-                    }
-                    
-                    const isBookmarked = (bookmarkIds || []).includes(mod._idRow);
+          <div className="custom-scrollbar flex-1 overflow-y-auto p-6 sm:p-8">
+            {loading ? (
+              <StateGridSkeleton count={10} />
+            ) : error ? (
+              <StatePanel
+                icon={Globe}
+                title="Could not load creator mods"
+                message={error}
+                tone="danger"
+                actionLabel="Retry"
+                onAction={fetchMods}
+                className="min-h-[20rem]"
+              />
+            ) : (
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-2 gap-4 pb-8 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+              >
+                {mods.map((mod) => {
+                  const installedInfo = installedModsInfo[mod._idRow];
+                  const isInstalled = !!installedInfo;
+                  let hasUpdate = false;
 
-                    return (
-                      <GbModCard
-                        key={mod._idRow}
-                        mod={mod}
-                        isInstalled={isInstalled}
-                        hasUpdate={hasUpdate}
-                        onClick={onModClick}
-                        onInstall={onModClick}
-                        isBookmarked={isBookmarked}
-                        onToggleBookmark={() => onToggleBookmark?.(mod)}
-                      />
-                    );
-                  })}
-                  
-                  {mods.length === 0 && (
-                    <div className="col-span-full">
-                      <StatePanel
-                        title="No creator mods found"
-                        message={`No public releases found for ${game.name}.`}
-                        className="min-h-[18rem]"
-                      />
-                    </div>
-                  )}
-                </motion.div>
-              )}
-           </div>
+                  if (isInstalled && installedInfo.installedFiles.length > 0) {
+                    hasUpdate = installedInfo.installedFiles.some((file) => {
+                      if (!file.installedAt) return false;
+                      const installedDate =
+                        new Date(file.installedAt).getTime() / 1000;
+                      return mod._tsDateUpdated > installedDate + 300;
+                    });
+                  }
+
+                  const isBookmarked = (bookmarkIds || []).includes(mod._idRow);
+
+                  return (
+                    <GbModCard
+                      key={mod._idRow}
+                      mod={mod}
+                      isInstalled={isInstalled}
+                      hasUpdate={hasUpdate}
+                      onClick={onModClick}
+                      onInstall={onModClick}
+                      isBookmarked={isBookmarked}
+                      onToggleBookmark={() => onToggleBookmark?.(mod)}
+                    />
+                  );
+                })}
+
+                {mods.length === 0 ? (
+                  <div className="col-span-full">
+                    <StatePanel
+                      title="No creator mods found"
+                      message={`No public releases found for ${game.name}.`}
+                      className="min-h-[18rem]"
+                    />
+                  </div>
+                ) : null}
+              </motion.div>
+            )}
+          </div>
         </div>
       </motion.div>
     </motion.div>
