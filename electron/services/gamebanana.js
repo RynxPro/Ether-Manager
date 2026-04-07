@@ -21,10 +21,13 @@ const FEATURED_BUCKETS = [
   { id: "year", label: "Best of This Year", days: 365 },
   { id: "allTime", label: "Best of All Time", days: null },
 ];
-const FEATURED_RECENT_PAGE_COUNT = 3;
-const FEATURED_RECENT_PER_PAGE = 20;
+const FEATURED_SOURCE_SPECS = [
+  { sort: "Generic_Newest", pageCount: 3, perPage: 20 },
+  { sort: "Generic_MostLiked", pageCount: 3, perPage: 20 },
+  { sort: "Generic_MostDownloaded", pageCount: 2, perPage: 20 },
+  { sort: "Generic_MostViewed", pageCount: 2, perPage: 20 },
+];
 const FEATURED_ALL_TIME_PER_PAGE = 12;
-const FEATURED_DETAIL_BATCH_SIZE = 10;
 const DAY_SECONDS = 24 * 60 * 60;
 
 const runtime = {
@@ -271,6 +274,38 @@ function compareFeaturedCandidates(a, b) {
   );
 }
 
+function getFeaturedAgeDays(record, nowSeconds) {
+  const timestamp = getFeaturedTimestamp(record);
+  if (!timestamp || !nowSeconds || timestamp > nowSeconds) {
+    return 0;
+  }
+  return (nowSeconds - timestamp) / DAY_SECONDS;
+}
+
+function computeFeaturedScore(record, bucketDays, nowSeconds) {
+  const likeCount = record?._nLikeCount || 0;
+  const downloadCount = record?._nDownloadCount || 0;
+  const viewCount = record?._nViewCount || 0;
+  const ageDays = getFeaturedAgeDays(record, nowSeconds);
+
+  const engagementScore =
+    likeCount * 10 +
+    Math.log1p(downloadCount) * 16 +
+    Math.log1p(viewCount) * 6;
+
+  if (!bucketDays) {
+    return engagementScore;
+  }
+
+  const ageRatio = Math.min(1, ageDays / bucketDays);
+  const freshnessWeight = 0.55 + 0.45 * Math.exp(-1.25 * ageRatio);
+  const momentumScore =
+    (likeCount * 6 + Math.log1p(downloadCount) * 12) /
+    Math.max(1.5, ageDays + 0.75);
+
+  return engagementScore * freshnessWeight + momentumScore * 12;
+}
+
 async function fetchBrowseRecords(url, { hydrateZeroDownloadCounts = true } = {}) {
   const data = await fetchFromGB(url);
   let records = Array.isArray(data._aRecords)
@@ -303,72 +338,48 @@ async function fetchBrowseRecords(url, { hydrateZeroDownloadCounts = true } = {}
   };
 }
 
-async function fetchFeaturedRecentCandidates(gbGameId, browseFields) {
+async function fetchFeaturedCandidates(gbGameId, browseFields) {
+  const requests = FEATURED_SOURCE_SPECS.flatMap((source) =>
+    Array.from({ length: source.pageCount }, (_, index) => {
+      const page = index + 1;
+      const url =
+        `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}` +
+        `&_nPage=${page}&_nPerpage=${source.perPage}` +
+        `&_sSort=${source.sort}` +
+        `&_csvFields=${encodeURIComponent(browseFields)}`;
+
+      return fetchBrowseRecords(url, { hydrateZeroDownloadCounts: false })
+        .then((result) => result.records)
+        .catch((error) => {
+          logger.warn(`Featured source fetch failed for ${source.sort} page ${page}`, error.message);
+          return [];
+        });
+    }),
+  );
+
+  const results = await Promise.all(requests);
   const uniqueCandidates = new Map();
-  const now = toUnixSecondsOr(0, runtime.nowImpl());
-  const oldestRelevantTimestamp = now - 365 * DAY_SECONDS;
 
-  for (let page = 1; page <= FEATURED_RECENT_PAGE_COUNT; page += 1) {
-    const url =
-      `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}` +
-      `&_nPage=${page}&_nPerpage=${FEATURED_RECENT_PER_PAGE}` +
-      "&_sSort=Generic_Newest" +
-      `&_csvFields=${encodeURIComponent(browseFields)}`;
-    const { records } = await fetchBrowseRecords(url, {
-      hydrateZeroDownloadCounts: false,
-    });
-
-    if (records.length === 0) {
-      break;
-    }
-
+  for (const records of results) {
     for (const record of records) {
-      uniqueCandidates.set(record._idRow, record);
+      const existing = uniqueCandidates.get(record._idRow);
+      uniqueCandidates.set(
+        record._idRow,
+        existing ? mergeNormalizedModRecords(existing, record) : record,
+      );
     }
   }
 
-  const candidates = [...uniqueCandidates.values()];
-  const detailProperties =
-    "_idRow,_sName,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl";
-  const detailedCandidates = [];
-
-  for (
-    let index = 0;
-    index < candidates.length;
-    index += FEATURED_DETAIL_BATCH_SIZE
-  ) {
-    const batch = candidates.slice(index, index + FEATURED_DETAIL_BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map(async (record) => {
-        try {
-          const detail = await fetchFromGB(
-            `${GB_API}/Mod/${record._idRow}?_csvProperties=${encodeURIComponent(detailProperties)}`,
-          );
-          return mergeNormalizedModRecords(record, normalizeModRecord(detail));
-        } catch (error) {
-          logger.warn(
-            `Featured candidate detail fetch failed for mod ${record._idRow}`,
-            error.message,
-          );
-          return record;
-        }
-      }),
-    );
-
-    detailedCandidates.push(...batchResults);
-
-    const oldestDetailedTimestamp = Math.min(
-      ...batchResults.map((record) => getFeaturedTimestamp(record) || now),
-    );
-    if (oldestDetailedTimestamp <= oldestRelevantTimestamp) {
-      break;
-    }
-  }
-
-  return detailedCandidates;
+  return [...uniqueCandidates.values()];
 }
 
-function pickFeaturedBucketWinner(candidates, usedIds, cutoffTimestamp) {
+function pickFeaturedBucketWinner(
+  candidates,
+  usedIds,
+  cutoffTimestamp,
+  bucketDays,
+  nowSeconds,
+) {
   const eligible = candidates
     .filter((record) => {
       if (usedIds.has(record._idRow)) {
@@ -379,7 +390,17 @@ function pickFeaturedBucketWinner(candidates, usedIds, cutoffTimestamp) {
       }
       return getFeaturedTimestamp(record) >= cutoffTimestamp;
     })
-    .sort(compareFeaturedCandidates);
+    .sort((a, b) => {
+      const scoreDifference =
+        computeFeaturedScore(b, bucketDays, nowSeconds) -
+        computeFeaturedScore(a, bucketDays, nowSeconds);
+
+      if (scoreDifference !== 0) {
+        return scoreDifference;
+      }
+
+      return compareFeaturedCandidates(a, b);
+    });
 
   return eligible[0] || null;
 }
@@ -390,8 +411,8 @@ export async function fetchGbFeaturedMods(gbGameId) {
     "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_tsDateModified,_sProfileUrl";
   const now = toUnixSecondsOr(0, runtime.nowImpl());
 
-  const [recentCandidates, allTimeResult] = await Promise.all([
-    fetchFeaturedRecentCandidates(validGameId, browseFields),
+  const [candidates, allTimeResult] = await Promise.all([
+    fetchFeaturedCandidates(validGameId, browseFields),
     browseGbMods({
       gbGameId: validGameId,
       page: 1,
@@ -407,11 +428,13 @@ export async function fetchGbFeaturedMods(gbGameId) {
     const cutoffTimestamp =
       bucket.days == null ? null : now - bucket.days * DAY_SECONDS;
     const sourcePool =
-      bucket.id === "allTime" ? allTimeResult.records || [] : recentCandidates;
+      bucket.id === "allTime" ? allTimeResult.records || [] : candidates;
     const winner = pickFeaturedBucketWinner(
       sourcePool,
       usedIds,
       cutoffTimestamp,
+      bucket.days,
+      now,
     );
 
     if (!winner) {

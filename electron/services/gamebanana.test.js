@@ -217,9 +217,9 @@ test("browseGbMods hydrates summaries when browse records return zero download c
 test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", async () => {
   const now = Date.UTC(2026, 3, 7);
   const day = 24 * 60 * 60 * 1000;
-  const recentPages = new Map([
+  const candidatePages = new Map([
     [
-      1,
+      "Generic_Newest:1",
       [
         {
           _idRow: 201,
@@ -251,7 +251,60 @@ test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", 
         },
       ],
     ],
-    [2, []],
+    [
+      "Generic_Newest:2",
+      [],
+    ],
+    [
+      "Generic_MostLiked:1",
+      [
+        {
+          _idRow: 204,
+          _sName: "Year Winner",
+          _tsDateAdded: now - 300 * day,
+          _nLikeCount: 85,
+          _nDownloadCount: 0,
+          _nViewCount: 1200,
+        },
+        {
+          _idRow: 203,
+          _sName: "Six Month Winner",
+          _tsDateAdded: now - 120 * day,
+          _nLikeCount: 90,
+          _nDownloadCount: 0,
+          _nViewCount: 900,
+        },
+      ],
+    ],
+    ["Generic_MostLiked:2", []],
+    [
+      "Generic_MostDownloaded:1",
+      [
+        {
+          _idRow: 202,
+          _sName: "Month Winner",
+          _tsDateAdded: now - 20 * day,
+          _nLikeCount: 95,
+          _nDownloadCount: 0,
+          _nViewCount: 800,
+        },
+      ],
+    ],
+    ["Generic_MostDownloaded:2", []],
+    [
+      "Generic_MostViewed:1",
+      [
+        {
+          _idRow: 201,
+          _sName: "Week Winner",
+          _tsDateAdded: now - 2 * day,
+          _nLikeCount: 100,
+          _nDownloadCount: 0,
+          _nViewCount: 1500,
+        },
+      ],
+    ],
+    ["Generic_MostViewed:2", []],
   ]);
   const detailById = new Map([
     [201, { _tsDateAdded: now - 2 * day, _nLikeCount: 100 }],
@@ -265,7 +318,11 @@ test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", 
     retryCount: 0,
     nowImpl: () => now,
     fetchImpl: async (url) => {
-      if (url.includes("/Mod/Index?") && url.includes("Generic_MostLiked")) {
+      if (
+        url.includes("/Mod/Index?") &&
+        url.includes("Generic_MostLiked") &&
+        url.includes("_nPerpage=12")
+      ) {
         return createJsonResponse({
           _aRecords: [
             {
@@ -282,8 +339,10 @@ test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", 
       if (url.includes("/Mod/Index?") && url.includes("Generic_Game")) {
         const pageMatch = url.match(/_nPage=(\d+)/);
         const page = Number(pageMatch?.[1] || 1);
+        const sortMatch = url.match(/_sSort=([^&]+)/);
+        const sort = sortMatch?.[1] || "Generic_Newest";
         return createJsonResponse({
-          _aRecords: recentPages.get(page) || [],
+          _aRecords: candidatePages.get(`${sort}:${page}`) || [],
           _aMetadata: { _nRecordCount: 4 },
         });
       }
