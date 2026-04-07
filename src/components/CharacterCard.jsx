@@ -30,9 +30,6 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
         !hasMods && "opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0",
         hasMods && "hover:border-primary/40"
       )}
-      style={{ 
-        contain: "layout paint"
-      }}
     >
       <div className="relative h-56 w-full overflow-hidden bg-background">
         {portraitUrl ? (
@@ -102,12 +99,6 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
           </p>
         )}
       </div>
-      
-      {/* Bloom Effect Ring (External Glow) */}
-      <div className="absolute inset-0 rounded-2xl border border-white/0 group-hover:border-primary/20 transition-all pointer-events-none" />
-      
-      {/* Optimized Box Shadow Hover Layer */}
-      <div className="absolute inset-0 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_15px_color-mix(in_srgb,var(--color-primary),transparent_80%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[-1]" />
     </InteractiveCard>
   );
 });
