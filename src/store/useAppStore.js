@@ -50,4 +50,20 @@ export const useAppStore = create((set) => ({
   bumpConfigVersion: () => set((state) => ({
     configVersion: state.configVersion + 1,
   })),
+
+  // Downloads Queue
+  // Job format: { id: string|number, title: string, percent: number, status: "downloading" | "extracting" | "done" | "error", error?: string }
+  downloads: [],
+  addDownload: (job) => set((state) => ({
+    downloads: [...state.downloads.filter(d => d.id !== job.id), { ...job, percent: 0, status: "downloading" }]
+  })),
+  updateDownloadProgress: (id, percent) => set((state) => ({
+    downloads: state.downloads.map(d => d.id === id ? { ...d, percent, status: percent === 100 ? "extracting" : d.status } : d)
+  })),
+  completeDownload: (id, success, error) => set((state) => ({
+    downloads: state.downloads.map(d => d.id === id ? { ...d, percent: success ? 100 : d.percent, status: success ? "done" : "error", error } : d)
+  })),
+  clearDownload: (id) => set((state) => ({
+    downloads: state.downloads.filter(d => d.id !== id)
+  })),
 }));

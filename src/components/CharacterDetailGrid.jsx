@@ -45,7 +45,7 @@ export default function CharacterDetailGrid({
           className="mb-12"
         />
       ) : (
-        <div className="grid grid-cols-2 gap-4 pb-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5 pb-12">
           {filteredMods.map((mod) => {
           const gbData = mod.gamebananaId
             ? gbDataMap[mod.gamebananaId]

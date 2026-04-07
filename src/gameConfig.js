@@ -1,11 +1,15 @@
+import genshinIcon from "./assets/games-icons/Genshin_Impact.webp";
+import wutheringIcon from "./assets/games-icons/Wuthering_Waves.png";
+import zzzIcon from "./assets/games-icons/Zenless_Zone_Zero_App_Icon.webp";
+
 // GameBanana game row IDs — used for the mod browser and update checking
 // These are the numeric IDs from gamebanana.com/games/{id}
 const GB_GAME_IDS = {
-  GIMI: 8552,   // Genshin Impact
-  WWMI: 20357,  // Wuthering Waves
-  ZZMI: 19567,  // Zenless Zone Zero
-  SRMI: 18366,  // Honkai: Star Rail
-  HIMI: 10349,   // Honkai Impact 3rd
+  GIMI: 8552, // Genshin Impact
+  WWMI: 20357, // Wuthering Waves
+  ZZMI: 19567, // Zenless Zone Zero
+  SRMI: 18366, // Honkai: Star Rail
+  HIMI: 10349, // Honkai Impact 3rd
 };
 
 export const GAME_CONFIG = {
@@ -16,6 +20,7 @@ export const GAME_CONFIG = {
     folderHint: "GIMI",
     gbGameId: GB_GAME_IDS.GIMI,
     isWorkInProgress: false,
+    icon: genshinIcon,
   },
   WWMI: {
     id: "WWMI",
@@ -24,6 +29,7 @@ export const GAME_CONFIG = {
     folderHint: "WWMI",
     gbGameId: GB_GAME_IDS.WWMI,
     isWorkInProgress: false,
+    icon: wutheringIcon,
   },
   ZZMI: {
     id: "ZZMI",
@@ -32,6 +38,7 @@ export const GAME_CONFIG = {
     folderHint: "ZZMI",
     gbGameId: GB_GAME_IDS.ZZMI,
     isWorkInProgress: false,
+    icon: zzzIcon,
   },
   SRMI: {
     id: "SRMI",

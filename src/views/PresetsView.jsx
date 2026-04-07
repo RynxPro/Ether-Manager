@@ -12,6 +12,7 @@ import {
   StatePanel,
   StatusBanner,
 } from "../components/ui/StatePanel";
+import { cn } from "../lib/utils";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -218,14 +219,14 @@ export default function PresetsView() {
       {loading ? (
         <StateGridSkeleton
           count={6}
-          columnsClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          itemClassName="h-52"
+          columnsClassName="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5 pb-8"
+          itemClassName="aspect-4/3"
         />
       ) : presets.length === 0 ? (
         <EmptyState onCreateClick={() => setShowCreate(true)} />
       ) : (
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+          className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5 pb-8"
           initial="hidden"
           animate="show"
         >
@@ -292,77 +293,69 @@ function PresetCard({ preset, index, onClick, gbData }) {
       custom={index}
       variants={cardVariants}
       onClick={onClick}
-      className="cursor-pointer"
+      className="cursor-pointer flex flex-col w-full relative group overflow-hidden rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 transition-colors"
     >
-      {/* Thumbnail Area (Matches GbModCard h-44) */}
-      <div className="relative h-44 w-full bg-background overflow-hidden shrink-0 grid grid-cols-2 gap-px border-b border-border">
+      {/* Thumbnail Area (Matches LibraryModCard aspect-4/3) */}
+      <div className="relative aspect-4/3 w-full shrink-0 overflow-hidden bg-background border-b border-border">
         {thumbs.length > 0 ? (
-          thumbs.map((src, i) => (
-            <div key={i} className="relative bg-surface overflow-hidden">
-              {src ? (
-                <img src={src} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-white/5">
-                  <Package size={16} className="text-white/10" />
-                </div>
-              )}
-            </div>
-          ))
+          <div className={cn("absolute inset-0 grid gap-px", thumbs.length === 1 ? "grid-cols-1" : thumbs.length === 2 ? "grid-cols-2" : thumbs.length === 3 ? "grid-cols-2 grid-rows-2" : "grid-cols-2 grid-rows-2")}>
+            {thumbs.map((src, i) => (
+              <div key={i} className={cn("relative bg-surface overflow-hidden", thumbs.length === 3 && i === 0 ? "row-span-2 col-span-2 sm:col-span-1" : "")}>
+                {src ? (
+                  <img src={src} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-white/5">
+                    <Package size={16} className="text-white/10" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
-          <div className="col-span-2 row-span-2 flex items-center justify-center bg-surface">
+          <div className="absolute inset-0 flex items-center justify-center bg-surface">
             <Package size={40} className="text-white/5" />
           </div>
         )}
         
-        <div className="absolute top-4 right-4 z-10">
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-md">
-             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: preset.color, boxShadow: `0 0 10px ${preset.color}` }} />
-             Ready To Compare
+        <div className="absolute top-3 left-3 z-10">
+          <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white shadow-lg backdrop-blur-md border border-white/10">
+             <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)] opacity-80 group-hover:animate-pulse" />
+             Review Ready
           </div>
         </div>
-        
-        {/* Subtle overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent pointer-events-none" />
       </div>
 
-      {/* Info Area (Matches GbModCard min-h-36) */}
-      <div className="flex flex-col flex-1 p-5 bg-surface min-h-36 relative z-10">
-        <div className="flex items-center gap-2 mb-2 opacity-30 group-hover:opacity-100 transition-opacity">
-           <div className="w-1 h-3 rounded-full shadow-[0_0_5px_var(--color-primary)]" style={{ backgroundColor: preset.color || 'var(--color-primary)' }} />
+      {/* Info Area (Matches new clean solid layout) */}
+      <div className="flex flex-col flex-1 p-5 relative z-10 w-full">
+        <div className="flex items-center gap-2 mb-2 opacity-50 group-hover:opacity-100 transition-opacity">
+           <div className="w-1 h-3 rounded-full bg-primary shadow-[0_0_5px_var(--color-primary)]" />
            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">LOADOUT SNAPSHOT</span>
         </div>
 
-        <h3 className="text-base font-bold text-text-primary line-clamp-2 leading-tight mb-4 transition-colors group-hover:text-primary tracking-tight">
+        <h3 className="text-sm font-bold text-text-primary line-clamp-2 leading-tight transition-colors group-hover:text-primary tracking-tight min-h-10">
           {preset.name}
         </h3>
 
         {preset.description && (
-          <p className="mb-4 line-clamp-2 text-sm leading-5 text-text-secondary">
+          <p className="mb-4 line-clamp-2 text-xs leading-5 text-text-secondary">
             {preset.description}
           </p>
         )}
         
-        <div className="mb-6 flex items-center gap-6">
+        <div className="flex items-center gap-6 mt-auto mb-4">
            <div className="flex flex-col">
-             <span className="text-white font-black text-sm leading-none">{preset.mods.length}</span>
+             <span className="text-text-primary font-black text-xs leading-none">{preset.mods.length}</span>
              <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Mods</span>
            </div>
            <div className="flex flex-col">
-             <span className="text-white font-black text-sm leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
+             <span className="text-text-primary font-black text-xs leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
              <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Chars</span>
            </div>
         </div>
 
-        <div className="mb-4 rounded-[var(--radius-md)] border border-border bg-background px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">
-          {preset.updatedAt
-            ? `Updated ${new Date(preset.updatedAt).toLocaleDateString()}`
-            : "Ready to review"}
-        </div>
-
-        {/* Action Button (Matches card style) */}
-        <div className="mt-auto">
-          <div className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-background border border-border text-[10px] font-black text-text-muted uppercase tracking-[0.2em] group-hover:border-primary/30 group-hover:text-primary transition-all duration-300">
-            Review & Apply <ChevronRight size={14} strokeWidth={4} className="group-hover:translate-x-1 transition-transform" />
+        <div className="mt-auto pt-4 border-t border-white/5">
+          <div className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group/btn bg-background border border-border text-text-muted cursor-pointer hover:border-primary/50 hover:text-primary shadow-sm hover:shadow-[0_0_15px_var(--color-primary)]/20">
+            Review <ChevronRight size={12} strokeWidth={4} className="group-hover/btn:translate-x-1 transition-transform" />
           </div>
         </div>
       </div>

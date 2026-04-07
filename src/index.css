@@ -20,12 +20,15 @@
   --color-update: var(--color-update);
 
   /* Unified shadows */
-  --shadow-surface: 0 8px 30px rgba(0,0,0,0.5);
-  --shadow-card: 0 4px 20px rgba(0,0,0,0.4);
-  --shadow-interactive: 0 0 0 1px rgba(255,255,255,0.04), 0 10px 30px rgba(0,0,0,0.35);
+  --shadow-surface: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-interactive:
+    0 0 0 1px rgba(255, 255, 255, 0.04), 0 10px 30px rgba(0, 0, 0, 0.35);
 
   /* Unified typography */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    sans-serif;
 }
 @layer base {
   :root {
@@ -71,7 +74,11 @@
 
     /* Surfaces */
     --surface-elevated: color-mix(in srgb, var(--color-surface) 88%, white 12%);
-    --surface-muted: color-mix(in srgb, var(--color-surface) 72%, var(--color-background) 28%);
+    --surface-muted: color-mix(
+      in srgb,
+      var(--color-surface) 72%,
+      var(--color-background) 28%
+    );
     --surface-ghost: rgba(255, 255, 255, 0.04);
     --focus-ring: color-mix(in srgb, var(--color-primary) 38%, transparent);
   }
@@ -86,18 +93,26 @@
     overflow-x: hidden;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-sans);
     letter-spacing: -0.03em;
     font-weight: 900; /* Extremely premium/bold look */
   }
 
-  button, input, select, textarea {
+  button,
+  input,
+  select,
+  textarea {
     font-family: inherit;
   }
 
   /* Modern Uppercase labels */
-  .text-xs.uppercase, 
+  .text-xs.uppercase,
   .text-\[10px\].uppercase,
   .tracking-widest {
     letter-spacing: 0.08em !important;
@@ -367,7 +382,8 @@
   text-decoration: underline;
 }
 
-.gb-description b, .gb-description strong {
+.gb-description b,
+.gb-description strong {
   color: white;
   font-weight: 700;
 }
@@ -383,7 +399,8 @@
 }
 
 /* Strip any inline background colors from GameBanana HTML that create clipping seams */
-.gb-description, .gb-description * {
+.gb-description,
+.gb-description * {
   background: transparent !important;
   background-color: transparent !important;
 }

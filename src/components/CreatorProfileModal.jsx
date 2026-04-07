@@ -77,44 +77,43 @@ export default function CreatorProfileModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 sm:p-12 overflow-hidden"
+      className="fixed right-0 top-0 bottom-0 left-0 md:left-64 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 sm:p-12 overflow-hidden"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 30 }}
-        animate={{ scale: 1, opacity: 1, y: 35 }}
-        className="w-full max-w-7xl bg-surface border border-border rounded-[40px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[84vh] relative"
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="w-full max-w-7xl bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[85vh] relative"
       >
         {/* Immersive Hero Header */}
-        <div className="relative h-44 shrink-0 overflow-hidden">
+        <div className="relative h-44 shrink-0 overflow-hidden border-b border-white/10 bg-background">
           {/* Background Layer (Blurred Image) */}
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 grayscale-[0.5] opacity-20 hidden md:block">
              {heroImage ? (
                 <div className="relative w-full h-full">
-                  <img src={heroImage} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-40" />
-                  <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/60 to-transparent" />
-                  <div className="absolute inset-0 bg-linear-to-r from-surface via-transparent to-transparent opacity-80" />
+                  <img src={heroImage} alt="" className="w-full h-full object-cover scale-105 blur-lg" />
+                  <div className="absolute inset-0 bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent opacity-90" />
                 </div>
              ) : (
-                <div className="w-full h-full bg-linear-to-br from-primary/20 via-transparent to-transparent opacity-50" />
+                <div className="w-full h-full bg-linear-to-br from-white/5 to-transparent opacity-30" />
              )}
           </div>
 
           <div className="absolute inset-0 p-6 flex items-center justify-between gap-6 z-10">
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-6">
               {/* Creator Avatar with Premium Border */}
-              <div className="relative w-20 h-20 group">
-                 <div className="absolute inset-0 rounded-full bg-primary blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                 <div className="relative w-full h-full rounded-full border border-border p-1 bg-surface shadow-2xl overflow-hidden">
+              <div className="relative w-20 h-20 group shrink-0">
+                 <div className="relative w-full h-full rounded-2xl border border-white/10 p-1 bg-[#0a0a0a] shadow-xl overflow-hidden">
                     {creator._sAvatarUrl ? (
                       <img 
                         src={creator._sAvatarUrl} 
                         alt={creator._sName} 
-                        className="w-full h-full rounded-full object-cover" 
+                        className="w-full h-full rounded-xl object-cover" 
                         style={{ imageRendering: "pixelated" }}
                       />
                     ) : (
-                      <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center">
+                      <div className="w-full h-full rounded-xl bg-white/5 flex items-center justify-center">
                         <User size={30} className="text-white/20" />
                       </div>
                     )}
@@ -122,20 +121,21 @@ export default function CreatorProfileModal({
               </div>
 
               {/* Identity & Global Stats */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 z-10 w-full">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-2xl">{creator._sName}</h2>
+                  <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_var(--color-primary)]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">CREATOR PROFILE</span>
                 </div>
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-2xl leading-none">{creator._sName}</h2>
                 
-                <div className="flex items-center gap-6">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted">Portfolio</span>
-                    <span className="text-lg font-black text-white">{total > 0 ? total : "—"} <span className="text-[10px] font-medium opacity-40 uppercase tracking-widest">Mods</span></span>
+                <div className="flex items-center gap-6 mt-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Portfolio</span>
+                    <span className="text-base font-black text-white">{total > 0 ? total : "—"}</span>
                   </div>
-                  <div className="w-px h-6 bg-white/10" />
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted">Current Game</span>
-                    <span className="text-lg font-black text-white">{game.name}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Game</span>
+                    <span className="text-base font-black text-white">{game.name}</span>
                   </div>
                 </div>
               </div>
@@ -149,9 +149,9 @@ export default function CreatorProfileModal({
                   onToggleCreatorBookmark?.(creator);
                 }}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-xl relative overflow-hidden group/btn",
+                  "flex items-center gap-2.5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-xl",
                   isCreatorBookmarked 
-                    ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" 
+                    ? "bg-primary text-black border-primary hover:brightness-110" 
                     : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
                 )}
               >
@@ -176,15 +176,15 @@ export default function CreatorProfileModal({
                         e.stopPropagation();
                         window.electronConfig?.openExternal?.(creator._sProfileUrl);
                       }}
-                      className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/50 hover:text-white transition-all shadow-lg group/link"
+                      className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/50 hover:text-white transition-all shadow-lg"
                       title="View GameBanana Profile"
                     >
-                      <ExternalLink size={18} className="group-hover/link:scale-110 transition-transform" />
+                      <ExternalLink size={18} />
                     </button>
                  )}
                  <button
                     onClick={onClose}
-                    className="p-2.5 bg-white/5 hover:bg-black text-white/50 hover:text-red-500 border border-white/10 hover:border-red-500/30 rounded-xl transition-all shadow-lg"
+                    className="p-2.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 rounded-xl transition-all shadow-lg"
                  >
                     <X size={18} />
                  </button>
@@ -194,9 +194,9 @@ export default function CreatorProfileModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 flex flex-col min-h-0 bg-linear-to-b from-surface to-black/40">
+        <div className="flex-1 flex flex-col min-h-0 bg-[#0a0a0a]">
            {/* Section Label */}
-           <div className="px-10 py-5 border-b border-border flex items-center justify-between shrink-0">
+           <div className="px-10 py-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-background">
              <div className="flex items-center gap-3">
                 <LayoutGrid size={14} className="text-primary" />
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Public Release Catalog</h3>

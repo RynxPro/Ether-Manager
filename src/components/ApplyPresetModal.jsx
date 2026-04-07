@@ -1,12 +1,24 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, CheckCircle, XCircle, AlertTriangle, Loader2, X } from "lucide-react";
+import {
+  Zap,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Loader2,
+  X,
+} from "lucide-react";
 import { cn } from "../lib/utils";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { StatePanel } from "./ui/StatePanel";
 
-export default function ApplyPresetModal({ preset, importerPath, onClose, onApplied }) {
+export default function ApplyPresetModal({
+  preset,
+  importerPath,
+  onClose,
+  onApplied,
+}) {
   const game = useAppStore((state) => state.activeGame);
   const { mods: allMods, loadMods } = useLoadGameMods(game.id);
   const [diff, setDiff] = useState(null);
@@ -22,7 +34,7 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       const availableMods = Array.isArray(allMods) ? allMods : [];
 
       // 1. Identify Scope (Affected Characters)
-      const affectedCharacters = new Set(preset.mods.map(m => m.character));
+      const affectedCharacters = new Set(preset.mods.map((m) => m.character));
 
       // 2. Diff Targeting
       const willEnable = [];
@@ -32,7 +44,11 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       // Check which preset mods exist in allMods and need enabling
       for (const pm of preset.mods) {
         // Find by base id (folder name excluding DISABLED_ prefix)
-        const exists = availableMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, ""));
+        const exists = availableMods.find(
+          (m) =>
+            m.id === pm.modId ||
+            m.id === pm.originalFolderName.replace(/^DISABLED_/, ""),
+        );
         if (!exists) {
           notFound.push(pm);
         } else if (!exists.isEnabled) {
@@ -44,7 +60,11 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       for (const m of availableMods) {
         if (m.isEnabled && affectedCharacters.has(m.character)) {
           // Is it part of the preset?
-          const isPart = preset.mods.find(pm => pm.modId === m.id || pm.originalFolderName.replace(/^DISABLED_/, "") === m.id);
+          const isPart = preset.mods.find(
+            (pm) =>
+              pm.modId === m.id ||
+              pm.originalFolderName.replace(/^DISABLED_/, "") === m.id,
+          );
           if (!isPart) {
             willDisable.push(m);
           }
@@ -55,15 +75,17 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
 
       // Fetch GB data for thumbnails asynchronously
       const allChanged = [...willEnable, ...willDisable, ...notFound];
-      const gbIds = allChanged.map(m => m.gamebananaId).filter(Boolean);
+      const gbIds = allChanged.map((m) => m.gamebananaId).filter(Boolean);
       if (gbIds.length > 0) {
-        window.electronMods.fetchGbModsBatch(gbIds).then(batch => {
+        window.electronMods.fetchGbModsBatch(gbIds).then((batch) => {
           if (batch.success && batch.data) {
             const dataMap = {};
-            batch.data.forEach(item => {
+            batch.data.forEach((item) => {
               const thumb = item._aPreviewMedia?._aImages?.[0];
               dataMap[item._idRow] = {
-                thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
+                thumbnailUrl: thumb
+                  ? `${thumb._sBaseUrl}/${thumb._sFile}`
+                  : null,
               };
             });
             setGbData(dataMap);
@@ -81,13 +103,13 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
     setApplying(true);
     try {
       // Form precise instructions for the backend
-      const enableList = diff.willEnable.map(m => m.originalFolderName);
-      const disableList = diff.willDisable.map(m => m.originalFolderName);
+      const enableList = diff.willEnable.map((m) => m.originalFolderName);
+      const disableList = diff.willDisable.map((m) => m.originalFolderName);
 
       const result = await window.electronMods.executePresetDiff({
         importerPath,
         enableList,
-        disableList
+        disableList,
       });
 
       if (result.success) {
@@ -110,7 +132,9 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-70 flex items-center justify-center bg-black/90 backdrop-blur-sm p-8"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -122,12 +146,21 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Zap size={16} className="text-primary" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Apply Loadout</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">
+                Apply Loadout
+              </span>
             </div>
-            <h2 className="text-2xl font-bold text-text-primary tracking-tight">{preset.name}</h2>
-            <p className="text-text-muted text-xs mt-1">Review all changes before applying to disk.</p>
+            <h2 className="text-2xl font-bold text-text-primary tracking-tight">
+              {preset.name}
+            </h2>
+            <p className="text-text-muted text-xs mt-1">
+              Review all changes before applying to disk.
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 text-white/30 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+          <button
+            onClick={onClose}
+            className="p-2 text-white/30 hover:text-white rounded-xl hover:bg-white/5 transition-all"
+          >
             <X size={18} />
           </button>
         </div>
@@ -137,7 +170,9 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
           {loading && (
             <div className="flex items-center justify-center py-16 gap-3 text-text-muted">
               <Loader2 size={20} className="animate-spin" />
-              <span className="text-sm font-medium">Calculating changes...</span>
+              <span className="text-sm font-medium">
+                Calculating changes...
+              </span>
             </div>
           )}
 
@@ -151,9 +186,21 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
           {diff && !loading && (
             <div className="flex flex-col gap-6">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <DiffSummaryCard label="Enable" value={diff.willEnable.length} tone="emerald" />
-                <DiffSummaryCard label="Disable" value={diff.willDisable.length} tone="red" />
-                <DiffSummaryCard label="Missing" value={diff.notFound.length} tone="yellow" />
+                <DiffSummaryCard
+                  label="Enable"
+                  value={diff.willEnable.length}
+                  tone="emerald"
+                />
+                <DiffSummaryCard
+                  label="Disable"
+                  value={diff.willDisable.length}
+                  tone="red"
+                />
+                <DiffSummaryCard
+                  label="Missing"
+                  value={diff.notFound.length}
+                  tone="yellow"
+                />
                 <DiffSummaryCard
                   label="Total Changes"
                   value={diff.willEnable.length + diff.willDisable.length}
@@ -195,15 +242,17 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
               )}
 
               {/* No changes */}
-              {diff.willEnable.length === 0 && diff.willDisable.length === 0 && diff.notFound.length === 0 && (
-                <StatePanel
-                  icon={CheckCircle}
-                  title="No changes needed"
-                  message="All mods in this preset are already in their correct state."
-                  tone="success"
-                  className="min-h-[12rem]"
-                />
-              )}
+              {diff.willEnable.length === 0 &&
+                diff.willDisable.length === 0 &&
+                diff.notFound.length === 0 && (
+                  <StatePanel
+                    icon={CheckCircle}
+                    title="No changes needed"
+                    message="All mods in this preset are already in their correct state."
+                    tone="success"
+                    className="min-h-[12rem]"
+                  />
+                )}
             </div>
           )}
         </div>
@@ -221,13 +270,17 @@ export default function ApplyPresetModal({ preset, importerPath, onClose, onAppl
             disabled={loading || applying || !!error}
             className={cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border shadow-lg",
-              "bg-primary text-black hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+              "bg-primary text-black hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed",
             )}
           >
             {applying ? (
-              <><Loader2 size={14} className="animate-spin" /> Applying...</>
+              <>
+                <Loader2 size={14} className="animate-spin" /> Applying...
+              </>
             ) : (
-              <><Zap size={14} strokeWidth={3} /> Apply Loadout</>
+              <>
+                <Zap size={14} strokeWidth={3} /> Apply Loadout
+              </>
             )}
           </button>
         </div>
@@ -246,8 +299,12 @@ function DiffSummaryCard({ label, value, tone }) {
 
   return (
     <div className={cn("rounded-2xl border p-4 shadow-card", toneClass[tone])}>
-      <div className="text-[10px] font-black uppercase tracking-[0.18em]">{label}</div>
-      <div className="mt-2 text-2xl font-black tracking-tight text-text-primary">{value}</div>
+      <div className="text-[10px] font-black uppercase tracking-[0.18em]">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-black tracking-tight text-text-primary">
+        {value}
+      </div>
     </div>
   );
 }
@@ -260,25 +317,48 @@ function Section({ icon, label, color, items, gbData }) {
   };
   return (
     <div className="flex flex-col gap-3">
-      <div className={cn("flex items-center gap-2 px-3 py-2 rounded-xl border w-max text-[10px] font-black uppercase tracking-widest", colorMap[color])}>
+      <div
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 rounded-xl border w-max text-[10px] font-black uppercase tracking-widest",
+          colorMap[color],
+        )}
+      >
         {icon}
         {label}
       </div>
       <div className="flex flex-col gap-2">
         {items.map((item, i) => {
-          const thumb = item.customThumbnail || gbData[item.gamebananaId]?.thumbnailUrl;
+          const thumb =
+            item.customThumbnail || gbData[item.gamebananaId]?.thumbnailUrl;
           return (
-            <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-background border border-border">
+            <div
+              key={i}
+              className="flex items-center gap-3 p-2 rounded-xl bg-background border border-border"
+            >
               <div className="w-12 h-8 rounded-lg overflow-hidden bg-surface border border-border shrink-0 relative">
                 {thumb ? (
-                  <img src={item.customThumbnail ? `file://${item.customThumbnail}` : thumb} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={
+                      item.customThumbnail
+                        ? `file://${item.customThumbnail}`
+                        : thumb
+                    }
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[7px] text-white/10 font-black">NO IMG</div>
+                  <div className="w-full h-full flex items-center justify-center text-[7px] text-white/10 font-black">
+                    NO IMG
+                  </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-text-primary truncate">{item.name || item.baseName || item.originalFolderName}</p>
-                <p className="text-[9px] text-text-muted uppercase tracking-wider font-medium">{item.character || "Misc"}</p>
+                <p className="text-[11px] font-bold text-text-primary truncate">
+                  {item.name || item.baseName || item.originalFolderName}
+                </p>
+                <p className="text-[9px] text-text-muted uppercase tracking-wider font-medium">
+                  {item.character || "Misc"}
+                </p>
               </div>
             </div>
           );

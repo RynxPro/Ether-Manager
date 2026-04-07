@@ -13,6 +13,7 @@ import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
 import { getModClassification } from "../lib/modClassification";
 import PageHeader from "../components/layout/PageHeader";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { StatePanel } from "../components/ui/StatePanel";
 import { Button } from "../components/ui/Button";
 
@@ -38,10 +39,11 @@ export default function LibraryView({ isActive }) {
 
   // Standardized Mod Loading
   const { mods, loadMods } = useLoadGameMods(game.id, isActive !== false);
+  const isOnline = useNetworkStatus();
 
   useEffect(() => {
     const checkUpdates = async () => {
-      if (!mods || mods.length === 0) return;
+      if (!isOnline || !mods || mods.length === 0) return;
 
       const modsWithId = mods.filter((m) => m.gamebananaId);
       const gbIds = [...new Set(modsWithId.map((m) => m.gamebananaId))];
@@ -87,7 +89,7 @@ export default function LibraryView({ isActive }) {
     };
 
     checkUpdates();
-  }, [fetchModsBatch, mods]);
+  }, [fetchModsBatch, mods, isOnline]);
 
   const handleDisableAllGame = useCallback(() => {
     const enabledMods = mods.filter((m) => m.isEnabled);

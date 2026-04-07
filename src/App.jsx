@@ -1,12 +1,14 @@
 import { useEffect, useState, lazy } from "react";
 import { GAME_CONFIG } from "./gameConfig";
 import { useAppStore } from "./store/useAppStore";
-import Navbar from "./components/Navbar";
+import Sidebar from "./components/layout/Sidebar";
 import LibraryView from "./views/LibraryView";
 import OnboardingModal from "./components/OnboardingModal";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 import AppViewShell from "./components/layout/AppViewShell";
+import { WifiOff } from "lucide-react";
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
 
 const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
 const BrowseView = lazy(() => import("./views/BrowseView"));
@@ -19,7 +21,18 @@ function App() {
   const setSelectedCharacter = useAppStore(
     (state) => state.setSelectedCharacter,
   );
+  const updateDownloadProgress = useAppStore((state) => state.updateDownloadProgress);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const isOnline = useNetworkStatus();
+
+  // Global IPC Listeners
+  useEffect(() => {
+    if (window.electronMods && window.electronMods.onDownloadProgress) {
+      return window.electronMods.onDownloadProgress((data) => {
+        updateDownloadProgress(data.gbModId, data.percent);
+      });
+    }
+  }, [updateDownloadProgress]);
 
   useEffect(() => {
     async function checkOnboarding() {
@@ -53,7 +66,9 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background text-text-primary relative overflow-hidden">
+    <div className="h-screen w-screen flex flex-row bg-background text-text-primary relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-8 z-100 titlebar-drag pointer-events-auto" />
+
       {/* Background radial gradient corresponding to game color */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -77,9 +92,23 @@ function App() {
         </svg>
       </div>
 
-      <Navbar onShowHelp={handleShowHelp} />
+      <Sidebar onShowHelp={handleShowHelp} />
 
-      <main className="flex-1 w-full relative z-10 overflow-hidden">
+      <main className="flex-1 h-full relative z-10 overflow-hidden">
+        <AnimatePresence>
+          {!isOnline && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, x: "-50%" }}
+              animate={{ opacity: 1, y: 0, x: "-50%" }}
+              exit={{ opacity: 0, y: -20, x: "-50%" }}
+              className="absolute top-6 left-1/2 z-50 text-red-500 bg-red-500/10 border border-red-500/20 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 shadow-lg"
+            >
+              <WifiOff size={16} />
+              <span className="text-sm font-medium uppercase tracking-widest">Offline Mode</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <ErrorBoundary>
           <AppViewShell isActive={activeView === "browse"}>
             <BrowseView />

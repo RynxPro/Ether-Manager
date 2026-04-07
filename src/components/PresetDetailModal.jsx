@@ -2,23 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Plus, Search, HelpCircle, Package, ArrowLeft, RefreshCw, X, ChevronDown, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy, Info } from "lucide-react";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
-import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 import ApplyPresetModal from "./ApplyPresetModal";
+import SidePanel from "./layout/SidePanel";
+import { useAppStore } from "../store/useAppStore";
 import { getModDisplayCharacter } from "../lib/modClassification";
-const ACCENT_COLORS = [
-  { label: "Violet", value: "#7c3aed" },
-  { label: "Cyan", value: "#06b6d4" },
-  { label: "Rose", value: "#f43f5e" },
-  { label: "Amber", value: "#f59e0b" },
-  { label: "Emerald", value: "#10b981" },
-  { label: "Blue", value: "#3b82f6" },
-  { label: "Orange", value: "#f97316" },
-  { label: "Pink", value: "#ec4899" },
-  { label: "Lime", value: "#84cc16" },
-  { label: "White", value: "#e2e8f0" },
-];
-
 export default function PresetDetailModal({
   preset: initialPreset,
   importerPath,
@@ -42,7 +30,6 @@ export default function PresetDetailModal({
   // Edit mode state
   const [editName, setEditName] = useState(preset.name);
   const [editDescription, setEditDescription] = useState(preset.description || "");
-  const [editColor, setEditColor] = useState(preset.color);
   const [editMods, setEditMods] = useState([...preset.mods]);
 
   // Add mods panel state
@@ -145,7 +132,6 @@ export default function PresetDetailModal({
           ...preset,
           name: editName.trim() || preset.name,
           description: editDescription.trim(),
-          color: editColor,
           mods: editMods,
           updatedAt: new Date().toISOString(),
         };
@@ -161,7 +147,6 @@ export default function PresetDetailModal({
       // Enter edit mode
       setEditName(preset.name);
       setEditDescription(preset.description || "");
-      setEditColor(preset.color);
       setEditMods([...preset.mods]);
       setIsEditMode(true);
       loadLibrary();
@@ -236,72 +221,17 @@ export default function PresetDetailModal({
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 sm:p-12"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 35 }}
-          animate={{ scale: 1, opacity: 1, y: 35 }}
-          className="w-full max-w-5xl bg-surface border border-border rounded-[40px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[84vh]"
-        >
-          {/* Hero Header */}
-          <div className="relative h-64 shrink-0 overflow-hidden bg-background border-b border-white/5">
-            {/* Background Layer: Mod Mosaic */}
-            <div className="absolute inset-0 z-0 opacity-60 pointer-events-none overflow-hidden">
-              <div className="absolute inset-x-0 inset-y-0 grid grid-cols-3 md:grid-cols-4 gap-4 scale-100 blur-none">
-                {displayMods.slice(0, 8).map((m, i) => (
-                  <div key={`${m.modId}-${i}`} className="aspect-video rounded-[24px] overflow-hidden border border-white/10 bg-white/5 shadow-2xl">
-                    {(m.customThumbnail || gbData[m.gamebananaId]?.thumbnailUrl) ? (
-                      <img 
-                        src={m.customThumbnail ? `file://${m.customThumbnail}` : gbData[m.gamebananaId]?.thumbnailUrl} 
-                        className="w-full h-full object-cover opacity-80 transition-all duration-1000" 
-                        alt=""
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-white/2" />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/40 to-transparent" />
-              <div className="absolute inset-0 bg-linear-to-r from-surface/40 via-transparent to-surface/40 shadow-inner" />
-            </div>
+      <SidePanel isOpen={true} onClose={onClose} widthClass="w-full max-w-3xl sm:max-w-4xl border-white/10" title="Loadout Details">
+        <div className="flex flex-col min-h-full bg-[#0a0a0a]">
+          {/* Header */}
+          <div className="relative shrink-0 border-b border-white/10 bg-background overflow-hidden p-8 flex justify-between items-end gap-8">
+            <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent opacity-50" />
+            
+            <div className="absolute -left-40 -top-40 w-96 h-96 bg-primary blur-[120px] opacity-10 pointer-events-none rounded-full" />
 
-            {/* Accent Glow (Replacing the side line) */}
-            <div 
-              className="absolute top-0 left-0 right-0 h-1 opacity-50 shadow-[0_5px_40px_var(--color)] animate-pulse" 
-              style={{ backgroundColor: preset.color, '--color': preset.color }} 
-            />
-            <div 
-              className="absolute -left-20 -top-20 w-64 h-64 blur-[100px] opacity-20"
-              style={{ backgroundColor: preset.color }}
-            />
-
-            <div className="absolute inset-0 p-8 flex items-end justify-between gap-8 z-10">
-              <div className="flex flex-col gap-2 max-w-2xl">
+            <div className="relative flex flex-col gap-2 w-full max-w-2xl z-10">
                 <div className="flex items-center gap-3 mb-1">
-                  {isEditMode ? (
-                     <div className="flex items-center gap-2 bg-black/40 p-2 rounded-2xl border border-white/10 backdrop-blur-md">
-                        {ACCENT_COLORS.map(c => (
-                           <button
-                             key={c.value}
-                             onClick={() => setEditColor(c.value)}
-                             title={c.label}
-                             className={cn(
-                               "w-5 h-5 rounded-full transition-all hover:scale-125 border border-white/10",
-                               editColor === c.value ? "ring-2 ring-white scale-110 shadow-lg" : "scale-100 opacity-50 hover:opacity-100"
-                             )}
-                             style={{ backgroundColor: c.value }}
-                           />
-                        ))}
-                     </div>
-                  ) : (
-                    <div className="w-3 h-3 rounded-full shadow-[0_0_15px_var(--color)]" style={{ backgroundColor: preset.color, '--color': preset.color }} />
-                  )}
+                  <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_var(--color-primary)]" />
                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">LOADOUT · {game.id}</span>
                 </div>
 
@@ -342,13 +272,12 @@ export default function PresetDetailModal({
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col gap-3 items-end shrink-0">
+              <div className="relative flex flex-col gap-3 items-end shrink-0 z-10">
                 <div className="flex items-center gap-3">
                   {!isEditMode && (
                     <button
                       onClick={() => setShowApply(true)}
-                      className="group flex items-center gap-3 px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl"
-                      style={{ backgroundColor: preset.color, color: "#000" }}
+                      className="group flex items-center gap-3 px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl bg-primary text-black"
                     >
                       <Zap size={15} strokeWidth={3} className="group-hover:animate-pulse" /> Apply Loadout
                     </button>
@@ -381,16 +310,15 @@ export default function PresetDetailModal({
                       </button>
                     </>
                   ) : (
-                    <button onClick={() => { setIsEditMode(false); setShowAddPanel(false); }} className="p-3 bg-surface/80 hover:bg-red-500/10 border border-white/10 rounded-2xl text-white/40 hover:text-red-400 transition-all shadow-xl">
+                    <button onClick={() => { setIsEditMode(false); setShowAddPanel(false); }} title="Cancel Editing" className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white/40 hover:text-white transition-all shadow-xl">
                       <X size={18} />
                     </button>
                   )}
-                  <button onClick={onClose} className="p-3 bg-red-500/10 hover:bg-red-500 border border-red-500/20 hover:border-red-400 rounded-2xl text-red-500 hover:text-white transition-all shadow-xl">
+                  <button onClick={onClose} title="Close Loadout" className="p-3 bg-red-500/10 hover:bg-red-500 border border-red-500/20 hover:border-red-400 rounded-2xl text-red-500 hover:text-white transition-all shadow-xl">
                     <X size={18} strokeWidth={3} />
                   </button>
                 </div>
               </div>
-            </div>
           </div>
 
           {/* Tabs */}
@@ -433,12 +361,14 @@ export default function PresetDetailModal({
                   const ghostMods = displayMods.filter(pm => !allLibraryMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, "")));
                   if (ghostMods.length > 0 && !isEditMode && allLibraryMods.length > 0) {
                     return (
-                      <div className="flex items-center justify-between p-4 mb-6 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-500/80 shadow-inner">
-                        <div className="flex items-center gap-3">
-                          <AlertTriangle size={18} className="text-yellow-500 shrink-0" />
+                      <div className="flex items-center justify-between p-4 mb-6 rounded-2xl bg-[#110d00] border-2 border-yellow-500/50 text-yellow-500/80 shadow-inner">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-xl bg-yellow-500/20 text-yellow-500">
+                             <AlertTriangle size={20} strokeWidth={2.5} />
+                          </div>
                           <div className="text-xs">
-                            <span className="font-bold text-yellow-500 tracking-tight">Missing Mods Detected</span>
-                            <p className="mt-0.5 opacity-80 font-medium leading-tight">{ghostMods.length} mod(s) in this loadout were permanently deleted or renamed.</p>
+                            <span className="font-bold text-yellow-500 tracking-tight uppercase">Missing Mods Detected</span>
+                            <p className="mt-1 font-medium leading-tight text-yellow-500/80">{ghostMods.length} mod(s) in this loadout were permanently deleted or renamed.</p>
                           </div>
                         </div>
                         <button 
@@ -479,9 +409,9 @@ export default function PresetDetailModal({
                     {displayMods.map((mod) => (
                       <div
                         key={mod.modId}
-                        className="relative flex items-center gap-4 p-4 rounded-[20px] bg-background border border-white/5 hover:border-white/20 transition-all duration-300 group shadow-sm hover:shadow-xl"
+                        className="relative flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 group shadow-sm"
                       >
-                        <div className="w-24 h-14 rounded-xl overflow-hidden bg-surface border border-white/5 shrink-0 relative shadow-inner">
+                        <div className="w-24 h-14 rounded-xl overflow-hidden bg-background border border-white/5 shrink-0 relative shadow-inner">
                           {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
                             <img 
                               src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
@@ -613,7 +543,7 @@ export default function PresetDetailModal({
               </div>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* Delete Confirmation */}
         <AnimatePresence>
@@ -622,7 +552,7 @@ export default function PresetDetailModal({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -658,7 +588,7 @@ export default function PresetDetailModal({
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </SidePanel>
 
       {/* Apply Modal */}
       <AnimatePresence>

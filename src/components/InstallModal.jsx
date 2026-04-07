@@ -74,7 +74,11 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
           {/* Thumbnail header */}
           {mod.thumbnailUrl && (
             <div className="relative h-48 bg-background">
-              <img src={mod._sScreenshot} alt="" className="w-full h-full object-cover" />
+              <img
+                src={mod._sScreenshot}
+                alt=""
+                className="w-full h-full object-cover"
+              />
               <div className="absolute inset-0 bg-linear-to-t from-surface to-transparent" />
             </div>
           )}
@@ -88,7 +92,9 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
               <X size={16} />
             </button>
 
-            <h2 className="text-xl font-bold text-text-primary mb-1 pr-8">{mod._sName}</h2>
+            <h2 className="text-xl font-bold text-text-primary mb-1 pr-8">
+              {mod._sName}
+            </h2>
             <p className="text-sm text-text-muted mb-5">
               by {mod._aSubmitter?._sName || "Unknown"}
               {fileEntry && (
@@ -108,23 +114,30 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
                 onChange={(e) => setSelectedCharacter(e.target.value)}
                 className="flex-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-colors"
               >
-                <option value="" disabled>Select a character...</option>
+                <option value="" disabled>
+                  Select a character...
+                </option>
                 {characters.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+              <ChevronDown
+                size={16}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+              />
             </div>
 
-            {error && (
-              <p className="text-red-500 text-sm mb-4">{error}</p>
-            )}
+            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
             {isInstallComplete && (
               <div className="flex flex-col items-center justify-center p-4 mb-6 rounded-xl bg-primary/10 border border-primary/20 text-primary shadow-[0_0_20px_var(--color-primary)]/10">
                 <CheckCircle size={28} className="mb-2" />
                 <p className="font-semibold text-sm">Download Complete!</p>
-                <p className="text-xs opacity-80 mt-1 text-center">Mod installed successfully.</p>
+                <p className="text-xs opacity-80 mt-1 text-center">
+                  Mod installed successfully.
+                </p>
               </div>
             )}
 
@@ -149,18 +162,20 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
                     disabled={isInstalling || !selectedCharacter}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-black font-bold hover:brightness-110 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
                   >
-                    {isInstalling && downloadProgress > 0 && downloadProgress < 100 && (
-                       <div 
-                         className="absolute left-0 top-0 bottom-0 bg-black/20" 
-                         style={{ width: `${downloadProgress}%` }}
-                       />
-                    )}
+                    {isInstalling &&
+                      downloadProgress > 0 &&
+                      downloadProgress < 100 && (
+                        <div
+                          className="absolute left-0 top-0 bottom-0 bg-black/20"
+                          style={{ width: `${downloadProgress}%` }}
+                        />
+                      )}
                     {isInstalling ? (
                       <span className="animate-pulse relative z-10 whitespace-nowrap">
-                        {downloadProgress > 0 && downloadProgress < 100 
-                          ? `Downloading... ${downloadProgress}%` 
-                          : downloadProgress === 100 
-                            ? "Extracting..." 
+                        {downloadProgress > 0 && downloadProgress < 100
+                          ? `Downloading... ${downloadProgress}%`
+                          : downloadProgress === 100
+                            ? "Extracting..."
                             : "Starting..."}
                       </span>
                     ) : (

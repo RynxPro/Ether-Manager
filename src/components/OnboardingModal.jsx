@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, 
-  ChevronRight, 
-  ChevronLeft, 
-  Settings, 
-  Search, 
-  Library, 
+  X,
+  ChevronRight,
+  ChevronLeft,
+  Settings,
+  Search,
+  Library,
   CheckCircle2,
-  Rocket
+  Rocket,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
@@ -16,39 +16,44 @@ import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 const STEPS = [
   {
     title: "Welcome to Aether",
-    description: "Your ultimate hub for managing and discovering mods. Let's get you set up in less than a minute.",
+    description:
+      "Your ultimate hub for managing and discovering mods. Let's get you set up in less than a minute.",
     icon: Rocket,
     portrait: "Ellen Joe",
-    game: "zzmi"
+    game: "zzmi",
   },
   {
     title: "Configure Paths",
-    description: "Head to Settings to link your Game folders. This allows Aether to install and toggle mods automatically.",
+    description:
+      "Head to Settings to link your Game folders. This allows Aether to install and toggle mods automatically.",
     icon: Settings,
     portrait: "Jane Doe",
-    game: "zzmi"
+    game: "zzmi",
   },
   {
     title: "Browse & Discover",
-    description: "Explore the Browse tab to find thousands of mods from GameBanana. Install with a single click.",
+    description:
+      "Explore the Browse tab to find thousands of mods from GameBanana. Install with a single click.",
     icon: Search,
     portrait: "Jiyan",
-    game: "wwmi"
+    game: "wwmi",
   },
   {
     title: "Manage Your Library",
-    description: "The My Mods tab shows your collection. Profiles are grouped by character for easy management.",
+    description:
+      "The My Mods tab shows your collection. Profiles are grouped by character for easy management.",
     icon: Library,
     portrait: "Raiden Shogun",
-    game: "gimi"
+    game: "gimi",
   },
   {
     title: "You're All Set!",
-    description: "You're ready to transform your gaming experience. Happy modding!",
+    description:
+      "You're ready to transform your gaming experience. Happy modding!",
     icon: CheckCircle2,
     portrait: "Furina",
-    game: "gimi"
-  }
+    game: "gimi",
+  },
 ];
 
 export default function OnboardingModal({ isOpen, onClose }) {
@@ -104,9 +109,9 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 className="absolute inset-0"
               >
                 {portraitUrl ? (
-                  <img 
-                    src={portraitUrl} 
-                    className="w-full h-full object-cover opacity-20 blur-2xl scale-125" 
+                  <img
+                    src={portraitUrl}
+                    className="w-full h-full object-cover opacity-20 blur-2xl scale-125"
                     alt=""
                   />
                 ) : (
@@ -127,7 +132,10 @@ export default function OnboardingModal({ isOpen, onClose }) {
               transition={{ type: "spring", damping: 15 }}
               className="relative z-10 w-24 h-24 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-3xl flex items-center justify-center shadow-2xl"
             >
-              <Icon size={48} className="text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]" />
+              <Icon
+                size={48}
+                className="text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+              />
             </motion.div>
 
             {/* Close Button */}
@@ -147,15 +155,17 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <div className="flex items-center justify-center gap-2 mb-3">
-                   <div className="w-1 h-4 bg-primary rounded-full shadow-primary/20" />
-                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted/50">Getting Started</span>
+                  <div className="w-1 h-4 bg-primary rounded-full shadow-primary/20" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted/50">
+                    Getting Started
+                  </span>
                 </div>
                 <h2 className="text-3xl font-bold text-text-primary mb-4 tracking-tighter">
                   {step.title}
                 </h2>
               </motion.div>
-              
-              <motion.p 
+
+              <motion.p
                 key={`desc-${currentStep}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -173,7 +183,9 @@ export default function OnboardingModal({ isOpen, onClose }) {
                   key={i}
                   className={cn(
                     "h-1 rounded-full transition-all duration-500",
-                    i === currentStep ? "w-10 bg-primary shadow-primary/20" : "w-1.5 bg-white/10"
+                    i === currentStep
+                      ? "w-10 bg-primary shadow-primary/20"
+                      : "w-1.5 bg-white/10",
                   )}
                 />
               ))}
@@ -186,7 +198,9 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 disabled={currentStep === 0}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 text-sm font-black uppercase tracking-widest transition-all",
-                  currentStep === 0 ? "opacity-0 pointer-events-none" : "text-white/30 hover:text-white"
+                  currentStep === 0
+                    ? "opacity-0 pointer-events-none"
+                    : "text-white/30 hover:text-white",
                 )}
               >
                 <ChevronLeft size={18} />
@@ -198,7 +212,11 @@ export default function OnboardingModal({ isOpen, onClose }) {
                 className="flex items-center gap-2 px-8 py-4 bg-primary text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/20"
               >
                 {currentStep === STEPS.length - 1 ? "Finish" : "Continue"}
-                {currentStep !== STEPS.length - 1 ? <ChevronRight size={18} strokeWidth={3} /> : <CheckCircle2 size={18} strokeWidth={3} />}
+                {currentStep !== STEPS.length - 1 ? (
+                  <ChevronRight size={18} strokeWidth={3} />
+                ) : (
+                  <CheckCircle2 size={18} strokeWidth={3} />
+                )}
               </button>
             </div>
           </div>

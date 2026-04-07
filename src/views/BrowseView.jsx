@@ -32,6 +32,8 @@ import {
   normalizeBookmarkConfig,
 } from "../lib/bookmarks";
 import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
+import { WifiOff } from "lucide-react";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -53,6 +55,9 @@ const PER_PAGE = 20;
 export default function BrowseView() {
   const game = useAppStore((state) => state.activeGame);
   const configVersion = useAppStore((state) => state.configVersion);
+  const addDownload = useAppStore((state) => state.addDownload);
+  const completeDownload = useAppStore((state) => state.completeDownload);
+  
   const [activeTab, setActiveTab] = useState("all");
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -76,6 +81,8 @@ export default function BrowseView() {
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
 
+  const isOnline = useNetworkStatus();
+
   // Use fetch cache for individual mod details
   const { fetchMod } = useFetchCache();
   const currentBookmarkIds = useMemo(
@@ -91,7 +98,7 @@ export default function BrowseView() {
   // Fetch Featured Mods (Randomized popular mods per session)
   useEffect(() => {
     const fetchFeatured = async () => {
-      if (!game.gbGameId || !window.electronMods?.browseGbMods) return;
+      if (!isOnline || !game.gbGameId || !window.electronMods?.browseGbMods) return;
       setLoadingFeatured(true);
       try {
         // Randomly grab page 1, 2, or 3 of the most liked mods
@@ -116,7 +123,7 @@ export default function BrowseView() {
       }
     };
     fetchFeatured();
-  }, [game.gbGameId]);
+  }, [game.gbGameId, isOnline]);
 
   // Load importer path and bookmarks once
   useEffect(() => {
@@ -232,6 +239,11 @@ export default function BrowseView() {
   const fetchMods = useCallback(async () => {
     if (activeTab === "saved") return;
 
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
+
     if (!window.electronMods?.browseGbMods) {
       setLoading(false);
       setError(
@@ -277,6 +289,7 @@ export default function BrowseView() {
       setLoading(false);
     }
   }, [
+    isOnline,
     game.gbGameId,
     page,
     sort,
@@ -369,20 +382,44 @@ export default function BrowseView() {
     async ({ characterName, gbModId, fileUrl, fileName, category }) => {
       if (!importerPath)
         throw new Error("No importer path configured. Go to Settings first.");
-      const result = await window.electronMods.installGbMod({
-        importerPath,
-        characterName,
-        gbModId,
-        fileUrl,
-        fileName,
-        category,
-        gameId: game.id,
-      });
-      if (!result.success)
-        throw new Error(result.error || "Installation failed.");
-      await refreshInstalledModsInfo(true);
+
+      if (!window.electronMods?.installGbMod) {
+        throw new Error("Mod installation is unavailable right now.");
+      }
+
+      addDownload({ id: gbModId, title: fileName || "Mod Library" });
+
+      void (async () => {
+        try {
+          const result = await window.electronMods.installGbMod({
+            importerPath,
+            characterName,
+            gbModId,
+            fileUrl,
+            fileName,
+            category,
+            gameId: game.id,
+          });
+
+          completeDownload(gbModId, result.success, result.error);
+
+          if (!result.success) {
+            return;
+          }
+
+          await refreshInstalledModsInfo(true);
+        } catch (err) {
+          completeDownload(gbModId, false, err.message || "Installation failed");
+        }
+      })();
     },
-    [importerPath, game.id, refreshInstalledModsInfo],
+    [
+      importerPath,
+      game.id,
+      refreshInstalledModsInfo,
+      addDownload,
+      completeDownload,
+    ],
   );
 
   const handleCreatorClick = useCallback((submitter) => {
@@ -469,211 +506,9 @@ export default function BrowseView() {
         description={description}
       />
 
-      {/* Featured Hero Loading Skeleton to strictly prevent layout shifting & bouncing frames */}
-      {showFeaturedHero && loadingFeatured && (
-        <div className="mb-4 w-full">
-          <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
-            <Rocket className="text-text-muted" size={20} />
-            <div className="w-32 h-6 bg-white/10 rounded-xl animate-pulse" />
-          </div>
-          <div className="w-full h-[400px] rounded-2xl bg-surface border border-border overflow-hidden relative group">
-            {/* Simple structural hints */}
-            <div className="absolute left-12 top-1/2 -translate-y-1/2 flex flex-col gap-4">
-              <div className="w-24 h-5 bg-white/5 rounded-full animate-pulse" />
-              <div className="w-80 h-16 bg-white/10 rounded-2xl animate-pulse" />
-              <div className="w-64 h-8 bg-white/5 rounded-xl animate-pulse" />
-            </div>
-            <div className="absolute right-12 top-1/2 -translate-y-1/2 w-[45%] aspect-video rounded-3xl bg-white/5 shadow-2xl animate-pulse border border-white/10" />
-            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/50 to-transparent opacity-50" />
-          </div>
-        </div>
-      )}
+      {/* ── SECTION: Page Header ─────────────────────────────────────────── */}
 
-      {/* Featured Hero Carousel (Now spans full width) */}
-      {!loadingFeatured &&
-        featuredMods.length > 0 &&
-        showFeaturedHero &&
-        (() => {
-          const timeframes = [
-            {
-              label: "Mod of All Time",
-              color: "from-amber-500 to-orange-600",
-              shadow: "shadow-amber-500/50",
-            },
-            {
-              label: "Mod of the Year",
-              color: "from-purple-500 to-pink-600",
-              shadow: "shadow-purple-500/50",
-            },
-            {
-              label: "Mod of the Month",
-              color: "from-blue-500 to-cyan-500",
-              shadow: "shadow-blue-500/50",
-            },
-            {
-              label: "Mod of the Week",
-              color: "from-green-400 to-emerald-600",
-              shadow: "shadow-green-500/50",
-            },
-            {
-              label: "Trending Today",
-              color: "from-red-500 to-rose-600",
-              shadow: "shadow-red-500/50",
-            },
-          ];
-
-          const mod = featuredMods[currentHeroIndex];
-          const tf =
-            timeframes[currentHeroIndex] || timeframes[timeframes.length - 1];
-
-          return (
-            <div className="mb-4 w-full">
-              <div className="flex items-center gap-2 mb-4 px-2">
-                <Rocket className="text-primary" size={20} />
-                <h2 className="text-xl font-bold text-text-primary uppercase tracking-widest">
-                  Hall of Fame
-                </h2>
-              </div>
-
-              <div className="relative w-full h-[400px] rounded-2xl bg-surface border border-border shadow-surface overflow-hidden flex group">
-                {/* High-Tech Grid Pattern */}
-                <div
-                  className="absolute inset-0 opacity-[0.03] pointer-events-none"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-                    backgroundSize: "32px 32px",
-                  }}
-                />
-
-                {/* Epic Ambient Glow */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary rounded-full blur-[150px] opacity-10 pointer-events-none transition-colors duration-1000" />
-
-                <AnimatePresence initial={false}>
-                  <motion.div
-                    key={mod._idRow}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
-                    className="absolute inset-0 flex items-stretch w-full h-full"
-                  >
-                    {/* LEFT: Editorial Content */}
-                    <div className="w-[55%] h-full p-12 flex flex-col relative z-20">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest mb-6 w-max shadow-lg">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_10px_var(--color-primary)]" />
-                        {tf.label}
-                      </div>
-
-                      <div className="flex-1 flex flex-col justify-center">
-                        <h2 className="text-3xl md:text-[3.5rem] font-bold text-text-primary tracking-tighter drop-shadow-2xl leading-[1.05] line-clamp-3">
-                          {mod._sName}
-                        </h2>
-                      </div>
-
-                      <div className="flex items-center gap-3 flex-wrap mt-6">
-                        <button
-                          onClick={() => handleCreatorClick(mod._aSubmitter)}
-                          className="flex items-center gap-4 text-text-primary text-sm font-bold bg-surface border border-border hover:bg-white/5 hover:border-white/20 transition-all px-6 py-3.5 rounded-xl group/creator shadow-card"
-                        >
-                          {mod._aSubmitter?._sAvatarUrl ? (
-                            <img
-                              src={mod._aSubmitter._sAvatarUrl}
-                              alt={mod._aSubmitter._sName}
-                              className="w-10 h-10 rounded-full object-cover shadow-xl border-2 border-border group-hover/creator:border-primary/50 transition-all"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border-2 border-border group-hover/creator:border-primary/50 transition-all">
-                              <User size={24} className="text-primary" />
-                            </div>
-                          )}
-                          <span className="tracking-tight group-hover/creator:text-primary transition-colors">
-                            {mod._aSubmitter?._sName}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* RIGHT: Image Showcase Card */}
-                    <div className="w-[45%] relative z-20 flex items-center justify-center pr-12 pl-4">
-                      <div
-                        className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] cursor-pointer group/card"
-                        onClick={() => {
-                          window.electronMods
-                            .fetchGbMod(mod._idRow)
-                            .then((res) => {
-                              if (res.success) setInstallTarget(res.data);
-                            });
-                        }}
-                      >
-                        {mod.thumbnailUrl ? (
-                          <img
-                            src={mod.thumbnailUrl}
-                            className="w-full h-full object-cover scale-100 group-hover/card:scale-105 transition-transform duration-700 ease-out"
-                            alt={mod._sName}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                            <Box size={40} className="text-white/20" />
-                          </div>
-                        )}
-
-                        {/* Glass Glare */}
-                        <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-white/20 pointer-events-none mix-blend-overlay" />
-                        <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-3xl pointer-events-none" />
-
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-black shadow-primary/20 scale-90 group-hover/card:scale-100 transition-transform duration-300 ease-out">
-                            <Download
-                              size={24}
-                              strokeWidth={3}
-                              className="ml-0.5"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Bottom Right Pill Navigator */}
-                <div className="absolute bottom-6 right-12 z-30 flex items-center gap-5 bg-surface backdrop-blur-xl border border-border px-5 py-2.5 rounded-full shadow-surface">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentHeroIndex((prev) =>
-                        prev > 0 ? prev - 1 : featuredMods.length - 1,
-                      );
-                    }}
-                    className="text-text-muted hover:text-text-primary hover:-translate-x-0.5 transition-all outline-none"
-                  >
-                    <ChevronLeft size={20} strokeWidth={3} />
-                  </button>
-                  <div className="text-[11px] font-black text-text-muted tracking-[0.2em] uppercase select-none">
-                    <span className="text-text-primary mx-1">
-                      {currentHeroIndex + 1}
-                    </span>{" "}
-                    / <span className="mx-1">{featuredMods.length}</span>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentHeroIndex((prev) =>
-                        prev < featuredMods.length - 1 ? prev + 1 : 0,
-                      );
-                    }}
-                    className="text-text-muted hover:text-text-primary hover:translate-x-0.5 transition-all outline-none"
-                  >
-                    <ChevronRight size={20} strokeWidth={3} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-      {/* Secondary navigation */}
+      {/* ── SECTION: Browse Tabs (All / Characters / UI / Misc / Saved) ──── */}
       <section className="ui-panel mb-4 p-3">
         <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-text-muted">
           <SlidersHorizontal size={14} />
@@ -713,8 +548,8 @@ export default function BrowseView() {
         </nav>
       </section>
 
-      {/* Action Toolbar */}
-      <section className="ui-panel mb-8 p-4 sm:p-5">
+      {/* ── SECTION: Search, Filters & Sort Toolbar ──────────────────────── */}
+      <section className="ui-panel mb-4 p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="ui-eyebrow">Refine Results</p>
@@ -795,7 +630,164 @@ export default function BrowseView() {
         </div>
       </section>
 
-      {/* Content wrapper with guaranteed min-height to prevent layout jumping */}
+      {/* ── SECTION: Hero Loading Skeleton ───────────────────────────────── */}
+      {showFeaturedHero && loadingFeatured && (
+        <div className="mb-4 w-full">
+          <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
+            <Rocket className="text-text-muted" size={20} />
+            <div className="w-32 h-6 bg-white/10 rounded-xl animate-pulse" />
+          </div>
+          <div className="w-full h-[360px] rounded-3xl bg-[#0a0a0a] border border-white/10 overflow-hidden relative">
+            <div className="absolute left-12 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+              <div className="w-24 h-5 bg-white/5 rounded-full animate-pulse" />
+              <div className="w-80 h-16 bg-white/10 rounded-2xl animate-pulse" />
+              <div className="w-64 h-8 bg-white/5 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION: Hall of Fame Hero Carousel ──────────────────────────── */}
+      {!loadingFeatured &&
+        featuredMods.length > 0 &&
+        showFeaturedHero &&
+        (() => {
+          const timeframes = [
+            { label: "Mod of All Time", color: "from-amber-500 to-orange-600", shadow: "shadow-amber-500/50" },
+            { label: "Mod of the Year", color: "from-purple-500 to-pink-600", shadow: "shadow-purple-500/50" },
+            { label: "Mod of the Month", color: "from-blue-500 to-cyan-500", shadow: "shadow-blue-500/50" },
+            { label: "Mod of the Week", color: "from-green-400 to-emerald-600", shadow: "shadow-green-500/50" },
+            { label: "Trending Today", color: "from-red-500 to-rose-600", shadow: "shadow-red-500/50" },
+          ];
+
+          const mod = featuredMods[currentHeroIndex];
+          const tf = timeframes[currentHeroIndex] || timeframes[timeframes.length - 1];
+
+          return (
+            <div className="mb-4 w-full">
+
+              <div
+                className="relative w-full h-[360px] rounded-3xl overflow-hidden border border-white/10 group cursor-pointer bg-[#0a0a0a]"
+                onClick={() => {
+                  window.electronMods
+                    ?.fetchGbMod(mod._idRow)
+                    .then((res) => { if (res.success) setInstallTarget(res.data); });
+                }}
+              >
+                {/* Blurred atmospheric backdrop */}
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key={mod._idRow + "-bg"}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                    className="absolute inset-0 z-0"
+                  >
+                    {mod.thumbnailUrl && (
+                      <img
+                        src={mod.thumbnailUrl}
+                        className="w-full h-full object-cover scale-110 blur-2xl opacity-30 saturate-150"
+                        alt=""
+                        aria-hidden="true"
+                      />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Dark overlay */}
+                <div className="absolute inset-0 z-10 bg-linear-to-r from-black/90 via-black/60 to-black/20" />
+                <div className="absolute inset-0 z-10 bg-linear-to-t from-black/60 to-transparent" />
+
+                {/* LEFT: Text content */}
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key={mod._idRow}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    className="absolute inset-0 z-20 flex items-center"
+                  >
+                    <div className="flex flex-col justify-between h-full px-10 py-10 w-[52%]">
+                      <div className="inline-flex items-center gap-1.5 w-max px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black uppercase tracking-[0.25em]">
+                        <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+                        {tf.label}
+                      </div>
+                      <h2 className="text-3xl md:text-[2.6rem] font-black text-white tracking-tighter leading-[1.05] drop-shadow-2xl line-clamp-3">
+                        {mod._sName}
+                      </h2>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCreatorClick(mod._aSubmitter); }}
+                        className="flex items-center gap-3 group/creator w-max"
+                      >
+                        {mod._aSubmitter?._sAvatarUrl ? (
+                          <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-8 h-8 rounded-full object-cover border border-white/20 group-hover/creator:border-primary/60 transition-all" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                            <User size={12} className="text-white/60" />
+                          </div>
+                        )}
+                        <div className="flex flex-col">
+                          <span className="text-[9px] uppercase tracking-[0.2em] font-black text-white/40">Creator</span>
+                          <span className="text-sm font-bold text-white group-hover/creator:text-primary transition-colors leading-tight">
+                            {mod._aSubmitter?._sName || "Unknown"}
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* RIGHT: Diagonal image bleed */}
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key={mod._idRow + "-img"}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.7, ease: "easeInOut" }}
+                    className="absolute inset-y-0 right-0 w-[58%] z-10"
+                    style={{ clipPath: "polygon(12% 0%, 100% 0%, 100% 100%, 0% 100%)" }}
+                  >
+                    {mod.thumbnailUrl ? (
+                      <img
+                        src={mod.thumbnailUrl}
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                        style={{ imageRendering: "high-quality", filter: "contrast(1.08) saturate(1.15) brightness(1.05)", willChange: "transform" }}
+                        alt={mod._sName}
+                        decoding="async"
+                        fetchPriority="high"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-white/5" />
+                    )}
+                    <div className="absolute inset-0 bg-linear-to-r from-black/80 via-black/20 to-transparent pointer-events-none" />
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Dot Navigator */}
+                <div className="absolute bottom-5 right-8 z-30 flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full">
+                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev > 0 ? prev - 1 : featuredMods.length - 1); }} className="text-white/50 hover:text-white transition-colors">
+                    <ChevronLeft size={14} strokeWidth={3} />
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {featuredMods.map((_, i) => (
+                      <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex(i); }}
+                        className={cn("rounded-full transition-all duration-300", i === currentHeroIndex ? "w-4 h-1.5 bg-primary" : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60")}
+                      />
+                    ))}
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev < featuredMods.length - 1 ? prev + 1 : 0); }} className="text-white/50 hover:text-white transition-colors">
+                    <ChevronRight size={14} strokeWidth={3} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* ── SECTION: Mod Cards Grid ───────────────────────────────────────── */}
       <div className="min-h-[60vh] relative w-full flex flex-col">
         {/* Error state */}
         {error && !loading && (
@@ -901,12 +893,12 @@ export default function BrowseView() {
                         ? `No results for "${activeSearchLabel}"`
                         : "No mods found"
                     }
-                    message={
+                    description={
                       isFiltering
                         ? "Try a broader search, reset your filters, or switch categories."
                         : "No listings matched this section right now."
                     }
-                    className="min-h-[14rem]"
+                    className="min-h-56"
                   />
                 </div>
               )}
@@ -969,7 +961,7 @@ export default function BrowseView() {
           onClose={() => setInstallTarget(null)}
           onInstall={handleInstall}
           isBookmarked={currentBookmarkIdSet.has(installTarget._idRow)}
-          onToggleBookmark={() => handleToggleBookmark(installTarget)}
+         onToggleBookmark={() => handleToggleBookmark(installTarget)}
           onCreatorClick={handleCreatorClick}
         />
       )}

@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, FolderKanban } from "lucide-react";
-import { motion } from "framer-motion";
 import ModDetailModal from "../components/ModDetailModal";
 import CharacterDetailHeader from "../components/CharacterDetailHeader";
-import CharacterDetailStats from "../components/CharacterDetailStats";
 import CharacterDetailGrid from "../components/CharacterDetailGrid";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useFetchCache } from "../hooks/useFetchCache";
@@ -21,6 +19,8 @@ export default function CharacterDetail({
   searchQuery = "",
 }) {
   const game = useAppStore((state) => state.activeGame);
+  const addDownload = useAppStore((state) => state.addDownload);
+  const completeDownload = useAppStore((state) => state.completeDownload);
   const portraitUrl = useCharacterPortrait(character.name, game.id);
   // Removed old useState for mods
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -235,43 +235,56 @@ export default function CharacterDetail({
     gbModId,
     fileUrl,
     fileName,
+    modName,
   }) => {
     if (window.electronConfig && window.electronMods) {
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       if (!importerPath) throw new Error("No importer path configured.");
 
-      const result = await window.electronMods.installGbMod({
-        importerPath,
-        characterName,
-        gbModId,
-        fileUrl,
-        fileName,
-        gameId: game.id,
-      });
+      addDownload({ id: gbModId, title: modName || fileName });
 
-      if (!result.success)
-        throw new Error(result.error || "Installation failed.");
+      void (async () => {
+        try {
+          const result = await window.electronMods.installGbMod({
+            importerPath,
+            characterName,
+            gbModId,
+            fileUrl,
+            fileName,
+            gameId: game.id,
+          });
 
-      // Update local state so badge shows immediately
-      setInstalledModsInfo((prev) => {
-        const current = prev[gbModId] || { installedFiles: [] };
-        if (current.installedFiles.find((f) => f.fileName === fileName))
-          return prev;
-        return {
-          ...prev,
-          [gbModId]: {
-            ...current,
-            installedFiles: [
-              ...current.installedFiles,
-              { fileName, installedAt: new Date().toISOString() },
-            ],
-          },
-        };
-      });
+          completeDownload(gbModId, result.success, result.error);
 
-      // Reload the global cache so the library sees the new files
-      await reloadAllMods(true);
+          if (!result.success) {
+            return;
+          }
+
+          // Update local state so badge shows immediately
+          setInstalledModsInfo((prev) => {
+            const current = prev[gbModId] || { installedFiles: [] };
+            if (current.installedFiles.find((f) => f.fileName === fileName)) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [gbModId]: {
+                ...current,
+                installedFiles: [
+                  ...current.installedFiles,
+                  { fileName, installedAt: new Date().toISOString() },
+                ],
+              },
+            };
+          });
+
+          // Reload the global cache so the library sees the new files
+          await reloadAllMods(true);
+        } catch (err) {
+          completeDownload(gbModId, false, err.message || "Installation failed");
+        }
+      })();
     }
   };
 
@@ -338,55 +351,57 @@ export default function CharacterDetail({
       )}
     >
       {!hideHeader && (
-        <section className="ui-panel mb-8 overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-4 text-sm">
+        <section className="mb-6 z-10 relative">
+          <div className="flex flex-wrap items-center gap-2 px-2 pb-4 text-[11px] font-black uppercase tracking-[0.2em]">
             <button
               onClick={onBack}
-              className="ui-focus-ring inline-flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1 text-text-secondary transition-colors hover:text-primary"
+              className="ui-focus-ring inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-text-muted transition-colors hover:text-white hover:bg-white/5"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={12} />
               {game.name}
             </button>
-            <span className="text-text-muted">/</span>
-            <span className="font-medium text-text-primary">{character.name}</span>
-            <div className="ml-auto rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-              <FolderKanban size={12} className="mr-1 inline-block" />
-              Local Collection
+            <span className="text-white/20">/</span>
+            <span className="text-white">{character.name}</span>
+            <div className="ml-auto rounded-md border border-white/10 bg-white/5 px-3 py-1.5 flex items-center">
+              <FolderKanban size={12} className="mr-2 text-white/40" />
+              <span className="text-white/40">Local Collection</span>
             </div>
           </div>
 
-          <div className="grid gap-6 px-6 py-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-end">
-            <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--color-primary),transparent_84%)_0%,transparent_36%),linear-gradient(135deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] p-6 md:p-8">
-              <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-72 overflow-hidden md:block">
-                {portraitUrl ? (
-                  <img
-                    src={portraitUrl}
-                    alt={character.name}
-                    onLoad={() => setImgLoaded(true)}
-                    loading="lazy"
-                    decoding="async"
-                    className={cn(
-                      "absolute right-[-3rem] top-6 h-[120%] w-auto object-contain opacity-30 transition-all duration-700",
-                      imgLoaded ? "blur-0" : "blur-xl",
-                    )}
-                  />
-                ) : null}
-              </div>
+          <div className="relative w-full overflow-hidden rounded-3xl border border-white/10 bg-[#0a0a0a] shadow-[0_0_80px_rgba(0,0,0,0.5)]">
+            {/* Character Portrait Background Fade */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-[65%] overflow-hidden hidden md:flex select-none">
+              {portraitUrl && (
+                <img
+                  src={portraitUrl}
+                  alt={character.name}
+                  onLoad={() => setImgLoaded(true)}
+                  loading="lazy"
+                  decoding="async"
+                  className={cn(
+                    "absolute right-12 top-0 h-full w-auto object-contain object-right transition-all duration-1000 ease-out z-0",
+                    imgLoaded ? "opacity-60 blur-0" : "opacity-0 blur-xl"
+                  )}
+                />
+              )}
+              {/* Smooth left fade to blend into the dark background */}
+              <div className="absolute inset-0 bg-linear-to-r from-[#0a0a0a] via-[#0a0a0a]/50 to-transparent z-10" />
+              {/* Bottom fade */}
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-[#0a0a0a] to-transparent z-10" />
+            </div>
+
+            <div className="relative z-20 px-8 py-10 md:p-14 md:w-3/4 lg:w-2/3">
               <CharacterDetailHeader
                 game={game}
                 character={character}
                 mods={mods}
                 disablingAll={disablingAll}
+                enabledCount={enabledCount}
+                disabledCount={disabledCount}
                 onImport={handleImport}
                 onDisableAll={handleDisableAll}
               />
             </div>
-
-            <CharacterDetailStats
-              enabledCount={enabledCount}
-              disabledCount={disabledCount}
-              totalCount={mods.length}
-            />
           </div>
         </section>
       )}

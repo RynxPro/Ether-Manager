@@ -6,7 +6,7 @@ export default function AppViewShell({
   isActive,
   children,
   zIndex = 20,
-  fallbackOffsetClassName = "pt-40",
+  fallbackOffsetClassName = "",
 }) {
   return (
     <motion.div

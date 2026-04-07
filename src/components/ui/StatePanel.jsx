@@ -27,6 +27,7 @@ export function StatePanel({
   icon,
   title,
   message,
+  description,
   tone = "neutral",
   action,
   actionLabel,
@@ -35,6 +36,7 @@ export function StatePanel({
 }) {
   const styles = TONE_STYLES[tone] || TONE_STYLES.neutral;
   const IconComponent = icon || AlertCircle;
+  const bodyText = message ?? description;
 
   return (
     <div
@@ -55,9 +57,9 @@ export function StatePanel({
       <h3 className={cn("text-xl font-black tracking-tight", styles.title)}>
         {title}
       </h3>
-      {message && (
+      {bodyText && (
         <p className={cn("mt-3 max-w-md text-sm leading-6", styles.message)}>
-          {message}
+          {bodyText}
         </p>
       )}
       {action
