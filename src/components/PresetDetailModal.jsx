@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Plus, Search, HelpCircle, Package, ArrowLeft, RefreshCw, X, ChevronDown, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy, Info } from "lucide-react";
+import { AlertTriangle, Plus, Search, Package, X, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy } from "lucide-react";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { cn } from "../lib/utils";
 import ApplyPresetModal from "./ApplyPresetModal";
@@ -230,11 +230,6 @@ export default function PresetDetailModal({
             <div className="absolute -left-40 -top-40 w-96 h-96 bg-primary blur-[120px] opacity-10 pointer-events-none rounded-full" />
 
             <div className="relative flex flex-col gap-2 w-full max-w-2xl z-10">
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_var(--color-primary)]" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">LOADOUT · {game.id}</span>
-                </div>
-
                 {isEditMode ? (
                   <input
                     type="text"
@@ -259,15 +254,18 @@ export default function PresetDetailModal({
                   preset.description && <p className="text-sm text-text-secondary font-medium leading-relaxed max-w-xl line-clamp-2">{preset.description}</p>
                 )}
 
-                <div className="flex items-center gap-5 mt-2">
-                  <div className="flex flex-col">
-                    <span className="text-white font-black text-xs leading-none">{displayMods.length}</span>
-                    <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Total Mods</span>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/65">
+                    {displayMods.length} Mods
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-white font-black text-xs leading-none">{characters.length}</span>
-                    <span className="text-[8px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Characters</span>
+                  <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+                    {characters.length} Characters
                   </div>
+                  {missingCount > 0 && (
+                    <div className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-yellow-400">
+                      {missingCount} Missing
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -347,15 +345,6 @@ export default function PresetDetailModal({
                   <OverviewStat label="Missing" value={missingCount} tone={missingCount > 0 ? "warning" : "neutral"} />
                   <OverviewStat label="Apply Flow" value={isEditMode ? "Editing" : "Ready"} tone={!isEditMode ? "primary" : "neutral"} />
                 </div>
-
-                {!isEditMode && (
-                  <div className="mb-6 rounded-3xl border border-border bg-background px-5 py-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-text-muted">How This Works</p>
-                    <p className="mt-3 text-sm leading-6 text-text-secondary">
-                      Review the saved contents here, then use <span className="text-text-primary font-semibold">Apply Loadout</span> to compare against your current library before any folders are changed on disk.
-                    </p>
-                  </div>
-                )}
                 
                 {(() => {
                   const ghostMods = displayMods.filter(pm => !allLibraryMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, "")));
@@ -527,7 +516,7 @@ export default function PresetDetailModal({
             )}
 
             {activeTab === "info" && (
-              <div className="p-10 flex flex-col gap-2">
+              <div className="p-8 flex flex-col gap-2">
                 <InfoRow label="Title" value={preset.name} />
                 <InfoRow label="Game" value={game.name || game.id} />
                 <InfoRow label="Total Mods" value={`${preset.mods.length} items`} />

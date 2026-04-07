@@ -21,17 +21,9 @@ export default function SettingsModal({ onClose, games }) {
   }, []);
 
   const handleChooseFolder = async () => {
-    console.log(
-      "SettingsModal: handleChooseFolder called. activeTab:",
-      activeTab,
-    );
     if (window.electronConfig) {
-      console.log(
-        "SettingsModal: calling window.electronConfig.chooseFolder()",
-      );
       try {
         const folderPath = await window.electronConfig.chooseFolder();
-        console.log("SettingsModal: received folderPath:", folderPath);
         if (folderPath) {
           const newConfig = { ...config, [activeTab]: folderPath };
           setConfig(newConfig);
@@ -58,7 +50,7 @@ export default function SettingsModal({ onClose, games }) {
 
   const activeGame = games.find((g) => g.id === activeTab);
 
-  return (
+    return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-drag">
         {/* Backdrop */}
@@ -76,14 +68,13 @@ export default function SettingsModal({ onClose, games }) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          role="dialog"
+          aria-modal="true"
           className="relative bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden h-[600px]"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-10 py-6 border-b border-white/10 relative z-10 bg-[#050505]">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]" />
-              <h2 className="text-[11px] font-black tracking-[0.3em] uppercase text-white">APP SETTINGS</h2>
-            </div>
+            <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-white">Settings</h2>
             <Button
               variant="ghost"
               onClick={onClose}
@@ -132,13 +123,12 @@ export default function SettingsModal({ onClose, games }) {
                 >
                   <div className="flex items-center gap-3 mb-6">
                     <h3 className="text-[12px] uppercase tracking-widest font-black text-white">
-                      Importer Path Configuration
+                      Mods Folder
                     </h3>
                   </div>
 
-                  <p className="text-xs text-white/50 leading-relaxed mb-6 font-medium">
-                    Select the root directory of the <span className="text-white font-bold">{activeGame?.name}</span> launcher. 
-                    This should be the parent folder containing the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm font-mono text-xs">Mods/</code> directory.
+                  <p className="mb-6 text-sm leading-6 text-white/55">
+                    Choose the folder that contains the <code className="rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary">Mods/</code> directory for {activeGame?.name}.
                   </p>
 
                   <div className="flex gap-3 mb-8">
@@ -159,29 +149,43 @@ export default function SettingsModal({ onClose, games }) {
                     />
                   </div>
 
-                  <div className="p-6 bg-[#050505] rounded-xl border border-white/10 relative overflow-hidden shadow-inner">
-                    <h4 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                       Console Output Diagram
-                    </h4>
+                  <div className="rounded-xl border border-white/10 bg-[#050505] p-6 shadow-inner">
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                      <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                        {activeGame?.id}
+                      </div>
+                      <div className={cn(
+                        "rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em]",
+                        config[activeTab]
+                          ? "border-primary/20 bg-primary/10 text-primary"
+                          : "border-orange-500/20 bg-orange-500/10 text-orange-400"
+                      )}>
+                        {config[activeTab] ? "Configured" : "Not Set"}
+                      </div>
+                    </div>
+
                     {config[activeTab] ? (
-                      <ul className="text-xs font-mono space-y-2 relative z-10">
-                        <li className="text-text-secondary flex items-center gap-2">
-                          <span className="opacity-40 text-text-primary leading-none">DIR</span> {config[activeTab]}\
-                        </li>
-                        <li className="pl-6 text-text-muted border-l border-white/10 ml-2 py-1">
-                          <span className="opacity-40 leading-none">DIR</span> Mods\
-                        </li>
-                        <li className="pl-12 text-primary flex items-center gap-2 border-l border-white/10 ml-2 py-1">
-                          <span className="w-1 h-1 rounded-full bg-primary shadow-primary/20" /> Active_Mod_v1\
-                        </li>
-                        <li className="pl-12 text-white/20 italic border-l border-white/10 ml-2 pt-1">
-                          DISABLED_Old_Mod\
-                        </li>
-                      </ul>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">
+                            Current Path
+                          </div>
+                          <div className="mt-2 rounded-xl border border-white/6 bg-background px-4 py-3 font-mono text-xs text-text-secondary break-all">
+                            {config[activeTab]}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">
+                            Expected Mods Folder
+                          </div>
+                          <div className="mt-2 rounded-xl border border-white/6 bg-background px-4 py-3 font-mono text-xs text-text-secondary break-all">
+                            {config[activeTab]}{config[activeTab].endsWith("\\") || config[activeTab].endsWith("/") ? "" : "/"}Mods
+                          </div>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="text-xs text-orange-500 p-4 border border-orange-500/30 rounded-xl bg-orange-500/10 flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shadow-[0_0_5px_var(--color-orange-500)]/40" />
-                        No path configured for this client
+                      <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm text-orange-300">
+                        No path configured for this workspace.
                       </div>
                     )}
                   </div>

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { cn } from "../../lib/utils";
 
 export default function SidePanel({
@@ -10,6 +10,8 @@ export default function SidePanel({
   children,
   widthClass = "w-full max-w-2xl sm:max-w-3xl",
 }) {
+  const titleId = useId();
+
   // Prevent background scroll when panel is open
   useEffect(() => {
     if (isOpen) {
@@ -53,6 +55,9 @@ export default function SidePanel({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 200, mass: 0.8 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
             className={cn(
               "fixed right-0 top-0 bottom-0 z-50 h-full bg-surface shadow-[-10px_0_40px_rgba(0,0,0,0.5)] border-l border-border flex flex-col",
               widthClass
@@ -60,13 +65,14 @@ export default function SidePanel({
           >
             {/* Header */}
             {title && (
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md shrink-0">
-                <h2 className="text-sm font-bold tracking-widest uppercase text-text-primary">
+              <div className="flex items-center justify-between border-b border-border bg-background/65 px-6 py-4 backdrop-blur-md shrink-0">
+                <h2 id={titleId} className="text-[11px] font-black uppercase tracking-[0.2em] text-text-primary">
                   {title}
                 </h2>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-full text-text-muted hover:text-white hover:bg-white/10 transition-colors"
+                  className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Close panel"
                 >
                   <X size={18} />
                 </button>

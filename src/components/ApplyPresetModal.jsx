@@ -144,17 +144,11 @@ export default function ApplyPresetModal({
         {/* Header */}
         <div className="px-8 pt-8 pb-5 border-b border-border flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Zap size={16} className="text-primary" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">
-                Apply Loadout
-              </span>
-            </div>
             <h2 className="text-2xl font-bold text-text-primary tracking-tight">
               {preset.name}
             </h2>
-            <p className="text-text-muted text-xs mt-1">
-              Review all changes before applying to disk.
+            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+              Apply Loadout
             </p>
           </div>
           <button
@@ -171,7 +165,7 @@ export default function ApplyPresetModal({
             <div className="flex items-center justify-center py-16 gap-3 text-text-muted">
               <Loader2 size={20} className="animate-spin" />
               <span className="text-sm font-medium">
-                Calculating changes...
+                Calculating changes…
               </span>
             </div>
           )}
@@ -202,7 +196,7 @@ export default function ApplyPresetModal({
                   tone="yellow"
                 />
                 <DiffSummaryCard
-                  label="Total Changes"
+                  label="Changes"
                   value={diff.willEnable.length + diff.willDisable.length}
                   tone="neutral"
                 />
@@ -248,7 +242,7 @@ export default function ApplyPresetModal({
                   <StatePanel
                     icon={CheckCircle}
                     title="No changes needed"
-                    message="All mods in this preset are already in their correct state."
+                    message="This loadout already matches your library."
                     tone="success"
                     className="min-h-[12rem]"
                   />

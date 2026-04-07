@@ -28,8 +28,8 @@ export default function CharacterDetailGrid({
           {filteredMods.length} visible
         </div>
         {searchQuery && (
-          <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
-            Filtered by "{searchQuery}"
+          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+            {searchQuery}
           </div>
         )}
       </div>
@@ -39,8 +39,8 @@ export default function CharacterDetailGrid({
           title={searchQuery ? "No matching mods" : "No mods in this collection"}
           message={
             searchQuery
-              ? "Try a broader search or clear the filter to see the rest of this collection."
-              : "Import a mod or move one into this collection to start managing it here."
+              ? "Try a broader search or clear the filter."
+              : "Import a mod or move one into this collection."
           }
           className="mb-12"
         />

@@ -54,21 +54,24 @@ export default function ConfirmDialog({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-surface pointer-events-auto"
+              role="alertdialog"
+              aria-modal="true"
+              className="pointer-events-auto w-full max-w-md rounded-2xl border border-border bg-surface shadow-surface"
             >
               {/* Header */}
               <div className="flex items-center justify-between p-6 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-danger/10">
                     <AlertTriangle size={20} className="text-danger" />
                   </div>
-                  <h2 className="text-lg font-bold text-text-primary">
+                  <h2 className="text-lg font-bold tracking-tight text-text-primary">
                     {title}
                   </h2>
                 </div>
                 <button
                   onClick={onCancel}
-                  className="flex-shrink-0 w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center transition-colors"
+                  className="ui-focus-ring flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/5"
+                  aria-label="Close dialog"
                 >
                   <X size={16} className="text-text-muted" />
                 </button>
@@ -76,7 +79,7 @@ export default function ConfirmDialog({
 
               {/* Content */}
               <div className="px-6 pb-6">
-                <p className="text-text-secondary mb-6">{message}</p>
+                <p className="mb-6 text-sm leading-6 text-text-secondary">{message}</p>
 
                 {children}
 

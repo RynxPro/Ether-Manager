@@ -1,6 +1,7 @@
 import React from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "./ui/Button";
+import { StatePanel } from "./ui/StatePanel";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -29,41 +30,32 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      // Fallback UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-text-primary p-8">
-          <div className="max-w-md w-full text-center space-y-6">
-            <div className="flex justify-center">
-              <AlertTriangle size={64} className="text-danger" />
-            </div>
+        <div className="flex min-h-screen items-center justify-center bg-background p-8 text-text-primary">
+          <div className="w-full max-w-lg space-y-4">
+            <StatePanel
+              icon={AlertTriangle}
+              title="Something went wrong"
+              message="An unexpected error interrupted this view."
+              tone="danger"
+              action={(
+                <Button onClick={this.handleRetry}>
+                  Try Again
+                </Button>
+              )}
+              className="min-h-[18rem]"
+            />
 
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold">Something went wrong</h1>
-              <p className="text-text-secondary">
-                An unexpected error occurred. This might be a temporary issue.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <Button
-                onClick={this.handleRetry}
-                className="w-full flex items-center justify-center gap-2"
-              >
-                <RefreshCw size={16} />
-                Try Again
-              </Button>
-
-              <details className="text-left bg-surface rounded-lg p-4 border border-border">
-                <summary className="cursor-pointer text-sm font-medium mb-2">
-                  Error Details (for developers)
-                </summary>
-                <pre className="text-xs text-text-muted whitespace-pre-wrap overflow-auto max-h-32">
-                  {this.state.error && this.state.error.toString()}
-                  {this.state.errorInfo &&
-                    `\n\n${this.state.errorInfo.componentStack}`}
-                </pre>
-              </details>
-            </div>
+            <details className="rounded-lg border border-border bg-surface p-4 text-left">
+              <summary className="mb-2 cursor-pointer text-sm font-medium">
+                Error details
+              </summary>
+              <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs text-text-muted">
+                {this.state.error && this.state.error.toString()}
+                {this.state.errorInfo &&
+                  `\n\n${this.state.errorInfo.componentStack}`}
+              </pre>
+            </details>
           </div>
         </div>
       );

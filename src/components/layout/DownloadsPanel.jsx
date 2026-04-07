@@ -18,7 +18,7 @@ function DownloadRow({ job, onClear }) {
   const isDone = job.status === "done";
 
   return (
-    <div className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 border border-white/5 overflow-hidden group">
+    <div className="group relative flex items-center gap-3 overflow-hidden rounded-[var(--radius-md)] border border-white/6 bg-background/65 px-3 py-2.5">
       {/* Progress bar fill */}
       {isActive && (
         <motion.div
@@ -89,56 +89,64 @@ export default function DownloadsPanel() {
   ).length;
 
   return (
-    <div className="mt-auto border-t border-border">
-      {/* Header */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center gap-2 px-3 py-3 hover:bg-white/5 transition-colors"
-      >
-        <div className="relative shrink-0">
-          <Download size={14} className="text-text-muted" />
-          {activeCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-primary text-black text-[8px] font-black flex items-center justify-center">
-              {activeCount}
-            </span>
-          )}
-        </div>
-        <span className="text-xs font-bold text-text-secondary flex-1 text-left tracking-wide">
-          Downloads
-        </span>
-        <span className="text-text-muted">
-          {collapsed ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-        </span>
-      </button>
-
-      {/* Queue list */}
-      <AnimatePresence>
-        {!collapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="px-2 pb-3 space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-              <AnimatePresence initial={false}>
-                {downloads.map((job) => (
-                  <motion.div
-                    key={job.id}
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <DownloadRow job={job} onClear={clearDownload} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+    <section className="flex flex-col gap-2">
+      <p className="ui-eyebrow px-3">Queue</p>
+      <div className="ui-panel overflow-hidden rounded-[var(--radius-md)] border-white/8 bg-background/55 shadow-interactive">
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/4"
+        >
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-surface/80">
+            <Download size={15} className="text-text-secondary" />
+            {activeCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[8px] font-black text-black">
+                {activeCount}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-black uppercase tracking-[0.16em] text-text-primary">
+              Downloads
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              {activeCount > 0
+                ? `${activeCount} active task${activeCount === 1 ? "" : "s"} in progress`
+                : `${downloads.length} recent download${downloads.length === 1 ? "" : "s"}`}
+            </div>
+          </div>
+          <span className="text-text-muted">
+            {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </span>
+        </button>
+
+        <AnimatePresence>
+          {!collapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="custom-scrollbar max-h-64 space-y-2 border-t border-white/6 px-3 pb-3 pt-3">
+                <AnimatePresence initial={false}>
+                  {downloads.map((job) => (
+                    <motion.div
+                      key={job.id}
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <DownloadRow job={job} onClear={clearDownload} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </section>
   );
 }

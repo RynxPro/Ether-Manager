@@ -2,10 +2,10 @@ import {
   Zap,
   Settings,
   HelpCircle,
-  Download,
   Library,
   Globe,
   Database,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useState } from "react";
@@ -17,9 +17,21 @@ import { VISIBLE_GAMES } from "../../gameConfig";
 import DownloadsPanel from "./DownloadsPanel";
 
 const MENU_ITEMS = [
-  { id: "mods", label: "Library", icon: Library },
-  { id: "browse", label: "Browse", icon: Globe },
-  { id: "presets", label: "Loadouts", icon: Database },
+  {
+    id: "mods",
+    label: "Library",
+    icon: Library,
+  },
+  {
+    id: "browse",
+    label: "Browse",
+    icon: Globe,
+  },
+  {
+    id: "presets",
+    label: "Loadouts",
+    icon: Database,
+  },
 ];
 
 export default function Sidebar({ onShowHelp }) {
@@ -32,32 +44,30 @@ export default function Sidebar({ onShowHelp }) {
 
   return (
     <>
-      <aside className="w-64 h-full shrink-0 bg-surface/80 backdrop-blur-2xl border-r border-border flex flex-col z-20 titlebar-drag relative transition-colors duration-300">
-        {/* Logo Section */}
-        <div className="p-6 pt-10 pb-8 flex items-center gap-3 no-drag group cursor-pointer border-b border-white/5">
-          <div className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center transition-all duration-300 group-hover:bg-primary/10 group-hover:border-primary/30 group-hover:shadow-[0_0_20px_var(--color-primary)]/20 shadow-surface shrink-0">
-            <Zap
-              size={20}
-              className="text-text-primary fill-text-primary transition-colors duration-300 group-hover:text-primary group-hover:fill-primary"
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-white font-black tracking-[0.25em] text-[15px] block leading-none">
-              AETHER
-            </span>
-            <span className="text-[8px] text-white/40 font-black tracking-[0.2em] uppercase mt-1.5 block">
-              Mod Manager
-            </span>
+      <aside className="titlebar-drag relative z-20 flex h-full w-72 shrink-0 flex-col border-r border-border bg-surface/82 backdrop-blur-2xl transition-colors duration-300">
+        <div className="no-drag border-b border-white/5 px-6 pb-5 pt-10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-background shadow-card">
+              <Zap
+                size={20}
+                className="fill-text-primary text-text-primary transition-colors duration-300"
+              />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[15px] font-black leading-none tracking-[0.24em] text-white">
+                AETHER
+              </span>
+              <span className="mt-1 block text-[9px] font-black uppercase tracking-[0.22em] text-text-muted">
+                Mod Manager
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto w-full flex flex-col px-4 py-6 gap-8 no-drag custom-scrollbar">
-          {/* Game Switcher */}
-          <div className="w-full flex flex-col gap-1">
-            <p className="text-[9px] uppercase font-black tracking-[0.2em] text-primary mb-1 px-3">
-              Active Workspace
-            </p>
-            <div className="flex flex-col gap-1">
+        <div className="no-drag custom-scrollbar flex w-full flex-1 flex-col gap-7 overflow-y-auto px-4 py-6">
+          <section className="flex flex-col gap-2">
+            <p className="ui-eyebrow px-3">Workspace</p>
+            <div className="flex flex-col gap-2">
               {games.map((game) => {
                 const isActive = activeGame === game.id;
                 return (
@@ -65,61 +75,68 @@ export default function Sidebar({ onShowHelp }) {
                     key={game.id}
                     onClick={() => onSelectGame(game.id)}
                     className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden",
+                      "ui-focus-ring group relative flex w-full items-center gap-3 overflow-hidden rounded-[var(--radius-md)] border px-3 py-3 text-left transition-all",
                       isActive
-                        ? "bg-primary/10 border border-primary/20"
-                        : "hover:bg-white/5 border border-transparent",
+                        ? "border-primary/20 bg-primary/10 shadow-interactive"
+                        : "border-transparent bg-transparent hover:border-border hover:bg-white/4",
                     )}
                   >
-                    <div className="flex items-center gap-3 relative z-10">
-                      {game.icon ? (
-                        <img
-                          src={game.icon}
-                          alt={game.name}
-                          className={cn(
-                            "w-6 h-6 rounded-lg object-cover transition-all duration-300",
-                            isActive
-                              ? "opacity-100"
-                              : "opacity-40 grayscale group-hover:opacity-80 group-hover:grayscale-0",
-                          )}
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-lg bg-surface border border-white/10 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-black text-white/20">
-                            {game.id[0]}
-                          </span>
-                        </div>
-                      )}
-                      <span
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeGameRail"
+                        className="absolute bottom-2 left-0 top-2 w-1 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]"
+                      />
+                    )}
+                    {game.icon ? (
+                      <img
+                        src={game.icon}
+                        alt={game.name}
                         className={cn(
-                          "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                          "h-8 w-8 rounded-xl border object-cover transition-all duration-300",
+                          isActive
+                            ? "border-primary/20 opacity-100"
+                            : "border-white/8 opacity-50 grayscale group-hover:opacity-90 group-hover:grayscale-0",
+                        )}
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-background">
+                        <span className="text-[10px] font-black text-white/30">
+                          {game.id[0]}
+                        </span>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className={cn(
+                          "truncate text-[11px] font-black uppercase tracking-[0.16em]",
                           isActive
                             ? "text-primary"
-                            : "text-text-muted group-hover:text-text-primary",
+                            : "text-text-primary group-hover:text-white",
                         )}
                       >
                         {game.name || game.id}
-                      </span>
+                      </div>
                     </div>
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeGameIndicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_var(--color-primary)]"
-                      />
-                    )}
+                    <div
+                      className={cn(
+                        "rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] transition-colors",
+                        isActive
+                          ? "border-primary/20 bg-primary/12 text-primary"
+                          : "border-white/8 text-text-muted group-hover:border-white/12 group-hover:text-text-secondary",
+                      )}
+                    >
+                      {isActive ? "Active" : "Open"}
+                    </div>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </section>
 
-          {/* Main Navigation */}
-          <div className="w-full flex flex-col gap-1 mt-4">
-            <p className="text-[9px] uppercase font-black tracking-[0.2em] text-primary mb-1 px-3">
-              Navigation
-            </p>
-            <div className="flex flex-col gap-1 relative">
-              <AnimatePresence>
+          <section className="flex flex-col gap-2">
+            <p className="ui-eyebrow px-3">Sections</p>
+            <div className="relative flex flex-col gap-2">
+              <AnimatePresence initial={false}>
                 {MENU_ITEMS.map((item) => {
                   const isActive = activeView === item.id;
                   const Icon = item.icon;
@@ -128,69 +145,82 @@ export default function Sidebar({ onShowHelp }) {
                       key={item.id}
                       onClick={() => onSelectView(item.id)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 relative group overflow-hidden",
+                        "ui-focus-ring group relative flex w-full items-center gap-3 overflow-hidden rounded-[var(--radius-md)] border px-3 py-3.5 text-left transition-all",
                         isActive
-                          ? "text-text-primary"
-                          : "text-text-muted hover:text-text-primary hover:bg-white/5",
+                          ? "border-border bg-background/70 text-text-primary shadow-card"
+                          : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
                       )}
                     >
                       {isActive && (
                         <motion.div
                           layoutId="activeNavBackground"
-                          className="absolute inset-0 bg-surface shadow-card border border-border rounded-xl z-0"
+                          className="absolute inset-0 rounded-[inherit] border border-primary/12 bg-white/[0.03]"
                           transition={{
                             type: "spring",
-                            bounce: 0.15,
-                            duration: 0.5,
+                            bounce: 0.12,
+                            duration: 0.45,
                           }}
                         />
                       )}
-                      <Icon
-                        size={18}
+                      <div
                         className={cn(
-                          "relative z-10 transition-colors",
+                          "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all",
                           isActive
-                            ? "text-primary"
-                            : "text-text-muted group-hover:text-text-primary",
+                            ? "border-primary/18 bg-primary/10 text-primary"
+                            : "border-white/8 bg-background/60 text-text-muted group-hover:border-white/12 group-hover:text-text-primary",
+                        )}
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <div className="relative z-10 min-w-0 flex-1">
+                        <div className="text-sm font-bold tracking-tight">
+                          {item.label}
+                        </div>
+                      </div>
+                      <ArrowRight
+                        size={16}
+                        className={cn(
+                          "relative z-10 shrink-0 transition-all",
+                          isActive
+                            ? "translate-x-0 text-primary"
+                            : "translate-x-[-2px] text-text-muted opacity-0 group-hover:translate-x-0 group-hover:opacity-100",
                         )}
                       />
-                      <span className="text-[13px] font-medium tracking-wide relative z-10">
-                        {item.label}
-                      </span>
                     </button>
                   );
                 })}
               </AnimatePresence>
             </div>
-          </div>
+          </section>
+
+          <DownloadsPanel />
         </div>
 
-        {/* Downloads Queue */}
-        <DownloadsPanel />
+        <div className="no-drag border-t border-border bg-background/45 p-4">
+          <p className="ui-eyebrow mb-3 px-2">Utilities</p>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="ghost"
+              onClick={onShowHelp}
+              className="w-full justify-start gap-3 border border-transparent px-3 py-3 hover:border-white/10 hover:bg-white/5"
+            >
+              <HelpCircle size={16} className="text-text-muted" />
+              <span className="text-[12px] font-semibold tracking-tight text-text-primary">
+                Documentation
+              </span>
+            </Button>
 
-        {/* Global Action Footer */}
-        <div className="p-4 border-t border-border bg-background/50 flex flex-col gap-2 no-drag shrink-0">
-          <Button
-            variant="ghost"
-            onClick={onShowHelp}
-            className="w-full flex items-center justify-start gap-3 py-3 px-3 hover:bg-white/5 border border-transparent hover:border-white/10"
-          >
-            <HelpCircle size={16} className="text-text-muted" />
-            <span className="text-[12px] font-medium tracking-tight">
-              Documentation
-            </span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setShowSettings(true)}
-            className="w-full flex items-center justify-start gap-3 py-3 px-3 bg-surface hover:bg-white/10 border-white/5"
-          >
-            <Settings size={16} className="text-text-muted" />
-            <span className="text-[12px] font-medium tracking-tight">
-              App Settings
-            </span>
-          </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowSettings(true)}
+              className="w-full justify-start gap-3 border-white/8 bg-surface px-3 py-3 hover:bg-white/8"
+            >
+              <Settings size={16} className="text-text-muted" />
+              <span className="text-[12px] font-semibold tracking-tight text-text-primary">
+                App Settings
+              </span>
+            </Button>
+          </div>
         </div>
       </aside>
 

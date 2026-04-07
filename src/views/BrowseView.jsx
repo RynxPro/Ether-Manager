@@ -1,16 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search,
-  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   User,
   Monitor,
   Box,
   LayoutGrid,
   Rocket,
-  Download,
   Bookmark,
 } from "lucide-react";
 import GbModCard from "../components/GbModCard";
@@ -33,7 +30,6 @@ import {
 } from "../lib/bookmarks";
 import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import { WifiOff } from "lucide-react";
 
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
@@ -463,23 +459,23 @@ export default function BrowseView() {
     .join(" + ");
   const title =
     activeTab === "all"
-      ? "Discover Mods"
+      ? "Browse"
       : activeTab === "characters"
         ? characterFilter
           ? `${characterFilter} Mods`
-          : "Browse Character Mods"
+          : "Characters"
         : activeTab === "ui"
-          ? "User Interface Mods"
+          ? "Interface"
           : activeTab === "saved"
-            ? "Saved Mods"
-            : "Miscellaneous Mods";
+            ? "Saved"
+            : "Misc";
   const description = loading
-    ? "Loading the latest listings and saved items."
+    ? "Loading mods."
     : activeTab === "saved"
-      ? `${Math.max(0, total).toLocaleString()} mod${total !== 1 ? "s" : ""} in your personal saved collection for ${game.name}.`
+      ? `${Math.max(0, total).toLocaleString()} saved mod${total !== 1 ? "s" : ""} for ${game.name}.`
       : isFiltering
-        ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} from GameBanana for ${activeSearchLabel || game.name}.`
-        : `${Math.max(0, total).toLocaleString()} mods currently available on GameBanana for ${game.name}.`;
+        ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} for ${activeSearchLabel || game.name}.`
+        : `${Math.max(0, total).toLocaleString()} GameBanana listing${total !== 1 ? "s" : ""} for ${game.name}.`;
   const searchPlaceholder = isSavedView
     ? "Search saved mods..."
     : activeTab === "characters"
@@ -506,137 +502,134 @@ export default function BrowseView() {
         description={description}
       />
 
-      {/* ── SECTION: Page Header ─────────────────────────────────────────── */}
+      <section className="ui-panel mb-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <nav className="flex flex-wrap items-center gap-2">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
 
-      {/* ── SECTION: Browse Tabs (All / Characters / UI / Misc / Saved) ──── */}
-      <section className="ui-panel mb-4 p-3">
-        <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-text-muted">
-          <SlidersHorizontal size={14} />
-          Browse Sections
-        </div>
-        <nav className="flex flex-wrap items-center gap-2">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "ui-focus-ring inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-4 py-2.5 transition-all",
+                      isActive
+                        ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
+                        : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
+                    )}
+                  >
+                    <Icon
+                      size={16}
+                      className={cn(
+                        isActive && "drop-shadow-[0_0_8px_var(--color-primary)]",
+                      )}
+                    />
+                    <span className="text-[12px] font-black uppercase tracking-[0.15em]">
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
+            {hasActiveRefinements && (
+              <Button variant="ghost" onClick={handleResetFilters}>
+                Reset
+              </Button>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="w-full xl:max-w-xl 2xl:max-w-2xl">
+              <Input
+                icon={Search}
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
                   setPage(1);
                 }}
-                className={cn(
-                  "ui-focus-ring group relative inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-4 py-2.5 transition-all",
-                  isActive
-                    ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
-                    : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
-                )}
-              >
-                <Icon
-                  size={16}
-                  className={cn(
-                    isActive && "drop-shadow-[0_0_8px_var(--color-primary)]",
-                  )}
-                />
-                <span className="text-[12px] font-black uppercase tracking-[0.15em]">
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-      </section>
+                className="rounded-2xl shadow-inner"
+              />
+            </div>
 
-      {/* ── SECTION: Search, Filters & Sort Toolbar ──────────────────────── */}
-      <section className="ui-panel mb-4 p-4 sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="ui-eyebrow">Refine Results</p>
-            <h2 className="mt-1 text-lg font-black tracking-tight text-text-primary">
-              {isSavedView ? "Your saved collection" : "GameBanana listings"}
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-              {isSavedView
-                ? "Search the mods you bookmarked and jump directly into creator pages."
-                : "Use search and filters to narrow the remote catalog before installing."}
-            </p>
-          </div>
-          {hasActiveRefinements && (
-            <Button variant="ghost" onClick={handleResetFilters}>
-              Reset Filters
-            </Button>
-          )}
-        </div>
+            <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+              {showCharacterFilter && (
+                <div className="w-full shrink-0 sm:w-64">
+                  <SearchableDropdown
+                    items={["All Characters", ...getAllCharacterNames(game.id)]}
+                    value={characterFilter || "All Characters"}
+                    onChange={(val) => {
+                      setCharacterFilter(val === "All Characters" ? "" : val);
+                      setPage(1);
+                    }}
+                    placeholder="All Characters"
+                    gameId={game.id}
+                  />
+                </div>
+              )}
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="w-full xl:max-w-xl 2xl:max-w-2xl">
-            <Input
-              icon={Search}
-              placeholder={searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              className="rounded-2xl shadow-inner"
-            />
+              {showSortControl && (
+                <div className="w-full shrink-0 sm:w-48">
+                  <SearchableDropdown
+                    items={SORT_OPTIONS}
+                    value={sort}
+                    onChange={(val) => {
+                      setSort(val);
+                      setPage(1);
+                    }}
+                    placeholder="Sort by..."
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-            {showCharacterFilter && (
-              <div className="w-full sm:w-64 shrink-0">
-                <SearchableDropdown
-                  items={["All Characters", ...getAllCharacterNames(game.id)]}
-                  value={characterFilter || "All Characters"}
-                  onChange={(val) => {
-                    setCharacterFilter(val === "All Characters" ? "" : val);
-                    setPage(1);
-                  }}
-                  placeholder="All Characters"
-                  gameId={game.id}
-                />
-              </div>
-            )}
-
-            {showSortControl && (
-              <div className="w-full sm:w-48 shrink-0">
-                <SearchableDropdown
-                  items={SORT_OPTIONS}
-                  value={sort}
-                  onChange={(val) => {
-                    setSort(val);
-                    setPage(1);
-                  }}
-                  placeholder="Sort by..."
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-            Source: {isSavedView ? "Bookmarks" : "GameBanana"}
-          </div>
-          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-            Scope: {activeTab === "all" ? game.name : title}
-          </div>
-          {showSortControl && sort && (
-            <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
-              Sorted by {SORT_OPTIONS.find((option) => option.value === sort)?.label || "Latest"}
+          {(activeTab === "saved" || (showCharacterFilter && characterFilter) || (showSortControl && sort)) && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-white/6 pt-3">
+              {activeTab === "saved" && (
+                <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                  Saved Collection
+                </div>
+              )}
+              {showCharacterFilter && characterFilter && (
+                <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                  {characterFilter}
+                </div>
+              )}
+              {showSortControl && sort && (
+                <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+                  {SORT_OPTIONS.find((option) => option.value === sort)?.label || "Latest"}
+                </div>
+              )}
             </div>
           )}
         </div>
       </section>
 
       {/* ── SECTION: Hero Loading Skeleton ───────────────────────────────── */}
+      {showFeaturedHero && (
+        <div className="mb-3 flex items-center justify-between px-2">
+          <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-text-muted">
+            <Rocket size={14} />
+            Featured
+          </div>
+          {featuredMods.length > 1 && (
+            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+              {currentHeroIndex + 1} / {featuredMods.length}
+            </div>
+          )}
+        </div>
+      )}
+
       {showFeaturedHero && loadingFeatured && (
         <div className="mb-4 w-full">
-          <div className="flex items-center gap-2 mb-4 px-2 opacity-50">
-            <Rocket className="text-text-muted" size={20} />
-            <div className="w-32 h-6 bg-white/10 rounded-xl animate-pulse" />
-          </div>
           <div className="w-full h-[360px] rounded-3xl bg-[#0a0a0a] border border-white/10 overflow-hidden relative">
             <div className="absolute left-12 top-1/2 -translate-y-1/2 flex flex-col gap-4">
               <div className="w-24 h-5 bg-white/5 rounded-full animate-pulse" />
@@ -664,7 +657,7 @@ export default function BrowseView() {
           const tf = timeframes[currentHeroIndex] || timeframes[timeframes.length - 1];
 
           return (
-            <div className="mb-4 w-full">
+            <div className="mb-5 w-full">
 
               <div
                 className="relative w-full h-[360px] rounded-3xl overflow-hidden border border-white/10 group cursor-pointer bg-[#0a0a0a]"
@@ -810,26 +803,24 @@ export default function BrowseView() {
           <>
             {/* Saved Creators Section */}
             {activeTab === "saved" && bookmarkedCreators.length > 0 && (
-              <section className="ui-panel mb-8 p-5">
-                <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="ui-eyebrow">Quick Access</p>
-                    <h3 className="mt-1 flex items-center gap-2 text-xl font-black tracking-tight text-text-primary">
-                      <Bookmark className="text-primary" size={18} /> Saved Creators
-                    </h3>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      Keep your favorite creators close without mixing them into the main results grid.
-                    </p>
+              <section className="ui-panel mb-5 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-text-muted">
+                    <Bookmark className="text-primary" size={14} />
+                    Creators
+                  </div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                    {bookmarkedCreators.length}
                   </div>
                 </div>
-                <div className="flex gap-4 overflow-x-auto scroller-hidden pb-4">
+                <div className="flex gap-3 overflow-x-auto scroller-hidden pb-2">
                   {bookmarkedCreators.map((creator) => (
                     <button
                       key={creator._idRow}
                       onClick={() => handleCreatorClick(creator)}
-                      className="ui-focus-ring group/savedcreator min-w-[140px] shrink-0 rounded-[var(--radius-md)] border border-border bg-background px-4 py-4 text-left shadow-card transition-all hover:border-primary/20 hover:bg-white/4"
+                      className="ui-focus-ring group/savedcreator min-w-[120px] shrink-0 rounded-[var(--radius-md)] border border-border bg-background px-3 py-3 text-left shadow-card transition-all hover:border-primary/20 hover:bg-white/4"
                     >
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-border bg-surface shadow-surface transition-all group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-border bg-surface shadow-surface transition-all group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20">
                         {creator._sAvatarUrl ? (
                           <img
                             src={creator._sAvatarUrl}
@@ -851,6 +842,19 @@ export default function BrowseView() {
                 </div>
               </section>
             )}
+
+            <div className="mb-4 flex items-center justify-between gap-3 px-1">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                {loading
+                  ? "Loading"
+                  : `${total.toLocaleString()} result${total !== 1 ? "s" : ""}`}
+              </div>
+              {totalPages > 1 && (
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                  Page {page} / {totalPages}
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {mods.map((mod) => {

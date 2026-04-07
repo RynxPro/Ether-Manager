@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Download, Heart, Eye, Check, Bookmark, User } from "lucide-react";
+import { Download, Heart, Check, Bookmark, User } from "lucide-react";
 import { cn } from "../lib/utils";
-import { motion } from "framer-motion";
 
 import UpdateBadge from "./UpdateBadge";
 import { InteractiveCard } from "./ui/InteractiveCard";
@@ -82,9 +81,9 @@ const BrowseModCard = React.memo(function BrowseModCard({
            </button>
         </div>
 
-        {/* Badges (Top right) */}
+      {/* Badges (Top right) */}
         <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
-            {isInstalled && (
+            {isInstalled && !hasUpdate && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-black border border-primary/30 text-[9px] font-black shadow-lg backdrop-blur-md uppercase tracking-widest">
                 <Check size={10} strokeWidth={4} />
                 Installed
@@ -98,16 +97,17 @@ const BrowseModCard = React.memo(function BrowseModCard({
 
       {/* Content Area (Bottom pinned) */}
       <div className="flex flex-col flex-1 p-5 relative z-10 w-full">
+         <div className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-text-muted">
+           {mod._aRootCategory?._sName || mod._aCategory?._sName || "Mod"}
+         </div>
          <h3
-           className="text-sm font-bold text-text-primary line-clamp-2 leading-tight mb-2 transition-colors group-hover:text-primary tracking-tight min-h-10"
+           className="text-sm font-bold text-text-primary line-clamp-2 leading-tight mb-3 transition-colors group-hover:text-primary tracking-tight min-h-10"
            title={mod._sName}
          >
            {mod._sName}
          </h3>
 
-         {/* Creator / Stats Row */}
-         <div className="flex items-center justify-between mt-auto mb-4">
-            {/* Creator */}
+         <div className="mb-4 flex items-center justify-between gap-3">
             {mod._aSubmitter ? (
                <button
                  type="button"
@@ -115,63 +115,65 @@ const BrowseModCard = React.memo(function BrowseModCard({
                    e.stopPropagation();
                    onCreatorClick?.(mod._aSubmitter);
                  }}
-                 className="flex items-center gap-1.5 group/creator hover:bg-white/5 p-1 -ml-1 rounded-lg transition-colors w-fit pr-2"
+                 className="flex min-w-0 items-center gap-2 rounded-lg transition-colors hover:text-primary"
                >
-                 <div className="w-5 h-5 rounded-full overflow-hidden bg-background border border-border shrink-0 flex items-center justify-center">
+                 <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
                    {mod._aSubmitter._sAvatarUrl ? (
                      <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-full h-full object-cover" />
                    ) : (
                      <User size={10} className="text-text-secondary" />
                    )}
                  </div>
-                 <span className="text-[9px] uppercase font-black tracking-[0.2em] text-text-secondary truncate group-hover/creator:text-primary transition-colors">
+                 <span className="truncate text-[11px] font-semibold text-text-secondary transition-colors group-hover/creator:text-primary">
                    {mod._aSubmitter._sName}
                  </span>
                </button>
              ) : (
-               <div className="flex items-center gap-1.5 p-1 -ml-1 h-7">
-                 <div className="w-5 h-5 rounded-full overflow-hidden bg-background border border-border shrink-0 flex items-center justify-center">
+               <div className="flex min-w-0 items-center gap-2">
+                 <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
                    <User size={10} className="text-text-muted" />
                  </div>
-                 <p className="text-[9px] uppercase font-black tracking-[0.2em] text-text-muted truncate">
+                 <p className="truncate text-[11px] font-semibold text-text-muted">
                    Unknown
                  </p>
                </div>
              )}
 
-            {/* Stats (Compact) */}
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-3 text-[10px] font-bold text-text-secondary">
                <div className="flex items-center gap-1">
                   <Heart size={10} className="text-text-muted" />
-                  <span className="text-[9px] font-black text-text-secondary">{formatCount(mod._nLikeCount)}</span>
+                  <span>{formatCount(mod._nLikeCount)}</span>
                </div>
                {mod._nDownloadCount != null && (
                   <div className="flex items-center gap-1">
                      <Download size={10} className="text-text-muted" />
-                     <span className="text-[9px] font-black text-text-secondary">{formatCount(mod._nDownloadCount)}</span>
+                     <span>{formatCount(mod._nDownloadCount)}</span>
                   </div>
                )}
             </div>
          </div>
 
          {/* Install action */}
-         <div className="mt-auto pt-4 border-t border-border">
+         <div className="mt-auto border-t border-border pt-4">
            <button
              onClick={(e) => {
                e.stopPropagation();
-               onInstall(mod);
+                onInstall(mod);
              }}
-             disabled={isInstalled}
              className={cn(
-               "w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group/btn border",
-               isInstalled
-                 ? "bg-surface text-text-muted cursor-not-allowed border-transparent"
-                 : "bg-primary border-primary/50 text-black hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_15px_var(--color-primary)]/20"
+               "group/btn relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg border text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+               hasUpdate || !isInstalled
+                 ? "border-primary/50 bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/20 hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
+                 : "border-border bg-surface text-text-primary hover:border-white/20 hover:bg-white/6"
              )}
            >
-             {isInstalled ? (
+             {hasUpdate ? (
                <>
-                 <Check size={12} strokeWidth={4} /> Synced
+                 <Download size={12} strokeWidth={4} className="group-hover/btn:animate-bounce" /> View Update
+               </>
+             ) : isInstalled ? (
+               <>
+                 <Check size={12} strokeWidth={4} /> View Details
                </>
              ) : (
                <>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Activity, Bookmark, Check, ExternalLink, Globe } from "lucide-react";
+import { X, User, LayoutGrid, ChevronLeft, ChevronRight, Bookmark, Check, ExternalLink, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import GbModCard from "./GbModCard";
 import { cn } from "../lib/utils";
+import { StatePanel } from "./ui/StatePanel";
 
 const PER_PAGE = 20;
 
@@ -83,6 +84,8 @@ export default function CreatorProfileModal({
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
+        role="dialog"
+        aria-modal="true"
         className="w-full max-w-7xl bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] flex flex-col h-full max-h-[85vh] relative"
       >
         {/* Immersive Hero Header */}
@@ -122,20 +125,14 @@ export default function CreatorProfileModal({
 
               {/* Identity & Global Stats */}
               <div className="flex flex-col gap-1.5 z-10 w-full">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_var(--color-primary)]" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">CREATOR PROFILE</span>
-                </div>
                 <h2 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-2xl leading-none">{creator._sName}</h2>
                 
-                <div className="flex items-center gap-6 mt-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Portfolio</span>
-                    <span className="text-base font-black text-white">{total > 0 ? total : "—"}</span>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/65">
+                    {total > 0 ? total : "—"} Mods
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Game</span>
-                    <span className="text-base font-black text-white">{game.name}</span>
+                  <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+                    {game.name}
                   </div>
                 </div>
               </div>
@@ -199,7 +196,7 @@ export default function CreatorProfileModal({
            <div className="px-10 py-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-background">
              <div className="flex items-center gap-3">
                 <LayoutGrid size={14} className="text-primary" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Public Release Catalog</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Catalog</h3>
              </div>
              
              {totalPages > 1 && (
@@ -233,18 +230,15 @@ export default function CreatorProfileModal({
                   ))}
                 </div>
               ) : error ? (
-                <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-                  <div className="p-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-500">
-                    <Globe size={32} />
-                  </div>
-                  <div>
-                    <h4 className="text-white font-black uppercase tracking-widest text-base">Network Interruption</h4>
-                    <p className="text-text-muted max-w-sm mt-1 text-xs">{error}</p>
-                  </div>
-                  <button onClick={fetchMods} className="px-5 py-2 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-xl hover:scale-105 transition-transform active:scale-95">
-                    Retry Sync
-                  </button>
-                </div>
+                <StatePanel
+                  icon={Globe}
+                  title="Could not load creator mods"
+                  message={error}
+                  tone="danger"
+                  actionLabel="Retry"
+                  onAction={fetchMods}
+                  className="min-h-[20rem]"
+                />
               ) : (
                 <motion.div 
                   variants={containerVariants}
@@ -282,9 +276,12 @@ export default function CreatorProfileModal({
                   })}
                   
                   {mods.length === 0 && (
-                    <div className="col-span-full py-20 text-center">
-                      <div className="text-3xl opacity-20 mb-3 uppercase font-black tracking-tighter">Empty</div>
-                      <p className="text-text-muted uppercase tracking-widest font-black text-[10px]">No public data for {game.name}</p>
+                    <div className="col-span-full">
+                      <StatePanel
+                        title="No creator mods found"
+                        message={`No public releases found for ${game.name}.`}
+                        className="min-h-[18rem]"
+                      />
                     </div>
                   )}
                 </motion.div>

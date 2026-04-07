@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, FolderKanban } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import ModDetailModal from "../components/ModDetailModal";
 import CharacterDetailHeader from "../components/CharacterDetailHeader";
 import CharacterDetailGrid from "../components/CharacterDetailGrid";
@@ -10,7 +10,7 @@ import { useAppStore } from "../store/useAppStore";
 import { cn } from "../lib/utils";
 import { isModInCollection } from "../lib/modClassification";
 import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
-import { StatePanel } from "../components/ui/StatePanel";
+import { Input } from "../components/ui/Input";
 
 export default function CharacterDetail({
   character,
@@ -30,6 +30,7 @@ export default function CharacterDetail({
   const [modToDelete, setModToDelete] = useState(null);
   const [disablingAll, setDisablingAll] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
 
   // Use fetch cache hook to avoid redundant GameBanana API calls
   const { fetchMod } = useFetchCache();
@@ -342,6 +343,7 @@ export default function CharacterDetail({
   if (!character) return null;
   const enabledCount = mods.filter((m) => m.isEnabled).length;
   const disabledCount = mods.length - enabledCount;
+  const effectiveSearchQuery = hideHeader ? searchQuery : localSearchQuery;
 
   return (
     <div
@@ -362,10 +364,6 @@ export default function CharacterDetail({
             </button>
             <span className="text-white/20">/</span>
             <span className="text-white">{character.name}</span>
-            <div className="ml-auto rounded-md border border-white/10 bg-white/5 px-3 py-1.5 flex items-center">
-              <FolderKanban size={12} className="mr-2 text-white/40" />
-              <span className="text-white/40">Local Collection</span>
-            </div>
           </div>
 
           <div className="relative w-full overflow-hidden rounded-3xl border border-white/10 bg-[#0a0a0a] shadow-[0_0_80px_rgba(0,0,0,0.5)]">
@@ -403,13 +401,35 @@ export default function CharacterDetail({
               />
             </div>
           </div>
+
+          <section className="ui-panel mt-4 p-4 sm:p-5">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="w-full xl:max-w-xl 2xl:max-w-2xl">
+                <Input
+                  icon={Search}
+                  placeholder="Search this collection..."
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                  className="rounded-2xl shadow-inner"
+                />
+              </div>
+            </div>
+
+            {localSearchQuery && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/6 pt-3">
+                <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                  {localSearchQuery}
+                </div>
+              </div>
+            )}
+          </section>
         </section>
       )}
 
       {/* Mods Grid */}
       <CharacterDetailGrid
         mods={mods}
-        searchQuery={searchQuery}
+        searchQuery={effectiveSearchQuery}
         gbDataMap={gbDataMap}
         character={character}
         game={game}
@@ -420,14 +440,6 @@ export default function CharacterDetail({
         onAssign={handleAssign}
         onDelete={handleDelete}
       />
-
-      {!hideHeader && mods.length === 0 && (
-        <StatePanel
-          title="Nothing installed here yet"
-          message="Import a mod into this collection to start managing it from the library."
-          className="hidden"
-        />
-      )}
 
       {/* Mod Detail Modal */}
       {selectedMod && (

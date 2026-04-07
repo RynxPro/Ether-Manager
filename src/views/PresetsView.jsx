@@ -155,7 +155,7 @@ export default function PresetsView() {
         title="Loadouts"
         description={
           loading
-            ? "Loading your saved setups."
+            ? "Loading loadouts."
             : `${presets.length} preset${presets.length !== 1 ? "s" : ""} available for ${game.name}.`
         }
         actions={
@@ -182,32 +182,20 @@ export default function PresetsView() {
       {importFeedback && (
         <StatusBanner
           tone={importFeedback.type === "error" ? "danger" : "success"}
-          className="mb-6 mx-2"
+          className="mb-4 mx-2"
         >
           {importFeedback.message}
         </StatusBanner>
       )}
 
       {!loading && (
-        <section className="ui-panel mb-6 p-5">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="ui-eyebrow">Preset Workflow</p>
-              <h2 className="mt-1 text-lg font-black tracking-tight text-text-primary">
-                Save setups, compare changes, then apply safely
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-                Each loadout captures a reusable local state. Open one to review its contents, compare against your current library, and apply only the changes you want.
-              </p>
-            </div>
-          </div>
-
+        <section className="ui-panel mb-5 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <SummaryPill label="Loadouts" value={presets.length} />
             <SummaryPill label="Saved Mods" value={totalModsAcrossPresets} />
             <SummaryPill label="Characters" value={totalCharactersAcrossPresets} />
             <SummaryPill
-              label="Apply Status"
+              label="Status"
               value={importerPath ? "Ready" : "Needs Mods Path"}
               tone={importerPath ? "primary" : "warning"}
             />
@@ -295,7 +283,6 @@ function PresetCard({ preset, index, onClick, gbData }) {
       onClick={onClick}
       className="cursor-pointer flex flex-col w-full relative group overflow-hidden rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/30 transition-colors"
     >
-      {/* Thumbnail Area (Matches LibraryModCard aspect-4/3) */}
       <div className="relative aspect-4/3 w-full shrink-0 overflow-hidden bg-background border-b border-border">
         {thumbs.length > 0 ? (
           <div className={cn("absolute inset-0 grid gap-px", thumbs.length === 1 ? "grid-cols-1" : thumbs.length === 2 ? "grid-cols-2" : thumbs.length === 3 ? "grid-cols-2 grid-rows-2" : "grid-cols-2 grid-rows-2")}>
@@ -316,22 +303,9 @@ function PresetCard({ preset, index, onClick, gbData }) {
             <Package size={40} className="text-white/5" />
           </div>
         )}
-        
-        <div className="absolute top-3 left-3 z-10">
-          <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white shadow-lg backdrop-blur-md border border-white/10">
-             <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)] opacity-80 group-hover:animate-pulse" />
-             Review Ready
-          </div>
-        </div>
       </div>
 
-      {/* Info Area (Matches new clean solid layout) */}
       <div className="flex flex-col flex-1 p-5 relative z-10 w-full">
-        <div className="flex items-center gap-2 mb-2 opacity-50 group-hover:opacity-100 transition-opacity">
-           <div className="w-1 h-3 rounded-full bg-primary shadow-[0_0_5px_var(--color-primary)]" />
-           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-text-primary">LOADOUT SNAPSHOT</span>
-        </div>
-
         <h3 className="text-sm font-bold text-text-primary line-clamp-2 leading-tight transition-colors group-hover:text-primary tracking-tight min-h-10">
           {preset.name}
         </h3>
@@ -342,20 +316,18 @@ function PresetCard({ preset, index, onClick, gbData }) {
           </p>
         )}
         
-        <div className="flex items-center gap-6 mt-auto mb-4">
-           <div className="flex flex-col">
-             <span className="text-text-primary font-black text-xs leading-none">{preset.mods.length}</span>
-             <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Mods</span>
-           </div>
-           <div className="flex flex-col">
-             <span className="text-text-primary font-black text-xs leading-none">{new Set(preset.mods.map(m => m.character)).size}</span>
-             <span className="text-[9px] uppercase font-black tracking-widest text-text-secondary mt-1 opacity-60">Chars</span>
-           </div>
+        <div className="mt-auto mb-4 flex flex-wrap items-center gap-2">
+           <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">
+             {preset.mods.length} Mods
+           </span>
+           <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+             {new Set(preset.mods.map(m => m.character)).size} Characters
+           </span>
         </div>
 
         <div className="mt-auto pt-4 border-t border-white/5">
           <div className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group/btn bg-background border border-border text-text-muted cursor-pointer hover:border-primary/50 hover:text-primary shadow-sm hover:shadow-[0_0_15px_var(--color-primary)]/20">
-            Review <ChevronRight size={12} strokeWidth={4} className="group-hover/btn:translate-x-1 transition-transform" />
+            Open <ChevronRight size={12} strokeWidth={4} className="group-hover/btn:translate-x-1 transition-transform" />
           </div>
         </div>
       </div>
@@ -383,10 +355,10 @@ function EmptyState({ onCreateClick }) {
     <StatePanel
       icon={Package}
       title="No Loadouts Yet"
-      message="Create a preset to save and apply groups of mods with a single click."
+      message="Create a loadout to save a set of mods."
       action={(
         <Button onClick={onCreateClick} icon={Plus}>
-          Create First Preset
+          Create Loadout
         </Button>
       )}
       className="py-20"

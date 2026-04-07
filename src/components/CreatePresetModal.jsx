@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Search, ChevronRight, ChevronLeft, Zap, Palette, Check, Loader2, Camera } from "lucide-react";
+import { X, Search, ChevronRight, ChevronLeft, Zap, Check, Loader2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
@@ -160,14 +160,11 @@ export default function CreatePresetModal({ onClose, onSaved }) {
         <div className="px-8 pt-8 pb-5 border-b border-white/10 flex items-center justify-between gap-4 shrink-0 bg-background/50 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary blur-[100px] opacity-10 rounded-full" />
           <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-1">
-              <Palette size={14} className="text-primary" />
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-text-muted">
-                New Loadout — Step {step} of 3
-              </span>
+            <div className="mb-1 text-[9px] font-black uppercase tracking-[0.3em] text-text-muted">
+              Step {step} of 3
             </div>
             <h2 className="text-xl font-bold text-text-primary tracking-tight">
-              {step === 1 ? "Style Your Preset" : step === 2 ? "Pick Mods" : "Review & Save"}
+              {step === 1 ? "New Loadout" : step === 2 ? "Pick Mods" : "Review"}
             </h2>
           </div>
           <div className="flex items-center gap-3 relative z-10">
@@ -216,7 +213,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                       Snapshot Current Loadout
                     </p>
                     <p className="text-xs text-text-muted mt-0.5 font-medium">
-                      Auto-select all currently active mods and skip to review
+                      Select all active mods and jump to review
                     </p>
                   </div>
                   <ChevronRight size={16} className="ml-auto text-primary/50 group-hover:text-primary transition-colors" />
@@ -244,7 +241,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                   <textarea
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    placeholder="What is this preset for?"
+                    placeholder="Optional note"
                     rows={2}
                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium text-text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 placeholder:text-text-muted transition-all resize-none"
                   />
@@ -272,9 +269,9 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                       className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-muted transition-all font-medium"
                     />
                   </div>
-                  <span className="text-xs font-black text-primary whitespace-nowrap">
-                    {selectedModIds.size} selected
-                  </span>
+                    <span className="text-xs font-black text-primary whitespace-nowrap">
+                      {selectedModIds.size} selected
+                    </span>
                 </div>
 
                 <div className="p-6 flex flex-col gap-4">
@@ -284,7 +281,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                       <span className="text-sm">Loading mods...</span>
                     </div>
                   ) : Object.keys(grouped).length === 0 ? (
-                    <p className="text-center text-(--text-muted) py-16 text-sm">No mods found.</p>
+                    <p className="py-16 text-center text-sm text-(--text-muted)">No mods found.</p>
                   ) : (
                     Object.entries(grouped).map(([char, mods]) => (
                       <div key={char}>
@@ -354,10 +351,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                 {/* Preview Card */}
                 <div className="relative rounded-2xl overflow-hidden p-6 border border-white/10 bg-white/5 hover:bg-white/10 transition-colors">
                   <div className="absolute top-0 left-0 w-1 h-full rounded-l-3xl bg-primary" />
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_12px_var(--color-primary)] opacity-80 animate-pulse" />
-                    <h3 className="text-xl font-bold text-text-primary tracking-tight">{name || "Untitled Preset"}</h3>
-                  </div>
+                  <h3 className="mb-2 text-xl font-bold tracking-tight text-text-primary">{name || "Untitled Preset"}</h3>
                   {description && <p className="text-text-muted text-sm mb-4">{description}</p>}
                   <div className="flex items-center gap-4">
                     <span className="text-xs font-black text-white/60 uppercase tracking-wider">

@@ -246,14 +246,29 @@ export default function ModDetailModal({
         {/* Bottom: Info Area */}
         <div className="flex-1 p-6 flex flex-col relative z-20">
           <div className="flex flex-col mb-4 shrink-0">
-            <h2 className="text-2xl font-bold text-white mb-2" title={mod._sName}>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <div className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-text-muted">
+                {mod._aRootCategory?._sName || mod._aCategory?._sName || "Mod"}
+              </div>
+              {isBookmarked && (
+                <div className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                  Saved
+                </div>
+              )}
+              {installedFileInfo?.installedFiles?.length > 0 && (
+                <div className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                  Installed
+                </div>
+              )}
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-3" title={mod._sName}>
               {mod._sName}
             </h2>
             <div className="text-text-muted text-sm flex items-center gap-1">
               {mod._aSubmitter ? (
                 <button
                   onClick={() => onCreatorClick?.(mod._aSubmitter)}
-                  className="flex items-center gap-2 group/creator transition-colors hover:bg-white/5 p-1 -ml-1 pr-3 rounded-lg w-fit"
+                  className="flex items-center gap-2 group/creator transition-colors hover:text-primary rounded-lg w-fit"
                 >
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.05)]">
                     {mod._aSubmitter._sAvatarUrl ? (
@@ -262,27 +277,29 @@ export default function ModDetailModal({
                       <User size={12} className="text-white/30" />
                     )}
                   </div>
-                  <span>by <span className="text-primary font-semibold group-hover/creator:underline">{mod._aSubmitter._sName}</span></span>
+                  <span className="font-medium text-text-secondary">
+                    {mod._aSubmitter._sName}
+                  </span>
                 </button>
               ) : (
-                <div className="flex items-center gap-2 p-1 -ml-1">
+                <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
                     <User size={12} className="text-white/20" />
                   </div>
-                  <span>by <span className="text-primary">Unknown</span></span>
+                  <span className="font-medium text-text-muted">Unknown</span>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-text-muted text-xs mb-6 shrink-0">
-            <span className="flex items-center gap-1.5">
+          <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-text-muted shrink-0">
+            <span className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
               <Heart size={14} className="text-primary" /> {mod._nLikeCount?.toLocaleString() || 0}
             </span>
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
               <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
             </span>
-            <span className="flex items-center gap-1.5 text-primary">
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-primary">
               <Download size={14} /> {mod._nDownloadCount?.toLocaleString() || 0}
             </span>
           </div>
@@ -290,9 +307,6 @@ export default function ModDetailModal({
           <div className="flex-1 space-y-8 mb-6">
             {/* Description */}
             <div>
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
-                About this mod
-              </h3>
               <div
                 className="text-sm text-text-secondary leading-relaxed gb-description wrap-break-word"
                 dangerouslySetInnerHTML={{ __html: safeDescriptionHtml }}
@@ -302,7 +316,7 @@ export default function ModDetailModal({
             {/* Files Selector */}
             <div>
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
-                Files / Versions
+                Files
               </h3>
               <div className="space-y-2">
                 {mod._aFiles?.map((file) => {
@@ -391,7 +405,7 @@ export default function ModDetailModal({
                 )}
               >
                 <Download size={20} />
-                {isLibraryContext ? "Update" : "Install Now"}
+                {isLibraryContext ? "Update" : "Install"}
               </button>
             </div>
           </div>

@@ -134,6 +134,10 @@ export default function LibraryView({ isActive }) {
     () => mods.filter((m) => m.isEnabled).length,
     [mods],
   );
+  const totalUpdateGroups = useMemo(
+    () => Object.keys(updatesMap).length,
+    [updatesMap],
+  );
 
   // Group and Filter logic
   const { displayItems, counts } = useMemo(() => {
@@ -226,46 +230,14 @@ export default function LibraryView({ isActive }) {
     <div className="flex flex-col h-full animate-in fade-in duration-500">
       <PageHeader
         eyebrow="Library"
-        title={`${game.name} Library`}
-        description={`${mods.length.toLocaleString()} installed mod${mods.length !== 1 ? "s" : ""} with ${totalEnabledMods.toLocaleString()} currently enabled.`}
-        actions={
-          <>
-            {totalEnabledMods > 0 && (
-              <Button
-                variant="secondary"
-                onClick={handleDisableAllGame}
-                disabled={disablingAll}
-                title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
-                icon={EyeOff}
-              >
-                {disablingAll ? "Disabling…" : `Disable All (${totalEnabledMods})`}
-              </Button>
-            )}
+        title="Library"
+        description={`${mods.length.toLocaleString()} installed mod${mods.length !== 1 ? "s" : ""} for ${game.name}.`}
+      />
 
-            <div className="relative w-full sm:w-64 xl:w-72">
-              <Input
-                icon={Search}
-                placeholder={
-                  activeTab === "characters"
-                    ? "Search characters..."
-                    : "Search mods..."
-                }
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </>
-        }
-      >
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-            {mods.length} installed
-          </div>
-          <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
-            {totalEnabledMods} enabled
-          </div>
-        </div>
-        <nav className="flex flex-wrap items-center gap-2">
+      <section className="ui-panel mb-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <nav className="flex flex-wrap items-center gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -305,8 +277,60 @@ export default function LibraryView({ isActive }) {
               </button>
             );
           })}
-        </nav>
-      </PageHeader>
+            </nav>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {searchQuery && (
+                <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
+                  Clear
+                </Button>
+              )}
+              {totalEnabledMods > 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleDisableAllGame}
+                  disabled={disablingAll}
+                  title={`Disable all ${totalEnabledMods} active mod${totalEnabledMods !== 1 ? "s" : ""} for ${game.name}`}
+                  icon={EyeOff}
+                >
+                  {disablingAll ? "Disabling…" : "Disable All"}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="w-full xl:max-w-xl 2xl:max-w-2xl">
+              <Input
+                icon={Search}
+                placeholder={
+                  activeTab === "characters"
+                    ? "Search collections..."
+                    : "Search this section..."
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="rounded-2xl shadow-inner"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 border-t border-white/6 pt-3">
+            <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+              {mods.length} Installed
+            </div>
+            <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+              {totalEnabledMods} Enabled
+            </div>
+            {totalUpdateGroups > 0 && (
+              <div className="rounded-full border border-update/20 bg-update/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-update">
+                {totalUpdateGroups} Update{totalUpdateGroups === 1 ? "" : "s"}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -318,34 +342,47 @@ export default function LibraryView({ isActive }) {
           className="flex-1"
         >
           {activeTab === "characters" ? (
-            displayItems.length === 0 ? (
-              <StatePanel
-                title={`No ${activeTab} mods found`}
-                message={
-                  searchQuery
-                    ? `No results matching "${searchQuery}" in this category.`
-                    : `You haven't installed any ${activeTab} mods yet.`
-                }
-                className="p-24"
-              />
-            ) : (
-              <motion.div
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12"
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-              >
-                {displayItems.map((item) => (
-                  <CharacterCard
-                    key={item.name}
-                    character={item}
-                    game={game}
-                    hasUpdate={updatesMap[item.name]}
-                    onClick={() => onSelectCharacter(item)}
-                  />
-                ))}
-              </motion.div>
-            )
+            <>
+              <div className="mb-4 flex items-center justify-between gap-3 px-1">
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                  {displayItems.length} collection{displayItems.length !== 1 ? "s" : ""}
+                </div>
+                {searchQuery && (
+                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
+                    Filtered by {searchQuery}
+                  </div>
+                )}
+              </div>
+
+              {displayItems.length === 0 ? (
+                <StatePanel
+                  title="No collections found"
+                  message={
+                    searchQuery
+                      ? `No collections match "${searchQuery}".`
+                      : "No installed character collections yet."
+                  }
+                  className="p-24"
+                />
+              ) : (
+                <motion.div
+                  className="grid grid-cols-2 gap-4 pb-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {displayItems.map((item) => (
+                    <CharacterCard
+                      key={item.name}
+                      character={item}
+                      game={game}
+                      hasUpdate={updatesMap[item.name]}
+                      onClick={() => onSelectCharacter(item)}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </>
           ) : (
             <Suspense
               fallback={
