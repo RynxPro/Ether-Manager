@@ -45,6 +45,21 @@ function toIntegerOr(fallback, value) {
   return Number.isInteger(value) ? value : fallback;
 }
 
+function toNumberOr(fallback, value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+}
+
 function toStringOr(fallback, value) {
   return typeof value === "string" ? value : fallback;
 }
@@ -145,12 +160,10 @@ function normalizeModRecord(mod) {
     _sName: toStringOr("Unknown Mod", mod._sName),
     _sDescription: toStringOr("", mod._sDescription),
     _sText: toStringOr("", mod._sText),
-    _tsDateUpdated: Number.isFinite(mod._tsDateUpdated) ? mod._tsDateUpdated : 0,
-    _nLikeCount: Number.isFinite(mod._nLikeCount) ? mod._nLikeCount : 0,
-    _nDownloadCount: Number.isFinite(mod._nDownloadCount)
-      ? mod._nDownloadCount
-      : 0,
-    _nViewCount: Number.isFinite(mod._nViewCount) ? mod._nViewCount : 0,
+    _tsDateUpdated: toNumberOr(0, mod._tsDateUpdated),
+    _nLikeCount: toNumberOr(0, mod._nLikeCount),
+    _nDownloadCount: toNumberOr(0, mod._nDownloadCount),
+    _nViewCount: toNumberOr(0, mod._nViewCount),
     _sProfileUrl: toStringOr("", mod._sProfileUrl),
     _aPreviewMedia: previewMedia,
     _aSubmitter: normalizeSubmitter(mod._aSubmitter),
@@ -190,6 +203,26 @@ function shouldRetryRequest(error, status) {
 function withThumbnail(mod) {
   const normalized = normalizeModRecord(mod);
   return normalized;
+}
+
+function mergeNormalizedModRecords(baseRecord, summaryRecord) {
+  if (!baseRecord) {
+    return summaryRecord;
+  }
+  if (!summaryRecord) {
+    return baseRecord;
+  }
+
+  return {
+    ...baseRecord,
+    ...summaryRecord,
+    _aPreviewMedia:
+      summaryRecord._aPreviewMedia?._aImages?.length > 0
+        ? summaryRecord._aPreviewMedia
+        : baseRecord._aPreviewMedia,
+    _aSubmitter: summaryRecord._aSubmitter || baseRecord._aSubmitter,
+    thumbnailUrl: summaryRecord.thumbnailUrl || baseRecord.thumbnailUrl,
+  };
 }
 
 export async function fetchFromGB(url) {
@@ -422,9 +455,26 @@ export async function browseGbMods(args = {}) {
 
   logger.debug("GB API request", url);
   const data = await fetchFromGB(url);
-  const records = Array.isArray(data._aRecords)
+  let records = Array.isArray(data._aRecords)
     ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
     : [];
+
+  const shouldHydrateSummaries =
+    records.length > 0 &&
+    records.every((record) => record._nDownloadCount === 0);
+
+  if (shouldHydrateSummaries) {
+    const summaryRecords = await fetchGbModsSummaries(
+      records.map((record) => record._idRow),
+    );
+    const summaryMap = new Map(
+      summaryRecords.map((record) => [record._idRow, record]),
+    );
+
+    records = records.map((record) =>
+      mergeNormalizedModRecords(record, summaryMap.get(record._idRow)),
+    );
+  }
 
   return {
     records,
