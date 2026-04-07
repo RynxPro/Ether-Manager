@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   browseGbMods,
+  fetchGbFeaturedMods,
   fetchGbMod,
   fetchGbModsSummaries,
   setGameBananaRuntime,
@@ -23,6 +24,7 @@ test.afterEach(() => {
     sleepImpl: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     timeoutMs: 12000,
     retryCount: 1,
+    nowImpl: () => Date.now(),
   });
 });
 
@@ -210,4 +212,110 @@ test("browseGbMods hydrates summaries when browse records return zero download c
   assert.equal(result.records[1]._nDownloadCount, 8901);
   assert.ok(requestedUrls.some((url) => url.includes("/Mod/101?")));
   assert.ok(requestedUrls.some((url) => url.includes("/Mod/102?")));
+});
+
+test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", async () => {
+  const now = Date.UTC(2026, 3, 7);
+  const day = 24 * 60 * 60 * 1000;
+  const recentPages = new Map([
+    [
+      1,
+      [
+        {
+          _idRow: 201,
+          _sName: "Week Winner",
+          _tsDateAdded: now - 2 * day,
+          _nLikeCount: 100,
+          _nDownloadCount: 0,
+        },
+        {
+          _idRow: 202,
+          _sName: "Month Winner",
+          _tsDateAdded: now - 20 * day,
+          _nLikeCount: 95,
+          _nDownloadCount: 0,
+        },
+        {
+          _idRow: 203,
+          _sName: "Six Month Winner",
+          _tsDateAdded: now - 120 * day,
+          _nLikeCount: 90,
+          _nDownloadCount: 0,
+        },
+        {
+          _idRow: 204,
+          _sName: "Year Winner",
+          _tsDateAdded: now - 300 * day,
+          _nLikeCount: 85,
+          _nDownloadCount: 0,
+        },
+      ],
+    ],
+    [2, []],
+  ]);
+  const detailById = new Map([
+    [201, { _tsDateAdded: now - 2 * day, _nLikeCount: 100 }],
+    [202, { _tsDateAdded: now - 20 * day, _nLikeCount: 95 }],
+    [203, { _tsDateAdded: now - 120 * day, _nLikeCount: 90 }],
+    [204, { _tsDateAdded: now - 300 * day, _nLikeCount: 85 }],
+    [205, { _tsDateAdded: now - 500 * day, _nLikeCount: 999 }],
+  ]);
+
+  setGameBananaRuntime({
+    retryCount: 0,
+    nowImpl: () => now,
+    fetchImpl: async (url) => {
+      if (url.includes("/Mod/Index?") && url.includes("Generic_MostLiked")) {
+        return createJsonResponse({
+          _aRecords: [
+            {
+              _idRow: 205,
+              _sName: "All Time Winner",
+              _nLikeCount: 999,
+              _nDownloadCount: 0,
+            },
+          ],
+          _aMetadata: { _nRecordCount: 1 },
+        });
+      }
+
+      if (url.includes("/Mod/Index?") && url.includes("Generic_Game")) {
+        const pageMatch = url.match(/_nPage=(\d+)/);
+        const page = Number(pageMatch?.[1] || 1);
+        return createJsonResponse({
+          _aRecords: recentPages.get(page) || [],
+          _aMetadata: { _nRecordCount: 4 },
+        });
+      }
+
+      const modMatch = url.match(/\/Mod\/(\d+)\?/);
+      if (modMatch) {
+        const id = Number(modMatch[1]);
+        const detail = detailById.get(id) || {};
+        return createJsonResponse({
+          _idRow: id,
+          _sName: `Hydrated ${id}`,
+          _tsDateAdded: detail._tsDateAdded,
+          _nLikeCount: detail._nLikeCount,
+          _nDownloadCount: id * 10,
+        });
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    },
+  });
+
+  const result = await fetchGbFeaturedMods(1);
+
+  assert.deepEqual(
+    result.map((entry) => entry.id),
+    ["week", "month", "sixMonths", "year", "allTime"],
+  );
+  assert.deepEqual(
+    result.map((entry) => entry.mod._idRow),
+    [201, 202, 203, 204, 205],
+  );
+  assert.equal(result[0].label, "Best of This Week");
+  assert.equal(result[4].label, "Best of All Time");
+  assert.equal(result[0].mod._nDownloadCount, 2010);
 });

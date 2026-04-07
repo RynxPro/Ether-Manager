@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld("electronMods", {
   setCustomThumbnail: (args) => ipcRenderer.invoke("set-custom-thumbnail", args),
   deleteMod: (args) => ipcRenderer.invoke("delete-mod", args),
   fetchGbMod: (gamebananaId) => ipcRenderer.invoke("fetch-gb-mod", gamebananaId),
+  fetchGbFeaturedMods: (gbGameId) =>
+    ipcRenderer.invoke("fetch-gb-featured-mods", gbGameId),
   browseGbMods: (args) => ipcRenderer.invoke("browse-gb-mods", args),
   installGbMod: (args) => ipcRenderer.invoke("install-gb-mod", args),
   fetchGbModsBatch: (ids) => ipcRenderer.invoke("fetch-gb-mods-batch", ids),

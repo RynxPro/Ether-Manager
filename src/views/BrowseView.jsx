@@ -94,26 +94,28 @@ export default function BrowseView() {
   // Fetch Featured Mods (Randomized popular mods per session)
   useEffect(() => {
     const fetchFeatured = async () => {
-      if (!isOnline || !game.gbGameId || !window.electronMods?.browseGbMods) return;
+      if (
+        !isOnline ||
+        !game.gbGameId ||
+        !window.electronMods?.fetchGbFeaturedMods
+      ) {
+        setFeaturedMods([]);
+        return;
+      }
       setLoadingFeatured(true);
       try {
-        // Randomly grab page 1, 2, or 3 of the most liked mods
-        const randomPage = Math.floor(Math.random() * 3) + 1;
-        const result = await window.electronMods.browseGbMods({
-          gbGameId: game.gbGameId,
-          page: randomPage,
-          perPage: 15,
-          sort: "likes",
-          context: "",
-          search: "",
-        });
-        if (result.success && result.records) {
-          // Shuffle the large pool and take 5 to ensure fresh variety
-          const shuffled = [...result.records].sort(() => 0.5 - Math.random());
-          setFeaturedMods(shuffled.slice(0, 5));
+        const result = await window.electronMods.fetchGbFeaturedMods(
+          game.gbGameId,
+        );
+        if (result.success && Array.isArray(result.data)) {
+          setFeaturedMods(result.data);
+          setCurrentHeroIndex(0);
+        } else {
+          setFeaturedMods([]);
         }
       } catch (err) {
         console.error("Failed to fetch featured mods:", err);
+        setFeaturedMods([]);
       } finally {
         setLoadingFeatured(false);
       }
@@ -645,16 +647,12 @@ export default function BrowseView() {
         featuredMods.length > 0 &&
         showFeaturedHero &&
         (() => {
-          const timeframes = [
-            { label: "Mod of All Time", color: "from-amber-500 to-orange-600", shadow: "shadow-amber-500/50" },
-            { label: "Mod of the Year", color: "from-purple-500 to-pink-600", shadow: "shadow-purple-500/50" },
-            { label: "Mod of the Month", color: "from-blue-500 to-cyan-500", shadow: "shadow-blue-500/50" },
-            { label: "Mod of the Week", color: "from-green-400 to-emerald-600", shadow: "shadow-green-500/50" },
-            { label: "Trending Today", color: "from-red-500 to-rose-600", shadow: "shadow-red-500/50" },
-          ];
+          const featuredEntry = featuredMods[currentHeroIndex];
+          const mod = featuredEntry?.mod;
 
-          const mod = featuredMods[currentHeroIndex];
-          const tf = timeframes[currentHeroIndex] || timeframes[timeframes.length - 1];
+          if (!mod) {
+            return null;
+          }
 
           return (
             <div className="mb-5 w-full">
@@ -705,7 +703,7 @@ export default function BrowseView() {
                     <div className="flex flex-col justify-between h-full px-10 py-10 w-[52%]">
                       <div className="inline-flex items-center gap-1.5 w-max px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black uppercase tracking-[0.25em]">
                         <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                        {tf.label}
+                        {featuredEntry.label}
                       </div>
                       <h2 className="text-3xl md:text-[2.6rem] font-black text-white tracking-tighter leading-[1.05] drop-shadow-2xl line-clamp-3">
                         {mod._sName}

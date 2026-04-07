@@ -14,12 +14,25 @@ const characterCategoryCache = {};
 const logger = createLogger("gamebanana");
 const DEFAULT_TIMEOUT_MS = 12000;
 const DEFAULT_RETRY_COUNT = 1;
+const FEATURED_BUCKETS = [
+  { id: "week", label: "Best of This Week", days: 7 },
+  { id: "month", label: "Best of This Month", days: 30 },
+  { id: "sixMonths", label: "Best of 6 Months", days: 183 },
+  { id: "year", label: "Best of This Year", days: 365 },
+  { id: "allTime", label: "Best of All Time", days: null },
+];
+const FEATURED_RECENT_PAGE_COUNT = 3;
+const FEATURED_RECENT_PER_PAGE = 20;
+const FEATURED_ALL_TIME_PER_PAGE = 12;
+const FEATURED_DETAIL_BATCH_SIZE = 10;
+const DAY_SECONDS = 24 * 60 * 60;
 
 const runtime = {
   fetchImpl: (...args) => fetch(...args),
   sleepImpl: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   timeoutMs: DEFAULT_TIMEOUT_MS,
   retryCount: DEFAULT_RETRY_COUNT,
+  nowImpl: () => Date.now(),
 };
 
 export function setGameBananaRuntime(overrides = {}) {
@@ -38,6 +51,9 @@ export function setGameBananaRuntime(overrides = {}) {
     overrides.retryCount <= 5
   ) {
     runtime.retryCount = overrides.retryCount;
+  }
+  if (typeof overrides.nowImpl === "function") {
+    runtime.nowImpl = overrides.nowImpl;
   }
 }
 
@@ -58,6 +74,15 @@ function toNumberOr(fallback, value) {
   }
 
   return fallback;
+}
+
+function toUnixSecondsOr(fallback, value) {
+  const numeric = toNumberOr(NaN, value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  return numeric > 1e12 ? Math.floor(numeric / 1000) : Math.floor(numeric);
 }
 
 function toStringOr(fallback, value) {
@@ -160,7 +185,9 @@ function normalizeModRecord(mod) {
     _sName: toStringOr("Unknown Mod", mod._sName),
     _sDescription: toStringOr("", mod._sDescription),
     _sText: toStringOr("", mod._sText),
-    _tsDateUpdated: toNumberOr(0, mod._tsDateUpdated),
+    _tsDateAdded: toUnixSecondsOr(0, mod._tsDateAdded),
+    _tsDateUpdated: toUnixSecondsOr(0, mod._tsDateUpdated),
+    _tsDateModified: toUnixSecondsOr(0, mod._tsDateModified),
     _nLikeCount: toNumberOr(0, mod._nLikeCount),
     _nDownloadCount: toNumberOr(0, mod._nDownloadCount),
     _nViewCount: toNumberOr(0, mod._nViewCount),
@@ -223,6 +250,195 @@ function mergeNormalizedModRecords(baseRecord, summaryRecord) {
     _aSubmitter: summaryRecord._aSubmitter || baseRecord._aSubmitter,
     thumbnailUrl: summaryRecord.thumbnailUrl || baseRecord.thumbnailUrl,
   };
+}
+
+function getFeaturedTimestamp(record) {
+  return (
+    record?._tsDateAdded ||
+    record?._tsDateUpdated ||
+    record?._tsDateModified ||
+    0
+  );
+}
+
+function compareFeaturedCandidates(a, b) {
+  return (
+    b._nLikeCount - a._nLikeCount ||
+    b._nDownloadCount - a._nDownloadCount ||
+    b._nViewCount - a._nViewCount ||
+    getFeaturedTimestamp(b) - getFeaturedTimestamp(a) ||
+    b._idRow - a._idRow
+  );
+}
+
+async function fetchBrowseRecords(url, { hydrateZeroDownloadCounts = true } = {}) {
+  const data = await fetchFromGB(url);
+  let records = Array.isArray(data._aRecords)
+    ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
+    : [];
+
+  const shouldHydrateSummaries =
+    hydrateZeroDownloadCounts &&
+    records.length > 0 &&
+    records.every((record) => record._nDownloadCount === 0);
+
+  if (shouldHydrateSummaries) {
+    const summaryRecords = await fetchGbModsSummaries(
+      records.map((record) => record._idRow),
+    );
+    const summaryMap = new Map(
+      summaryRecords.map((record) => [record._idRow, record]),
+    );
+
+    records = records.map((record) =>
+      mergeNormalizedModRecords(record, summaryMap.get(record._idRow)),
+    );
+  }
+
+  return {
+    records,
+    total: Number.isFinite(data._aMetadata?._nRecordCount)
+      ? data._aMetadata._nRecordCount
+      : records.length,
+  };
+}
+
+async function fetchFeaturedRecentCandidates(gbGameId, browseFields) {
+  const uniqueCandidates = new Map();
+  const now = toUnixSecondsOr(0, runtime.nowImpl());
+  const oldestRelevantTimestamp = now - 365 * DAY_SECONDS;
+
+  for (let page = 1; page <= FEATURED_RECENT_PAGE_COUNT; page += 1) {
+    const url =
+      `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}` +
+      `&_nPage=${page}&_nPerpage=${FEATURED_RECENT_PER_PAGE}` +
+      "&_sSort=Generic_Newest" +
+      `&_csvFields=${encodeURIComponent(browseFields)}`;
+    const { records } = await fetchBrowseRecords(url, {
+      hydrateZeroDownloadCounts: false,
+    });
+
+    if (records.length === 0) {
+      break;
+    }
+
+    for (const record of records) {
+      uniqueCandidates.set(record._idRow, record);
+    }
+  }
+
+  const candidates = [...uniqueCandidates.values()];
+  const detailProperties =
+    "_idRow,_sName,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl";
+  const detailedCandidates = [];
+
+  for (
+    let index = 0;
+    index < candidates.length;
+    index += FEATURED_DETAIL_BATCH_SIZE
+  ) {
+    const batch = candidates.slice(index, index + FEATURED_DETAIL_BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (record) => {
+        try {
+          const detail = await fetchFromGB(
+            `${GB_API}/Mod/${record._idRow}?_csvProperties=${encodeURIComponent(detailProperties)}`,
+          );
+          return mergeNormalizedModRecords(record, normalizeModRecord(detail));
+        } catch (error) {
+          logger.warn(
+            `Featured candidate detail fetch failed for mod ${record._idRow}`,
+            error.message,
+          );
+          return record;
+        }
+      }),
+    );
+
+    detailedCandidates.push(...batchResults);
+
+    const oldestDetailedTimestamp = Math.min(
+      ...batchResults.map((record) => getFeaturedTimestamp(record) || now),
+    );
+    if (oldestDetailedTimestamp <= oldestRelevantTimestamp) {
+      break;
+    }
+  }
+
+  return detailedCandidates;
+}
+
+function pickFeaturedBucketWinner(candidates, usedIds, cutoffTimestamp) {
+  const eligible = candidates
+    .filter((record) => {
+      if (usedIds.has(record._idRow)) {
+        return false;
+      }
+      if (cutoffTimestamp == null) {
+        return true;
+      }
+      return getFeaturedTimestamp(record) >= cutoffTimestamp;
+    })
+    .sort(compareFeaturedCandidates);
+
+  return eligible[0] || null;
+}
+
+export async function fetchGbFeaturedMods(gbGameId) {
+  const validGameId = assertInteger(gbGameId, "gbGameId", { min: 1 });
+  const browseFields =
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_tsDateModified,_sProfileUrl";
+  const now = toUnixSecondsOr(0, runtime.nowImpl());
+
+  const [recentCandidates, allTimeResult] = await Promise.all([
+    fetchFeaturedRecentCandidates(validGameId, browseFields),
+    browseGbMods({
+      gbGameId: validGameId,
+      page: 1,
+      perPage: FEATURED_ALL_TIME_PER_PAGE,
+      sort: "likes",
+    }),
+  ]);
+
+  const usedIds = new Set();
+  const selectedEntries = [];
+
+  for (const bucket of FEATURED_BUCKETS) {
+    const cutoffTimestamp =
+      bucket.days == null ? null : now - bucket.days * DAY_SECONDS;
+    const sourcePool =
+      bucket.id === "allTime" ? allTimeResult.records || [] : recentCandidates;
+    const winner = pickFeaturedBucketWinner(
+      sourcePool,
+      usedIds,
+      cutoffTimestamp,
+    );
+
+    if (!winner) {
+      continue;
+    }
+
+    usedIds.add(winner._idRow);
+    selectedEntries.push({
+      id: bucket.id,
+      label: bucket.label,
+      modId: winner._idRow,
+      mod: winner,
+    });
+  }
+
+  const hydratedSummaries = await fetchGbModsSummaries(
+    selectedEntries.map((entry) => entry.modId),
+  );
+  const summaryMap = new Map(
+    hydratedSummaries.map((record) => [record._idRow, record]),
+  );
+
+  return selectedEntries.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    mod: mergeNormalizedModRecords(entry.mod, summaryMap.get(entry.modId)),
+  }));
 }
 
 export async function fetchFromGB(url) {
@@ -454,32 +670,12 @@ export async function browseGbMods(args = {}) {
   }
 
   logger.debug("GB API request", url);
-  const data = await fetchFromGB(url);
-  let records = Array.isArray(data._aRecords)
-    ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
-    : [];
-
-  const shouldHydrateSummaries =
-    records.length > 0 &&
-    records.every((record) => record._nDownloadCount === 0);
-
-  if (shouldHydrateSummaries) {
-    const summaryRecords = await fetchGbModsSummaries(
-      records.map((record) => record._idRow),
-    );
-    const summaryMap = new Map(
-      summaryRecords.map((record) => [record._idRow, record]),
-    );
-
-    records = records.map((record) =>
-      mergeNormalizedModRecords(record, summaryMap.get(record._idRow)),
-    );
-  }
+  const { records, total } = await fetchBrowseRecords(url, {
+    hydrateZeroDownloadCounts: true,
+  });
 
   return {
     records,
-    total: Number.isFinite(data._aMetadata?._nRecordCount)
-      ? data._aMetadata._nRecordCount
-      : records.length,
+    total,
   };
 }

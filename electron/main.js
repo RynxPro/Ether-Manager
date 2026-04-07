@@ -10,6 +10,7 @@ import {
 } from "./services/config.js";
 import {
   browseGbMods,
+  fetchGbFeaturedMods,
   fetchGbMod,
   fetchGbModsBatch,
   fetchGbModsSummaries,
@@ -276,6 +277,13 @@ handleIpc(
   withResultEnvelope("Failed to browse GB mods:", async (event, args = {}) =>
     browseGbMods(args),
   ),
+);
+
+handleIpc(
+  "fetch-gb-featured-mods",
+  withResultEnvelope("Failed to fetch featured GB mods:", async (event, gbGameId) => ({
+    data: await fetchGbFeaturedMods(gbGameId),
+  })),
 );
 
 handleIpc(
