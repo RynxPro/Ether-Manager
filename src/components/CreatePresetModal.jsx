@@ -16,13 +16,37 @@ export default function CreatePresetModal({ onClose, onSaved }) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const { mods: loadedMods } = useLoadGameMods(game.id, step === 2 || step === 1 /* Always load to allow quick snapshots */);
+  const {
+    mods: loadedMods,
+    loadMods,
+    error: loadModsError,
+  } = useLoadGameMods(game.id, step === 2 || step === 1);
   const [allMods, setAllMods] = useState([]);
   const [selectedModIds, setSelectedModIds] = useState(new Set());
   const [search, setSearch] = useState("");
   const [loadingMods, setLoadingMods] = useState(false);
   const [gbData, setGbData] = useState({});
   const [saving, setSaving] = useState(false);
+  const [snapshotError, setSnapshotError] = useState(null);
+
+  const hydrateGbData = useCallback(async (mods) => {
+    const gbIds = mods.map((mod) => mod.gamebananaId).filter(Boolean);
+    if (gbIds.length === 0) {
+      return;
+    }
+
+    const result = await window.electronMods.fetchGbModsBatch(gbIds);
+    if (result.success && result.data) {
+      const dataMap = {};
+      result.data.forEach((item) => {
+        const thumb = item._aPreviewMedia?._aImages?.[0];
+        dataMap[item._idRow] = {
+          thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null,
+        };
+      });
+      setGbData((prev) => ({ ...prev, ...dataMap }));
+    }
+  }, []);
 
   // Load all installed mods (wrapper for fetching GB thumbnails)
   const processMods = useCallback(async () => {
@@ -31,27 +55,13 @@ export default function CreatePresetModal({ onClose, onSaved }) {
     setAllMods(loadedMods);
 
     try {
-      // Fetch GB data for thumbnails
-      const gbIds = loadedMods.map(m => m.gamebananaId).filter(Boolean);
-      if (gbIds.length > 0) {
-        const result = await window.electronMods.fetchGbModsBatch(gbIds);
-        if (result.success && result.data) {
-          const dataMap = {};
-          result.data.forEach(item => {
-            const thumb = item._aPreviewMedia?._aImages?.[0];
-            dataMap[item._idRow] = {
-              thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
-            };
-          });
-          setGbData(prev => ({ ...prev, ...dataMap }));
-        }
-      }
+      await hydrateGbData(loadedMods);
     } catch (err) {
       console.error("CreatePresetModal: failed to process mods", err);
     } finally {
       setLoadingMods(false);
     }
-  }, [loadedMods]);
+  }, [loadedMods, hydrateGbData]);
 
   useEffect(() => {
     if (step === 2 && loadedMods.length > 0) {
@@ -61,33 +71,37 @@ export default function CreatePresetModal({ onClose, onSaved }) {
 
   // Snapshot: auto-select all currently-enabled mods
   const handleSnapshot = async () => {
-    if (!loadedMods || loadedMods.length === 0) return;
     setLoadingMods(true);
-    setAllMods(loadedMods);
-    const enabledIds = new Set(loadedMods.filter(m => m.isEnabled).map(m => m.id));
-    setSelectedModIds(enabledIds);
+    setSnapshotError(null);
 
     try {
-      // Fetch GB data for thumbnails
-      const gbIds = loadedMods.map(m => m.gamebananaId).filter(Boolean);
-      if (gbIds.length > 0) {
-        const result = await window.electronMods.fetchGbModsBatch(gbIds);
-        if (result.success && result.data) {
-          const dataMap = {};
-          result.data.forEach(item => {
-            const thumb = item._aPreviewMedia?._aImages?.[0];
-            dataMap[item._idRow] = {
-              thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
-            };
-          });
-          setGbData(prev => ({ ...prev, ...dataMap }));
-        }
+      const sourceMods =
+        loadedMods && loadedMods.length > 0 ? loadedMods : await loadMods(true);
+
+      if (!Array.isArray(sourceMods) || sourceMods.length === 0) {
+        throw new Error(
+          loadModsError || "No installed mods were found for the current game.",
+        );
       }
+
+      const enabledMods = sourceMods.filter((mod) => mod.isEnabled);
+      if (enabledMods.length === 0) {
+        throw new Error("No enabled mods found to snapshot.");
+      }
+
+      setAllMods(sourceMods);
+      setSelectedModIds(new Set(enabledMods.map((mod) => mod.id)));
+      if (!name.trim()) {
+        setName("Current Loadout");
+      }
+
+      await hydrateGbData(sourceMods);
+      setStep(3);
     } catch (error) {
-       console.error("Snapshot error:", error);
+      console.error("Snapshot error:", error);
+      setSnapshotError(error.message || "Failed to snapshot the current loadout.");
     } finally {
       setLoadingMods(false);
-      setStep(2);
     }
   };
 
@@ -218,6 +232,12 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                   </div>
                   <ChevronRight size={16} className="ml-auto text-primary/50 group-hover:text-primary transition-colors" />
                 </button>
+
+                {snapshotError ? (
+                  <div className="rounded-2xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-200/85">
+                    {snapshotError}
+                  </div>
+                ) : null}
 
                 <div className="w-full h-px bg-white/5 flex items-center justify-center">
                   <span className="text-[9px] font-black uppercase tracking-widest text-text-muted bg-surface px-3">or build manually</span>

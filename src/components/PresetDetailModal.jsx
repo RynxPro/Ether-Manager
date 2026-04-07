@@ -7,6 +7,10 @@ import ApplyPresetModal from "./ApplyPresetModal";
 import SidePanel from "./layout/SidePanel";
 import { useAppStore } from "../store/useAppStore";
 import { getModDisplayCharacter } from "../lib/modClassification";
+import {
+  findMatchingLibraryMod,
+  getMissingPresetMods,
+} from "../lib/presetMatching";
 export default function PresetDetailModal({
   preset: initialPreset,
   importerPath,
@@ -39,15 +43,19 @@ export default function PresetDetailModal({
   const [allLibraryMods, setAllLibraryMods] = useState([]);
   const [addSearch, setAddSearch] = useState("");
 
-  const loadLibrary = useCallback(async () => {
-    if (!loadedMods || loadedMods.length === 0) return;
-    setAllLibraryMods(loadedMods);
+  const syncLibraryState = useCallback(async () => {
+    const libraryMods = Array.isArray(loadedMods) ? loadedMods : [];
+    setAllLibraryMods(libraryMods);
+
+    if (libraryMods.length === 0) {
+      return;
+    }
 
     // SELF-HEALING: If preset mods are missing gamebananaId, try to find them in the loaded library
     let needsUpdate = false;
     const healedMods = preset.mods.map(pm => {
       if (!pm.gamebananaId || pm.character === "Unassigned") {
-        const libraryMod = loadedMods.find(m => m.id === pm.modId);
+        const libraryMod = findMatchingLibraryMod(libraryMods, pm);
         if (libraryMod) {
           let updated = { ...pm };
           const classifiedCharacter = getModDisplayCharacter(libraryMod);
@@ -76,7 +84,7 @@ export default function PresetDetailModal({
     }
 
     // Fetch GB data for thumbnails in the library panel
-    const gbIds = loadedMods.map(m => m.gamebananaId).filter(Boolean);
+    const gbIds = libraryMods.map(m => m.gamebananaId).filter(Boolean);
     if (gbIds.length > 0) {
       const result = await window.electronMods.fetchGbModsBatch(gbIds);
       if (result.success && result.data) {
@@ -92,15 +100,9 @@ export default function PresetDetailModal({
     }
   }, [loadedMods, preset.mods]);
 
-  // Initial load: check if we need to self-heal (if any mod is missing GB ID)
   useEffect(() => {
-    const needsHealing = preset.mods.some(
-      (m) => !m.gamebananaId || m.character === "Unassigned",
-    );
-    if (needsHealing) {
-      loadLibrary();
-    }
-  }, [loadLibrary, preset.mods]); // Only when healing criteria changes
+    syncLibraryState();
+  }, [syncLibraryState]);
 
   // Fetch GB data for mods ALREADY in the preset
   useEffect(() => {
@@ -149,7 +151,6 @@ export default function PresetDetailModal({
       setEditDescription(preset.description || "");
       setEditMods([...preset.mods]);
       setIsEditMode(true);
-      loadLibrary();
     }
   };
 
@@ -213,11 +214,8 @@ export default function PresetDetailModal({
 
   const displayMods = isEditMode ? editMods : preset.mods;
   const characters = [...new Set(displayMods.map(m => m.character))];
-  const missingCount = displayMods.filter(
-    (pm) => !allLibraryMods.find(
-      (m) => m.id === pm.modId || m.id === pm.originalFolderName?.replace(/^DISABLED_/, ""),
-    ),
-  ).length;
+  const missingMods = getMissingPresetMods(displayMods, allLibraryMods);
+  const missingCount = missingMods.length;
 
   return (
     <>
@@ -347,7 +345,7 @@ export default function PresetDetailModal({
                 </div>
                 
                 {(() => {
-                  const ghostMods = displayMods.filter(pm => !allLibraryMods.find(m => m.id === pm.modId || m.id === pm.originalFolderName.replace(/^DISABLED_/, "")));
+                  const ghostMods = missingMods;
                   if (ghostMods.length > 0 && !isEditMode && allLibraryMods.length > 0) {
                     return (
                       <div className="flex items-center justify-between p-4 mb-6 rounded-2xl bg-[#110d00] border-2 border-yellow-500/50 text-yellow-500/80 shadow-inner">

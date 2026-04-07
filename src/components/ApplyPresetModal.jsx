@@ -12,6 +12,10 @@ import { cn } from "../lib/utils";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { StatePanel } from "./ui/StatePanel";
+import {
+  findMatchingLibraryMod,
+  matchesPresetMod,
+} from "../lib/presetMatching";
 
 export default function ApplyPresetModal({
   preset,
@@ -43,12 +47,7 @@ export default function ApplyPresetModal({
 
       // Check which preset mods exist in allMods and need enabling
       for (const pm of preset.mods) {
-        // Find by base id (folder name excluding DISABLED_ prefix)
-        const exists = availableMods.find(
-          (m) =>
-            m.id === pm.modId ||
-            m.id === pm.originalFolderName.replace(/^DISABLED_/, ""),
-        );
+        const exists = findMatchingLibraryMod(availableMods, pm);
         if (!exists) {
           notFound.push(pm);
         } else if (!exists.isEnabled) {
@@ -60,11 +59,7 @@ export default function ApplyPresetModal({
       for (const m of availableMods) {
         if (m.isEnabled && affectedCharacters.has(m.character)) {
           // Is it part of the preset?
-          const isPart = preset.mods.find(
-            (pm) =>
-              pm.modId === m.id ||
-              pm.originalFolderName.replace(/^DISABLED_/, "") === m.id,
-          );
+          const isPart = preset.mods.find((pm) => matchesPresetMod(m, pm));
           if (!isPart) {
             willDisable.push(m);
           }
