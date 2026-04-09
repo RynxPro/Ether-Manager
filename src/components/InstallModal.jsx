@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { X, Download, ChevronDown, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllCharacterNames } from "../lib/portraits";
@@ -9,6 +10,8 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
   const [error, setError] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isInstallComplete, setIsInstallComplete] = useState(false);
+  // Add useLoadGameMods for force reload
+  const { loadMods } = useLoadGameMods(game.id);
 
   useEffect(() => {
     if (window.electronMods && window.electronMods.onDownloadProgress) {
@@ -43,6 +46,8 @@ export default function InstallModal({ mod, game, onClose, onInstall }) {
         fileUrl: fileEntry._sDownloadUrl,
         fileName: fileEntry._sFile,
       });
+      // Force reload mods after install
+      await loadMods(true);
       setIsInstallComplete(true);
     } catch (err) {
       setError(err.message || "Installation failed.");

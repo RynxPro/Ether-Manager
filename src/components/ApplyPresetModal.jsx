@@ -239,7 +239,7 @@ export default function ApplyPresetModal({
                     title="No changes needed"
                     message="This loadout already matches your library."
                     tone="success"
-                    className="min-h-[12rem]"
+                    className="min-h-48"
                   />
                 )}
             </div>

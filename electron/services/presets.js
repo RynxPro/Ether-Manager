@@ -66,6 +66,21 @@ export function executePresetDiff({ importerPath, enableList, disableList }) {
   const toEnable = enableList ? assertStringArray(enableList, "enableList") : [];
   const toDisable = disableList ? assertStringArray(disableList, "disableList") : [];
 
+  // Preflight validation: ensure all mods to enable/disable exist before starting transaction
+  const missingMods = [];
+  for (const folderName of [...toEnable, ...toDisable]) {
+    const modPath = path.join(modsPath, folderName);
+    if (!fs.existsSync(modPath)) {
+      missingMods.push(folderName);
+    }
+  }
+  if (missingMods.length > 0) {
+    return {
+      success: false,
+      error: `Preset apply aborted: the following mod folders are missing on disk: ${missingMods.join(", ")}. Refresh your library and try again.`,
+    };
+  }
+
   const renameActions = [
     ...toEnable.map((folderName) => {
       const fromName = folderName.startsWith("DISABLED_")

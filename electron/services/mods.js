@@ -293,6 +293,24 @@ export function assignMod({ importerPath, originalFolderName, newCharacterName }
   }
 
   fs.renameSync(oldPath, newPath);
+
+  // Update aether.json with new character name
+  const aetherJsonPath = path.join(newPath, "aether.json");
+  let aetherData = {};
+  if (fs.existsSync(aetherJsonPath)) {
+    try {
+      aetherData = JSON.parse(fs.readFileSync(aetherJsonPath, "utf-8"));
+    } catch (error) {
+      logger.warn("Error reading aether.json during assignMod", error);
+    }
+  }
+  aetherData.character = newCharacterName;
+  try {
+    fs.writeFileSync(aetherJsonPath, JSON.stringify(aetherData, null, 2));
+  } catch (error) {
+    logger.warn("Error writing aether.json during assignMod", error);
+  }
+
   return { success: true, newFolderName };
 }
 
@@ -352,6 +370,42 @@ export async function deleteMod(
   await trashItem(folderPath);
   return { success: true };
 }
+
+// Helper: Recursively walk directory and return all file paths
+const walkDir = (dir, fileList = []) => {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkDir(fullPath, fileList);
+    } else {
+      fileList.push(fullPath);
+    }
+  }
+  return fileList;
+};
+
+// Helper: Validate extracted archive contents
+const validateExtractedArchive = (basePath) => {
+  const files = walkDir(basePath);
+  for (const file of files) {
+    // Path traversal check
+    const rel = path.relative(basePath, file);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      throw new Error(`Archive contains unsafe path: ${file}`);
+    }
+    // Executable file check (basic: .exe, .bat, .sh, .cmd, .app, .com)
+    const ext = path.extname(file).toLowerCase();
+    if ([".exe", ".bat", ".sh", ".cmd", ".app", ".com"].includes(ext)) {
+      throw new Error(`Archive contains potentially unsafe executable: ${file}`);
+    }
+    // (Optional) Check for symlinks (not allowed)
+    const stat = fs.lstatSync(file);
+    if (stat.isSymbolicLink && stat.isSymbolicLink()) {
+      throw new Error(`Archive contains symlink: ${file}`);
+    }
+  }
+};
 
 export async function installGbMod(
   args,
@@ -487,6 +541,9 @@ export async function installGbMod(
     const installationTargets = [];
     for (const srcPath of extractedRootFolders) {
       if (!fs.existsSync(srcPath)) continue;
+
+      // Validate extracted archive contents for security
+      validateExtractedArchive(srcPath);
 
       const rawFolderName =
         srcPath === extractSandboxPath
