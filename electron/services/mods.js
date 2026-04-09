@@ -2,10 +2,7 @@ import fs from "fs";
 import path from "path";
 import Seven from "node-7z";
 import sevenBin from "7zip-bin";
-import {
-  resolveModFolderPath,
-  resolveValidatedModsPath,
-} from "./config.js";
+import { resolveModFolderPath, resolveValidatedModsPath } from "./config.js";
 import {
   assertBoolean,
   assertInteger,
@@ -54,7 +51,9 @@ export function getMods(
     logger.debug(`Found ${modFolders.length} folders in Mods directory`);
 
     const mods = [];
-    const sharedImporterAcrossGames = Boolean(options?.sharedImporterAcrossGames);
+    const sharedImporterAcrossGames = Boolean(
+      options?.sharedImporterAcrossGames,
+    );
 
     modFolders.forEach((folderName) => {
       const folderPath = path.join(modsPath, folderName);
@@ -73,7 +72,9 @@ export function getMods(
         let bestMatchLength = 0;
 
         for (const knownChar of knownCharacters) {
-          const normalizedKnown = knownChar.toLowerCase().replace(/[\s_-]/g, "");
+          const normalizedKnown = knownChar
+            .toLowerCase()
+            .replace(/[\s_-]/g, "");
           if (
             normalizedFolder.startsWith(normalizedKnown) &&
             normalizedKnown.length > bestMatchLength
@@ -92,7 +93,9 @@ export function getMods(
       let iniCount = 0;
       try {
         const files = fs.readdirSync(folderPath);
-        iniCount = files.filter((file) => file.toLowerCase().endsWith(".ini")).length;
+        iniCount = files.filter((file) =>
+          file.toLowerCase().endsWith(".ini"),
+        ).length;
       } catch {
         // Leave zero when the folder cannot be inspected.
       }
@@ -127,11 +130,11 @@ export function getMods(
 
         const hasMatchableLegacyMetadata = Boolean(
           hasKnownCharacterMatch ||
-            category ||
-            gamebananaId ||
-            installedAt ||
-            installedFile ||
-            customThumbnail,
+          category ||
+          gamebananaId ||
+          installedAt ||
+          installedFile ||
+          customThumbnail,
         );
 
         if (!gameId && hasMatchableLegacyMetadata) {
@@ -233,7 +236,9 @@ export function importMod({ importerPath, sourcePath, characterName, gameId }) {
   let targetFolderName = sourceFolderName;
   if (characterName && characterName !== "Unassigned") {
     const cleanCharName = characterName.replace(/\s+/g, "");
-    if (!sourceFolderName.toLowerCase().startsWith(cleanCharName.toLowerCase())) {
+    if (
+      !sourceFolderName.toLowerCase().startsWith(cleanCharName.toLowerCase())
+    ) {
       targetFolderName = `${cleanCharName}_${sourceFolderName}`;
     }
   }
@@ -262,7 +267,11 @@ export function importMod({ importerPath, sourcePath, characterName, gameId }) {
   return { success: true, newFolderName: targetFolderName };
 }
 
-export function assignMod({ importerPath, originalFolderName, newCharacterName }) {
+export function assignMod({
+  importerPath,
+  originalFolderName,
+  newCharacterName,
+}) {
   const modsPath = resolveValidatedModsPath(importerPath);
   assertString(newCharacterName, "newCharacterName");
   const { folderName: safeOriginalFolderName, folderPath: oldPath } =
@@ -397,7 +406,9 @@ const validateExtractedArchive = (basePath) => {
     // Executable file check (basic: .exe, .bat, .sh, .cmd, .app, .com)
     const ext = path.extname(file).toLowerCase();
     if ([".exe", ".bat", ".sh", ".cmd", ".app", ".com"].includes(ext)) {
-      throw new Error(`Archive contains potentially unsafe executable: ${file}`);
+      throw new Error(
+        `Archive contains potentially unsafe executable: ${file}`,
+      );
     }
     // (Optional) Check for symlinks (not allowed)
     const stat = fs.lstatSync(file);
@@ -413,10 +424,14 @@ export async function installGbMod(
 ) {
   assertPlainObject(args, "installArgs");
   const importerPath = resolveValidatedModsPath(args.importerPath);
-  const characterName = assertOptionalString(args.characterName, "characterName", {
-    allowEmpty: true,
-    maxLength: 120,
-  });
+  const characterName = assertOptionalString(
+    args.characterName,
+    "characterName",
+    {
+      allowEmpty: true,
+      maxLength: 120,
+    },
+  );
   const gbModId = assertInteger(args.gbModId, "gbModId", { min: 1 });
   const fileUrl = assertString(args.fileUrl, "fileUrl", { maxLength: 4096 });
   const fileName = assertString(args.fileName, "fileName", { maxLength: 255 });
@@ -476,7 +491,10 @@ export async function installGbMod(
           }
         }
       } catch (error) {
-        logger.warn(`Failed to read aether.json in ${folder} during cleanup`, error);
+        logger.warn(
+          `Failed to read aether.json in ${folder} during cleanup`,
+          error,
+        );
       }
     }
 
@@ -532,7 +550,9 @@ export async function installGbMod(
 
     const extractedRootFolders = [];
     if (directoryCount === 1 && !hasLooseFiles) {
-      const rootFolder = sandboxContents.find((entry) => entry.isDirectory()).name;
+      const rootFolder = sandboxContents.find((entry) =>
+        entry.isDirectory(),
+      ).name;
       extractedRootFolders.push(path.join(extractSandboxPath, rootFolder));
     } else {
       extractedRootFolders.push(extractSandboxPath);
@@ -569,7 +589,11 @@ export async function installGbMod(
     }
 
     const renamedFolders = [];
-    for (const { srcPath, targetName, finalTargetPath } of installationTargets) {
+    for (const {
+      srcPath,
+      targetName,
+      finalTargetPath,
+    } of installationTargets) {
       fs.renameSync(srcPath, finalTargetPath);
       installedFolderPaths.push(finalTargetPath);
       fs.writeFileSync(

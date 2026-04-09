@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { readConfigFile, resolveValidatedModsPath, writeConfigFile } from "./config.js";
+import {
+  readConfigFile,
+  resolveValidatedModsPath,
+  writeConfigFile,
+} from "./config.js";
 import {
   assertFolderName,
   assertPlainObject,
@@ -31,7 +35,9 @@ export function savePreset(preset) {
   if (!config.presets) config.presets = {};
   if (!config.presets[gameId]) config.presets[gameId] = [];
 
-  const index = config.presets[gameId].findIndex((item) => item.id === validPreset.id);
+  const index = config.presets[gameId].findIndex(
+    (item) => item.id === validPreset.id,
+  );
   if (index >= 0) {
     config.presets[gameId][index] = validPreset;
   } else {
@@ -63,8 +69,12 @@ export function executePresetDiff({ importerPath, enableList, disableList }) {
     return { success: false, error: "Mods directory not found." };
   }
 
-  const toEnable = enableList ? assertStringArray(enableList, "enableList") : [];
-  const toDisable = disableList ? assertStringArray(disableList, "disableList") : [];
+  const toEnable = enableList
+    ? assertStringArray(enableList, "enableList")
+    : [];
+  const toDisable = disableList
+    ? assertStringArray(disableList, "disableList")
+    : [];
 
   // Preflight validation: ensure all mods to enable/disable exist before starting transaction
   const missingMods = [];
@@ -169,7 +179,10 @@ export function executePresetDiff({ importerPath, enableList, disableList }) {
       try {
         if (action.state === "finalized" && fs.existsSync(action.toPath)) {
           fs.renameSync(action.toPath, action.fromPath);
-        } else if (action.state === "staged" && fs.existsSync(action.tempPath)) {
+        } else if (
+          action.state === "staged" &&
+          fs.existsSync(action.tempPath)
+        ) {
           fs.renameSync(action.tempPath, action.fromPath);
         }
       } catch (rollbackError) {

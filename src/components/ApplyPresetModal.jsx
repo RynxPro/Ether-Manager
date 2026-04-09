@@ -159,9 +159,7 @@ export default function ApplyPresetModal({
           {loading && (
             <div className="flex items-center justify-center py-16 gap-3 text-text-muted">
               <Loader2 size={20} className="animate-spin" />
-              <span className="text-sm font-medium">
-                Calculating changes…
-              </span>
+              <span className="text-sm font-medium">Calculating changes…</span>
             </div>
           )}
 
