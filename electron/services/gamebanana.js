@@ -1,3 +1,28 @@
+// Ensures a consistent, fully normalized mod object for cache/UI
+function normalizeGbModForCache(mod) {
+  const normalized = normalizeModRecord(mod) || {};
+  return {
+    _idRow: normalized._idRow || 0,
+    _sName: normalized._sName || "Unknown Mod",
+    _sDescription: normalized._sDescription || "",
+    _sText: normalized._sText || "",
+    _tsDateAdded: normalized._tsDateAdded || 0,
+    _tsDateUpdated: normalized._tsDateUpdated || 0,
+    _tsDateModified: normalized._tsDateModified || 0,
+    _nLikeCount: normalized._nLikeCount || 0,
+    _nDownloadCount: normalized._nDownloadCount || 0,
+    _nViewCount: normalized._nViewCount || 0,
+    _sProfileUrl: normalized._sProfileUrl || "",
+    _aPreviewMedia: normalized._aPreviewMedia || { _aImages: [] },
+    _aSubmitter: normalized._aSubmitter || { _idRow: 0, _sName: "Unknown", _sAvatarUrl: "", _sProfileUrl: "" },
+    _aGame: normalized._aGame || { _idRow: 0, _sName: "" },
+    _aCategory: normalized._aCategory || { _idRow: 0, _sName: "" },
+    _aRootCategory: normalized._aRootCategory || { _idRow: 0, _sName: "" },
+    _aFiles: Array.isArray(normalized._aFiles) ? normalized._aFiles : [],
+    thumbnailUrl: normalized.thumbnailUrl || null,
+    allImages: buildAllImages(normalized._aPreviewMedia),
+  };
+}
 import {
   assertInteger,
   assertIntegerArray,
@@ -507,14 +532,7 @@ export async function fetchGbMod(gamebananaId) {
   const rawData = await fetchFromGB(
     `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
   );
-  const data = normalizeModRecord(rawData);
-  const allImages = buildAllImages(data._aPreviewMedia);
-
-  return {
-    ...data,
-    thumbnailUrl: allImages.length > 0 ? allImages[0] : null,
-    allImages,
-  };
+  return normalizeGbModForCache(rawData);
 }
 
 export async function fetchGbModsBatch(ids) {
@@ -525,9 +543,9 @@ export async function fetchGbModsBatch(ids) {
     validIds.map(async (id) => {
       try {
         const data = await fetchFromGB(
-          `${GB_API}/Mod/${id}?_csvProperties=_idRow,_tsDateUpdated,_aPreviewMedia`,
+          `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
         );
-        return normalizeModRecord(data);
+        return normalizeGbModForCache(data);
       } catch (error) {
         logger.warn(`Batch update fetch failed for mod ${id}`, error.message);
         return null;
@@ -551,7 +569,7 @@ export async function fetchGbModsSummaries(ids) {
         const data = await fetchFromGB(
           `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(summaryProperties)}`,
         );
-        return normalizeModRecord(data);
+        return normalizeGbModForCache(data);
       } catch (error) {
         logger.warn(`Bookmark summary fetch failed for mod ${id}`, error.message);
         return null;
