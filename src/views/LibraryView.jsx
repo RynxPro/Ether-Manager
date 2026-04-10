@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
+// eslint-disable-next-line import/no-webpack-loader-syntax
+const { getUpdateCheckTimestamp, setUpdateCheckTimestamp } = window.electronConfig || {};
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -45,6 +47,17 @@ export default function LibraryView({ isActive }) {
     const checkUpdates = async () => {
       if (!isOnline || !mods || mods.length === 0) return;
 
+      // Check update timestamp cache (1 hour = 3600s)
+      let lastCheck = 0;
+      if (getUpdateCheckTimestamp) {
+        lastCheck = await getUpdateCheckTimestamp(game.id);
+      }
+      const now = Math.floor(Date.now() / 1000);
+      if (lastCheck && now - lastCheck < 3600) {
+        // Skip redundant update check
+        return;
+      }
+
       const modsWithId = mods.filter((m) => m.gamebananaId);
       const gbIds = [...new Set(modsWithId.map((m) => m.gamebananaId))];
       if (gbIds.length === 0) return;
@@ -82,6 +95,10 @@ export default function LibraryView({ isActive }) {
             }
           });
           setUpdatesMap(newUpdatesMap);
+          // Update timestamp after successful check
+          if (setUpdateCheckTimestamp) {
+            await setUpdateCheckTimestamp(game.id, now);
+          }
         }
       } catch (err) {
         console.error("Failed to check character updates:", err);
@@ -89,7 +106,7 @@ export default function LibraryView({ isActive }) {
     };
 
     checkUpdates();
-  }, [fetchModsBatch, mods, isOnline]);
+  }, [fetchModsBatch, mods, isOnline, game.id]);
 
   const handleDisableAllGame = useCallback(() => {
     const enabledMods = mods.filter((m) => m.isEnabled);
@@ -249,7 +266,7 @@ export default function LibraryView({ isActive }) {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "ui-focus-ring group relative flex items-center gap-2 rounded-[var(--radius-md)] border px-4 py-2.5 transition-all",
+                  "ui-focus-ring group relative flex items-center gap-2 rounded-md border px-4 py-2.5 transition-all",
                   isActive
                     ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
                     : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",

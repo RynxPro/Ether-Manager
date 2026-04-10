@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld("electronConfig", {
   setConfig: (config) => ipcRenderer.invoke("set-config", config),
   chooseFolder: () => ipcRenderer.invoke("choose-folder"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  getUpdateCheckTimestamp: (gameId) => ipcRenderer.invoke("get-update-check-timestamp", gameId),
+  setUpdateCheckTimestamp: (gameId, timestamp) => ipcRenderer.invoke("set-update-check-timestamp", gameId, timestamp),
 });
 
 contextBridge.exposeInMainWorld("electronMods", {

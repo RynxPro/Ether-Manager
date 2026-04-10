@@ -1,3 +1,16 @@
+import { getUpdateCheckTimestamp, setUpdateCheckTimestamp } from "./services/config.js";
+handleIpc(
+  "get-update-check-timestamp",
+  withRawFallback("Failed to get update check timestamp", 0, (event, gameId) => getUpdateCheckTimestamp(gameId)),
+);
+
+handleIpc(
+  "set-update-check-timestamp",
+  withRawFallback("Failed to set update check timestamp", false, (event, gameId, timestamp) => {
+    setUpdateCheckTimestamp(gameId, timestamp);
+    return true;
+  }),
+);
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import fs from "fs";
 import path from "path";

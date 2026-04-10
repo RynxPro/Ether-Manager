@@ -1,3 +1,15 @@
+// Update check timestamp helpers
+export function getUpdateCheckTimestamp(gameId) {
+  const config = readConfigFile();
+  return config.updateCheckTimestamps?.[gameId] || 0;
+}
+
+export function setUpdateCheckTimestamp(gameId, timestamp) {
+  const config = readConfigFile();
+  if (!config.updateCheckTimestamps) config.updateCheckTimestamps = {};
+  config.updateCheckTimestamps[gameId] = timestamp;
+  writeConfigFile(config);
+}
 import fs from "fs";
 import path from "path";
 import {

@@ -14,7 +14,12 @@ function normalizeGbModForCache(mod) {
     _nViewCount: normalized._nViewCount || 0,
     _sProfileUrl: normalized._sProfileUrl || "",
     _aPreviewMedia: normalized._aPreviewMedia || { _aImages: [] },
-    _aSubmitter: normalized._aSubmitter || { _idRow: 0, _sName: "Unknown", _sAvatarUrl: "", _sProfileUrl: "" },
+    _aSubmitter: normalized._aSubmitter || {
+      _idRow: 0,
+      _sName: "Unknown",
+      _sAvatarUrl: "",
+      _sProfileUrl: "",
+    },
     _aGame: normalized._aGame || { _idRow: 0, _sName: "" },
     _aCategory: normalized._aCategory || { _idRow: 0, _sName: "" },
     _aRootCategory: normalized._aRootCategory || { _idRow: 0, _sName: "" },
@@ -314,9 +319,7 @@ function computeFeaturedScore(record, bucketDays, nowSeconds) {
   const ageDays = getFeaturedAgeDays(record, nowSeconds);
 
   const engagementScore =
-    likeCount * 10 +
-    Math.log1p(downloadCount) * 16 +
-    Math.log1p(viewCount) * 6;
+    likeCount * 10 + Math.log1p(downloadCount) * 16 + Math.log1p(viewCount) * 6;
 
   if (!bucketDays) {
     return engagementScore;
@@ -331,7 +334,10 @@ function computeFeaturedScore(record, bucketDays, nowSeconds) {
   return engagementScore * freshnessWeight + momentumScore * 12;
 }
 
-async function fetchBrowseRecords(url, { hydrateZeroDownloadCounts = true } = {}) {
+async function fetchBrowseRecords(
+  url,
+  { hydrateZeroDownloadCounts = true } = {},
+) {
   const data = await fetchFromGB(url);
   let records = Array.isArray(data._aRecords)
     ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
@@ -376,7 +382,10 @@ async function fetchFeaturedCandidates(gbGameId, browseFields) {
       return fetchBrowseRecords(url, { hydrateZeroDownloadCounts: false })
         .then((result) => result.records)
         .catch((error) => {
-          logger.warn(`Featured source fetch failed for ${source.sort} page ${page}`, error.message);
+          logger.warn(
+            `Featured source fetch failed for ${source.sort} page ${page}`,
+            error.message,
+          );
           return [];
         });
     }),
@@ -515,7 +524,10 @@ export async function fetchFromGB(url) {
       return data;
     } catch (error) {
       lastError = error;
-      if (attempt >= runtime.retryCount || !shouldRetryRequest(error, error.status)) {
+      if (
+        attempt >= runtime.retryCount ||
+        !shouldRetryRequest(error, error.status)
+      ) {
         throw error;
       }
       await runtime.sleepImpl(250 * (attempt + 1));
@@ -571,7 +583,10 @@ export async function fetchGbModsSummaries(ids) {
         );
         return normalizeGbModForCache(data);
       } catch (error) {
-        logger.warn(`Bookmark summary fetch failed for mod ${id}`, error.message);
+        logger.warn(
+          `Bookmark summary fetch failed for mod ${id}`,
+          error.message,
+        );
         return null;
       }
     }),
@@ -686,7 +701,8 @@ export async function browseGbMods(args = {}) {
     downloads: "Generic_MostDownloaded",
     views: "Generic_MostViewed",
   };
-  const sortStr = sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
+  const sortStr =
+    sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
   const hasManualSearch = search && search.trim().length >= 1;
   const hasCategoryContext = context && context.trim().length >= 1;
 
