@@ -6,6 +6,13 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { useAppStore } from "../store/useAppStore";
 
+function normalizeImporterPath(pathValue) {
+  return String(pathValue || "")
+    .trim()
+    .replace(/[\\/]+$/, "")
+    .toLowerCase();
+}
+
 export default function SettingsModal({ onClose, games }) {
   const [config, setConfig] = useState({});
   const [activeTab, setActiveTab] = useState(games[0].id);
@@ -49,8 +56,17 @@ export default function SettingsModal({ onClose, games }) {
   };
 
   const activeGame = games.find((g) => g.id === activeTab);
+  const activeImporterPath = config[activeTab] || "";
+  const normalizedActiveImporterPath = normalizeImporterPath(activeImporterPath);
+  const sharedGames = normalizedActiveImporterPath
+    ? games.filter(
+        (game) =>
+          game.id !== activeTab &&
+          normalizeImporterPath(config[game.id]) === normalizedActiveImporterPath,
+      )
+    : [];
 
-    return (
+  return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-drag">
         {/* Backdrop */}
@@ -163,6 +179,13 @@ export default function SettingsModal({ onClose, games }) {
                         {config[activeTab] ? "Configured" : "Not Set"}
                       </div>
                     </div>
+
+                    {sharedGames.length > 0 && (
+                      <div className="mb-4 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3 text-sm text-warning">
+                        This path is also used by {sharedGames.map((game) => game.name).join(", ")}.
+                        Legacy mods without game metadata may be hidden or scoped to the wrong game until they are re-tagged.
+                      </div>
+                    )}
 
                     {config[activeTab] ? (
                       <div className="space-y-3">

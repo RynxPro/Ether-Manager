@@ -19,8 +19,16 @@ import { Input } from "../components/ui/Input";
 import { getModClassification } from "../lib/modClassification";
 import PageHeader from "../components/layout/PageHeader";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import { StatePanel } from "../components/ui/StatePanel";
+import { StatePanel, StatusBanner } from "../components/ui/StatePanel";
 import { Button } from "../components/ui/Button";
+import { VISIBLE_GAMES } from "../gameConfig";
+
+function normalizeImporterPath(pathValue) {
+  return String(pathValue || "")
+    .trim()
+    .replace(/[\\/]+$/, "")
+    .toLowerCase();
+}
 
 const CharacterDetail = lazy(() => import("./CharacterDetail"));
 
@@ -38,6 +46,7 @@ export default function LibraryView({ isActive }) {
   const [disablingAll, setDisablingAll] = useState(false);
   const [updatesMap, setUpdatesMap] = useState({});
   const [showDisableAllConfirm, setShowDisableAllConfirm] = useState(false);
+  const [sharedImporterGames, setSharedImporterGames] = useState([]);
 
   // Use fetch cache hook for update checks
   const { fetchModsBatch } = useFetchCache();
@@ -95,6 +104,45 @@ export default function LibraryView({ isActive }) {
 
     checkUpdates();
   }, [fetchModsBatch, mods, isOnline, game.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSharedImporterGames = async () => {
+      if (!window.electronConfig?.getConfig) {
+        setSharedImporterGames([]);
+        return;
+      }
+
+      try {
+        const config = await window.electronConfig.getConfig();
+        if (cancelled) return;
+
+        const currentPath = normalizeImporterPath(config[game.id]);
+        if (!currentPath) {
+          setSharedImporterGames([]);
+          return;
+        }
+
+        const sharedGames = VISIBLE_GAMES.filter(
+          (candidate) =>
+            candidate.id !== game.id &&
+            normalizeImporterPath(config[candidate.id]) === currentPath,
+        );
+
+        setSharedImporterGames(sharedGames);
+      } catch {
+        if (!cancelled) {
+          setSharedImporterGames([]);
+        }
+      }
+    };
+
+    loadSharedImporterGames();
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id]);
 
   const handleDisableAllGame = useCallback(() => {
     const enabledMods = mods.filter((m) => m.isEnabled);
@@ -241,6 +289,13 @@ export default function LibraryView({ isActive }) {
 
       <section className="ui-panel mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4">
+          {sharedImporterGames.length > 0 && (
+            <StatusBanner tone="warning">
+              This library shares its mods path with {sharedImporterGames.map((sharedGame) => sharedGame.name).join(", ")}.
+              Untagged legacy mods may be hidden or scoped away until they are re-tagged for a specific game.
+            </StatusBanner>
+          )}
+
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <nav className="flex flex-wrap items-center gap-2">
               {TABS.map((tab) => {
