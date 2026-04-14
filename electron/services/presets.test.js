@@ -7,6 +7,7 @@ import {
   deletePreset,
   executePresetDiff,
   getPresets,
+  importPresetFromFile,
   savePreset,
 } from "./presets.js";
 import { setConfigPathProvider } from "./config.js";
@@ -36,13 +37,80 @@ test("savePreset/getPresets/deletePreset round-trips through config storage", ()
       id: "preset-1",
       name: "Test Preset",
       gameId: "GIMI",
-      mods: [{ folderName: "ModA", enabled: true }],
+      mods: [
+        {
+          modId: "ModA",
+          originalFolderName: "ModA",
+          character: "Unassigned",
+          category: null,
+          name: "Mod A",
+          gamebananaId: null,
+          customThumbnail: null,
+        },
+      ],
     };
 
     assert.deepEqual(savePreset(preset), { success: true });
-    assert.deepEqual(getPresets("GIMI"), [preset]);
+    assert.deepEqual(getPresets("GIMI"), [
+      {
+        ...preset,
+        description: "",
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]);
     assert.deepEqual(deletePreset("GIMI", "preset-1"), { success: true });
     assert.deepEqual(getPresets("GIMI"), []);
+  } finally {
+    removeTempDir(tempDir);
+  }
+});
+
+test("importPresetFromFile normalizes legacy preset mod entries", () => {
+  const tempDir = createTempDir();
+  try {
+    createPresetFixture(tempDir);
+    const presetPath = path.join(tempDir, "legacy.aether-preset");
+    fs.writeFileSync(
+      presetPath,
+      JSON.stringify({
+        id: "legacy-1",
+        name: "Legacy Preset",
+        gameId: "GIMI",
+        mods: [{ folderName: "LegacyMod" }],
+      }),
+    );
+
+    const imported = importPresetFromFile(presetPath);
+
+    assert.equal(imported.mods[0].modId, "LegacyMod");
+    assert.equal(imported.mods[0].originalFolderName, "LegacyMod");
+    assert.equal(imported.mods[0].character, "Unassigned");
+    assert.equal(imported.mods[0].name, "LegacyMod");
+  } finally {
+    removeTempDir(tempDir);
+  }
+});
+
+test("importPresetFromFile rejects malformed preset payloads", () => {
+  const tempDir = createTempDir();
+  try {
+    createPresetFixture(tempDir);
+    const presetPath = path.join(tempDir, "invalid.aether-preset");
+    fs.writeFileSync(
+      presetPath,
+      JSON.stringify({
+        id: "broken-1",
+        name: "Broken Preset",
+        gameId: "GIMI",
+        mods: [{ enabled: true }],
+      }),
+    );
+
+    assert.throws(
+      () => importPresetFromFile(presetPath),
+      /modId or originalFolderName/i,
+    );
   } finally {
     removeTempDir(tempDir);
   }

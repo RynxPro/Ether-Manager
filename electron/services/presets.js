@@ -6,7 +6,9 @@ import {
   writeConfigFile,
 } from "./config.js";
 import {
+  assertInteger,
   assertFolderName,
+  assertOptionalString,
   assertPlainObject,
   assertString,
   assertStringArray,
@@ -15,6 +17,103 @@ import { createLogger } from "./logger.js";
 
 const logger = createLogger("presets");
 
+function normalizePresetMod(mod, index) {
+  const validMod = assertPlainObject(mod, `preset.mods[${index}]`);
+
+  const rawModId = validMod.modId ?? null;
+  const rawFolderName = validMod.originalFolderName ?? validMod.folderName ?? null;
+
+  const modId =
+    rawModId == null
+      ? null
+      : assertString(String(rawModId), `preset.mods[${index}].modId`, {
+          maxLength: 255,
+        });
+
+  const originalFolderName =
+    rawFolderName == null
+      ? null
+      : assertFolderName(
+          String(rawFolderName),
+          `preset.mods[${index}].originalFolderName`,
+        );
+
+  if (!modId && !originalFolderName) {
+    throw new Error(
+      `Invalid preset.mods[${index}]. Expected modId or originalFolderName.`,
+    );
+  }
+
+  return {
+    modId: modId || originalFolderName,
+    originalFolderName: originalFolderName || modId,
+    character:
+      assertOptionalString(validMod.character, `preset.mods[${index}].character`, {
+        allowEmpty: true,
+        maxLength: 120,
+      }) || "Unassigned",
+    category: assertOptionalString(validMod.category, `preset.mods[${index}].category`, {
+      allowEmpty: true,
+      maxLength: 120,
+    }),
+    name:
+      assertOptionalString(validMod.name, `preset.mods[${index}].name`, {
+        allowEmpty: true,
+        maxLength: 255,
+      }) ||
+      originalFolderName ||
+      modId,
+    gamebananaId:
+      validMod.gamebananaId == null
+        ? null
+        : assertInteger(validMod.gamebananaId, `preset.mods[${index}].gamebananaId`, {
+            min: 1,
+          }),
+    customThumbnail: assertOptionalString(
+      validMod.customThumbnail,
+      `preset.mods[${index}].customThumbnail`,
+      {
+        allowEmpty: true,
+        maxLength: 8192,
+      },
+    ),
+  };
+}
+
+function normalizePreset(preset) {
+  const validPreset = assertPlainObject(preset, "preset");
+
+  const id = assertString(validPreset.id, "preset.id", { maxLength: 128 });
+  const gameId = assertString(validPreset.gameId, "preset.gameId", {
+    maxLength: 32,
+  });
+
+  if (!Array.isArray(validPreset.mods)) {
+    throw new Error("Invalid preset.mods. Expected an array.");
+  }
+
+  return {
+    ...validPreset,
+    id,
+    name: assertString(validPreset.name, "preset.name", { maxLength: 120 }),
+    description:
+      assertOptionalString(validPreset.description, "preset.description", {
+        allowEmpty: true,
+        maxLength: 2000,
+      }) || "",
+    gameId,
+    createdAt: assertOptionalString(validPreset.createdAt, "preset.createdAt", {
+      allowEmpty: true,
+      maxLength: 64,
+    }),
+    updatedAt: assertOptionalString(validPreset.updatedAt, "preset.updatedAt", {
+      allowEmpty: true,
+      maxLength: 64,
+    }),
+    mods: validPreset.mods.map(normalizePresetMod),
+  };
+}
+
 export function getPresets(gameId) {
   const validGameId = assertString(gameId, "gameId", { maxLength: 32 });
   const config = readConfigFile();
@@ -22,26 +121,20 @@ export function getPresets(gameId) {
 }
 
 export function savePreset(preset) {
-  const validPreset = assertPlainObject(preset, "preset");
-  assertString(validPreset.id, "preset.id", { maxLength: 128 });
-  const gameId = assertString(validPreset.gameId, "preset.gameId", {
-    maxLength: 32,
-  });
-  if (!Array.isArray(validPreset.mods)) {
-    throw new Error("Invalid preset.mods. Expected an array.");
-  }
+  const normalizedPreset = normalizePreset(preset);
+  const { gameId } = normalizedPreset;
 
   const config = readConfigFile();
   if (!config.presets) config.presets = {};
   if (!config.presets[gameId]) config.presets[gameId] = [];
 
   const index = config.presets[gameId].findIndex(
-    (item) => item.id === validPreset.id,
+    (item) => item.id === normalizedPreset.id,
   );
   if (index >= 0) {
-    config.presets[gameId][index] = validPreset;
+    config.presets[gameId][index] = normalizedPreset;
   } else {
-    config.presets[gameId].unshift(validPreset);
+    config.presets[gameId].unshift(normalizedPreset);
   }
 
   writeConfigFile(config);
@@ -207,5 +300,5 @@ export function exportPresetToFile(filePath, preset) {
 }
 
 export function importPresetFromFile(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  return normalizePreset(JSON.parse(fs.readFileSync(filePath, "utf-8")));
 }
