@@ -1,16 +1,3 @@
-import { getUpdateCheckTimestamp, setUpdateCheckTimestamp } from "./services/config.js";
-handleIpc(
-  "get-update-check-timestamp",
-  withRawFallback("Failed to get update check timestamp", 0, (event, gameId) => getUpdateCheckTimestamp(gameId)),
-);
-
-handleIpc(
-  "set-update-check-timestamp",
-  withRawFallback("Failed to set update check timestamp", false, (event, gameId, timestamp) => {
-    setUpdateCheckTimestamp(gameId, timestamp);
-    return true;
-  }),
-);
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import fs from "fs";
 import path from "path";
@@ -45,11 +32,7 @@ import {
   importPresetFromFile,
   savePreset,
 } from "./services/presets.js";
-import {
-  ok,
-  withRawFallback,
-  withResultEnvelope,
-} from "./services/ipc.js";
+import { ok, withRawFallback, withResultEnvelope } from "./services/ipc.js";
 import { createLogger } from "./services/logger.js";
 import { assertPlainObject, assertString } from "./services/validation.js";
 
@@ -156,7 +139,10 @@ app.on("window-all-closed", () => {
   }
 });
 
-handleIpc("get-config", withRawFallback("Failed to read config", {}, () => readConfigFile()));
+handleIpc(
+  "get-config",
+  withRawFallback("Failed to read config", {}, () => readConfigFile()),
+);
 
 handleIpc(
   "set-config",
@@ -170,28 +156,32 @@ handleIpc(
 
 handleIpc(
   "choose-folder",
-  withRawFallback("Main Process: Error showing open dialog:", null, async (event) => {
-    logger.debug("choose-folder invoked");
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) {
-      win.focus();
-    }
+  withRawFallback(
+    "Main Process: Error showing open dialog:",
+    null,
+    async (event) => {
+      logger.debug("choose-folder invoked");
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win) {
+        win.focus();
+      }
 
-    const result = await dialog.showOpenDialog(win || mainWindow, {
-      properties: ["openDirectory", "createDirectory"],
-      title: "Select Mods Folder",
-      buttonLabel: "Select Folder",
-      defaultPath: app.getPath("documents"),
-    });
+      const result = await dialog.showOpenDialog(win || mainWindow, {
+        properties: ["openDirectory", "createDirectory"],
+        title: "Select Mods Folder",
+        buttonLabel: "Select Folder",
+        defaultPath: app.getPath("documents"),
+      });
 
-    logger.debug("choose-folder dialog result", result);
-    if (result.canceled) {
-      logger.debug("choose-folder dialog canceled");
-      return null;
-    }
+      logger.debug("choose-folder dialog result", result);
+      if (result.canceled) {
+        logger.debug("choose-folder dialog canceled");
+        return null;
+      }
 
-    return result.filePaths[0];
-  }),
+      return result.filePaths[0];
+    },
+  ),
 );
 
 handleIpc(
@@ -207,11 +197,21 @@ handleIpc(
   }),
 );
 
-handleIpc("get-mods", (event, importerPath, knownCharacters = [], expectedGameId = null, options = {}) =>
-  getMods(importerPath, knownCharacters, expectedGameId, options),
+handleIpc(
+  "get-mods",
+  (
+    event,
+    importerPath,
+    knownCharacters = [],
+    expectedGameId = null,
+    options = {},
+  ) => getMods(importerPath, knownCharacters, expectedGameId, options),
 );
 
-handleIpc("toggle-mod", withResultEnvelope("Failed to toggle mod", (event, args) => toggleMod(args)));
+handleIpc(
+  "toggle-mod",
+  withResultEnvelope("Failed to toggle mod", (event, args) => toggleMod(args)),
+);
 
 handleIpc("open-folder", (event, folderPath) => {
   shell.showItemInFolder(assertAllowedOpenFolder(folderPath));
@@ -266,16 +266,22 @@ handleIpc(
 
 handleIpc(
   "fetch-gb-mod",
-  withResultEnvelope("Failed to fetch GB mod:", async (event, gamebananaId) => ({
-    data: await fetchGbMod(gamebananaId),
-  })),
+  withResultEnvelope(
+    "Failed to fetch GB mod:",
+    async (event, gamebananaId) => ({
+      data: await fetchGbMod(gamebananaId),
+    }),
+  ),
 );
 
 handleIpc(
   "fetch-gb-mods-batch",
-  withResultEnvelope("[BatchUpdate] Fatal error in parallel fetch:", async (event, ids) => ({
-    data: await fetchGbModsBatch(ids),
-  })),
+  withResultEnvelope(
+    "[BatchUpdate] Fatal error in parallel fetch:",
+    async (event, ids) => ({
+      data: await fetchGbModsBatch(ids),
+    }),
+  ),
 );
 
 handleIpc(
@@ -294,9 +300,12 @@ handleIpc(
 
 handleIpc(
   "fetch-gb-featured-mods",
-  withResultEnvelope("Failed to fetch featured GB mods:", async (event, gbGameId) => ({
-    data: await fetchGbFeaturedMods(gbGameId),
-  })),
+  withResultEnvelope(
+    "Failed to fetch featured GB mods:",
+    async (event, gbGameId) => ({
+      data: await fetchGbFeaturedMods(gbGameId),
+    }),
+  ),
 );
 
 handleIpc(
@@ -305,7 +314,8 @@ handleIpc(
     installGbMod(args, {
       tempDir: app.getPath("temp"),
       isSafeExternalUrl,
-      onDownloadProgress: (data) => event.sender.send("download-progress", data),
+      onDownloadProgress: (data) =>
+        event.sender.send("download-progress", data),
       trashItem: (folderPath) => shell.trashItem(folderPath),
     }),
   ),
@@ -313,12 +323,16 @@ handleIpc(
 
 handleIpc(
   "get-presets",
-  withRawFallback("get-presets error:", [], (event, gameId) => getPresets(gameId)),
+  withRawFallback("get-presets error:", [], (event, gameId) =>
+    getPresets(gameId),
+  ),
 );
 
 handleIpc(
   "save-preset",
-  withResultEnvelope("save-preset error:", (event, preset) => savePreset(preset)),
+  withResultEnvelope("save-preset error:", (event, preset) =>
+    savePreset(preset),
+  ),
 );
 
 handleIpc(
@@ -339,9 +353,13 @@ handleIpc(
   "export-preset",
   withResultEnvelope("export-preset error:", async (event, preset) => {
     const validPreset = assertPlainObject(preset, "preset");
-    const presetName = assertString(validPreset.name || "preset", "preset.name", {
-      maxLength: 120,
-    });
+    const presetName = assertString(
+      validPreset.name || "preset",
+      "preset.name",
+      {
+        maxLength: 120,
+      },
+    );
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showSaveDialog(win || mainWindow, {
       title: "Export Preset",

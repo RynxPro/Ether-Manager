@@ -14,12 +14,7 @@ function normalizeGbModForCache(mod) {
     _nViewCount: normalized._nViewCount || 0,
     _sProfileUrl: normalized._sProfileUrl || "",
     _aPreviewMedia: normalized._aPreviewMedia || { _aImages: [] },
-    _aSubmitter: normalized._aSubmitter || {
-      _idRow: 0,
-      _sName: "Unknown",
-      _sAvatarUrl: "",
-      _sProfileUrl: "",
-    },
+    _aSubmitter: normalized._aSubmitter || null,
     _aGame: normalized._aGame || { _idRow: 0, _sName: "" },
     _aCategory: normalized._aCategory || { _idRow: 0, _sName: "" },
     _aRootCategory: normalized._aRootCategory || { _idRow: 0, _sName: "" },

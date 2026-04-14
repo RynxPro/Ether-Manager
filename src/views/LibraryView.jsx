@@ -1,12 +1,15 @@
-import { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
-// eslint-disable-next-line import/no-webpack-loader-syntax
-const { getUpdateCheckTimestamp, setUpdateCheckTimestamp } = window.electronConfig || {};
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  Suspense,
+  lazy,
+} from "react";
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
 import ConfirmDialog from "../components/ConfirmDialog";
-import {
-  getAllCharacterNames,
-} from "../lib/portraits";
+import { getAllCharacterNames } from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
@@ -47,17 +50,6 @@ export default function LibraryView({ isActive }) {
     const checkUpdates = async () => {
       if (!isOnline || !mods || mods.length === 0) return;
 
-      // Check update timestamp cache (1 hour = 3600s)
-      let lastCheck = 0;
-      if (getUpdateCheckTimestamp) {
-        lastCheck = await getUpdateCheckTimestamp(game.id);
-      }
-      const now = Math.floor(Date.now() / 1000);
-      if (lastCheck && now - lastCheck < 3600) {
-        // Skip redundant update check
-        return;
-      }
-
       const modsWithId = mods.filter((m) => m.gamebananaId);
       const gbIds = [...new Set(modsWithId.map((m) => m.gamebananaId))];
       if (gbIds.length === 0) return;
@@ -95,10 +87,6 @@ export default function LibraryView({ isActive }) {
             }
           });
           setUpdatesMap(newUpdatesMap);
-          // Update timestamp after successful check
-          if (setUpdateCheckTimestamp) {
-            await setUpdateCheckTimestamp(game.id, now);
-          }
         }
       } catch (err) {
         console.error("Failed to check character updates:", err);
@@ -132,12 +120,12 @@ export default function LibraryView({ isActive }) {
           ),
       );
 
-      const failures = results.filter(r => !r.success);
+      const failures = results.filter((r) => !r.success);
       if (failures.length > 0) {
         alert(
           `Failed to disable ${failures.length} mod(s).\n\n` +
-          `This usually happens if the game is currently open and locking the files. ` +
-          `Please close the game and try again.`
+            `This usually happens if the game is currently open and locking the files. ` +
+            `Please close the game and try again.`,
         );
       }
 
@@ -255,50 +243,54 @@ export default function LibraryView({ isActive }) {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <nav className="flex flex-wrap items-center gap-2">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            const count = counts[tab.id];
-            const hasUpdate = updatesMap[tab.id];
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                const count = counts[tab.id];
+                const hasUpdate = updatesMap[tab.id];
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "ui-focus-ring group relative flex items-center gap-2 rounded-md border px-4 py-2.5 transition-all",
-                  isActive
-                    ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
-                    : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
-                )}
-              >
-                <Icon size={16} />
-                <span className="text-xs font-bold uppercase tracking-[0.16em]">
-                  {tab.label}
-                </span>
-                {hasUpdate && (
-                  <div className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-update shadow-[0_0_8px_var(--color-update)]" />
-                )}
-                {count > 0 && (
-                  <span
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "rounded-full px-1.5 py-0.5 text-[10px] font-black",
+                      "ui-focus-ring group relative flex items-center gap-2 rounded-md border px-4 py-2.5 transition-all",
                       isActive
-                        ? "bg-primary text-black"
-                        : "bg-white/10 text-text-muted group-hover:bg-white/20",
+                        ? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary),transparent_75%)]"
+                        : "border-transparent bg-transparent text-text-muted hover:border-border hover:bg-white/4 hover:text-text-primary",
                     )}
                   >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    <Icon size={16} />
+                    <span className="text-xs font-bold uppercase tracking-[0.16em]">
+                      {tab.label}
+                    </span>
+                    {hasUpdate && (
+                      <div className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-update shadow-[0_0_8px_var(--color-update)]" />
+                    )}
+                    {count > 0 && (
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.5 text-[10px] font-black",
+                          isActive
+                            ? "bg-primary text-black"
+                            : "bg-white/10 text-text-muted group-hover:bg-white/20",
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="flex flex-wrap items-center gap-2">
               {searchQuery && (
-                <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery("")}
+                >
                   Clear
                 </Button>
               )}
@@ -362,7 +354,8 @@ export default function LibraryView({ isActive }) {
             <>
               <div className="mb-4 flex items-center justify-between gap-3 px-1">
                 <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-                  {displayItems.length} collection{displayItems.length !== 1 ? "s" : ""}
+                  {displayItems.length} collection
+                  {displayItems.length !== 1 ? "s" : ""}
                 </div>
                 {searchQuery && (
                   <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">

@@ -76,21 +76,6 @@ export function executePresetDiff({ importerPath, enableList, disableList }) {
     ? assertStringArray(disableList, "disableList")
     : [];
 
-  // Preflight validation: ensure all mods to enable/disable exist before starting transaction
-  const missingMods = [];
-  for (const folderName of [...toEnable, ...toDisable]) {
-    const modPath = path.join(modsPath, folderName);
-    if (!fs.existsSync(modPath)) {
-      missingMods.push(folderName);
-    }
-  }
-  if (missingMods.length > 0) {
-    return {
-      success: false,
-      error: `Preset apply aborted: the following mod folders are missing on disk: ${missingMods.join(", ")}. Refresh your library and try again.`,
-    };
-  }
-
   const renameActions = [
     ...toEnable.map((folderName) => {
       const fromName = folderName.startsWith("DISABLED_")
@@ -106,6 +91,16 @@ export function executePresetDiff({ importerPath, enableList, disableList }) {
 
   if (renameActions.length === 0) {
     return { success: true, applied: 0 };
+  }
+
+  const missingMods = renameActions
+    .map((action) => action.fromName)
+    .filter((folderName) => !fs.existsSync(path.join(modsPath, folderName)));
+  if (missingMods.length > 0) {
+    return {
+      success: false,
+      error: `Preset apply aborted: the following mod folders are missing on disk: ${missingMods.join(", ")}. Refresh your library and try again.`,
+    };
   }
 
   const sourceNames = new Set();

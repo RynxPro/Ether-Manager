@@ -6,8 +6,6 @@ contextBridge.exposeInMainWorld("electronConfig", {
   setConfig: (config) => ipcRenderer.invoke("set-config", config),
   chooseFolder: () => ipcRenderer.invoke("choose-folder"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
-  getUpdateCheckTimestamp: (gameId) => ipcRenderer.invoke("get-update-check-timestamp", gameId),
-  setUpdateCheckTimestamp: (gameId, timestamp) => ipcRenderer.invoke("set-update-check-timestamp", gameId, timestamp),
 });
 
 contextBridge.exposeInMainWorld("electronMods", {
@@ -23,9 +21,11 @@ contextBridge.exposeInMainWorld("electronMods", {
   openFolder: (folderPath) => ipcRenderer.invoke("open-folder", folderPath),
   importMod: (args) => ipcRenderer.invoke("import-mod", args),
   assignMod: (args) => ipcRenderer.invoke("assign-mod", args),
-  setCustomThumbnail: (args) => ipcRenderer.invoke("set-custom-thumbnail", args),
+  setCustomThumbnail: (args) =>
+    ipcRenderer.invoke("set-custom-thumbnail", args),
   deleteMod: (args) => ipcRenderer.invoke("delete-mod", args),
-  fetchGbMod: (gamebananaId) => ipcRenderer.invoke("fetch-gb-mod", gamebananaId),
+  fetchGbMod: (gamebananaId) =>
+    ipcRenderer.invoke("fetch-gb-mod", gamebananaId),
   fetchGbFeaturedMods: (gbGameId) =>
     ipcRenderer.invoke("fetch-gb-featured-mods", gbGameId),
   browseGbMods: (args) => ipcRenderer.invoke("browse-gb-mods", args),

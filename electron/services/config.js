@@ -1,22 +1,6 @@
-// Update check timestamp helpers
-export function getUpdateCheckTimestamp(gameId) {
-  const config = readConfigFile();
-  return config.updateCheckTimestamps?.[gameId] || 0;
-}
-
-export function setUpdateCheckTimestamp(gameId, timestamp) {
-  const config = readConfigFile();
-  if (!config.updateCheckTimestamps) config.updateCheckTimestamps = {};
-  config.updateCheckTimestamps[gameId] = timestamp;
-  writeConfigFile(config);
-}
 import fs from "fs";
 import path from "path";
-import {
-  assertFolderName,
-  assertPathValue,
-  isSubPath,
-} from "./validation.js";
+import { assertFolderName, assertPathValue, isSubPath } from "./validation.js";
 
 export const CONFIGURED_GAME_IDS = new Set([
   "GIMI",
@@ -92,7 +76,11 @@ export function assertAllowedOpenFolder(targetPath) {
   return resolvedPath;
 }
 
-export function resolveModFolderPath(modsPath, folderName, name = "folderName") {
+export function resolveModFolderPath(
+  modsPath,
+  folderName,
+  name = "folderName",
+) {
   const safeFolderName = assertFolderName(folderName, name);
   const resolvedPath = path.resolve(modsPath, safeFolderName);
   if (!isSubPath(modsPath, resolvedPath)) {

@@ -31,7 +31,7 @@ export default function ModConflictWarning({ conflicts = [], className = "" }) {
     >
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center mt-0.5">
+        <div className="shrink-0 w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center mt-0.5">
           <AlertTriangle size={16} className="text-yellow-500" />
         </div>
         <div className="flex-1 min-w-0">
@@ -88,12 +88,12 @@ export default function ModConflictWarning({ conflicts = [], className = "" }) {
               {expandedIndex === index ? (
                 <ChevronUp
                   size={16}
-                  className="text-text-muted flex-shrink-0"
+                  className="text-text-muted shrink-0"
                 />
               ) : (
                 <ChevronDown
                   size={16}
-                  className="text-text-muted flex-shrink-0"
+                  className="text-text-muted shrink-0"
                 />
               )}
             </button>
