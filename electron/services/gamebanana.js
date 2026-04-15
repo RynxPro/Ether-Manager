@@ -20,6 +20,7 @@ function normalizeGbModForCache(mod) {
     _aRootCategory: normalized._aRootCategory || { _idRow: 0, _sName: "" },
     _aFiles: Array.isArray(normalized._aFiles) ? normalized._aFiles : [],
     thumbnailUrl: normalized.thumbnailUrl || null,
+    heroImageUrl: normalized.heroImageUrl || normalized.thumbnailUrl || null,
     allImages: buildAllImages(normalized._aPreviewMedia),
   };
 }
@@ -197,6 +198,17 @@ function buildThumbnailUrl(previewMedia) {
   return fileName ? `${firstImage._sBaseUrl}/${fileName}` : null;
 }
 
+// Full-resolution image for large display surfaces (hero banners, etc.)
+function buildHeroImageUrl(previewMedia) {
+  const images = previewMedia?._aImages;
+  if (!images || images.length === 0) return null;
+  const firstImage = images[0];
+  // Prefer the original file, fall back to the 530px variant
+  const fileName =
+    firstImage._sFile || firstImage._sFile530 || firstImage._sFile220;
+  return fileName ? `${firstImage._sBaseUrl}/${fileName}` : null;
+}
+
 function normalizeModRecord(mod) {
   if (!mod || typeof mod !== "object") {
     return null;
@@ -227,6 +239,7 @@ function normalizeModRecord(mod) {
     _aRootCategory: normalizeCategory(mod._aRootCategory),
     _aFiles: files,
     thumbnailUrl: buildThumbnailUrl(previewMedia),
+    heroImageUrl: buildHeroImageUrl(previewMedia),
   };
 }
 
@@ -234,7 +247,8 @@ function buildAllImages(previewMedia) {
   const images = previewMedia?._aImages || [];
   return images
     .map((img) => {
-      const fileName = img._sFile530 || img._sFile;
+      // Prefer the original full-resolution file; fall back to 530px variant
+      const fileName = img._sFile || img._sFile530 || img._sFile220;
       return fileName ? `${img._sBaseUrl}/${fileName}` : null;
     })
     .filter(Boolean);

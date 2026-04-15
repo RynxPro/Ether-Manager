@@ -69,7 +69,13 @@ export default function ModDetailModal({
     preSelectedCharacter || "",
   );
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [error, setError] = useState(null);
+
+  // Reset load state whenever the visible image changes
+  useEffect(() => {
+    setImgLoaded(false);
+  }, [currentImgIndex]);
 
   const characters = useMemo(
     () => ["User Interface", "Miscellaneous", ...getAllCharacterNames(game.id)],
@@ -168,11 +174,19 @@ export default function ModDetailModal({
         <div className="w-full relative flex flex-col group bg-background border-b border-border z-0">
           {images.length > 0 ? (
             <div className="relative w-full aspect-video overflow-hidden bg-background">
+              {/* Loading skeleton */}
+              {!imgLoaded && (
+                <div className="absolute inset-0 bg-white/5 animate-pulse z-10" />
+              )}
               <img
                 key={currentImgIndex}
                 src={images[currentImgIndex]}
                 alt={mod._sName}
-                className="w-full h-full object-contain"
+                onLoad={() => setImgLoaded(true)}
+                className={cn(
+                  "w-full h-full object-contain transition-opacity duration-300",
+                  imgLoaded ? "opacity-100" : "opacity-0"
+                )}
               />
 
               {images.length > 1 && (

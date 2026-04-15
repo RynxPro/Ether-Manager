@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Search,
   ChevronLeft,
@@ -54,6 +54,7 @@ export default function BrowseView() {
   const addDownload = useAppStore((state) => state.addDownload);
   const completeDownload = useAppStore((state) => state.completeDownload);
   
+  const gridTopRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all");
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -442,6 +443,48 @@ export default function BrowseView() {
   );
 
   const totalPages = Math.ceil(total / PER_PAGE);
+
+  // Scroll the actual scroll container (AppViewShell) to the top whenever the page changes
+  useEffect(() => {
+    if (!gridTopRef.current) return;
+    // Walk up the DOM to find the first scrollable ancestor (the AppViewShell overflow-y-auto div)
+    let el = gridTopRef.current.parentElement;
+    while (el) {
+      const { overflowY } = window.getComputedStyle(el);
+      if (overflowY === "auto" || overflowY === "scroll") {
+        el.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      el = el.parentElement;
+    }
+    // Fallback: scroll window
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
+
+  const PaginationBar = totalPages > 1 ? (
+    <div className="flex items-center justify-center gap-3">
+      <Button
+        variant="secondary"
+        onClick={() => setPage((p) => Math.max(1, p - 1))}
+        disabled={page === 1}
+        icon={ChevronLeft}
+        className="w-10 h-10 p-0"
+      />
+      <span className="text-sm text-text-muted">
+        Page{" "}
+        <span className="text-text-primary font-medium">{page}</span>{" "}
+        of{" "}
+        <span className="text-text-primary font-medium">{totalPages}</span>
+      </span>
+      <Button
+        variant="secondary"
+        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+        disabled={page === totalPages}
+        icon={ChevronRight}
+        className="w-10 h-10 p-0"
+      />
+    </div>
+  ) : null;
   const isSavedView = activeTab === "saved";
   const isFiltering = activeTab !== "all" || !!debouncedSearchQuery || !!sort;
   const showFeaturedHero = activeTab === "all" && !debouncedSearchQuery;
@@ -741,11 +784,11 @@ export default function BrowseView() {
                     className="absolute inset-y-0 right-0 w-[58%] z-10"
                     style={{ clipPath: "polygon(12% 0%, 100% 0%, 100% 100%, 0% 100%)" }}
                   >
-                    {mod.thumbnailUrl ? (
+                    {(mod.heroImageUrl || mod.thumbnailUrl) ? (
                       <img
-                        src={mod.thumbnailUrl}
+                        src={mod.heroImageUrl || mod.thumbnailUrl}
                         className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
-                        style={{ imageRendering: "high-quality", filter: "contrast(1.08) saturate(1.15) brightness(1.05)", willChange: "transform" }}
+                        style={{ filter: "contrast(1.05) saturate(1.1) brightness(1.03)", willChange: "transform" }}
                         alt={mod._sName}
                         decoding="async"
                         fetchPriority="high"
@@ -779,7 +822,7 @@ export default function BrowseView() {
         })()}
 
       {/* ── SECTION: Mod Cards Grid ───────────────────────────────────────── */}
-      <div className="min-h-[60vh] relative w-full flex flex-col">
+      <div ref={gridTopRef} className="min-h-[60vh] relative w-full flex flex-col">
         {/* Error state */}
         {error && !loading && (
           <StatePanel
@@ -841,17 +884,13 @@ export default function BrowseView() {
               </section>
             )}
 
-            <div className="mb-4 flex items-center justify-between gap-3 px-1">
+            <div className="mb-4 flex items-center justify-between gap-3 px-1 flex-wrap">
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
                 {loading
                   ? "Loading"
                   : `${total.toLocaleString()} result${total !== 1 ? "s" : ""}`}
               </div>
-              {totalPages > 1 && (
-                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-                  Page {page} / {totalPages}
-                </div>
-              )}
+              {PaginationBar}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -906,32 +945,9 @@ export default function BrowseView() {
               )}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 mt-8 pb-8">
-                <Button
-                  variant="secondary"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  icon={ChevronLeft}
-                  className="w-10 h-10 p-0"
-                />
-                <span className="text-sm text-text-muted">
-                  Page{" "}
-                  <span className="text-text-primary font-medium">{page}</span>{" "}
-                  of{" "}
-                  <span className="text-text-primary font-medium">
-                    {totalPages}
-                  </span>
-                </span>
-                <Button
-                  variant="secondary"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  icon={ChevronRight}
-                  className="w-10 h-10 p-0"
-                />
-              </div>
+            {/* Pagination – bottom */}
+            {PaginationBar && (
+              <div className="mt-8 pb-8">{PaginationBar}</div>
             )}
           </>
         )}
