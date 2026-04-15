@@ -77,6 +77,27 @@ export default function BrowseView() {
   const [featuredMods, setFeaturedMods] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const heroIntervalRef = useRef(null);
+
+  // Auto-advance the featured banner every 10 seconds.
+  // Calling resetHeroInterval() restarts the timer from scratch (used on manual nav).
+  const resetHeroInterval = useCallback(() => {
+    if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
+    heroIntervalRef.current = setInterval(() => {
+      setCurrentHeroIndex((prev) =>
+        featuredMods.length > 1 ? (prev + 1) % featuredMods.length : prev,
+      );
+    }, 10_000);
+  }, [featuredMods.length]);
+
+  useEffect(() => {
+    if (featuredMods.length > 1) {
+      resetHeroInterval();
+    }
+    return () => {
+      if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
+    };
+  }, [featuredMods.length, resetHeroInterval]);
 
   const isOnline = useNetworkStatus();
 
@@ -802,20 +823,34 @@ export default function BrowseView() {
 
                 {/* Dot Navigator */}
                 <div className="absolute bottom-5 right-8 z-30 flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full">
-                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev > 0 ? prev - 1 : featuredMods.length - 1); }} className="text-white/50 hover:text-white transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev > 0 ? prev - 1 : featuredMods.length - 1); resetHeroInterval(); }} className="text-white/50 hover:text-white transition-colors">
                     <ChevronLeft size={14} strokeWidth={3} />
                   </button>
                   <div className="flex items-center gap-1.5">
                     {featuredMods.map((_, i) => (
-                      <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex(i); }}
+                      <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex(i); resetHeroInterval(); }}
                         className={cn("rounded-full transition-all duration-300", i === currentHeroIndex ? "w-4 h-1.5 bg-primary" : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60")}
                       />
                     ))}
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev < featuredMods.length - 1 ? prev + 1 : 0); }} className="text-white/50 hover:text-white transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev < featuredMods.length - 1 ? prev + 1 : 0); resetHeroInterval(); }} className="text-white/50 hover:text-white transition-colors">
                     <ChevronRight size={14} strokeWidth={3} />
                   </button>
                 </div>
+
+                {/* Auto-advance progress bar */}
+                {featuredMods.length > 1 && (
+                  <div className="absolute bottom-0 left-0 right-0 z-40 h-[3px] bg-white/10">
+                    <motion.div
+                      key={currentHeroIndex}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: 10, ease: "linear" }}
+                      style={{ transformOrigin: "left" }}
+                      className="h-full w-full bg-primary opacity-80"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );
