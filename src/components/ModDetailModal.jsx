@@ -9,8 +9,12 @@ import {
   ChevronRight,
   ImageIcon,
   User,
+  ExternalLink,
+  Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppStore } from "../store/useAppStore";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import SearchableDropdown from "./SearchableDropdown";
@@ -72,6 +76,9 @@ export default function ModDetailModal({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [error, setError] = useState(null);
 
+  const downloadJob = useAppStore((state) => state.downloads.find((d) => d.id === mod._idRow));
+  const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
+
   // Reset load state whenever the visible image changes
   useEffect(() => {
     setImgLoaded(false);
@@ -95,6 +102,16 @@ export default function ModDetailModal({
       ),
     [mod._sText, mod._sDescription],
   );
+
+  // Date Formatter
+  const formatDate = (unixSeconds) => {
+    if (!unixSeconds) return "Unknown";
+    return new Date(unixSeconds * 1000).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   // Prevent background scroll
   useEffect(() => {
@@ -275,10 +292,21 @@ export default function ModDetailModal({
                 </div>
               )}
             </div>
-            <h2 className="text-2xl font-bold text-white mb-3" title={mod._sName}>
-              {mod._sName}
-            </h2>
-            <div className="text-text-muted text-sm flex items-center gap-1">
+            
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <h2 className="text-2xl font-bold text-white leading-tight" title={mod._sName}>
+                {mod._sName}
+              </h2>
+              <button
+                onClick={() => window.electronConfig?.openExternal(`https://gamebanana.com/mods/${mod._idRow}`)}
+                className="shrink-0 p-2 rounded-full border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1"
+                title="View on GameBanana"
+              >
+                <ExternalLink size={14} />
+              </button>
+            </div>
+
+            <div className="flex items-center flex-wrap gap-4 text-text-muted text-sm mt-1">
               {mod._aSubmitter ? (
                 <button
                   onClick={() => onCreatorClick?.(mod._aSubmitter)}
@@ -303,6 +331,20 @@ export default function ModDetailModal({
                   <span className="font-medium text-text-muted">Unknown</span>
                 </div>
               )}
+
+              {/* Dates */}
+              <div className="flex items-center gap-3 border-l border-border pl-4 ml-2">
+                <div className="flex items-center gap-1.5 text-[11px]" title="Date Added">
+                  <Calendar size={12} className="opacity-50" />
+                  <span>{formatDate(mod._tsDateAdded)}</span>
+                </div>
+                {mod._tsDateUpdated > mod._tsDateAdded && (
+                  <div className="flex items-center gap-1.5 text-[11px]" title="Last Updated">
+                    <RefreshCw size={12} className="opacity-50" />
+                    <span>{formatDate(mod._tsDateUpdated)}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -355,8 +397,8 @@ export default function ModDetailModal({
                       )}
                     >
                       <div className="flex-1 min-w-0 mr-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium truncate">{file._sFile}</p>
+                        <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                          <p className="text-sm font-medium truncate text-text-primary group-hover:text-white">{file._sFile}</p>
                           {isInstalled && (isOutdated ? (
                             <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-(--color-update)/10 text-(--color-update) border border-(--color-update)/20 uppercase tracking-tighter shrink-0">
                               Update Available
@@ -367,6 +409,10 @@ export default function ModDetailModal({
                             </span>
                           ))}
                         </div>
+                        {file._sDescription && (
+                          <p className="text-[10px] text-text-muted mb-1 line-clamp-2 leading-relaxed" 
+                             dangerouslySetInnerHTML={{ __html: sanitizeHtml(file._sDescription) }} />
+                        )}
                         <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
                       </div>
                       {selectedFile?._idRow === file._idRow && (
@@ -409,17 +455,34 @@ export default function ModDetailModal({
                 <Bookmark size={20} className={cn(isBookmarked && "fill-primary")} />
               </button>
               <button
-                onClick={handleInstall}
-                disabled={!effectiveSelectedCharacter || (isLibraryContext && !isUpdating)}
+                onClick={(e) => {
+                  if (isDownloading) e.preventDefault();
+                  else handleInstall();
+                }}
+                disabled={!effectiveSelectedCharacter || (isLibraryContext && !isUpdating) || isDownloading}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
-                  isLibraryContext && !isUpdating
+                  "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
+                  isDownloading 
+                    ? "bg-primary/20 text-primary border border-primary/30 cursor-not-allowed"
+                    : isLibraryContext && !isUpdating
                     ? "bg-white/5 text-gray-600 cursor-not-allowed"
                     : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 )}
               >
-                <Download size={20} />
-                {isLibraryContext ? "Update" : "Install"}
+                {/* Progress Fill */}
+                {isDownloading && (
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300 ease-linear"
+                    style={{ width: `${downloadJob.percent}%` }}
+                  />
+                )}
+
+                <div className="relative z-10 flex items-center gap-2">
+                  <Download size={20} className={cn(isDownloading && "animate-bounce")} />
+                  {isDownloading 
+                    ? (downloadJob.status === "extracting" ? "Extracting..." : `Installing ${downloadJob.percent}%`) 
+                    : isLibraryContext ? "Update" : "Install"}
+                </div>
               </button>
             </div>
           </div>

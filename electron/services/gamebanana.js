@@ -34,7 +34,7 @@ import { createLogger } from "./logger.js";
 
 const GB_API = "https://gamebanana.com/apiv10";
 const GB_PROPERTIES =
-  "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_aSubmitter,_aGame,_aCategory,_aRootCategory";
+  "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateAdded,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_sProfileUrl,_aSubmitter,_aGame,_aCategory,_aRootCategory";
 
 const characterCategoryCache = {};
 const logger = createLogger("gamebanana");
@@ -234,6 +234,7 @@ function normalizeModRecord(mod) {
     _sProfileUrl: toStringOr("", mod._sProfileUrl),
     _aPreviewMedia: previewMedia,
     _aSubmitter: normalizeSubmitter(mod._aSubmitter),
+    _aCredits: Array.isArray(mod._aCredits) ? mod._aCredits : [],
     _aGame: normalizeCategory(mod._aGame),
     _aCategory: normalizeCategory(mod._aCategory),
     _aRootCategory: normalizeCategory(mod._aRootCategory),
@@ -704,7 +705,7 @@ export async function browseGbMods(args = {}) {
       : assertInteger(args.submitterId, "submitterId", { min: 1 });
 
   const browseFields =
-    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_sProfileUrl";
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl";
   const sortAliases = {
     likes: "Generic_MostLiked",
     downloads: "Generic_MostDownloaded",
