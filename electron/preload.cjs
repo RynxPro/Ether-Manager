@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld("electronMods", {
     ipcRenderer.invoke("fetch-gb-featured-mods", gbGameId),
   browseGbMods: (args) => ipcRenderer.invoke("browse-gb-mods", args),
   installGbMod: (args) => ipcRenderer.invoke("install-gb-mod", args),
+  cancelInstallGbMod: (args) => ipcRenderer.invoke("cancel-install-gb-mod", args),
   fetchGbModsBatch: (ids) => ipcRenderer.invoke("fetch-gb-mods-batch", ids),
   fetchGbModsSummaries: (ids) =>
     ipcRenderer.invoke("fetch-gb-mods-summaries", ids),

@@ -21,6 +21,7 @@ import {
   getMods,
   importMod,
   installGbMod,
+  cancelInstallGbMod,
   setCustomThumbnail,
   toggleMod,
 } from "./services/mods.js";
@@ -318,6 +319,13 @@ handleIpc(
         event.sender.send("download-progress", data),
       trashItem: (folderPath) => shell.trashItem(folderPath),
     }),
+  ),
+);
+
+handleIpc(
+  "cancel-install-gb-mod",
+  withResultEnvelope("cancel-install-gb-mod error:", async (event, args = {}) =>
+    cancelInstallGbMod(args),
   ),
 );
 

@@ -57,8 +57,8 @@ export const useAppStore = create((set) => ({
   addDownload: (job) => set((state) => ({
     downloads: [...state.downloads.filter(d => d.id !== job.id), { ...job, percent: 0, status: "downloading" }]
   })),
-  updateDownloadProgress: (id, percent) => set((state) => ({
-    downloads: state.downloads.map(d => d.id === id ? { ...d, percent, status: percent === 100 ? "extracting" : d.status } : d)
+  updateDownloadProgress: (id, percent, bytesPerSecond) => set((state) => ({
+    downloads: state.downloads.map(d => d.id === id ? { ...d, percent, bytesPerSecond, status: percent === 100 ? "extracting" : d.status } : d)
   })),
   completeDownload: (id, success, error) => set((state) => ({
     downloads: state.downloads.map(d => d.id === id ? { ...d, percent: success ? 100 : d.percent, status: success ? "done" : "error", error } : d)
@@ -66,4 +66,12 @@ export const useAppStore = create((set) => ({
   clearDownload: (id) => set((state) => ({
     downloads: state.downloads.filter(d => d.id !== id)
   })),
+  cancelDownload: async (id) => {
+    if (window.electronMods?.cancelInstallGbMod) {
+      await window.electronMods.cancelInstallGbMod({ gbModId: id }).catch(() => {});
+    }
+    set((state) => ({
+      downloads: state.downloads.filter(d => d.id !== id)
+    }));
+  },
 }));

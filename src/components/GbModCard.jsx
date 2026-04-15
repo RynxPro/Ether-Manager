@@ -4,6 +4,7 @@ import { cn } from "../lib/utils";
 
 import UpdateBadge from "./UpdateBadge";
 import { InteractiveCard } from "./ui/InteractiveCard";
+import { useAppStore } from "../store/useAppStore";
 
 function formatCount(n) {
   if (!n) return "0";
@@ -23,6 +24,8 @@ const BrowseModCard = React.memo(function BrowseModCard({
   onCreatorClick
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const downloadJob = useAppStore((state) => state.downloads.find(d => d.id === mod._idRow));
+  const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
 
   return (
     <InteractiveCard
@@ -156,18 +159,25 @@ const BrowseModCard = React.memo(function BrowseModCard({
          {/* Install action */}
          <div className="mt-auto border-t border-border pt-4">
            <button
+             disabled={isDownloading}
              onClick={(e) => {
                e.stopPropagation();
-                onInstall(mod);
+               if (!isDownloading) onInstall(mod);
              }}
              className={cn(
                "group/btn relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg border text-[10px] font-black uppercase tracking-[0.2em] transition-all",
-               hasUpdate || !isInstalled
+               isDownloading
+                 ? "border-primary/20 bg-primary/10 text-primary cursor-not-allowed"
+                 : hasUpdate || !isInstalled
                  ? "border-primary/50 bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/20 hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
                  : "border-border bg-surface text-text-primary hover:border-white/20 hover:bg-white/6"
              )}
            >
-             {hasUpdate ? (
+             {isDownloading ? (
+               <>
+                 <Download size={12} strokeWidth={4} className="animate-bounce" /> {downloadJob.status === "extracting" ? "Extracting..." : `${downloadJob.percent}%`}
+               </>
+             ) : hasUpdate ? (
                <>
                  <Download size={12} strokeWidth={4} className="group-hover/btn:animate-bounce" /> View Update
                </>
@@ -183,6 +193,15 @@ const BrowseModCard = React.memo(function BrowseModCard({
            </button>
          </div>
       </div>
+
+      {isDownloading && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/5 z-40 overflow-hidden">
+           <div 
+             className="h-full bg-primary transition-all duration-300 ease-out" 
+             style={{ width: `${downloadJob.percent}%` }}
+           />
+        </div>
+      )}
 
       <div className="absolute inset-0 rounded-2xl shadow-inner group-hover:shadow-[inset_0_0_0_1px_var(--color-primary)] opacity-0 group-hover:opacity-40 transition-all pointer-events-none z-30" />
     </InteractiveCard>

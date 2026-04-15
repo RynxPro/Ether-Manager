@@ -29,7 +29,7 @@ function App() {
   useEffect(() => {
     if (window.electronMods && window.electronMods.onDownloadProgress) {
       return window.electronMods.onDownloadProgress((data) => {
-        updateDownloadProgress(data.gbModId, data.percent);
+        updateDownloadProgress(data.gbModId, data.percent, data.bytesPerSecond);
       });
     }
   }, [updateDownloadProgress]);

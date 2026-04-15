@@ -14,6 +14,7 @@ import {
 import { createLogger } from "./logger.js";
 
 const logger = createLogger("mods");
+const activeDownloads = new Map();
 
 export function getMods(
   importerPath,
@@ -498,8 +499,12 @@ export async function installGbMod(
       }
     }
 
+    const abortController = new AbortController();
+    activeDownloads.set(normalizedGbModId, { abortController });
+
     const res = await fetch(fileUrl, {
       headers: { "User-Agent": "AetherManager/1.0.0" },
+      signal: abortController.signal
     });
     if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
 
@@ -509,12 +514,26 @@ export async function installGbMod(
     const chunks = [];
     const reader = res.body.getReader();
 
+    let lastTime = Date.now();
+    let lastBytes = 0;
+    let bytesPerSecond = 0;
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       if (!value) continue;
       chunks.push(value);
       downloadedBytes += value.length;
+
+      const now = Date.now();
+      const timeDiff = now - lastTime;
+      // Update speed every 250ms for smooth but stable UI readouts
+      if (timeDiff >= 250) {
+        bytesPerSecond = ((downloadedBytes - lastBytes) / timeDiff) * 1000;
+        lastTime = now;
+        lastBytes = downloadedBytes;
+      }
+
       if (totalBytes > 0) {
         const percent = Math.round((downloadedBytes / totalBytes) * 100);
         onDownloadProgress({
@@ -522,6 +541,7 @@ export async function installGbMod(
           percent,
           downloadedBytes,
           totalBytes,
+          bytesPerSecond,
         });
       }
     }
@@ -635,6 +655,23 @@ export async function installGbMod(
     if (fs.existsSync(tmpPath)) {
       fs.unlinkSync(tmpPath);
     }
+    
+    // If it was aborted, return a specific error
+    if (error.name === 'AbortError' || error.message.includes('aborted')) {
+      return { success: false, error: "Download cancelled by user." };
+    }
+    
     return { success: false, error: error.message };
+  } finally {
+    activeDownloads.delete(normalizedGbModId);
   }
+}
+
+export function cancelInstallGbMod({ gbModId }) {
+  const download = activeDownloads.get(Number(gbModId));
+  if (download) {
+    download.abortController.abort();
+    return { success: true };
+  }
+  return { success: false, error: "Download not found or already finished." };
 }

@@ -483,27 +483,29 @@ export default function BrowseView() {
   }, [page]);
 
   const PaginationBar = totalPages > 1 ? (
-    <div className="flex items-center justify-center gap-3">
-      <Button
-        variant="secondary"
+    <div className="flex items-center justify-center gap-2">
+      <button
         onClick={() => setPage((p) => Math.max(1, p - 1))}
         disabled={page === 1}
-        icon={ChevronLeft}
-        className="w-10 h-10 p-0"
-      />
-      <span className="text-sm text-text-muted">
+        className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+        aria-label="Previous page"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      <div className="text-sm text-text-muted px-2">
         Page{" "}
-        <span className="text-text-primary font-medium">{page}</span>{" "}
+        <span className="text-text-primary font-bold">{page}</span>{" "}
         of{" "}
-        <span className="text-text-primary font-medium">{totalPages}</span>
-      </span>
-      <Button
-        variant="secondary"
+        <span className="text-text-primary font-bold">{totalPages}</span>
+      </div>
+      <button
         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
         disabled={page === totalPages}
-        icon={ChevronRight}
-        className="w-10 h-10 p-0"
-      />
+        className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+        aria-label="Next page"
+      >
+        <ChevronRight size={16} />
+      </button>
     </div>
   ) : null;
   const isSavedView = activeTab === "saved";

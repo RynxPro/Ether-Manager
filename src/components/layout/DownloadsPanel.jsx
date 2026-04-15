@@ -11,7 +11,14 @@ const STATUS_ICONS = {
   error: XCircle,
 };
 
-function DownloadRow({ job, onClear }) {
+function formatSpeed(bps) {
+  if (!bps) return "";
+  if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
+  if (bps >= 1024) return `${(bps / 1024).toFixed(0)} KB/s`;
+  return `${bps.toFixed(0)} B/s`;
+}
+
+function DownloadRow({ job, onClear, onCancel }) {
   const Icon = STATUS_ICONS[job.status];
   const isActive = job.status === "downloading" || job.status === "extracting";
   const isError = job.status === "error";
@@ -51,28 +58,32 @@ function DownloadRow({ job, onClear }) {
         <p className="text-[11px] font-semibold text-text-primary truncate">
           {job.title}
         </p>
-        <p className={cn(
-          "text-[10px] font-medium mt-0.5",
+        <div className={cn(
+          "flex justify-between items-center text-[10px] font-medium mt-0.5",
           isActive && "text-primary",
           isDone && "text-green-400",
           isError && "text-red-400",
         )}>
-          {job.status === "downloading" && `${job.percent}%`}
-          {job.status === "extracting" && "Extracting..."}
-          {job.status === "done" && "Installed"}
-          {job.status === "error" && (job.error || "Failed")}
-        </p>
+          <span>
+            {job.status === "downloading" && `${job.percent}%`}
+            {job.status === "extracting" && "Extracting..."}
+            {job.status === "done" && "Installed"}
+            {job.status === "error" && (job.error || "Failed")}
+          </span>
+          {job.status === "downloading" && job.bytesPerSecond > 0 && (
+            <span className="opacity-80 font-mono text-[9px]">{formatSpeed(job.bytesPerSecond)}</span>
+          )}
+        </div>
       </div>
 
-      {/* Dismiss (on non-active) */}
-      {!isActive && (
-        <button
-          onClick={() => onClear(job.id)}
-          className="relative z-10 p-1 rounded-md text-text-muted hover:text-white hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-        >
-          <X size={12} />
-        </button>
-      )}
+      {/* Dismiss / Cancel */}
+      <button
+        onClick={() => isActive ? onCancel(job.id) : onClear(job.id)}
+        className="relative z-10 p-1 rounded-md text-text-muted hover:text-white hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+        title={isActive ? "Cancel Download" : "Clear"}
+      >
+        <X size={12} />
+      </button>
     </div>
   );
 }
@@ -80,6 +91,7 @@ function DownloadRow({ job, onClear }) {
 export default function DownloadsPanel() {
   const downloads = useAppStore((state) => state.downloads);
   const clearDownload = useAppStore((state) => state.clearDownload);
+  const cancelDownload = useAppStore((state) => state.cancelDownload);
   const [collapsed, setCollapsed] = useState(false);
 
   if (downloads.length === 0) return null;
@@ -138,7 +150,7 @@ export default function DownloadsPanel() {
                       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <DownloadRow job={job} onClear={clearDownload} />
+                      <DownloadRow job={job} onClear={clearDownload} onCancel={cancelDownload} />
                     </motion.div>
                   ))}
                 </AnimatePresence>
