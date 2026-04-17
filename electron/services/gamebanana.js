@@ -228,6 +228,7 @@ function normalizeModRecord(mod) {
     _sProfileUrl: toStringOr("", mod._sProfileUrl),
     _sVersion: toStringOr("", mod._sVersion),
     _bWasFeatured: !!mod._bWasFeatured,
+    _bHasContentRatings: !!mod._bHasContentRatings,
     _aTags: Array.isArray(mod._aTags) ? mod._aTags : [],
     _aPreviewMedia: previewMedia,
     _aSubmitter: normalizeSubmitter(mod._aSubmitter),
@@ -719,7 +720,7 @@ export async function browseGbMods(args = {}) {
   const characterSkins = !!args.characterSkins;
 
   const browseFields =
-    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory";
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory,_bHasContentRatings";
 
   // Accept full Generic_* aliases directly OR legacy shorthand keys
   const sortAliasMap = {

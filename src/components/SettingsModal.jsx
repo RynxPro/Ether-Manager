@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, FolderOpen } from "lucide-react";
+import { X, FolderOpen, EyeOff, Eye, ShieldAlert } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/Button";
@@ -17,6 +17,8 @@ export default function SettingsModal({ onClose, games }) {
   const [config, setConfig] = useState({});
   const [activeTab, setActiveTab] = useState(games[0].id);
   const bumpConfigVersion = useAppStore((state) => state.bumpConfigVersion);
+  const showNsfw = useAppStore((state) => state.showNsfw);
+  const setShowNsfw = useAppStore((state) => state.setShowNsfw);
 
   useEffect(() => {
     // Load config from main process
@@ -52,6 +54,14 @@ export default function SettingsModal({ onClose, games }) {
       window.electronConfig.setConfig(newConfig).then((success) => {
         if (success) bumpConfigVersion();
       });
+    }
+  };
+
+  const handleToggleNsfw = async () => {
+    const nextVal = !showNsfw;
+    setShowNsfw(nextVal);
+    if (window.electronConfig) {
+      await window.electronConfig.setConfig({ ...config, showNsfw: nextVal });
     }
   };
 
@@ -125,18 +135,116 @@ export default function SettingsModal({ onClose, games }) {
                   <span className="block text-[9px] font-medium opacity-50 mt-1">{game.id.toUpperCase()}</span>
                 </button>
               ))}
+
+              <div className="my-3 border-t border-white/6" />
+              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/30 mb-2 px-2">Preferences</p>
+              <button
+                onClick={() => setActiveTab("content")}
+                className={cn(
+                  "group px-4 py-3 rounded-xl text-left transition-all duration-300 relative",
+                  activeTab === "content"
+                    ? "bg-white/5 text-white"
+                    : "text-text-muted hover:bg-white/5 hover:text-white",
+                )}
+              >
+                {activeTab === "content" && (
+                  <motion.div layoutId="activeTabInd" className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-primary" />
+                )}
+                <span className="block text-[11px] font-bold uppercase tracking-widest leading-none">Content</span>
+                <span className="block text-[9px] font-medium opacity-50 mt-1">Filter settings</span>
+              </button>
             </div>
 
             {/* Content Area */}
             <div className="flex-1 p-10 overflow-y-auto bg-[#0a0a0a]">
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
+                {activeTab === "content" ? (
+                  <motion.div
+                    key="content"
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="flex items-center gap-3 mb-6">
+                      <h3 className="text-[12px] uppercase tracking-widest font-black text-white">Content Filters</h3>
+                    </div>
+
+                    <p className="mb-8 text-sm leading-6 text-white/55">
+                      Control what content is visible in the Browse tab.
+                      Mods flagged as mature on GameBanana will be affected by these settings.
+                    </p>
+
+                    {/* NSFW Toggle Row */}
+                    <div className="rounded-xl border border-white/10 bg-[#050505] p-5">
+                      <div className="flex items-center justify-between gap-6">
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                            showNsfw
+                              ? "border-red-500/30 bg-red-500/10 text-red-400"
+                              : "border-white/10 bg-white/5 text-text-muted"
+                          )}>
+                            {showNsfw ? <Eye size={16} /> : <EyeOff size={16} />}
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-bold text-white">Show Mature Content</p>
+                            <p className="mt-1 text-[11px] text-white/40 leading-relaxed">
+                              When off, NSFW mods are blurred in the browse grid.
+                              They can still be revealed by clicking them.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Toggle Switch */}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={showNsfw}
+                          onClick={handleToggleNsfw}
+                          className={cn(
+                            "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 transition-all duration-300 focus:outline-none",
+                            showNsfw
+                              ? "border-red-500/60 bg-red-500/20"
+                              : "border-white/10 bg-white/5"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "pointer-events-none inline-block h-5 w-5 rounded-full shadow-lg transition-transform duration-300",
+                              showNsfw
+                                ? "translate-x-5 bg-red-400"
+                                : "translate-x-0 bg-white/30"
+                            )}
+                          />
+                        </button>
+                      </div>
+
+                      {showNsfw && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-4 overflow-hidden"
+                        >
+                          <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/8 px-4 py-3">
+                            <ShieldAlert size={14} className="shrink-0 text-red-400" />
+                            <p className="text-[11px] text-red-300/80">
+                              Mature content is now visible. This setting is saved across restarts.
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
                   <div className="flex items-center gap-3 mb-6">
                     <h3 className="text-[12px] uppercase tracking-widest font-black text-white">
                       Mods Folder
@@ -212,7 +320,8 @@ export default function SettingsModal({ onClose, games }) {
                       </div>
                     )}
                   </div>
-                </motion.div>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </div>
           </div>

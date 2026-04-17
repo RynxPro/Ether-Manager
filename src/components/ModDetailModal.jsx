@@ -5,6 +5,7 @@ import {
   Bookmark,
   Heart,
   Eye,
+  EyeOff,
   ChevronLeft,
   ChevronRight,
   ImageIcon,
@@ -76,9 +77,14 @@ export default function ModDetailModal({
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [error, setError] = useState(null);
+  const [revealedDetail, setRevealedDetail] = useState(false);
 
   const downloadJob = useAppStore((state) => state.downloads.find((d) => d.id === mod._idRow));
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
+  const showNsfw = useAppStore((state) => state.showNsfw);
+
+  const isNsfw = !!mod._bHasContentRatings;
+  const blurHero = isNsfw && !showNsfw && !revealedDetail;
 
   // Reset load state whenever the visible image changes
   useEffect(() => {
@@ -202,10 +208,30 @@ export default function ModDetailModal({
                 alt={mod._sName}
                 onLoad={() => setImgLoaded(true)}
                 className={cn(
-                  "w-full h-full object-contain transition-opacity duration-300",
-                  imgLoaded ? "opacity-100" : "opacity-0"
+                  "w-full h-full object-contain transition-all duration-300",
+                  imgLoaded ? "opacity-100" : "opacity-0",
+                  blurHero && "blur-2xl scale-110 brightness-40"
                 )}
               />
+              {/* NSFW reveal overlay */}
+              {blurHero && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
+                    <EyeOff size={24} className="text-red-400" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-black uppercase tracking-widest text-white/70">Mature Content</p>
+                    <p className="mt-1 text-xs text-white/40">This mod has been flagged as NSFW</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRevealedDetail(true)}
+                    className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2 text-xs font-bold text-white/80 backdrop-blur-sm transition-colors hover:bg-white/20"
+                  >
+                    <Eye size={14} /> Reveal Content
+                  </button>
+                </div>
+              )}
 
               {images.length > 1 && (
                 <>
@@ -282,6 +308,12 @@ export default function ModDetailModal({
               <div className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-text-muted">
                 {mod._aSubCategory?._sName || mod._aRootCategory?._sName || mod._aCategory?._sName || "Mod"}
               </div>
+              {isNsfw && (
+                <div className="flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-red-400">
+                  <EyeOff size={10} />
+                  NSFW
+                </div>
+              )}
               {mod._bWasFeatured && (
                 <div className="flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-yellow-400">
                   <Star size={10} className="fill-yellow-400" />

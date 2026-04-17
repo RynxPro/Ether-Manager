@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Download, Heart, Check, Bookmark, User, Star, Tag } from "lucide-react";
+import { Download, Heart, Check, Bookmark, User, Star, Tag, EyeOff, Eye } from "lucide-react";
 import { cn } from "../lib/utils";
 
 import UpdateBadge from "./UpdateBadge";
@@ -32,8 +32,13 @@ const BrowseModCard = React.memo(function BrowseModCard({
   onCreatorClick
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const downloadJob = useAppStore((state) => state.downloads.find(d => d.id === mod._idRow));
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
+  const showNsfw = useAppStore((state) => state.showNsfw);
+
+  const isNsfw = !!mod._bHasContentRatings;
+  const blurImage = isNsfw && !showNsfw && !revealed;
 
   // Prefer sub-category (character name, e.g. "Miyabi") over root ("Character Skins")
   const categoryLabel =
@@ -66,10 +71,27 @@ const BrowseModCard = React.memo(function BrowseModCard({
               decoding="async"
               onLoad={() => setImgLoaded(true)}
               className={cn(
-                "absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 z-0",
-                imgLoaded ? "opacity-100" : "opacity-0"
+                "absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105 z-0",
+                imgLoaded ? "opacity-100" : "opacity-0",
+                blurImage && "blur-xl scale-110 brightness-50"
               )}
             />
+            {/* NSFW Reveal Overlay */}
+            {blurImage && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/20 border border-red-500/30">
+                  <EyeOff size={18} className="text-red-400" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Mature Content</p>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setRevealed(true); }}
+                  className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-sm transition-colors hover:bg-white/20"
+                >
+                  <Eye size={11} /> Reveal
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-background to-surface transition-transform duration-700 group-hover:scale-105 z-0">
@@ -79,8 +101,14 @@ const BrowseModCard = React.memo(function BrowseModCard({
           </div>
         )}
 
-        {/* Badges (Top Left) — bookmark */}
+        {/* Badges (Top Left) — NSFW tag + bookmark */}
         <div className="absolute top-3 left-3 flex flex-col items-start gap-2 z-20">
+          {isNsfw && (
+            <div className="flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-red-400 backdrop-blur-md shadow-lg">
+              <EyeOff size={9} />
+              NSFW
+            </div>
+          )}
            <button
               onClick={(e) => {
                 e.stopPropagation();

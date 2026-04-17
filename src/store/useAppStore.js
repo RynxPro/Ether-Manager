@@ -27,6 +27,10 @@ export const useAppStore = create((set) => ({
   activeView: 'mods', // "mods" | "browse" | "presets"
   setActiveView: (view) => set({ activeView: view }),
 
+  // Content Settings
+  showNsfw: false,
+  setShowNsfw: (val) => set({ showNsfw: val }),
+
   // Sub-view State (e.g. Mod Detail Overlay)
   selectedCharacter: null,
   setSelectedCharacter: (character) => set({ selectedCharacter: character }),
