@@ -65,7 +65,8 @@ export default function BrowseView() {
   const configVersion = useAppStore((state) => state.configVersion);
   const addDownload = useAppStore((state) => state.addDownload);
   const completeDownload = useAppStore((state) => state.completeDownload);
-  
+  const nsfwMode = useAppStore((state) => state.nsfwMode);
+
   const gridTopRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all");
   const [total, setTotal] = useState(0);
@@ -344,6 +345,7 @@ export default function BrowseView() {
         search: debouncedSearchQuery,
         featuredOnly,
         characterSkins: activeTab === "characters",
+        hideNsfw: nsfwMode === "hide",
       });
       if (result.success) {
         setMods(result.records);
@@ -362,6 +364,7 @@ export default function BrowseView() {
     page,
     sort,
     featuredOnly,
+    nsfwMode,
     characterFilter,
     activeTab,
     debouncedSearchQuery,

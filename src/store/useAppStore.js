@@ -28,8 +28,8 @@ export const useAppStore = create((set) => ({
   setActiveView: (view) => set({ activeView: view }),
 
   // Content Settings
-  showNsfw: false,
-  setShowNsfw: (val) => set({ showNsfw: val }),
+  nsfwMode: "blur", // "blur" | "hide" | "show"
+  setNsfwMode: (mode) => set({ nsfwMode: mode }),
 
   // Sub-view State (e.g. Mod Detail Overlay)
   selectedCharacter: null,

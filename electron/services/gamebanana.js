@@ -718,6 +718,7 @@ export async function browseGbMods(args = {}) {
       : assertInteger(args.submitterId, "submitterId", { min: 1 });
   const featuredOnly = !!args.featuredOnly;
   const characterSkins = !!args.characterSkins;
+  const hideNsfw = !!args.hideNsfw;
 
   const browseFields =
     "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory,_bHasContentRatings";
@@ -745,6 +746,8 @@ export async function browseGbMods(args = {}) {
   const resolvedSort = sortAliasMap[sort] || (VALID_SORT_ALIASES.has(sort) ? sort : "");
   const sortStr = resolvedSort ? `&_sSort=${resolvedSort}` : "";
   const featuredFilter = featuredOnly ? "&_aFilters[Generic_WasFeatured]=true" : "";
+  // _aFilters[Generic_ContentRatings]=- means "Unrated only" — effectively hides all NSFW-flagged mods
+  const contentRatingsFilter = hideNsfw ? "&_aFilters[Generic_ContentRatings]=-" : "";
 
   const hasManualSearch = search && search.trim().length >= 1;
   const hasCategoryContext = context && context.trim().length >= 1;
@@ -752,7 +755,7 @@ export async function browseGbMods(args = {}) {
   let url;
 
   if (submitterId) {
-    url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
+    url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
   } else if (hasManualSearch) {
     const combinedQuery = [context, search].filter(Boolean).join(" ");
     url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
@@ -761,7 +764,7 @@ export async function browseGbMods(args = {}) {
     const catId = await resolveCharCategory(gbGameId, charName);
 
     if (catId) {
-      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
     } else {
       url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
     }
@@ -770,9 +773,9 @@ export async function browseGbMods(args = {}) {
     // Character Skins category so UI/Misc mods don't leak through.
     const rootCatId = characterSkins ? CHARACTER_SKINS_ROOT_CATS[gbGameId] : null;
     if (rootCatId) {
-      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${rootCatId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${rootCatId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
     } else {
-      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
     }
   }
 

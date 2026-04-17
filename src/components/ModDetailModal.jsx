@@ -81,10 +81,10 @@ export default function ModDetailModal({
 
   const downloadJob = useAppStore((state) => state.downloads.find((d) => d.id === mod._idRow));
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
-  const showNsfw = useAppStore((state) => state.showNsfw);
+  const nsfwMode = useAppStore((state) => state.nsfwMode);
 
   const isNsfw = !!mod._bHasContentRatings;
-  const blurHero = isNsfw && !showNsfw && !revealedDetail;
+  const blurHero = isNsfw && nsfwMode === "blur" && !revealedDetail;
 
   // Reset load state whenever the visible image changes
   useEffect(() => {

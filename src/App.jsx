@@ -22,7 +22,7 @@ function App() {
     (state) => state.setSelectedCharacter,
   );
   const updateDownloadProgress = useAppStore((state) => state.updateDownloadProgress);
-  const setShowNsfw = useAppStore((state) => state.setShowNsfw);
+  const setNsfwMode = useAppStore((state) => state.setNsfwMode);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const isOnline = useNetworkStatus();
 
@@ -43,11 +43,11 @@ function App() {
           setShowOnboarding(true);
         }
         // Restore persisted content preferences
-        setShowNsfw(config.showNsfw ?? false);
+        setNsfwMode(config.nsfwMode ?? "blur");
       }
     }
     checkOnboarding();
-  }, [setShowNsfw]);
+  }, [setNsfwMode]);
 
   // Update accent color variable when game changes
   useEffect(() => {

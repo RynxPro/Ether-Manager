@@ -35,10 +35,10 @@ const BrowseModCard = React.memo(function BrowseModCard({
   const [revealed, setRevealed] = useState(false);
   const downloadJob = useAppStore((state) => state.downloads.find(d => d.id === mod._idRow));
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
-  const showNsfw = useAppStore((state) => state.showNsfw);
+  const nsfwMode = useAppStore((state) => state.nsfwMode);
 
   const isNsfw = !!mod._bHasContentRatings;
-  const blurImage = isNsfw && !showNsfw && !revealed;
+  const blurImage = isNsfw && nsfwMode === "blur" && !revealed;
 
   // Prefer sub-category (character name, e.g. "Miyabi") over root ("Character Skins")
   const categoryLabel =
@@ -51,11 +51,12 @@ const BrowseModCard = React.memo(function BrowseModCard({
 
   return (
     <InteractiveCard
-      onClick={() => onClick?.(mod)}
+      onClick={() => { if (!blurImage) onClick?.(mod); }}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
-        "cursor-pointer flex flex-col relative group overflow-hidden w-full rounded-2xl bg-white/5 hover:bg-white/10 transition-colors",
+        "flex flex-col relative group overflow-hidden w-full rounded-2xl bg-white/5 hover:bg-white/10 transition-colors",
+        blurImage ? "cursor-default" : "cursor-pointer",
         isInstalled ? "border border-primary/20" : "border border-white/10"
       )}
     >
@@ -101,14 +102,8 @@ const BrowseModCard = React.memo(function BrowseModCard({
           </div>
         )}
 
-        {/* Badges (Top Left) — NSFW tag + bookmark */}
-        <div className="absolute top-3 left-3 flex flex-col items-start gap-2 z-20">
-          {isNsfw && (
-            <div className="flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-red-400 backdrop-blur-md shadow-lg">
-              <EyeOff size={9} />
-              NSFW
-            </div>
-          )}
+        {/* Left: bookmark only — always same position regardless of NSFW */}
+        <div className="absolute top-3 left-3 z-20">
            <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -129,8 +124,14 @@ const BrowseModCard = React.memo(function BrowseModCard({
            </button>
         </div>
 
-        {/* Badges (Top Right) — featured star + installed/update */}
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20">
+        {/* Right: NSFW badge + featured + installed/update */}
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-20">
+            {isNsfw && (
+              <div className="flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-red-400 backdrop-blur-md shadow-lg">
+                <EyeOff size={9} />
+                NSFW
+              </div>
+            )}
             {mod._bWasFeatured && (
               <div
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-500/20 border border-yellow-500/40 backdrop-blur-md shadow-lg"
@@ -239,15 +240,15 @@ const BrowseModCard = React.memo(function BrowseModCard({
         {/* Install action */}
         <div className="mt-auto border-t border-border pt-4">
           <button
-            disabled={isDownloading}
+            disabled={blurImage || isDownloading}
             onClick={(e) => {
               e.stopPropagation();
-              if (!isDownloading) onInstall(mod);
+              if (!isDownloading && !blurImage) onInstall(mod);
             }}
             className={cn(
               "group/btn relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg border text-[10px] font-black uppercase tracking-[0.2em] transition-all",
-              isDownloading
-                ? "border-primary/20 bg-primary/10 text-primary cursor-not-allowed"
+              (blurImage || isDownloading)
+                ? "cursor-not-allowed opacity-40 border-white/10 bg-white/5 text-text-muted"
                 : hasUpdate || !isInstalled
                 ? "border-primary/50 bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/20 hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
                 : "border-border bg-surface text-text-primary hover:border-white/20 hover:bg-white/6"

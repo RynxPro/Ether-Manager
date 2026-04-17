@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, FolderOpen, EyeOff, Eye, ShieldAlert } from "lucide-react";
+import { X, FolderOpen, EyeOff, Eye, ShieldAlert, EyeClosed } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/Button";
@@ -17,8 +17,8 @@ export default function SettingsModal({ onClose, games }) {
   const [config, setConfig] = useState({});
   const [activeTab, setActiveTab] = useState(games[0].id);
   const bumpConfigVersion = useAppStore((state) => state.bumpConfigVersion);
-  const showNsfw = useAppStore((state) => state.showNsfw);
-  const setShowNsfw = useAppStore((state) => state.setShowNsfw);
+  const nsfwMode = useAppStore((state) => state.nsfwMode);
+  const setNsfwMode = useAppStore((state) => state.setNsfwMode);
 
   useEffect(() => {
     // Load config from main process
@@ -57,11 +57,10 @@ export default function SettingsModal({ onClose, games }) {
     }
   };
 
-  const handleToggleNsfw = async () => {
-    const nextVal = !showNsfw;
-    setShowNsfw(nextVal);
+  const handleSetNsfwMode = async (mode) => {
+    setNsfwMode(mode);
     if (window.electronConfig) {
-      await window.electronConfig.setConfig({ ...config, showNsfw: nextVal });
+      await window.electronConfig.setConfig({ ...config, nsfwMode: mode });
     }
   };
 
@@ -175,68 +174,108 @@ export default function SettingsModal({ onClose, games }) {
                       Mods flagged as mature on GameBanana will be affected by these settings.
                     </p>
 
-                    {/* NSFW Toggle Row */}
-                    <div className="rounded-xl border border-white/10 bg-[#050505] p-5">
-                      <div className="flex items-center justify-between gap-6">
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                            showNsfw
-                              ? "border-red-500/30 bg-red-500/10 text-red-400"
-                              : "border-white/10 bg-white/5 text-text-muted"
-                          )}>
-                            {showNsfw ? <Eye size={16} /> : <EyeOff size={16} />}
-                          </div>
-                          <div>
-                            <p className="text-[12px] font-bold text-white">Show Mature Content</p>
-                            <p className="mt-1 text-[11px] text-white/40 leading-relaxed">
-                              When off, NSFW mods are blurred in the browse grid.
-                              They can still be revealed by clicking them.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Toggle Switch */}
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={showNsfw}
-                          onClick={handleToggleNsfw}
-                          className={cn(
-                            "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 transition-all duration-300 focus:outline-none",
-                            showNsfw
-                              ? "border-red-500/60 bg-red-500/20"
-                              : "border-white/10 bg-white/5"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "pointer-events-none inline-block h-5 w-5 rounded-full shadow-lg transition-transform duration-300",
-                              showNsfw
-                                ? "translate-x-5 bg-red-400"
-                                : "translate-x-0 bg-white/30"
-                            )}
-                          />
-                        </button>
+                    {/* NSFW Mode Selector */}
+                    <div className="rounded-xl border border-white/10 bg-[#050505] p-5 flex flex-col gap-4">
+                      <div>
+                        <p className="text-[12px] font-bold text-white mb-1">Mature Content</p>
+                        <p className="text-[11px] text-white/40 leading-relaxed">
+                          Choose how mods flagged as NSFW on GameBanana are handled in the browse grid.
+                        </p>
                       </div>
 
-                      {showNsfw && (
+                      <div className="flex flex-col gap-2">
+                        {[
+                          {
+                            mode: "blur",
+                            icon: EyeOff,
+                            label: "Blur",
+                            desc: "Thumbnails are blurred. Click a card to reveal individually.",
+                            color: "amber",
+                          },
+                          {
+                            mode: "hide",
+                            icon: EyeClosed,
+                            label: "Hide",
+                            desc: "NSFW mods are completely removed from browse results.",
+                            color: "red",
+                          },
+                          {
+                            mode: "show",
+                            icon: Eye,
+                            label: "Show",
+                            desc: "All mods display normally with no filtering.",
+                            color: "green",
+                          },
+                        ].map(({ mode, icon: Icon, label, desc, color }) => {
+                          const isActive = nsfwMode === mode;
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => handleSetNsfwMode(mode)}
+                              className={cn(
+                                "flex items-center gap-4 rounded-xl border px-4 py-3.5 text-left transition-all",
+                                isActive
+                                  ? color === "amber"
+                                    ? "border-amber-500/40 bg-amber-500/10"
+                                    : color === "red"
+                                      ? "border-red-500/40 bg-red-500/10"
+                                      : "border-green-500/40 bg-green-500/10"
+                                  : "border-white/6 bg-white/2 hover:border-white/12 hover:bg-white/5"
+                              )}
+                            >
+                              <div className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                                isActive
+                                  ? color === "amber"
+                                    ? "border-amber-500/40 bg-amber-500/15 text-amber-400"
+                                    : color === "red"
+                                      ? "border-red-500/40 bg-red-500/15 text-red-400"
+                                      : "border-green-500/40 bg-green-500/15 text-green-400"
+                                  : "border-white/10 bg-white/5 text-text-muted"
+                              )}>
+                                <Icon size={16} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn(
+                                  "text-[12px] font-bold transition-colors",
+                                  isActive ? "text-white" : "text-text-secondary"
+                                )}>{label}</p>
+                                <p className="mt-0.5 text-[10px] text-white/35 leading-relaxed">{desc}</p>
+                              </div>
+                              <div className={cn(
+                                "h-4 w-4 shrink-0 rounded-full border-2 transition-all",
+                                isActive
+                                  ? color === "amber"
+                                    ? "border-amber-400 bg-amber-400"
+                                    : color === "red"
+                                      ? "border-red-400 bg-red-400"
+                                      : "border-green-400 bg-green-400"
+                                  : "border-white/20 bg-transparent"
+                              )} />
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {nsfwMode === "show" && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="mt-4 overflow-hidden"
+                          className="overflow-hidden"
                         >
                           <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/8 px-4 py-3">
                             <ShieldAlert size={14} className="shrink-0 text-red-400" />
                             <p className="text-[11px] text-red-300/80">
-                              Mature content is now visible. This setting is saved across restarts.
+                              Mature content is now fully visible. This setting persists across restarts.
                             </p>
                           </div>
                         </motion.div>
                       )}
                     </div>
                   </motion.div>
+
                 ) : (
                   <motion.div
                     key={activeTab}
