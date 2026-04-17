@@ -637,6 +637,42 @@ export async function searchGbModSuggestions(args = {}) {
   }
 }
 
+/**
+ * Fetch a full member/creator profile from the v11 /Member/{id}/ProfilePage endpoint.
+ * Returns rich stats (subscribers, submissions, points, medals, donation links).
+ */
+export async function fetchGbMemberProfile(memberId) {
+  const id = assertInteger(memberId, "memberId", { min: 1 });
+  const data = await fetchFromGB(`${GB_API}/Member/${id}/ProfilePage`);
+  if (!data || typeof data !== "object") return null;
+
+  const coreStats = data._aCoreStats ?? {};
+
+  return {
+    _idRow: toIntegerOr(0, data._idRow),
+    _sName: toStringOr("", data._sName),
+    _sUserTitle: toStringOr("", data._sUserTitle),
+    _sAvatarUrl: toStringOr("", data._sAvatarUrl),
+    _sHdAvatarUrl: toStringOr("", data._sHdAvatarUrl),
+    _sUpicUrl: toStringOr("", data._sUpicUrl),
+    _sProfileUrl: toStringOr("", data._sProfileUrl),
+    _bIsOnline: !!data._bIsOnline,
+    _tsJoinDate: toIntegerOr(0, data._tsJoinDate),
+    _nPoints: toNumberOr(0, coreStats._nPoints ?? data._nPoints),
+    _nPointsRank: toNumberOr(0, data._nPointsRank),
+    _nSubscriberCount: toNumberOr(0, coreStats._nCurrentSubscribers ?? data._nSubscriberCount),
+    _nSubmissionsCount: toNumberOr(0, coreStats._nCurrentSubmissions),
+    _nThanksReceived: toNumberOr(0, coreStats._nThanksReceived),
+    _nFeaturedCount: toNumberOr(0, coreStats._nSubmissionsFeatured),
+    _nMedalsCount: toNumberOr(0, coreStats._nMedalsCount),
+    _sAccountAge: toStringOr("", coreStats._sAccountAge),
+    _aNormalMedals: Array.isArray(data._aNormalMedals) ? data._aNormalMedals : [],
+    _aRareMedals: Array.isArray(data._aRareMedals) ? data._aRareMedals : [],
+    _aLegendaryMedals: Array.isArray(data._aLegendaryMedals) ? data._aLegendaryMedals : [],
+    _aDonationMethods: Array.isArray(data._aDonationMethods) ? data._aDonationMethods : [],
+  };
+}
+
 export async function browseGbMods(args = {}) {
   assertPlainObject(args, "browseArgs");
   const gbGameId = assertInteger(args.gbGameId, "gbGameId", { min: 1 });

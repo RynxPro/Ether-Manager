@@ -14,6 +14,7 @@ import {
   fetchGbMod,
   fetchGbModsBatch,
   fetchGbModsSummaries,
+  fetchGbMemberProfile,
   searchGbModSuggestions,
 } from "./services/gamebanana.js";
 import {
@@ -305,6 +306,14 @@ handleIpc(
   withResultEnvelope(
     "Failed to fetch search suggestions:",
     async (event, args = {}) => ({ data: await searchGbModSuggestions(args) }),
+  ),
+);
+
+handleIpc(
+  "fetch-gb-member-profile",
+  withResultEnvelope(
+    "Failed to fetch member profile:",
+    async (event, memberId) => ({ data: await fetchGbMemberProfile(memberId) }),
   ),
 );
 
