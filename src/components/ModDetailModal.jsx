@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Calendar,
   RefreshCw,
+  Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
@@ -279,8 +280,14 @@ export default function ModDetailModal({
           <div className="flex flex-col mb-4 shrink-0">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <div className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-text-muted">
-                {mod._aRootCategory?._sName || mod._aCategory?._sName || "Mod"}
+                {mod._aSubCategory?._sName || mod._aRootCategory?._sName || mod._aCategory?._sName || "Mod"}
               </div>
+              {mod._bWasFeatured && (
+                <div className="flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-yellow-400">
+                  <Star size={10} className="fill-yellow-400" />
+                  Featured
+                </div>
+              )}
               {isBookmarked && (
                 <div className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
                   Saved
@@ -297,13 +304,20 @@ export default function ModDetailModal({
               <h2 className="text-2xl font-bold text-white leading-tight" title={mod._sName}>
                 {mod._sName}
               </h2>
-              <button
-                onClick={() => window.electronConfig?.openExternal(`https://gamebanana.com/mods/${mod._idRow}`)}
-                className="shrink-0 p-2 rounded-full border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1"
-                title="View on GameBanana"
-              >
-                <ExternalLink size={14} />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {mod._sVersion && (
+                  <span className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold text-text-muted font-mono">
+                    {mod._sVersion}
+                  </span>
+                )}
+                <button
+                  onClick={() => window.electronConfig?.openExternal(`https://gamebanana.com/mods/${mod._idRow}`)}
+                  className="shrink-0 p-2 rounded-full border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1"
+                  title="View on GameBanana"
+                >
+                  <ExternalLink size={14} />
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center flex-wrap gap-4 text-text-muted text-sm mt-1">

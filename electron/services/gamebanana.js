@@ -226,12 +226,16 @@ function normalizeModRecord(mod) {
     _nDownloadCount: toNumberOr(0, mod._nDownloadCount),
     _nViewCount: toNumberOr(0, mod._nViewCount),
     _sProfileUrl: toStringOr("", mod._sProfileUrl),
+    _sVersion: toStringOr("", mod._sVersion),
+    _bWasFeatured: !!mod._bWasFeatured,
+    _aTags: Array.isArray(mod._aTags) ? mod._aTags : [],
     _aPreviewMedia: previewMedia,
     _aSubmitter: normalizeSubmitter(mod._aSubmitter),
     _aCredits: Array.isArray(mod._aCredits) ? mod._aCredits : [],
     _aGame: normalizeCategory(mod._aGame),
     _aCategory: normalizeCategory(mod._aCategory),
     _aRootCategory: normalizeCategory(mod._aRootCategory),
+    _aSubCategory: normalizeCategory(mod._aSubCategory),
     _aFiles: files,
     thumbnailUrl: buildThumbnailUrl(previewMedia),
     heroImageUrl: buildHeroImageUrl(previewMedia),
@@ -715,7 +719,7 @@ export async function browseGbMods(args = {}) {
   const characterSkins = !!args.characterSkins;
 
   const browseFields =
-    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion";
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory";
 
   // Accept full Generic_* aliases directly OR legacy shorthand keys
   const sortAliasMap = {
