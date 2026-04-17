@@ -120,11 +120,14 @@ const BrowseModCard = React.memo(function BrowseModCard({
                  }}
                  className="flex min-w-0 items-center gap-2 rounded-lg transition-colors hover:text-primary"
                >
-                 <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
-                   {mod._aSubmitter._sAvatarUrl ? (
-                     <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-full h-full object-cover" />
+                 <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
+                   {(mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl) ? (
+                     <img src={mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-full h-full object-cover" />
                    ) : (
                      <User size={10} className="text-text-secondary" />
+                   )}
+                   {mod._aSubmitter._bIsOnline && (
+                     <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-background" />
                    )}
                  </div>
                  <span className="truncate text-[11px] font-semibold text-text-secondary transition-colors group-hover/creator:text-primary">

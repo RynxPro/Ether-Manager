@@ -141,6 +141,8 @@ function normalizeSubmitter(submitter) {
     _idRow: toIntegerOr(0, submitter._idRow),
     _sName: toStringOr("Unknown", submitter._sName),
     _sAvatarUrl: toStringOr("", submitter._sAvatarUrl),
+    _sHdAvatarUrl: toStringOr("", submitter._sHdAvatarUrl),
+    _bIsOnline: !!submitter._bIsOnline,
     _sProfileUrl: toStringOr("", submitter._sProfileUrl),
   };
 }

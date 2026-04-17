@@ -312,11 +312,14 @@ export default function ModDetailModal({
                   onClick={() => onCreatorClick?.(mod._aSubmitter)}
                   className="flex items-center gap-2 group/creator transition-colors hover:text-primary rounded-lg w-fit"
                 >
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.05)]">
-                    {mod._aSubmitter._sAvatarUrl ? (
-                      <img src={mod._aSubmitter._sAvatarUrl} alt="Creator" className="w-full h-full object-cover" />
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
+                    {(mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl) ? (
+                      <img src={mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl} alt="Creator" className="w-full h-full object-cover" />
                     ) : (
                       <User size={12} className="text-white/30" />
+                    )}
+                    {mod._aSubmitter._bIsOnline && (
+                      <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-background" />
                     )}
                   </div>
                   <span className="font-medium text-text-secondary">
@@ -368,6 +371,48 @@ export default function ModDetailModal({
                 dangerouslySetInnerHTML={{ __html: safeDescriptionHtml }}
               />
             </div>
+
+            {/* Credits */}
+            {mod._aCredits?.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
+                  Credits
+                </h3>
+                <div className="space-y-3">
+                  {mod._aCredits.map((group, gi) => (
+                    <div key={gi}>
+                      {group._sGroupName && (
+                        <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1.5">
+                          {group._sGroupName}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {(group._aAuthors || []).map((author) => (
+                          <button
+                            key={author._idRow}
+                            type="button"
+                            onClick={() => onCreatorClick?.(author)}
+                            className="flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-text-secondary transition-colors hover:border-primary/30 hover:text-primary"
+                          >
+                            {(author._sAvatarUrl) && (
+                              <img
+                                src={author._sAvatarUrl}
+                                alt={author._sName}
+                                className="h-4 w-4 rounded-full object-cover"
+                              />
+                            )}
+                            <span>{author._sName}</span>
+                            {author._sRole && (
+                              <span className="opacity-50">· {author._sRole}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Files Selector */}
             <div>
