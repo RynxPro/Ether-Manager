@@ -32,29 +32,12 @@ import {
 } from "./validation.js";
 import { createLogger } from "./logger.js";
 
-const GB_API = "https://gamebanana.com/apiv10";
-const GB_PROPERTIES =
-  "_idRow,_sName,_sDescription,_sText,_aPreviewMedia,_aFiles,_tsDateAdded,_tsDateUpdated,_nLikeCount,_nDownloadCount,_nViewCount,_sProfileUrl,_aSubmitter,_aGame,_aCategory,_aRootCategory";
+const GB_API = "https://gamebanana.com/apiv11";
 
 const characterCategoryCache = {};
 const logger = createLogger("gamebanana");
 const DEFAULT_TIMEOUT_MS = 12000;
 const DEFAULT_RETRY_COUNT = 1;
-const FEATURED_BUCKETS = [
-  { id: "week", label: "Best of This Week", days: 7 },
-  { id: "month", label: "Best of This Month", days: 30 },
-  { id: "sixMonths", label: "Best of 6 Months", days: 183 },
-  { id: "year", label: "Best of This Year", days: 365 },
-  { id: "allTime", label: "Best of All Time", days: null },
-];
-const FEATURED_SOURCE_SPECS = [
-  { sort: "Generic_Newest", pageCount: 3, perPage: 20 },
-  { sort: "Generic_MostLiked", pageCount: 3, perPage: 20 },
-  { sort: "Generic_MostDownloaded", pageCount: 2, perPage: 20 },
-  { sort: "Generic_MostViewed", pageCount: 2, perPage: 20 },
-];
-const FEATURED_ALL_TIME_PER_PAGE = 12;
-const DAY_SECONDS = 24 * 60 * 60;
 
 const runtime = {
   fetchImpl: (...args) => fetch(...args),
@@ -295,53 +278,109 @@ function mergeNormalizedModRecords(baseRecord, summaryRecord) {
   };
 }
 
-function getFeaturedTimestamp(record) {
-  return (
-    record?._tsDateAdded ||
-    record?._tsDateUpdated ||
-    record?._tsDateModified ||
-    0
+// Maps the v11 TopSubs _sPeriod values to our banner bucket labels
+const TOP_SUBS_PERIOD_MAP = {
+  today: { id: "today", label: "Best of Today" },
+  week: { id: "week", label: "Best of This Week" },
+  month: { id: "month", label: "Best of This Month" },
+  "3month": { id: "threeMonths", label: "Best of 3 Months" },
+  "6month": { id: "sixMonths", label: "Best of 6 Months" },
+  year: { id: "year", label: "Best of This Year" },
+  alltime: { id: "allTime", label: "Best of All Time" },
+};
+
+// Normalize a TopSubs record into our standard mod shape
+function normalizeTopSubRecord(record) {
+  if (!record || typeof record !== "object") return null;
+  // Build a standard _aPreviewMedia shape from the flat image URLs
+  const previewMedia = {
+    _aImages: [
+      {
+        _sBaseUrl: "",
+        _sFile: record._sImageUrl || "",
+        _sFile530: record._sImageUrl || "",
+        _sFile220: record._sThumbnailUrl || "",
+      },
+    ],
+  };
+  return {
+    _idRow: toIntegerOr(0, record._idRow),
+    _sName: toStringOr("Unknown Mod", record._sName),
+    _sDescription: toStringOr("", record._sDescription),
+    _sText: "",
+    _sProfileUrl: toStringOr("", record._sProfileUrl),
+    _nLikeCount: toNumberOr(0, record._nLikeCount),
+    _nDownloadCount: 0,
+    _nViewCount: 0,
+    _tsDateAdded: 0,
+    _tsDateUpdated: 0,
+    _aPreviewMedia: previewMedia,
+    thumbnailUrl: record._sThumbnailUrl || null,
+    heroImageUrl: record._sImageUrl || null,
+    _aSubmitter: normalizeSubmitter(record._aSubmitter),
+    _aFiles: [],
+    _aCredits: [],
+    _aGame: null,
+    _aCategory: null,
+    _aRootCategory: normalizeCategory(record._aRootCategory),
+    _sPeriod: record._sPeriod || null,
+  };
+}
+
+export async function fetchGbFeaturedMods(gbGameId) {
+  const validGameId = assertInteger(gbGameId, "gbGameId", { min: 1 });
+
+  // Single v11 API call replaces our previous ~14 parallel requests + scoring algorithm
+  const topSubsData = await fetchFromGB(
+    `${GB_API}/Game/${validGameId}/TopSubs?_nPage=1&_nPerpage=50`,
   );
-}
 
-function compareFeaturedCandidates(a, b) {
-  return (
-    b._nLikeCount - a._nLikeCount ||
-    b._nDownloadCount - a._nDownloadCount ||
-    b._nViewCount - a._nViewCount ||
-    getFeaturedTimestamp(b) - getFeaturedTimestamp(a) ||
-    b._idRow - a._idRow
+  if (!Array.isArray(topSubsData) || topSubsData.length === 0) {
+    return [];
+  }
+
+  // Group by period, keeping only the top (first) entry per period
+  const bucketMap = new Map();
+  for (const record of topSubsData) {
+    const period = record._sPeriod;
+    if (!period || bucketMap.has(period)) continue;
+    const bucketMeta = TOP_SUBS_PERIOD_MAP[period];
+    if (!bucketMeta) continue;
+    bucketMap.set(period, { meta: bucketMeta, record });
+  }
+
+  if (bucketMap.size === 0) return [];
+
+  // Hydrate each winner with full ProfilePage data (parallel)
+  const entries = [...bucketMap.values()];
+  const modIds = entries.map((e) => toIntegerOr(0, e.record._idRow)).filter(Boolean);
+
+  const hydrated = await Promise.all(
+    modIds.map((id) =>
+      fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`).catch(() => null),
+    ),
   );
-}
 
-function getFeaturedAgeDays(record, nowSeconds) {
-  const timestamp = getFeaturedTimestamp(record);
-  if (!timestamp || !nowSeconds || timestamp > nowSeconds) {
-    return 0;
-  }
-  return (nowSeconds - timestamp) / DAY_SECONDS;
-}
-
-function computeFeaturedScore(record, bucketDays, nowSeconds) {
-  const likeCount = record?._nLikeCount || 0;
-  const downloadCount = record?._nDownloadCount || 0;
-  const viewCount = record?._nViewCount || 0;
-  const ageDays = getFeaturedAgeDays(record, nowSeconds);
-
-  const engagementScore =
-    likeCount * 10 + Math.log1p(downloadCount) * 16 + Math.log1p(viewCount) * 6;
-
-  if (!bucketDays) {
-    return engagementScore;
+  const profileMap = new Map();
+  for (const profile of hydrated) {
+    if (profile?._idRow) profileMap.set(profile._idRow, profile);
   }
 
-  const ageRatio = Math.min(1, ageDays / bucketDays);
-  const freshnessWeight = 0.55 + 0.45 * Math.exp(-1.25 * ageRatio);
-  const momentumScore =
-    (likeCount * 6 + Math.log1p(downloadCount) * 12) /
-    Math.max(1.5, ageDays + 0.75);
-
-  return engagementScore * freshnessWeight + momentumScore * 12;
+  return entries.map(({ meta, record }) => {
+    const id = toIntegerOr(0, record._idRow);
+    const topSubNorm = normalizeTopSubRecord(record);
+    const profile = profileMap.get(id);
+    const fullMod = profile ? normalizeGbModForCache(profile) : topSubNorm;
+    // Preserve the high-quality hero image from TopSubs which is pre-sized
+    if (topSubNorm.heroImageUrl && !fullMod.heroImageUrl) {
+      fullMod.heroImageUrl = topSubNorm.heroImageUrl;
+    }
+    return {
+      id: meta.id,
+      label: meta.label,
+      mod: fullMod,
+    };
+  });
 }
 
 async function fetchBrowseRecords(
@@ -379,134 +418,6 @@ async function fetchBrowseRecords(
   };
 }
 
-async function fetchFeaturedCandidates(gbGameId, browseFields) {
-  const requests = FEATURED_SOURCE_SPECS.flatMap((source) =>
-    Array.from({ length: source.pageCount }, (_, index) => {
-      const page = index + 1;
-      const url =
-        `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}` +
-        `&_nPage=${page}&_nPerpage=${source.perPage}` +
-        `&_sSort=${source.sort}` +
-        `&_csvFields=${encodeURIComponent(browseFields)}`;
-
-      return fetchBrowseRecords(url, { hydrateZeroDownloadCounts: false })
-        .then((result) => result.records)
-        .catch((error) => {
-          logger.warn(
-            `Featured source fetch failed for ${source.sort} page ${page}`,
-            error.message,
-          );
-          return [];
-        });
-    }),
-  );
-
-  const results = await Promise.all(requests);
-  const uniqueCandidates = new Map();
-
-  for (const records of results) {
-    for (const record of records) {
-      const existing = uniqueCandidates.get(record._idRow);
-      uniqueCandidates.set(
-        record._idRow,
-        existing ? mergeNormalizedModRecords(existing, record) : record,
-      );
-    }
-  }
-
-  return [...uniqueCandidates.values()];
-}
-
-function pickFeaturedBucketWinner(
-  candidates,
-  usedIds,
-  cutoffTimestamp,
-  bucketDays,
-  nowSeconds,
-) {
-  const eligible = candidates
-    .filter((record) => {
-      if (usedIds.has(record._idRow)) {
-        return false;
-      }
-      if (cutoffTimestamp == null) {
-        return true;
-      }
-      return getFeaturedTimestamp(record) >= cutoffTimestamp;
-    })
-    .sort((a, b) => {
-      const scoreDifference =
-        computeFeaturedScore(b, bucketDays, nowSeconds) -
-        computeFeaturedScore(a, bucketDays, nowSeconds);
-
-      if (scoreDifference !== 0) {
-        return scoreDifference;
-      }
-
-      return compareFeaturedCandidates(a, b);
-    });
-
-  return eligible[0] || null;
-}
-
-export async function fetchGbFeaturedMods(gbGameId) {
-  const validGameId = assertInteger(gbGameId, "gbGameId", { min: 1 });
-  const browseFields =
-    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_tsDateModified,_sProfileUrl";
-  const now = toUnixSecondsOr(0, runtime.nowImpl());
-
-  const [candidates, allTimeResult] = await Promise.all([
-    fetchFeaturedCandidates(validGameId, browseFields),
-    browseGbMods({
-      gbGameId: validGameId,
-      page: 1,
-      perPage: FEATURED_ALL_TIME_PER_PAGE,
-      sort: "likes",
-    }),
-  ]);
-
-  const usedIds = new Set();
-  const selectedEntries = [];
-
-  for (const bucket of FEATURED_BUCKETS) {
-    const cutoffTimestamp =
-      bucket.days == null ? null : now - bucket.days * DAY_SECONDS;
-    const sourcePool =
-      bucket.id === "allTime" ? allTimeResult.records || [] : candidates;
-    const winner = pickFeaturedBucketWinner(
-      sourcePool,
-      usedIds,
-      cutoffTimestamp,
-      bucket.days,
-      now,
-    );
-
-    if (!winner) {
-      continue;
-    }
-
-    usedIds.add(winner._idRow);
-    selectedEntries.push({
-      id: bucket.id,
-      label: bucket.label,
-      modId: winner._idRow,
-      mod: winner,
-    });
-  }
-
-  const hydratedSummaries = await fetchGbModsSummaries(
-    selectedEntries.map((entry) => entry.modId),
-  );
-  const summaryMap = new Map(
-    hydratedSummaries.map((record) => [record._idRow, record]),
-  );
-
-  return selectedEntries.map((entry) => ({
-    id: entry.id,
-    label: entry.label,
-    mod: mergeNormalizedModRecords(entry.mod, summaryMap.get(entry.modId)),
-  }));
-}
 
 export async function fetchFromGB(url) {
   let lastError = null;
@@ -551,9 +462,23 @@ export async function fetchFromGB(url) {
 
 export async function fetchGbMod(gamebananaId) {
   const id = assertInteger(gamebananaId, "gamebananaId", { min: 1 });
-  const rawData = await fetchFromGB(
-    `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
-  );
+  const [profileData, filesData] = await Promise.all([
+    fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`),
+    fetchFromGB(`${GB_API}/Mod/${id}/Files`).catch((err) => {
+      logger.warn(`Failed to fetch files for mod ${id}`, err.message);
+      return [];
+    }),
+  ]);
+
+  if (!profileData) {
+    throw new Error(`Profile data missing for mod ${id}`);
+  }
+
+  const rawData = {
+    ...profileData,
+    _aFiles: Array.isArray(filesData) ? filesData : [],
+  };
+
   return normalizeGbModForCache(rawData);
 }
 
@@ -564,10 +489,18 @@ export async function fetchGbModsBatch(ids) {
   const results = await Promise.all(
     validIds.map(async (id) => {
       try {
-        const data = await fetchFromGB(
-          `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(GB_PROPERTIES)}`,
-        );
-        return normalizeGbModForCache(data);
+        const [profileData, filesData] = await Promise.all([
+          fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`),
+          fetchFromGB(`${GB_API}/Mod/${id}/Files`).catch(() => []),
+        ]);
+
+        if (!profileData) return null;
+
+        const rawData = {
+          ...profileData,
+          _aFiles: Array.isArray(filesData) ? filesData : [],
+        };
+        return normalizeGbModForCache(rawData);
       } catch (error) {
         logger.warn(`Batch update fetch failed for mod ${id}`, error.message);
         return null;
@@ -582,15 +515,11 @@ export async function fetchGbModsSummaries(ids) {
   if (!ids || ids.length === 0) return [];
   const validIds = assertIntegerArray(ids, "ids");
 
-  const summaryProperties =
-    "_idRow,_sName,_aPreviewMedia,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateUpdated,_aSubmitter,_sProfileUrl";
-
   const results = await Promise.all(
     validIds.map(async (id) => {
       try {
-        const data = await fetchFromGB(
-          `${GB_API}/Mod/${id}?_csvProperties=${encodeURIComponent(summaryProperties)}`,
-        );
+        // Use the v11 dedicated ProfilePage endpoint
+        const data = await fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`);
         return normalizeGbModForCache(data);
       } catch (error) {
         logger.warn(
@@ -625,14 +554,15 @@ async function resolveCharCategory(gameId, charName) {
     if (!Array.isArray(searchRes._aRecords)) return null;
 
     for (const mod of searchRes._aRecords) {
+      // Use v11 ProfilePage endpoint for the full category data
       const modData = await fetchFromGB(
-        `${GB_API}/Mod/${mod._idRow}?_csvProperties=_aRootCategory,_aCategory`,
+        `${GB_API}/Mod/${mod._idRow}/ProfilePage`,
       );
-      if (!modData._aCategory || !modData._aRootCategory) {
+      if (!modData._aCategory || !modData._aSuperCategory) {
         continue;
       }
 
-      const rootName = (modData._aRootCategory._sName || "").toLowerCase();
+      const rootName = (modData._aSuperCategory?._sName || modData._aRootCategory?._sName || "").toLowerCase();
       const catName = (modData._aCategory._sName || "").toLowerCase();
 
       if (rootName.includes("skin") || rootName.includes("character")) {
@@ -650,7 +580,7 @@ async function resolveCharCategory(gameId, charName) {
           catName.includes("gui") ||
           catName.includes("interface")
         ) {
-          const catId = modData._aRootCategory._idRow;
+          const catId = modData._aCategory._idRow;
           characterCategoryCache[cacheKey] = catId;
           return catId;
         }
@@ -663,7 +593,7 @@ async function resolveCharCategory(gameId, charName) {
           catName.includes("misc") ||
           catName.includes("other")
         ) {
-          const catId = modData._aRootCategory._idRow;
+          const catId = modData._aCategory._idRow;
           characterCategoryCache[cacheKey] = catId;
           return catId;
         }
