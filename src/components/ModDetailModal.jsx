@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Download,
   Check,
@@ -79,7 +79,9 @@ export default function ModDetailModal({
   const [error, setError] = useState(null);
   const [revealedDetail, setRevealedDetail] = useState(false);
 
-  const downloadJob = useAppStore((state) => state.downloads.find((d) => d.id === mod._idRow));
+  const downloadJob = useAppStore(
+    useCallback((state) => state.downloads.find((d) => d.id === mod._idRow), [mod._idRow])
+  );
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
   const nsfwMode = useAppStore((state) => state.nsfwMode);
 
@@ -201,39 +203,44 @@ export default function ModDetailModal({
         <div className="w-full relative flex flex-col group bg-background border-b border-border z-0">
           {images.length > 0 ? (
             <div className="relative w-full aspect-video overflow-hidden bg-background">
-              {/* Loading skeleton */}
-              {!imgLoaded && (
-                <div className="absolute inset-0 bg-white/5 animate-pulse z-10" />
-              )}
-              <img
-                key={currentImgIndex}
-                src={images[currentImgIndex]}
-                alt={mod._sName}
-                onLoad={() => setImgLoaded(true)}
-                className={cn(
-                  "w-full h-full object-contain transition-all duration-300",
-                  imgLoaded ? "opacity-100" : "opacity-0",
-                  blurHero && "blur-2xl scale-110 brightness-40"
-                )}
-              />
-              {/* NSFW reveal overlay */}
-              {blurHero && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
-                    <EyeOff size={24} className="text-red-400" />
+              {blurHero ? (
+                <div className="absolute inset-0 z-0 bg-[#050505] overflow-hidden">
+                  {/* Danger Stripes Pattern */}
+                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #ef4444 0, #ef4444 1px, transparent 1px, transparent 12px)' }} />
+                  {/* Content Overlay */}
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/60">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 border border-red-500/30">
+                      <EyeOff size={24} className="text-red-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-black uppercase tracking-widest text-red-500/80">Classified</p>
+                      <p className="mt-1 text-xs text-white/40">This mod has been flagged as NSFW</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRevealedDetail(true)}
+                      className="mt-2 flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-6 py-2.5 text-xs font-bold text-red-100 transition-colors hover:bg-red-500/20"
+                    >
+                      <Eye size={14} /> Reveal Content
+                    </button>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-black uppercase tracking-widest text-white/70">Mature Content</p>
-                    <p className="mt-1 text-xs text-white/40">This mod has been flagged as NSFW</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRevealedDetail(true)}
-                    className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2 text-xs font-bold text-white/80 backdrop-blur-sm transition-colors hover:bg-white/20"
-                  >
-                    <Eye size={14} /> Reveal Content
-                  </button>
                 </div>
+              ) : (
+                <>
+                  {!imgLoaded && (
+                    <div className="absolute inset-0 bg-white/5 animate-pulse z-10" />
+                  )}
+                  <img
+                    key={currentImgIndex}
+                    src={images[currentImgIndex]}
+                    alt={mod._sName}
+                    onLoad={() => setImgLoaded(true)}
+                    className={cn(
+                      "w-full h-full object-contain transition-opacity duration-300 transform-gpu",
+                      imgLoaded ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                </>
               )}
 
               {images.length > 1 && (
