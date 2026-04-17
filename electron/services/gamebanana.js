@@ -723,7 +723,7 @@ export async function browseGbMods(args = {}) {
   const hideNsfw = !!args.hideNsfw;
 
   const browseFields =
-    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory,_bHasContentRatings";
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_tsDateModified,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory,_bHasContentRatings";
 
   // Accept full Generic_* aliases directly OR legacy shorthand keys
   const sortAliasMap = {

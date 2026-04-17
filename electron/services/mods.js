@@ -106,6 +106,7 @@ export function getMods(
       let installedFile = null;
       let gbFileId = null;
       let fileAddedAt = null;
+      let modVersion = null;
       let customThumbnail = null;
       let category = null;
       let gameId = null;
@@ -120,6 +121,7 @@ export function getMods(
           installedFile = aetherData.installedFile || null;
           gbFileId = aetherData.gbFileId || null;
           fileAddedAt = aetherData.fileAddedAt || null;
+          modVersion = aetherData.modVersion || null;
           customThumbnail = aetherData.customThumbnail || null;
           category = aetherData.category || null;
           gameId = aetherData.gameId || null;
@@ -188,6 +190,7 @@ export function getMods(
         installedFile,
         gbFileId,
         fileAddedAt,
+        modVersion,
         customThumbnail,
         gameId,
       });
@@ -445,6 +448,7 @@ export async function installGbMod(
   // Optional file-level metadata for precise update detection
   const gbFileId = Number.isFinite(Number(args.gbFileId)) ? Number(args.gbFileId) : null;
   const fileAddedAt = Number.isFinite(Number(args.fileAddedAt)) ? Number(args.fileAddedAt) : null;
+  const modVersion = assertOptionalString(args.modVersion, "modVersion", { allowEmpty: true, maxLength: 64 });
   const category = assertOptionalString(args.category, "category", {
     allowEmpty: true,
     maxLength: 120,
@@ -609,9 +613,30 @@ export async function installGbMod(
 
       const finalTargetPath = path.join(modsPath, targetName);
       if (fs.existsSync(finalTargetPath)) {
-        throw new Error(
-          `A mod folder named "${targetName}" already exists. Remove or rename the existing folder before installing this archive.`,
-        );
+        let recycled = false;
+        const ajsonPath = path.join(finalTargetPath, "aether.json");
+        if (fs.existsSync(ajsonPath)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(ajsonPath, "utf-8"));
+            if (data.gamebananaId === normalizedGbModId) {
+              logger.info(`Recycling existing folder for same mod ID during update: ${targetName}`);
+              try {
+                await trashItem(finalTargetPath);
+              } catch (err) {
+                fs.rmSync(finalTargetPath, { recursive: true, force: true });
+              }
+              recycled = true;
+            }
+          } catch {
+            // Ignore parse errors, fall through to throw
+          }
+        }
+
+        if (!recycled) {
+          throw new Error(
+            `A mod folder named "${targetName}" already exists. Remove or rename the existing folder before installing this archive.`,
+          );
+        }
       }
 
       installationTargets.push({ srcPath, targetName, finalTargetPath });
@@ -634,6 +659,7 @@ export async function installGbMod(
             installedFile: fileName,
             gbFileId,
             fileAddedAt,
+            modVersion,
             character: characterName || null,
             category: category || null,
             gameId: gameId || null,

@@ -294,8 +294,8 @@ export default function BrowseView() {
               fileName: m.installedFile,
               installedAt: m.installedAt,
               gbFileId: m.gbFileId ?? null,
-              // Unix timestamp (seconds) of when the installed file was uploaded to GB
               fileAddedAt: m.fileAddedAt ?? null,
+              modVersion: m.modVersion ?? null,
             });
           }
         }
@@ -489,7 +489,7 @@ export default function BrowseView() {
   }, [activeTab, savedModsCatalog, game.id, debouncedSearchQuery, page, loading]);
 
   const handleInstall = useCallback(
-    async ({ characterName, gbModId, fileUrl, fileName, category }) => {
+    async ({ characterName, gbModId, fileUrl, fileName, gbFileId, fileAddedAt, modVersion, category }) => {
       if (!importerPath)
         throw new Error("No importer path configured. Go to Settings first.");
 
@@ -507,6 +507,9 @@ export default function BrowseView() {
             gbModId,
             fileUrl,
             fileName,
+            gbFileId,
+            fileAddedAt,
+            modVersion,
             category,
             gameId: game.id,
           });
@@ -1126,21 +1129,24 @@ export default function BrowseView() {
 
                 if (isInstalled && installedInfo.installedFiles.length > 0) {
                   hasUpdate = installedInfo.installedFiles.some((f) => {
-                    // Preferred: compare file upload timestamps.
-                    // mod._aFiles comes from the ProfilePage fetch (detail modal),
-                    // but browse cards only have _tsDateUpdated. Use fileAddedAt when
-                    // available (set at install time via the new metadata), falling back
-                    // to the old wall-clock comparison for legacy installs.
-                    if (f.fileAddedAt != null) {
-                      // mod._tsDateUpdated fires whenever a new FILE is added (among other
-                      // things). If the mod was updated after our specific file was uploaded,
-                      // there is genuinely something newer.
-                      return mod._tsDateUpdated > f.fileAddedAt;
+                    // 1. Version string mismatch (if both are provided and not identical)
+                    if (f.modVersion && mod._sVersion && f.modVersion !== mod._sVersion) {
+                      return true;
                     }
-                    // Legacy fallback: wall-clock installedAt with a 5-minute buffer.
+
+                    // 2. File upload timestamps.
+                    // If we have precise file timestamps, check if the mod has any activity 
+                    // (either an explicit update log OR any modification like adding a new file) 
+                    // AFTER the file we installed was uploaded.
+                    if (f.fileAddedAt != null) {
+                      const latestActivity = Math.max(mod._tsDateUpdated || 0, mod._tsDateModified || 0);
+                      return latestActivity > f.fileAddedAt;
+                    }
+
+                    // 3. Legacy fallback: wall-clock installedAt with a 5-minute buffer.
                     if (!f.installedAt) return false;
                     const installedDate = new Date(f.installedAt).getTime() / 1000;
-                    return mod._tsDateUpdated > installedDate + 300;
+                    return (mod._tsDateUpdated || mod._tsDateModified || 0) > installedDate + 300;
                   });
                 }
                 const isBookmarked = currentBookmarkIdSet.has(mod._idRow);
