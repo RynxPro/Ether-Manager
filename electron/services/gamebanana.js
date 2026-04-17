@@ -35,6 +35,15 @@ import { createLogger } from "./logger.js";
 const GB_API = "https://gamebanana.com/apiv11";
 
 const characterCategoryCache = {};
+
+// Root "Character Skins" category IDs per GB game ID — scopes the Characters tab
+// when no specific character sub-category is selected.
+const CHARACTER_SKINS_ROOT_CATS = {
+  8552:  17510, // Genshin Impact       -> Skins
+  20357: 29524, // Wuthering Waves      -> Skins
+  19567: 30305, // Zenless Zone Zero    -> Character Skins
+  18366: 22633, // Honkai: Star Rail    -> Skins
+};
 const logger = createLogger("gamebanana");
 const DEFAULT_TIMEOUT_MS = 12000;
 const DEFAULT_RETRY_COUNT = 1;
@@ -686,7 +695,7 @@ export async function browseGbMods(args = {}) {
   const sort =
     assertOptionalString(args.sort ?? "", "sort", {
       allowEmpty: true,
-      maxLength: 32,
+      maxLength: 48,
     }) || "";
   const context =
     assertOptionalString(args.context ?? "", "context", {
@@ -702,23 +711,43 @@ export async function browseGbMods(args = {}) {
     args.submitterId == null
       ? null
       : assertInteger(args.submitterId, "submitterId", { min: 1 });
+  const featuredOnly = !!args.featuredOnly;
+  const characterSkins = !!args.characterSkins;
 
   const browseFields =
-    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl";
-  const sortAliases = {
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_sProfileUrl,_bWasFeatured,_aTags,_sVersion";
+
+  // Accept full Generic_* aliases directly OR legacy shorthand keys
+  const sortAliasMap = {
     likes: "Generic_MostLiked",
     downloads: "Generic_MostDownloaded",
     views: "Generic_MostViewed",
   };
-  const sortStr =
-    sort && sortAliases[sort] ? `&_sSort=${sortAliases[sort]}` : "";
+  const VALID_SORT_ALIASES = new Set([
+    "Generic_Newest",
+    "Generic_Oldest",
+    "Generic_LatestModified",
+    "Generic_NewAndUpdated",
+    "Generic_LatestUpdated",
+    "Generic_Alphabetically",
+    "Generic_ReverseAlphabetically",
+    "Generic_MostLiked",
+    "Generic_MostViewed",
+    "Generic_MostCommented",
+    "Generic_LatestComment",
+    "Generic_MostDownloaded",
+  ]);
+  const resolvedSort = sortAliasMap[sort] || (VALID_SORT_ALIASES.has(sort) ? sort : "");
+  const sortStr = resolvedSort ? `&_sSort=${resolvedSort}` : "";
+  const featuredFilter = featuredOnly ? "&_aFilters[Generic_WasFeatured]=true" : "";
+
   const hasManualSearch = search && search.trim().length >= 1;
   const hasCategoryContext = context && context.trim().length >= 1;
 
   let url;
 
   if (submitterId) {
-    url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+    url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
   } else if (hasManualSearch) {
     const combinedQuery = [context, search].filter(Boolean).join(" ");
     url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
@@ -727,12 +756,19 @@ export async function browseGbMods(args = {}) {
     const catId = await resolveCharCategory(gbGameId, charName);
 
     if (catId) {
-      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
     } else {
       url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
     }
   } else {
-    url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(browseFields)}`;
+    // Characters tab with no specific character selected: scope to the root
+    // Character Skins category so UI/Misc mods don't leak through.
+    const rootCatId = characterSkins ? CHARACTER_SKINS_ROOT_CATS[gbGameId] : null;
+    if (rootCatId) {
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${rootCatId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
+    } else {
+      url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
+    }
   }
 
   logger.debug("GB API request", url);
@@ -740,8 +776,45 @@ export async function browseGbMods(args = {}) {
     hydrateZeroDownloadCounts: true,
   });
 
-  return {
-    records,
-    total,
-  };
+  return { records, total };
+}
+
+/**
+ * Fetch the game activity subfeed — new uploads, updates, and recently active mods.
+ * Uses the official v11 /Game/{id}/Subfeed endpoint.
+ * Returns richer data than /Mod/Index: _aTags, _sVersion, _bWasFeatured, _aSubCategory.
+ */
+export async function fetchGbSubfeed(args = {}) {
+  assertPlainObject(args, "subfeedArgs");
+  const gbGameId = assertInteger(args.gbGameId, "gbGameId", { min: 1 });
+  const page = assertInteger(args.page ?? 1, "page", { min: 1, max: 1000 });
+  const perPage = assertInteger(args.perPage ?? 20, "perPage", { min: 1, max: 50 });
+
+  const url = `${GB_API}/Game/${gbGameId}/Subfeed?_nPage=${page}&_nPerpage=${perPage}`;
+  logger.debug("GB Subfeed request", url);
+
+  const data = await fetchFromGB(url);
+  const rawRecords = Array.isArray(data._aRecords) ? data._aRecords : [];
+
+  const records = rawRecords
+    .map((item) => ({
+      ...withThumbnail(item),
+      _aSubmitter: normalizeSubmitter(item._aSubmitter),
+      _aRootCategory: normalizeCategory(item._aRootCategory),
+      _aSubCategory: item._aSubCategory ?? null,
+      _aTags: Array.isArray(item._aTags) ? item._aTags : [],
+      _bWasFeatured: !!item._bWasFeatured,
+      _sVersion: toStringOr("", item._sVersion),
+      _nLikeCount: toNumberOr(0, item._nLikeCount),
+      _nViewCount: toNumberOr(0, item._nViewCount),
+      _tsDateAdded: toIntegerOr(0, item._tsDateAdded),
+      _tsDateUpdated: toIntegerOr(0, item._tsDateUpdated ?? item._tsDateModified),
+    }))
+    .filter((item) => item?._idRow > 0);
+
+  const total = Number.isFinite(data._aMetadata?._nRecordCount)
+    ? data._aMetadata._nRecordCount
+    : records.length;
+
+  return { records, total };
 }

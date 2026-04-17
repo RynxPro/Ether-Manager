@@ -1,5 +1,25 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, ChevronDown, User, Monitor, Box, Clock, Heart, Download, Eye } from "lucide-react";
+import {
+  Search,
+  ChevronDown,
+  User,
+  Monitor,
+  Box,
+  Clock,
+  Heart,
+  Download,
+  Eye,
+  Flame,
+  ArrowUpNarrowWide,
+  ArrowDownNarrowWide,
+  RefreshCw,
+  Zap,
+  MessageSquare,
+  CalendarClock,
+  ArrowUpAZ,
+  ArrowDownAZ,
+  Layers,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
@@ -41,13 +61,26 @@ export default function SearchableDropdown({
   const renderIcon = (item, size = 16) => {
     if (!item) return null;
     const label = item.toLowerCase();
-    
+
+    // Category options
     if (label === "user interface") return <Monitor size={size} />;
     if (label === "miscellaneous") return <Box size={size} />;
-    if (label === "latest") return <Clock size={size} className="text-white/40" />;
-    if (label === "most liked") return <Heart size={size} className="text-white/40" />;
-    if (label === "most downloaded") return <Download size={size} className="text-white/40" />;
-    if (label === "most viewed") return <Eye size={size} className="text-white/40" />;
+
+    // Sort options — each gets a distinct icon
+    if (label === "default")              return <Layers size={size} />;
+    if (label === "latest")              return <Clock size={size} />;
+    if (label === "newest")              return <Flame size={size} />;
+    if (label === "latest updated")      return <RefreshCw size={size} />;
+    if (label === "new & updated")       return <Zap size={size} />;
+    if (label === "most liked")          return <Heart size={size} />;
+    if (label === "most downloaded")     return <Download size={size} />;
+    if (label === "most viewed")         return <Eye size={size} />;
+    if (label === "most commented")      return <MessageSquare size={size} />;
+    if (label === "latest comment")      return <CalendarClock size={size} />;
+    if (label === "latest modified")     return <RefreshCw size={size} />;
+    if (label === "a → z")              return <ArrowUpAZ size={size} />;
+    if (label === "z → a")              return <ArrowDownAZ size={size} />;
+    if (label === "oldest")              return <ArrowUpNarrowWide size={size} />;
 
     return <CharacterIcon item={item} gameId={gameId} size={size} />;
   };

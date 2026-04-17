@@ -15,6 +15,7 @@ import {
   fetchGbModsBatch,
   fetchGbModsSummaries,
   fetchGbMemberProfile,
+  fetchGbSubfeed,
   searchGbModSuggestions,
 } from "./services/gamebanana.js";
 import {
@@ -298,6 +299,14 @@ handleIpc(
   "browse-gb-mods",
   withResultEnvelope("Failed to browse GB mods:", async (event, args = {}) =>
     browseGbMods(args),
+  ),
+);
+
+handleIpc(
+  "fetch-gb-subfeed",
+  withResultEnvelope(
+    "Failed to fetch subfeed:",
+    async (event, args = {}) => fetchGbSubfeed(args),
   ),
 );
 

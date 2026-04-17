@@ -10,6 +10,7 @@ import {
   Rocket,
   Bookmark,
   Sparkles,
+  Star,
 } from "lucide-react";
 import GbModCard from "../components/GbModCard";
 import ModDetailModal from "../components/ModDetailModal";
@@ -40,11 +41,21 @@ const TABS = [
   { id: "saved", label: "Saved", icon: Bookmark },
 ];
 
+// Full list of sort options from /Mod/ListFilterConfig
 const SORT_OPTIONS = [
-  { label: "Latest", value: "" },
-  { label: "Most Liked", value: "likes" },
-  { label: "Most Downloaded", value: "downloads" },
-  { label: "Most Viewed", value: "views" },
+  { label: "Default", value: "" },
+  { label: "Newest", value: "Generic_Newest" },
+  { label: "Latest Updated", value: "Generic_LatestUpdated" },
+  { label: "New & Updated", value: "Generic_NewAndUpdated" },
+  { label: "Most Liked", value: "Generic_MostLiked" },
+  { label: "Most Downloaded", value: "Generic_MostDownloaded" },
+  { label: "Most Viewed", value: "Generic_MostViewed" },
+  { label: "Most Commented", value: "Generic_MostCommented" },
+  { label: "Latest Comment", value: "Generic_LatestComment" },
+  { label: "Latest Modified", value: "Generic_LatestModified" },
+  { label: "A → Z", value: "Generic_Alphabetically" },
+  { label: "Z → A", value: "Generic_ReverseAlphabetically" },
+  { label: "Oldest", value: "Generic_Oldest" },
 ];
 
 const PER_PAGE = 20;
@@ -61,6 +72,7 @@ export default function BrowseView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState("");
+  const [featuredOnly, setFeaturedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [mods, setMods] = useState([]);
   const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFile }
@@ -330,6 +342,8 @@ export default function BrowseView() {
         sort,
         context: categoryTarget,
         search: debouncedSearchQuery,
+        featuredOnly,
+        characterSkins: activeTab === "characters",
       });
       if (result.success) {
         setMods(result.records);
@@ -347,6 +361,7 @@ export default function BrowseView() {
     game.gbGameId,
     page,
     sort,
+    featuredOnly,
     characterFilter,
     activeTab,
     debouncedSearchQuery,
@@ -578,12 +593,13 @@ export default function BrowseView() {
     </div>
   ) : null;
   const isSavedView = activeTab === "saved";
-  const isFiltering = activeTab !== "all" || !!debouncedSearchQuery || !!sort;
-  const showFeaturedHero = activeTab === "all" && !debouncedSearchQuery;
+  const isFiltering = activeTab !== "all" || !!debouncedSearchQuery || !!sort || featuredOnly;
+  const showFeaturedHero = activeTab === "all" && !debouncedSearchQuery && !featuredOnly;
   const showCharacterFilter = activeTab === "characters";
   const showSortControl = activeTab !== "saved";
+  const showFeaturedToggle = activeTab !== "saved";
   const hasActiveRefinements =
-    !!searchQuery || !!characterFilter || !!sort || activeTab !== "all";
+    !!searchQuery || !!characterFilter || !!sort || featuredOnly || activeTab !== "all";
   const activeSearchLabel = [
     activeTab === "ui"
       ? "User Interface"
@@ -628,6 +644,7 @@ export default function BrowseView() {
     setCharacterFilter("");
     setSearchQuery("");
     setSort("");
+    setFeaturedOnly(false);
     setPage(1);
   };
 
@@ -774,7 +791,7 @@ export default function BrowseView() {
               )}
 
               {showSortControl && (
-                <div className="w-full shrink-0 sm:w-48">
+                <div className="w-full shrink-0 sm:w-52">
                   <SearchableDropdown
                     items={SORT_OPTIONS}
                     value={sort}
@@ -785,6 +802,23 @@ export default function BrowseView() {
                     placeholder="Sort by..."
                   />
                 </div>
+              )}
+
+              {showFeaturedToggle && (
+                <button
+                  type="button"
+                  onClick={() => { setFeaturedOnly((v) => !v); setPage(1); }}
+                  className={cn(
+                    "ui-focus-ring inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-[11px] font-black uppercase tracking-[0.18em] transition-all",
+                    featuredOnly
+                      ? "border-yellow-500/40 bg-yellow-500/15 text-yellow-400"
+                      : "border-white/10 bg-white/5 text-text-muted hover:border-white/20 hover:text-text-primary"
+                  )}
+                  title="Show only GameBanana staff-featured mods"
+                >
+                  <Star size={13} className={cn(featuredOnly && "fill-yellow-400")} />
+                  Featured
+                </button>
               )}
             </div>
           </div>
