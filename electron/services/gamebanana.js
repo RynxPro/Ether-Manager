@@ -179,6 +179,8 @@ function normalizeFileEntry(file) {
     _sFile: toStringOr("", file._sFile),
     _sDownloadUrl: toStringOr("", file._sDownloadUrl),
     _nFilesize: Number.isFinite(file._nFilesize) ? file._nFilesize : 0,
+    _tsDateAdded: toIntegerOr(0, file._tsDateAdded),
+    _sMd5Checksum: toStringOr("", file._sMd5Checksum),
     _sDescription: toStringOr("", file._sDescription),
   };
 }

@@ -104,6 +104,8 @@ export function getMods(
       let gamebananaId = null;
       let installedAt = null;
       let installedFile = null;
+      let gbFileId = null;
+      let fileAddedAt = null;
       let customThumbnail = null;
       let category = null;
       let gameId = null;
@@ -116,6 +118,8 @@ export function getMods(
           gamebananaId = aetherData.gamebananaId || null;
           installedAt = aetherData.installedAt || null;
           installedFile = aetherData.installedFile || null;
+          gbFileId = aetherData.gbFileId || null;
+          fileAddedAt = aetherData.fileAddedAt || null;
           customThumbnail = aetherData.customThumbnail || null;
           category = aetherData.category || null;
           gameId = aetherData.gameId || null;
@@ -182,6 +186,8 @@ export function getMods(
         gamebananaId,
         installedAt,
         installedFile,
+        gbFileId,
+        fileAddedAt,
         customThumbnail,
         gameId,
       });
@@ -436,6 +442,9 @@ export async function installGbMod(
   const gbModId = assertInteger(args.gbModId, "gbModId", { min: 1 });
   const fileUrl = assertString(args.fileUrl, "fileUrl", { maxLength: 4096 });
   const fileName = assertString(args.fileName, "fileName", { maxLength: 255 });
+  // Optional file-level metadata for precise update detection
+  const gbFileId = Number.isFinite(Number(args.gbFileId)) ? Number(args.gbFileId) : null;
+  const fileAddedAt = Number.isFinite(Number(args.fileAddedAt)) ? Number(args.fileAddedAt) : null;
   const category = assertOptionalString(args.category, "category", {
     allowEmpty: true,
     maxLength: 120,
@@ -623,6 +632,8 @@ export async function installGbMod(
             gamebananaId: normalizedGbModId,
             installedAt: new Date().toISOString(),
             installedFile: fileName,
+            gbFileId,
+            fileAddedAt,
             character: characterName || null,
             category: category || null,
             gameId: gameId || null,

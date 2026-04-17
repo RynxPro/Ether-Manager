@@ -293,6 +293,9 @@ export default function BrowseView() {
             infoMap[m.gamebananaId].installedFiles.push({
               fileName: m.installedFile,
               installedAt: m.installedAt,
+              gbFileId: m.gbFileId ?? null,
+              // Unix timestamp (seconds) of when the installed file was uploaded to GB
+              fileAddedAt: m.fileAddedAt ?? null,
             });
           }
         }
@@ -1122,11 +1125,21 @@ export default function BrowseView() {
                 let hasUpdate = false;
 
                 if (isInstalled && installedInfo.installedFiles.length > 0) {
-                  // If ANY installed file from this mod is older than the GB record's last update
                   hasUpdate = installedInfo.installedFiles.some((f) => {
+                    // Preferred: compare file upload timestamps.
+                    // mod._aFiles comes from the ProfilePage fetch (detail modal),
+                    // but browse cards only have _tsDateUpdated. Use fileAddedAt when
+                    // available (set at install time via the new metadata), falling back
+                    // to the old wall-clock comparison for legacy installs.
+                    if (f.fileAddedAt != null) {
+                      // mod._tsDateUpdated fires whenever a new FILE is added (among other
+                      // things). If the mod was updated after our specific file was uploaded,
+                      // there is genuinely something newer.
+                      return mod._tsDateUpdated > f.fileAddedAt;
+                    }
+                    // Legacy fallback: wall-clock installedAt with a 5-minute buffer.
                     if (!f.installedAt) return false;
-                    const installedDate =
-                      new Date(f.installedAt).getTime() / 1000;
+                    const installedDate = new Date(f.installedAt).getTime() / 1000;
                     return mod._tsDateUpdated > installedDate + 300;
                   });
                 }

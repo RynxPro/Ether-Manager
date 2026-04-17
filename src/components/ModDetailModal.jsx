@@ -147,6 +147,8 @@ export default function ModDetailModal({
         gbModId: mod._idRow,
         fileUrl: selectedFile._sDownloadUrl,
         fileName: selectedFile._sFile,
+        gbFileId: selectedFile._idRow,
+        fileAddedAt: selectedFile._tsDateAdded,
         modName: mod._sName,
         category:
           mod._aRootCategory?._sName || mod._aCategory?._sName || "Unknown",
