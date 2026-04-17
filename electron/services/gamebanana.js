@@ -606,6 +606,37 @@ async function resolveCharCategory(gameId, charName) {
   return null;
 }
 
+/**
+ * Fetch live search autocomplete suggestions from the v11 API.
+ * Returns an array of suggestion strings (e.g. ["keqing skin", "keqing casual", ...]).
+ * Requires at least 2 characters to return results.
+ */
+export async function searchGbModSuggestions(args = {}) {
+  assertPlainObject(args, "suggestArgs");
+  const query = assertOptionalString(args.query ?? "", "query", {
+    allowEmpty: true,
+    maxLength: 240,
+  });
+  const gbGameId =
+    args.gbGameId != null
+      ? assertInteger(args.gbGameId, "gbGameId", { min: 1 })
+      : null;
+
+  if (!query || query.trim().length < 2) return [];
+
+  let url = `${GB_API}/Util/Search/Suggestions?_sSearchString=${encodeURIComponent(query.trim())}&_sModelName=Mod`;
+  if (gbGameId) {
+    url += `&_idGameRow=${gbGameId}`;
+  }
+
+  try {
+    const data = await fetchFromGB(url);
+    return Array.isArray(data) ? data.slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function browseGbMods(args = {}) {
   assertPlainObject(args, "browseArgs");
   const gbGameId = assertInteger(args.gbGameId, "gbGameId", { min: 1 });

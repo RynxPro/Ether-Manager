@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Rocket,
   Bookmark,
+  Sparkles,
 } from "lucide-react";
 import GbModCard from "../components/GbModCard";
 import ModDetailModal from "../components/ModDetailModal";
@@ -68,7 +69,11 @@ export default function BrowseView() {
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 300); // Reduced from 400ms for better responsiveness
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIdx, setActiveSuggestionIdx] = useState(-1);
+  const searchContainerRef = useRef(null);
 
   const [bookmarkIdsByGame, setBookmarkIdsByGame] = useState({});
   const [bookmarkedCreators, setBookmarkedCreators] = useState([]);
@@ -80,7 +85,6 @@ export default function BrowseView() {
   const heroIntervalRef = useRef(null);
 
   // Auto-advance the featured banner every 10 seconds.
-  // Calling resetHeroInterval() restarts the timer from scratch (used on manual nav).
   const resetHeroInterval = useCallback(() => {
     if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
     heroIntervalRef.current = setInterval(() => {
@@ -98,6 +102,35 @@ export default function BrowseView() {
       if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
     };
   }, [featuredMods.length, resetHeroInterval]);
+
+  // Fetch autocomplete suggestions when the debounced query changes
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    window.electronMods
+      ?.searchGbModSuggestions({ query: searchQuery.trim(), gbGameId: game.gbGameId })
+      ?.then((res) => {
+        if (cancelled) return;
+        const results = res?.data ?? res ?? [];
+        setSuggestions(Array.isArray(results) ? results : []);
+      })
+      .catch(() => setSuggestions([]));
+    return () => { cancelled = true; };
+  }, [searchQuery, game.gbGameId]);
+
+  // Close suggestion dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const isOnline = useNetworkStatus();
 
@@ -614,7 +647,7 @@ export default function BrowseView() {
           </div>
 
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="w-full xl:max-w-xl 2xl:max-w-2xl">
+            <div className="relative w-full xl:max-w-xl 2xl:max-w-2xl" ref={searchContainerRef}>
               <Input
                 icon={Search}
                 placeholder={searchPlaceholder}
@@ -622,9 +655,70 @@ export default function BrowseView() {
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setPage(1);
+                  setShowSuggestions(true);
+                  setActiveSuggestionIdx(-1);
+                }}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onKeyDown={(e) => {
+                  if (!showSuggestions || suggestions.length === 0) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActiveSuggestionIdx((i) => Math.min(i + 1, suggestions.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveSuggestionIdx((i) => Math.max(i - 1, -1));
+                  } else if (e.key === "Enter" && activeSuggestionIdx >= 0) {
+                    e.preventDefault();
+                    const picked = suggestions[activeSuggestionIdx];
+                    setSearchQuery(picked);
+                    setShowSuggestions(false);
+                    setPage(1);
+                  } else if (e.key === "Escape") {
+                    setShowSuggestions(false);
+                  }
                 }}
                 className="rounded-2xl shadow-inner"
               />
+
+              {/* Autocomplete Dropdown */}
+              <AnimatePresence>
+                {showSuggestions && suggestions.length > 0 && (
+                  <motion.div
+                    key="suggestions"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-full left-0 right-0 mt-1.5 z-50 rounded-xl border border-border bg-surface/95 backdrop-blur-lg shadow-2xl overflow-hidden"
+                  >
+                    <div className="px-2 py-1.5 border-b border-border flex items-center gap-1.5">
+                      <Sparkles size={10} className="text-primary opacity-60" />
+                      <span className="text-[10px] text-text-muted uppercase tracking-widest font-semibold">Suggestions</span>
+                    </div>
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                          i === activeSuggestionIdx
+                            ? "bg-primary/15 text-white"
+                            : "text-text-secondary hover:bg-white/5 hover:text-white",
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSearchQuery(s);
+                          setShowSuggestions(false);
+                          setPage(1);
+                        }}
+                        onMouseEnter={() => setActiveSuggestionIdx(i)}
+                      >
+                        <Search size={12} className="opacity-40 shrink-0" />
+                        {s}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 xl:justify-end">

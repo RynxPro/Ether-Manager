@@ -14,6 +14,7 @@ import {
   fetchGbMod,
   fetchGbModsBatch,
   fetchGbModsSummaries,
+  searchGbModSuggestions,
 } from "./services/gamebanana.js";
 import {
   assignMod,
@@ -296,6 +297,14 @@ handleIpc(
   "browse-gb-mods",
   withResultEnvelope("Failed to browse GB mods:", async (event, args = {}) =>
     browseGbMods(args),
+  ),
+);
+
+handleIpc(
+  "search-gb-suggestions",
+  withResultEnvelope(
+    "Failed to fetch search suggestions:",
+    async (event, args = {}) => ({ data: await searchGbModSuggestions(args) }),
   ),
 );
 
