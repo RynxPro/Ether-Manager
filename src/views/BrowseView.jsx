@@ -77,6 +77,7 @@ export default function BrowseView() {
 
   const [bookmarkIdsByGame, setBookmarkIdsByGame] = useState({});
   const [bookmarkedCreators, setBookmarkedCreators] = useState([]);
+  const [hydratedCreators, setHydratedCreators] = useState({});
   const [savedModsCatalog, setSavedModsCatalog] = useState({});
 
   const [featuredMods, setFeaturedMods] = useState([]);
@@ -417,6 +418,41 @@ export default function BrowseView() {
       cancelled = true;
     };
   }, [activeTab, currentBookmarkIds, bookmarkSignature, game.id]);
+
+  // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
+  useEffect(() => {
+    if (activeTab !== "saved" || bookmarkedCreators.length === 0) return;
+    if (!window.electronMods?.fetchGbMemberProfile) return;
+
+    let cancelled = false;
+    const unhydratedCreators = bookmarkedCreators.filter(
+      (c) => c._idRow && !hydratedCreators[c._idRow]
+    );
+    if (unhydratedCreators.length === 0) return;
+
+    Promise.all(
+      unhydratedCreators.map((c) =>
+        window.electronMods
+          .fetchGbMemberProfile(c._idRow)
+          .then((res) => ({
+            id: c._idRow,
+            profile: res?.data ?? res ?? null,
+          }))
+          .catch(() => ({ id: c._idRow, profile: null }))
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      setHydratedCreators((prev) => {
+        const next = { ...prev };
+        for (const { id, profile } of results) {
+          if (profile) next[id] = profile;
+        }
+        return next;
+      });
+    });
+
+    return () => { cancelled = true; };
+  }, [activeTab, bookmarkedCreators, hydratedCreators]);
 
   useEffect(() => {
     if (activeTab !== "saved" || loading) return;
@@ -986,31 +1022,49 @@ export default function BrowseView() {
                   </div>
                 </div>
                 <div className="flex gap-3 overflow-x-auto scroller-hidden pb-2">
-                  {bookmarkedCreators.map((creator) => (
-                    <button
-                      key={creator._idRow}
-                      onClick={() => handleCreatorClick(creator)}
-                      className="ui-focus-ring group/savedcreator min-w-[120px] shrink-0 rounded-[var(--radius-md)] border border-border bg-background px-3 py-3 text-left shadow-card transition-all hover:border-primary/20 hover:bg-white/4"
-                    >
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-border bg-surface shadow-surface transition-all group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20">
-                        {creator._sAvatarUrl ? (
-                          <img
-                            src={creator._sAvatarUrl}
-                            alt={creator._sName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User
-                            size={24}
-                            className="text-text-muted group-hover/savedcreator:text-text-secondary transition-colors"
-                          />
+                  {bookmarkedCreators.map((creator) => {
+                    const hydrated = hydratedCreators[creator._idRow];
+                    const displayCreator = hydrated ?? creator;
+                    const avatarUrl = hydrated?._sHdAvatarUrl || hydrated?._sAvatarUrl || creator._sAvatarUrl;
+                    const isOnline = hydrated?._bIsOnline ?? false;
+                    return (
+                      <button
+                        key={creator._idRow}
+                        onClick={() => handleCreatorClick(displayCreator)}
+                        className="ui-focus-ring group/savedcreator min-w-[120px] shrink-0 rounded-[var(--radius-md)] border border-border bg-background px-3 py-3 text-left shadow-card transition-all hover:border-primary/20 hover:bg-white/4"
+                      >
+                        <div className="relative mx-auto h-14 w-14">
+                          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-border bg-surface shadow-surface transition-all group-hover/savedcreator:shadow-[0_0_20px_var(--color-primary)]/20">
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={displayCreator._sName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User
+                                size={24}
+                                className="text-text-muted group-hover/savedcreator:text-text-secondary transition-colors"
+                              />
+                            )}
+                          </div>
+                          {/* Online indicator dot */}
+                          <span className={cn(
+                            "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background",
+                            isOnline ? "bg-green-500" : "bg-gray-600"
+                          )} />
+                        </div>
+                        <span className="block w-full truncate pt-3 text-center text-sm font-bold text-text-primary transition-colors group-hover/savedcreator:text-primary">
+                          {displayCreator._sName}
+                        </span>
+                        {hydrated?._sUserTitle && (
+                          <span className="block w-full truncate text-center text-[10px] text-text-muted">
+                            {hydrated._sUserTitle}
+                          </span>
                         )}
-                      </div>
-                      <span className="block w-full truncate pt-3 text-center text-sm font-bold text-text-primary transition-colors group-hover/savedcreator:text-primary">
-                        {creator._sName}
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             )}
