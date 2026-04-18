@@ -88,6 +88,8 @@ export default function ModDetailModal({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [error, setError] = useState(null);
   const [revealedDetail, setRevealedDetail] = useState(false);
+  const [isAddingThumbUrl, setIsAddingThumbUrl] = useState(false);
+  const [customThumbUrl, setCustomThumbUrl] = useState("");
 
   const downloadJob = useAppStore(
     useCallback((state) => state.downloads.find((d) => d.id === mod._idRow), [mod._idRow])
@@ -173,12 +175,13 @@ export default function ModDetailModal({
     }
   };
 
-  const handleSetThumbnail = async () => {
+  const handleSetThumbnailUrl = async (url) => {
     if (
       !mod.localMod ||
       !game ||
       !window.electronConfig ||
-      !window.electronMods
+      !window.electronMods ||
+      !url
     )
       return;
     try {
@@ -189,16 +192,20 @@ export default function ModDetailModal({
       const result = await window.electronMods.setCustomThumbnail({
         importerPath,
         originalFolderName: mod.localMod.originalFolderName,
-        thumbnailUrl: images[currentImgIndex],
+        thumbnailUrl: url,
       });
 
       if (result.success && onThumbnailChange) {
-        onThumbnailChange(images[currentImgIndex]);
+        onThumbnailChange(url);
       }
+      setIsAddingThumbUrl(false);
+      setCustomThumbUrl("");
     } catch (err) {
       console.error("Failed to set custom thumbnail", err);
     }
   };
+
+  const handleSetThumbnail = () => handleSetThumbnailUrl(images[currentImgIndex]);
 
   const nextImage = () =>
     setCurrentImgIndex((prev) => (prev + 1) % images.length);
@@ -223,7 +230,7 @@ export default function ModDetailModal({
                       <EyeOff size={24} className="text-red-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-black uppercase tracking-widest text-red-500/80">Classified</p>
+                      <p className="text-sm font-black uppercase tracking-widest text-red-500">Classified</p>
                       <p className="mt-1 text-xs text-white/40">This mod has been flagged as NSFW</p>
                     </div>
                     <button
@@ -253,22 +260,10 @@ export default function ModDetailModal({
                 </>
               )}
 
-              {images.length > 1 && (
-                <>
-                  <button
-                    onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <ChevronLeft size={24} />
-                  </button>
-                  <button
-                    onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <ChevronRight size={24} />
-                  </button>
-                  {/* Indicators */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {/* Indicators & URL Override */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                {images.length > 1 && (
+                  <div className="flex gap-1.5">
                     {images.map((_, i) => (
                       <div
                         key={i}
@@ -279,24 +274,104 @@ export default function ModDetailModal({
                       />
                     ))}
                   </div>
-                </>
-              )}
+                )}
+                
+                {isLibraryContext && mod.localMod && (
+                  <button
+                    onClick={() => setIsAddingThumbUrl(true)}
+                    title="Set a custom thumbnail from a web link"
+                    className="p-1 px-2 rounded bg-black/40 text-white/50 hover:text-white border border-white/5 transition-colors flex items-center gap-1.5"
+                  >
+                    <ExternalLink size={10} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">Custom Link</span>
+                  </button>
+                )}
+              </div>
 
-              {/* Set Thumbnail Button */}
+              {/* Set Thumbnail / Remove Buttons */}
               {isLibraryContext && mod.localMod && (
-                <button
-                  onClick={handleSetThumbnail}
-                  title="Use this image as the thumbnail in your library"
-                  className="absolute top-4 right-4 z-10 py-1.5 px-3 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-primary hover:text-black transition-all border border-white/10 opacity-0 group-hover:opacity-100 flex items-center gap-2"
-                >
-                  <ImageIcon size={14} />
-                  Set as Thumbnail
-                </button>
+                <div className="absolute top-4 right-4 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {mod.localMod.customThumbnail && (
+                    <button
+                      onClick={() => handleSetThumbnailUrl(null)}
+                      title="Clear custom thumbnail and use default"
+                      className="py-1.5 px-3 rounded-lg bg-red-500/80 text-white text-xs font-bold hover:bg-red-600 transition-all border border-red-500/30 flex items-center gap-2"
+                    >
+                      <Trash2 size={14} />
+                      Clear
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSetThumbnail}
+                    title="Use this image as the thumbnail in your library"
+                    className="py-1.5 px-3 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-primary hover:text-black transition-all border border-white/10 flex items-center gap-2"
+                  >
+                    <ImageIcon size={14} />
+                    Set as Thumbnail
+                  </button>
+                </div>
               )}
             </div>
           ) : (
-            <div className="w-full aspect-video flex items-center justify-center text-white/10 italic">
-              No images available
+            <div className="w-full aspect-video relative flex flex-col items-center justify-center border-b border-border bg-black/20 text-white/20 p-8">
+              {/* Back button for the overlay form */}
+              {isAddingThumbUrl && (
+                <button
+                  onClick={() => setIsAddingThumbUrl(false)}
+                  className="absolute top-4 left-4 p-2 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              )}
+              {!isAddingThumbUrl ? (
+                 <>
+                   <ImageIcon size={32} className="mb-4 opacity-30" />
+                   <p className="font-semibold text-sm mb-3">No images available</p>
+                   {isLibraryContext && mod.localMod && (
+                     <button
+                       onClick={() => setIsAddingThumbUrl(true)}
+                       className="py-1.5 px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-bold transition-all flex items-center gap-2 mt-2 shadow-sm"
+                     >
+                       <ImageIcon size={14} className="opacity-70" /> Add Custom Cover
+                     </button>
+                   )}
+                 </>
+              ) : (
+                <div className="w-full max-w-sm flex flex-col gap-2">
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest text-center mb-1">Set Custom Cover Link</p>
+                  <input
+                    autoFocus
+                    type="url"
+                    placeholder="Paste image URL (Discord, Imgur, etc)..."
+                    value={customThumbUrl}
+                    onChange={e => setCustomThumbUrl(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && customThumbUrl.trim()) {
+                         handleSetThumbnailUrl(customThumbUrl.trim());
+                      } else if (e.key === "Escape") {
+                         setIsAddingThumbUrl(false);
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-black/60 border border-white/20 rounded-lg text-sm text-white focus:outline-hidden focus:border-primary/50 shadow-inner"
+                  />
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => setIsAddingThumbUrl(false)}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/5 text-white/50 border border-transparent transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (customThumbUrl.trim()) handleSetThumbnailUrl(customThumbUrl.trim());
+                      }}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 transition-colors"
+                    >
+                      Save Cover
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -362,178 +437,194 @@ export default function ModDetailModal({
                     {mod._sVersion}
                   </span>
                 )}
-                <button
-                  onClick={() => window.electronConfig?.openExternal(`https://gamebanana.com/mods/${mod._idRow}`)}
-                  className="shrink-0 p-2 rounded-full border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1"
-                  title="View on GameBanana"
-                >
-                  <ExternalLink size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center flex-wrap gap-4 text-text-muted text-sm mt-1">
-              {mod._aSubmitter ? (
-                <button
-                  onClick={() => onCreatorClick?.(mod._aSubmitter)}
-                  className="flex items-center gap-2 group/creator transition-colors hover:text-primary rounded-lg w-fit"
-                >
-                  <div className="relative w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
-                    {(mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl) ? (
-                      <img src={mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl} alt="Creator" className="w-full h-full object-cover" />
-                    ) : (
-                      <User size={12} className="text-white/30" />
-                    )}
-                    {mod._aSubmitter._bIsOnline && (
-                      <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-background" />
-                    )}
-                  </div>
-                  <span className="font-medium text-text-secondary">
-                    {mod._aSubmitter._sName}
-                  </span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
-                    <User size={12} className="text-white/20" />
-                  </div>
-                  <span className="font-medium text-text-muted">Unknown</span>
-                </div>
-              )}
-
-              {/* Dates */}
-              <div className="flex items-center gap-3 border-l border-border pl-4 ml-2">
-                <div className="flex items-center gap-1.5 text-[11px]" title="Date Added">
-                  <Calendar size={12} className="opacity-50" />
-                  <span>{formatDate(mod._tsDateAdded)}</span>
-                </div>
-                {mod._tsDateUpdated > mod._tsDateAdded && (
-                  <div className="flex items-center gap-1.5 text-[11px]" title="Last Updated">
-                    <RefreshCw size={12} className="opacity-50" />
-                    <span>{formatDate(mod._tsDateUpdated)}</span>
-                  </div>
+                {!mod.isImported && (
+                  <button
+                    onClick={() => window.electronConfig?.openExternal(`https://gamebanana.com/mods/${mod._idRow}`)}
+                    className="shrink-0 p-2 rounded-full border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1"
+                    title="View on GameBanana"
+                  >
+                    <ExternalLink size={14} />
+                  </button>
                 )}
               </div>
             </div>
+
+            {!mod.isImported && (
+              <div className="flex items-center flex-wrap gap-4 text-text-muted text-sm mt-1">
+                {mod._aSubmitter ? (
+                  <button
+                    onClick={() => onCreatorClick?.(mod._aSubmitter)}
+                    className="flex items-center gap-2 group/creator transition-colors hover:text-primary rounded-lg w-fit"
+                  >
+                    <div className="relative w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
+                      {(mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl) ? (
+                        <img src={mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl} alt="Creator" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={12} className="text-white/30" />
+                      )}
+                      {mod._aSubmitter._bIsOnline && (
+                        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-background" />
+                      )}
+                    </div>
+                    <span className="font-medium text-text-secondary">
+                      {mod._aSubmitter._sName}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
+                      <User size={12} className="text-white/20" />
+                    </div>
+                    <span className="font-medium text-text-muted">Unknown</span>
+                  </div>
+                )}
+
+                {/* Dates */}
+                <div className="flex items-center gap-3 border-l border-border pl-4 ml-2">
+                  <div className="flex items-center gap-1.5 text-[11px]" title="Date Added">
+                    <Calendar size={12} className="opacity-50" />
+                    <span>{formatDate(mod._tsDateAdded)}</span>
+                  </div>
+                  {mod._tsDateUpdated > mod._tsDateAdded && (
+                    <div className="flex items-center gap-1.5 text-[11px]" title="Last Updated">
+                      <RefreshCw size={12} className="opacity-50" />
+                      <span>{formatDate(mod._tsDateUpdated)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-text-muted shrink-0">
-            <span className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
-              <Heart size={14} className="text-primary" /> {mod._nLikeCount?.toLocaleString() || 0}
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
-              <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-primary">
-              <Download size={14} /> {mod._nDownloadCount?.toLocaleString() || 0}
-            </span>
-          </div>
+          {!mod.isImported && (
+            <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-text-muted shrink-0">
+              <span className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
+                <Heart size={14} className="text-primary" /> {mod._nLikeCount?.toLocaleString() || 0}
+              </span>
+              <span className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
+                <Eye size={14} /> {mod._nViewCount?.toLocaleString() || 0}
+              </span>
+              <span className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-primary">
+                <Download size={14} /> {mod._nDownloadCount?.toLocaleString() || 0}
+              </span>
+            </div>
+          )}
 
           <div className="flex-1 space-y-8 mb-6">
             {/* Description */}
             <div>
               <div
-                className="text-sm text-text-secondary leading-relaxed gb-description wrap-break-word"
-                dangerouslySetInnerHTML={{ __html: safeDescriptionHtml }}
+                className={cn(
+                  "text-sm text-text-secondary leading-relaxed gb-description wrap-break-word",
+                  mod.isImported && "italic opacity-50"
+                )}
+                dangerouslySetInnerHTML={{ 
+                  __html: mod.isImported 
+                    ? `This mod was imported from your local files. You can manage it here, set a custom thumbnail, or re-assign its category collection. Source folder: <code>${mod.localMod?.originalFolderName}</code>`
+                    : safeDescriptionHtml 
+                }}
               />
             </div>
 
-            {/* Credits */}
-            {mod._aCredits?.length > 0 && (
-              <div>
-                <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
-                  Credits
-                </h3>
-                <div className="space-y-3">
-                  {mod._aCredits.map((group, gi) => (
-                    <div key={gi}>
-                      {group._sGroupName && (
-                        <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1.5">
-                          {group._sGroupName}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {(group._aAuthors || []).map((author) => (
-                          <button
-                            key={author._idRow}
-                            type="button"
-                            onClick={() => onCreatorClick?.(author)}
-                            className="flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-text-secondary transition-colors hover:border-primary/30 hover:text-primary"
-                          >
-                            {(author._sAvatarUrl) && (
-                              <img
-                                src={author._sAvatarUrl}
-                                alt={author._sName}
-                                className="h-4 w-4 rounded-full object-cover"
-                              />
-                            )}
-                            <span>{author._sName}</span>
-                            {author._sRole && (
-                              <span className="opacity-50">· {author._sRole}</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Files Selector */}
-            <div>
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
-                Files
-              </h3>
-              <div className="space-y-2">
-                {mod._aFiles?.map((file) => {
-                  const installedData = installedFileInfo?.installedFiles?.find((f) => f.fileName === file._sFile);
-                  const isInstalled = !!installedData;
-                  let isOutdated = false;
-
-                  if (isInstalled && mod._tsDateUpdated && installedData.installedAt) {
-                    const installedDate = new Date(installedData.installedAt).getTime() / 1000;
-                    if (mod._tsDateUpdated > installedDate + 300) isOutdated = true;
-                  }
-
-                  return (
-                    <button
-                      key={file._idRow}
-                      onClick={() => setSelectedFile(file)}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
-                        selectedFile?._idRow === file._idRow
-                          ? "bg-primary/10 border-primary/50 text-text-primary"
-                          : "bg-background border-border text-text-muted hover:border-white/20 hover:text-text-secondary"
-                      )}
-                    >
-                      <div className="flex-1 min-w-0 mr-3">
-                        <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                          <p className="text-sm font-medium truncate text-text-primary group-hover:text-white">{file._sFile}</p>
-                          {isInstalled && (isOutdated ? (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-(--color-update)/10 text-(--color-update) border border-(--color-update)/20 uppercase tracking-tighter shrink-0">
-                              Update Available
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-(--color-success)/10 text-(--color-success) border border-(--color-success)/20 uppercase tracking-tighter shrink-0">
-                              Stored
-                            </span>
-                          ))}
+            {/* Credits & Files (Hidden for imported) */}
+            {!mod.isImported && (
+              <>
+                {mod._aCredits?.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
+                      Credits
+                    </h3>
+                    <div className="space-y-3">
+                      {mod._aCredits.map((group, gi) => (
+                        <div key={gi}>
+                          {group._sGroupName && (
+                            <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1.5">
+                              {group._sGroupName}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {(group._aAuthors || []).map((author) => (
+                              <button
+                                key={author._idRow}
+                                type="button"
+                                onClick={() => onCreatorClick?.(author)}
+                                className="flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-text-secondary transition-colors hover:border-primary/30 hover:text-primary"
+                              >
+                                {(author._sAvatarUrl) && (
+                                  <img
+                                    src={author._sAvatarUrl}
+                                    alt={author._sName}
+                                    className="h-4 w-4 rounded-full object-cover"
+                                  />
+                                )}
+                                <span>{author._sName}</span>
+                                {author._sRole && (
+                                  <span className="opacity-50">· {author._sRole}</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        {file._sDescription && (
-                          <p className="text-[10px] text-text-muted mb-1 line-clamp-2 leading-relaxed" 
-                             dangerouslySetInnerHTML={{ __html: sanitizeHtml(file._sDescription) }} />
-                        )}
-                        <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
-                      </div>
-                      {selectedFile?._idRow === file._idRow && (
-                        <div className="p-1 rounded-full bg-primary text-black"><Check size={12} /></div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">
+                    Files
+                  </h3>
+                  <div className="space-y-2">
+                    {mod._aFiles?.map((file) => {
+                      const installedData = installedFileInfo?.installedFiles?.find((f) => f.fileName === file._sFile);
+                      const isInstalled = !!installedData;
+                      let isOutdated = false;
+
+                      if (isInstalled && mod._tsDateUpdated && installedData.installedAt) {
+                        const installedDate = new Date(installedData.installedAt).getTime() / 1000;
+                        if (mod._tsDateUpdated > installedDate + 300) isOutdated = true;
+                      }
+
+                      return (
+                        <button
+                          key={file._idRow}
+                          onClick={() => setSelectedFile(file)}
+                          className={cn(
+                            "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                            selectedFile?._idRow === file._idRow
+                              ? "bg-primary/10 border-primary/50 text-text-primary"
+                              : "bg-background border-border text-text-muted hover:border-white/20 hover:text-text-secondary"
+                          )}
+                        >
+                          <div className="flex-1 min-w-0 mr-3">
+                            <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                              <p className="text-sm font-medium truncate text-text-primary group-hover:text-white">{file._sFile}</p>
+                              {isInstalled && (isOutdated ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-(--color-update)/10 text-(--color-update) border border-(--color-update)/20 uppercase tracking-tighter shrink-0">
+                                  Update Available
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-(--color-success)/10 text-(--color-success) border border-(--color-success)/20 uppercase tracking-tighter shrink-0">
+                                  Stored
+                                </span>
+                              ))}
+                            </div>
+                            {file._sDescription && (
+                              <p className="text-[10px] text-text-muted mb-1 line-clamp-2 leading-relaxed" 
+                                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(file._sDescription) }} />
+                            )}
+                            <p className="text-[10px] opacity-60">{(file._nFilesize / 1024 / 1024).toFixed(1)} MB</p>
+                          </div>
+                          {selectedFile?._idRow === file._idRow && (
+                            <div className="p-1 rounded-full bg-primary text-black"><Check size={12} /></div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Installation Zone Fixed at bottom of panel block */}
@@ -565,36 +656,38 @@ export default function ModDetailModal({
               >
                 <Bookmark size={20} className={cn(isBookmarked && "fill-primary")} />
               </button>
-              <button
-                onClick={(e) => {
-                  if (isDownloading) e.preventDefault();
-                  else handleInstall();
-                }}
-                disabled={!effectiveSelectedCharacter || (isLibraryContext && !isUpdating) || isDownloading}
-                className={cn(
-                  "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
-                  isDownloading 
-                    ? "bg-primary/20 text-primary border border-primary/30 cursor-not-allowed"
-                    : isLibraryContext && !isUpdating
-                    ? "bg-white/5 text-gray-600 cursor-not-allowed"
-                    : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-                )}
-              >
-                {/* Progress Fill */}
-                {isDownloading && (
-                  <div 
-                    className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300 ease-linear"
-                    style={{ width: `${downloadJob.percent}%` }}
-                  />
-                )}
+              {!mod.isImported && (
+                <button
+                  onClick={(e) => {
+                    if (isDownloading) e.preventDefault();
+                    else handleInstall();
+                  }}
+                  disabled={!effectiveSelectedCharacter || (isLibraryContext && !isUpdating) || isDownloading}
+                  className={cn(
+                    "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all",
+                    isDownloading 
+                      ? "bg-primary/20 text-primary border border-primary/30 cursor-not-allowed"
+                      : isLibraryContext && !isUpdating
+                      ? "bg-white/5 text-gray-600 cursor-not-allowed"
+                      : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                  )}
+                >
+                  {/* Progress Fill */}
+                  {isDownloading && (
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300 ease-linear"
+                      style={{ width: `${downloadJob.percent}%` }}
+                    />
+                  )}
 
-                <div className="relative z-10 flex items-center gap-2">
-                  <Download size={20} className={cn(isDownloading && "animate-bounce")} />
-                  {isDownloading 
-                    ? (downloadJob.status === "extracting" ? "Extracting..." : `Installing ${downloadJob.percent}%`) 
-                    : isLibraryContext ? "Update" : "Install"}
-                </div>
-              </button>
+                  <div className="relative z-10 flex items-center gap-2">
+                    <Download size={20} className={cn(isDownloading && "animate-bounce")} />
+                    {isDownloading 
+                      ? (downloadJob.status === "extracting" ? "Extracting..." : `Installing ${downloadJob.percent}%`) 
+                      : isLibraryContext ? "Update" : "Install"}
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         </div>

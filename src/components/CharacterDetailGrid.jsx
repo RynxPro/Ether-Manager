@@ -51,6 +51,17 @@ export default function CharacterDetailGrid({
               isUpdating: hasUpdate,
               localMod: mod,
             });
+          } else {
+            // Local/Imported mod with no GameBanana data
+            onSelectMod({
+              _idRow: mod.originalFolderName, // Use folder name as stable ID
+              _sName: mod.name,
+              _sDescription: "Local mod import.",
+              _aFiles: [],
+              allImages: [],
+              localMod: mod,
+              isImported: true,
+            });
           }
         }}
         onToggle={onToggle}

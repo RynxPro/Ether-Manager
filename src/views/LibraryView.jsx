@@ -281,11 +281,7 @@ export default function LibraryView({ isActive }) {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
-      <PageHeader
-        eyebrow="Library"
-        title="Library"
-        description={`${mods.length.toLocaleString()} installed mod${mods.length !== 1 ? "s" : ""} for ${game.name}.`}
-      />
+      <PageHeader title="Library" />
 
       <section className="ui-panel mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4">

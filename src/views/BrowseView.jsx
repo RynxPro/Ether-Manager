@@ -659,12 +659,7 @@ export default function BrowseView() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      <PageHeader
-        eyebrow="Browse"
-        title={title}
-        description={description}
-      />
-
+      <PageHeader title={title} />
       <section className="ui-panel mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

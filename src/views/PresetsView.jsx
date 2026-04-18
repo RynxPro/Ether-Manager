@@ -151,13 +151,7 @@ export default function PresetsView() {
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <PageHeader
-        eyebrow="Presets"
-        title="Loadouts"
-        description={
-          loading
-            ? "Loading loadouts."
-            : `${presets.length} preset${presets.length !== 1 ? "s" : ""} available for ${game.name}.`
-        }
+        title="Presets"
         actions={
           <>
             <Button
@@ -191,7 +185,7 @@ export default function PresetsView() {
       {!loading && (
         <section className="ui-panel mb-5 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
-            <SummaryPill label="Loadouts" value={presets.length} />
+            <SummaryPill label="Presets" value={presets.length} />
             <SummaryPill label="Saved Mods" value={totalModsAcrossPresets} />
             <SummaryPill label="Characters" value={totalCharactersAcrossPresets} />
             <SummaryPill
@@ -354,11 +348,11 @@ function EmptyState({ onCreateClick }) {
   return (
     <StatePanel
       icon={Package}
-      title="No Loadouts Yet"
-      message="Create a loadout to save a set of mods."
+      title="No Presets Yet"
+      message="Create a preset to save a set of mods."
       action={(
         <Button onClick={onCreateClick} icon={Plus}>
-          Create Loadout
+          Create Preset
         </Button>
       )}
       className="py-20"

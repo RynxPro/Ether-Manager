@@ -29,7 +29,7 @@ const MENU_ITEMS = [
   },
   {
     id: "presets",
-    label: "Loadouts",
+    label: "Presets",
     icon: Database,
   },
 ];
