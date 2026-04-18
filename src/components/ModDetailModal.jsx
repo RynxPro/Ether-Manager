@@ -24,36 +24,46 @@ import { sanitizeHtml } from "../lib/sanitizeHtml";
 import SidePanel from "./layout/SidePanel";
 
 function inferCharacterFromMod(mod, characters) {
-  const rootCat = mod._aRootCategory?._sName?.toLowerCase();
-  if (
-    rootCat === "gui" ||
-    rootCat === "user interface" ||
-    rootCat === "hud" ||
-    rootCat === "ui"
-  ) {
+  const cats = [
+    mod._aRootCategory?._sName,
+    mod._aCategory?._sName,
+    mod._aSubCategory?._sName,
+  ].filter(Boolean).map(c => c.toLowerCase());
+
+  // 1. UI Mapping
+  const uiKeywords = ["gui", "ui", "user interface", "hud", "menus", "loading screens"];
+  if (cats.some(c => uiKeywords.some(kw => c.includes(kw)))) {
     return "User Interface";
   }
-  if (
-    rootCat === "scripts" ||
-    rootCat === "utilities" ||
-    rootCat === "tools" ||
-    rootCat === "fixes" ||
-    rootCat === "other/misc" ||
-    rootCat === "miscellaneous" ||
-    rootCat === "audio"
-  ) {
+
+  // 2. Misc / Audio Mapping
+  const miscKeywords = ["scripts", "utilities", "tools", "fixes", "misc", "miscellaneous", "audio", "sounds", "sfx", "bgm", "music", "voice", "weapons", "items", "effects"];
+  if (cats.some(c => miscKeywords.some(kw => c.includes(kw)))) {
     return "Miscellaneous";
   }
 
-  const categoryName = mod._aCategory?._sName?.toLowerCase();
-  if (!categoryName) {
-    return "";
+  // 3. Exact or Partial Category Match for Characters
+  for (const character of characters) {
+    if (character === "User Interface" || character === "Miscellaneous") continue;
+    const charLower = character.toLowerCase();
+    if (cats.some(c => c.includes(charLower))) {
+      return character;
+    }
   }
 
-  return (
-    characters.find((character) => character.toLowerCase() === categoryName) ||
-    ""
-  );
+  // 4. Mod Name Match for Characters (Word boundary check)
+  const modName = (mod._sName || "").toLowerCase();
+  for (const character of characters) {
+    if (character === "User Interface" || character === "Miscellaneous") continue;
+    const charLower = character.toLowerCase();
+    // Use word boundaries so "an" doesn't match "Jane Doe" or "Anby" incorrectly
+    const regex = new RegExp(`\\b${charLower}\\b`, 'i');
+    if (regex.test(modName)) {
+      return character;
+    }
+  }
+
+  return "";
 }
 
 export default function ModDetailModal({
