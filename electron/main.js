@@ -16,6 +16,8 @@ import {
   fetchGbModsSummaries,
   fetchGbMemberProfile,
   fetchGbSubfeed,
+  getGameBananaRequestStats,
+  resetGameBananaRequestState,
   searchGbModSuggestions,
 } from "./services/gamebanana.js";
 import {
@@ -282,16 +284,16 @@ handleIpc(
   "fetch-gb-mods-batch",
   withResultEnvelope(
     "[BatchUpdate] Fatal error in parallel fetch:",
-    async (event, ids) => ({
-      data: await fetchGbModsBatch(ids),
+    async (event, ids, options = {}) => ({
+      data: await fetchGbModsBatch(ids, options),
     }),
   ),
 );
 
 handleIpc(
   "fetch-gb-mods-summaries",
-  withResultEnvelope("[BookmarkSummary] Fatal error:", async (event, ids) => ({
-    data: await fetchGbModsSummaries(ids),
+  withResultEnvelope("[BookmarkSummary] Fatal error:", async (event, ids, options = {}) => ({
+    data: await fetchGbModsSummaries(ids, options),
   })),
 );
 
@@ -334,6 +336,21 @@ handleIpc(
       data: await fetchGbFeaturedMods(gbGameId),
     }),
   ),
+);
+
+handleIpc(
+  "get-gb-request-stats",
+  withResultEnvelope("Failed to get GB request stats:", async () => ({
+    data: getGameBananaRequestStats(),
+  })),
+);
+
+handleIpc(
+  "reset-gb-state",
+  withResultEnvelope("Failed to reset GB state:", async () => {
+    resetGameBananaRequestState();
+    return ok({ data: getGameBananaRequestStats() });
+  }),
 );
 
 handleIpc(

@@ -28,15 +28,18 @@ contextBridge.exposeInMainWorld("electronMods", {
     ipcRenderer.invoke("fetch-gb-mod", gamebananaId),
   fetchGbFeaturedMods: (gbGameId) =>
     ipcRenderer.invoke("fetch-gb-featured-mods", gbGameId),
+  getGbRequestStats: () => ipcRenderer.invoke("get-gb-request-stats"),
+  resetGbState: () => ipcRenderer.invoke("reset-gb-state"),
   browseGbMods: (args) => ipcRenderer.invoke("browse-gb-mods", args),
   fetchGbSubfeed: (args) => ipcRenderer.invoke("fetch-gb-subfeed", args),
   searchGbModSuggestions: (args) => ipcRenderer.invoke("search-gb-suggestions", args),
   fetchGbMemberProfile: (memberId) => ipcRenderer.invoke("fetch-gb-member-profile", memberId),
   installGbMod: (args) => ipcRenderer.invoke("install-gb-mod", args),
   cancelInstallGbMod: (args) => ipcRenderer.invoke("cancel-install-gb-mod", args),
-  fetchGbModsBatch: (ids) => ipcRenderer.invoke("fetch-gb-mods-batch", ids),
-  fetchGbModsSummaries: (ids) =>
-    ipcRenderer.invoke("fetch-gb-mods-summaries", ids),
+  fetchGbModsBatch: (ids, options = {}) =>
+    ipcRenderer.invoke("fetch-gb-mods-batch", ids, options),
+  fetchGbModsSummaries: (ids, options = {}) =>
+    ipcRenderer.invoke("fetch-gb-mods-summaries", ids, options),
   getPresets: (gameId) => ipcRenderer.invoke("get-presets", gameId),
   savePreset: (preset) => ipcRenderer.invoke("save-preset", preset),
   deletePreset: (gameId, presetId) =>

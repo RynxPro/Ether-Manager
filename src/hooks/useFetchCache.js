@@ -41,14 +41,20 @@ export function useFetchCache() {
       return { ...result, fromCache: false };
     } catch (error) {
       console.error(`Failed to fetch mod ${modId}:`, error);
-      return { success: false, error: error.message, fromCache: false };
+      return {
+        success: false,
+        error: error.message,
+        code: error?.code,
+        retryAfterMs: error?.retryAfterMs,
+        fromCache: false,
+      };
     }
   }, []);
 
   /**
    * Fetch multiple mods with caching
    */
-  const fetchModsBatch = useCallback(async (modIds) => {
+  const fetchModsBatch = useCallback(async (modIds, options = {}) => {
     if (!modIds || modIds.length === 0) {
       return { success: true, data: [], fromCache: false };
     }
@@ -71,7 +77,7 @@ export function useFetchCache() {
         throw new Error("fetchGbModsBatch API not available");
       }
 
-      const result = await window.electronMods.fetchGbModsBatch(modIds);
+      const result = await window.electronMods.fetchGbModsBatch(modIds, options);
       if (result.success && result.data) {
         // Store in cache
         setCachedBatch(cacheKey, result.data);
@@ -82,7 +88,13 @@ export function useFetchCache() {
       return { ...result, fromCache: false };
     } catch (error) {
       console.error("Failed to fetch mods batch:", error);
-      return { success: false, error: error.message, fromCache: false };
+      return {
+        success: false,
+        error: error.message,
+        code: error?.code,
+        retryAfterMs: error?.retryAfterMs,
+        fromCache: false,
+      };
     }
   }, []);
 

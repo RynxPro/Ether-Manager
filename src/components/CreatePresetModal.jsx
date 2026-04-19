@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ChevronRight, ChevronLeft, Zap, Check, Loader2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
+import { thumbnailUrlFromGbModItem, thumbFromGbMap } from "../lib/gbThumbMap";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { getModClassification, getModDisplayCharacter } from "../lib/modClassification";
@@ -39,9 +40,8 @@ export default function CreatePresetModal({ onClose, onSaved }) {
     if (result.success && result.data) {
       const dataMap = {};
       result.data.forEach((item) => {
-        const thumb = item._aPreviewMedia?._aImages?.[0];
         dataMap[item._idRow] = {
-          thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null,
+          thumbnailUrl: thumbnailUrlFromGbModItem(item),
         };
       });
       setGbData((prev) => ({ ...prev, ...dataMap }));
@@ -322,9 +322,9 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                                 >
                                   {/* Thumbnail */}
                                   <div className="w-24 h-14 rounded-xl overflow-hidden bg-background border border-white/5 shrink-0 relative">
-                                    {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
+                                    {mod.customThumbnail || thumbFromGbMap(gbData, mod.gamebananaId) ? (
                                       <img 
-                                        src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
+                                        src={mod.customThumbnail ? `file://${mod.customThumbnail}` : thumbFromGbMap(gbData, mod.gamebananaId)} 
                                         alt="" 
                                         className="w-full h-full object-cover group-hover/row:scale-110 transition-transform duration-500" 
                                       />

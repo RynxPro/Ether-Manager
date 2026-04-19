@@ -13,6 +13,7 @@ import {
   StatusBanner,
 } from "../components/ui/StatePanel";
 import { cn } from "../lib/utils";
+import { thumbFromGbMap, thumbnailUrlFromGbModItem } from "../lib/gbThumbMap";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -21,6 +22,7 @@ const cardVariants = {
 
 export default function PresetsView() {
   const game = useAppStore((state) => state.activeGame);
+  const activeView = useAppStore((state) => state.activeView);
   const configVersion = useAppStore((state) => state.configVersion);
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,27 +50,35 @@ export default function PresetsView() {
       setImporterPath(config[game.id] || null);
       setPresets(data || []);
 
-      // Fetch GB data for thumbnails in the grid
-      const allModIds = [...new Set(data.flatMap(p => p.mods).map(m => m.gamebananaId).filter(Boolean))];
-      if (allModIds.length > 0) {
-        const result = await window.electronMods.fetchGbModsBatch(allModIds);
+      // Thumbnails only when this view is visible — avoids batch Profile+Files competing with Browse on launch.
+      const allModIds = [
+        ...new Set(
+          data.flatMap((p) => p.mods).map((m) => m.gamebananaId).filter(Boolean),
+        ),
+      ];
+      if (allModIds.length > 0 && activeView === "presets") {
+        const result = await window.electronMods.fetchGbModsBatch(allModIds, {
+          priority: "low",
+          concurrency: 2,
+        });
         if (result.success && result.data) {
           const dataMap = {};
-          result.data.forEach(item => {
-            const thumb = item._aPreviewMedia?._aImages?.[0];
+          result.data.forEach((item) => {
             dataMap[item._idRow] = {
-              thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
+              thumbnailUrl: thumbnailUrlFromGbModItem(item),
             };
           });
           setGbData(dataMap);
         }
+      } else {
+        setGbData({});
       }
     } catch (err) {
       console.error("PresetsView: load error", err);
     } finally {
       setLoading(false);
     }
-  }, [game.id]);
+  }, [game.id, activeView]);
 
   useEffect(() => {
     loadPresets();
@@ -240,7 +250,7 @@ export default function PresetsView() {
           <PresetDetailModal
             key={activePreset.id}
             preset={activePreset}
-            game={game}
+            initialGbData={gbData}
             importerPath={importerPath}
             onClose={() => setActivePreset(null)}
             onUpdated={(updated) => {
@@ -264,10 +274,10 @@ export default function PresetsView() {
 
 function PresetCard({ preset, index, onClick, gbData }) {
   // Get first 4 thumbnails for the grid
-  const thumbs = preset.mods.slice(0, 4).map(mod => {
+  const thumbs = preset.mods.slice(0, 4).map((mod) => {
     if (mod.customThumbnail) return `file://${mod.customThumbnail}`;
-    if (gbData?.[mod.gamebananaId]?.thumbnailUrl) return gbData[mod.gamebananaId].thumbnailUrl;
-    return null;
+    const url = thumbFromGbMap(gbData, mod.gamebananaId);
+    return url || null;
   });
 
   return (

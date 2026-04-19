@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import AppViewShell from "./components/layout/AppViewShell";
 import { WifiOff } from "lucide-react";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import DevNetworkMonitor from "./components/dev/DevNetworkMonitor";
+import LaunchScreen from "./components/layout/LaunchScreen";
 
 const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
 const BrowseView = lazy(() => import("./views/BrowseView"));
@@ -23,7 +25,10 @@ function App() {
   );
   const updateDownloadProgress = useAppStore((state) => state.updateDownloadProgress);
   const setNsfwMode = useAppStore((state) => state.setNsfwMode);
+  const setActiveGameId = useAppStore((state) => state.setActiveGameId);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isBooting, setIsBooting] = useState(true);
+  const [bootStatus, setBootStatus] = useState("Initializing Aether...");
   const isOnline = useNetworkStatus();
 
   // Global IPC Listeners
@@ -35,19 +40,39 @@ function App() {
     }
   }, [updateDownloadProgress]);
 
+  // Structured Initialization Sequence
   useEffect(() => {
-    async function checkOnboarding() {
-      if (window.electronConfig) {
+    async function initializeApp() {
+      if (!window.electronConfig) {
+        setIsBooting(false);
+        return;
+      }
+
+      try {
+        setBootStatus("Loading configuration...");
         const config = await window.electronConfig.getConfig();
+        
+        // Restore preferences
         if (!config.hasSeenOnboarding) {
           setShowOnboarding(true);
         }
-        // Restore persisted content preferences
         setNsfwMode(config.nsfwMode ?? "blur");
+        
+        if (config.lastActiveGameId) {
+          setActiveGameId(config.lastActiveGameId);
+        }
+
+        setBootStatus("Readying engines...");
+        // Small artificial delay for premium feel and engine warmup
+        await new Promise(resolve => setTimeout(resolve, 1400));
+      } catch (err) {
+        console.error("Initialization failed:", err);
+      } finally {
+        setIsBooting(false);
       }
     }
-    checkOnboarding();
-  }, [setNsfwMode]);
+    initializeApp();
+  }, [setNsfwMode, setActiveGameId]);
 
   // Update accent color variable when game changes
   useEffect(() => {
@@ -70,7 +95,11 @@ function App() {
 
   return (
     <div className="h-screen w-screen flex flex-row bg-background text-text-primary relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-8 z-100 titlebar-drag pointer-events-auto" />
+      <AnimatePresence mode="wait">
+        {isBooting && <LaunchScreen key="launcher" status={bootStatus} />}
+      </AnimatePresence>
+
+      <div className="absolute top-0 left-0 w-full h-8 z-[100] titlebar-drag pointer-events-auto" />
 
       {/* Background radial gradient corresponding to game color */}
       <div
@@ -151,6 +180,7 @@ function App() {
         isOpen={showOnboarding}
         onClose={handleCloseOnboarding}
       />
+      {import.meta.env.DEV && <DevNetworkMonitor />}
     </div>
   );
 }

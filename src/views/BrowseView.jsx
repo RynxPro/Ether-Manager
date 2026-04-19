@@ -59,6 +59,18 @@ const SORT_OPTIONS = [
 ];
 
 const PER_PAGE = 20;
+/** Defer hero carousel fetch so the main grid request wins the API queue first */
+const FEATURED_FETCH_DELAY_MS = 160;
+
+function formatGbApiError(errorLike, fallback = "Request failed.") {
+  const code = errorLike?.code;
+  const retryAfterMs = Number(errorLike?.retryAfterMs);
+  if (code === "RATE_LIMITED") {
+    const seconds = Math.max(1, Math.ceil((Number.isFinite(retryAfterMs) ? retryAfterMs : 5000) / 1000));
+    return `GameBanana is rate-limiting requests. Cooling down for about ${seconds}s before retrying.`;
+  }
+  return errorLike?.error || errorLike?.message || fallback;
+}
 
 export default function BrowseView() {
   const game = useAppStore((state) => state.activeGame);
@@ -82,21 +94,54 @@ export default function BrowseView() {
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(searchQuery, 150);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIdx, setActiveSuggestionIdx] = useState(-1);
   const searchContainerRef = useRef(null);
 
   const [bookmarkIdsByGame, setBookmarkIdsByGame] = useState({});
-  const [bookmarkedCreators, setBookmarkedCreators] = useState([]);
+  const [bookmarkedCreatorsByGame, setBookmarkedCreatorsByGame] = useState({});
+  const currentBookmarkedCreators = useMemo(
+    () => bookmarkedCreatorsByGame[game.id] || [],
+    [bookmarkedCreatorsByGame, game.id],
+  );
   const [hydratedCreators, setHydratedCreators] = useState({});
   const [savedModsCatalog, setSavedModsCatalog] = useState({});
 
   const [featuredMods, setFeaturedMods] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
+  /** Gate hero API until the main browse row has finished for this game (avoids Subfeed + TopSubs + N×Profile burst on switch). */
+  const [browseGridReadyForFeatured, setBrowseGridReadyForFeatured] =
+    useState(false);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const heroIntervalRef = useRef(null);
+  /** Identity of the browse query excluding page — stale-while-revalidate for same query */
+  const browseIdentityRef = useRef(null);
+  const browseFetchIdRef = useRef(0);
+  const prevBrowseTabRef = useRef(null);
+
+  const browseIdentityKey = useMemo(
+    () =>
+      [
+        game.gbGameId,
+        activeTab,
+        debouncedSearchQuery,
+        characterFilter,
+        String(featuredOnly),
+        nsfwMode,
+        sort,
+      ].join("|"),
+    [
+      game.gbGameId,
+      activeTab,
+      debouncedSearchQuery,
+      characterFilter,
+      featuredOnly,
+      nsfwMode,
+      sort,
+    ],
+  );
 
   // Auto-advance the featured banner every 10 seconds.
   const resetHeroInterval = useCallback(() => {
@@ -119,13 +164,14 @@ export default function BrowseView() {
 
   // Fetch autocomplete suggestions when the debounced query changes
   useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length < 2) {
+    const query = debouncedSearchQuery?.trim() || "";
+    if (query.length < 2) {
       setSuggestions([]);
       return;
     }
     let cancelled = false;
     window.electronMods
-      ?.searchGbModSuggestions({ query: searchQuery.trim(), gbGameId: game.gbGameId })
+      ?.searchGbModSuggestions({ query, gbGameId: game.gbGameId })
       ?.then((res) => {
         if (cancelled) return;
         const results = res?.data ?? res ?? [];
@@ -133,7 +179,7 @@ export default function BrowseView() {
       })
       .catch(() => setSuggestions([]));
     return () => { cancelled = true; };
-  }, [searchQuery, game.gbGameId]);
+  }, [debouncedSearchQuery, game.gbGameId]);
 
   // Close suggestion dropdown when clicking outside
   useEffect(() => {
@@ -148,6 +194,32 @@ export default function BrowseView() {
 
   const isOnline = useNetworkStatus();
 
+  useEffect(() => {
+    setBrowseGridReadyForFeatured(false);
+    setFeaturedMods([]);
+    setCurrentHeroIndex(0);
+    setLoadingFeatured(false);
+  }, [game.gbGameId]);
+
+  useEffect(() => {
+    setMods([]);
+    setTotal(0);
+  }, [game.gbGameId]);
+
+  useEffect(() => {
+    const prev = prevBrowseTabRef.current;
+    prevBrowseTabRef.current = activeTab;
+    if (prev === null || prev === activeTab) return;
+    setMods([]);
+    setTotal(0);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "saved" && game.gbGameId) {
+      setBrowseGridReadyForFeatured(true);
+    }
+  }, [activeTab, game.gbGameId]);
+
   // Use fetch cache for individual mod details
   const { fetchMod } = useFetchCache();
   const currentBookmarkIds = useMemo(
@@ -159,23 +231,36 @@ export default function BrowseView() {
     () => new Set(currentBookmarkIds),
     [currentBookmarkIds],
   );
+  const visibleBookmarkIds = useMemo(() => {
+    const start = Math.max(0, (page - 1) * PER_PAGE);
+    return currentBookmarkIds.slice(start, start + PER_PAGE);
+  }, [currentBookmarkIds, page]);
 
-  // Fetch Featured Mods (Randomized popular mods per session)
+  // Featured hero: runs only after browse grid completes for this game (saved tab skips browse API — see effect above).
   useEffect(() => {
-    const fetchFeatured = async () => {
-      if (
-        !isOnline ||
-        !game.gbGameId ||
-        !window.electronMods?.fetchGbFeaturedMods
-      ) {
-        setFeaturedMods([]);
-        return;
-      }
+    if (
+      !isOnline ||
+      !game.gbGameId ||
+      !window.electronMods?.fetchGbFeaturedMods
+    ) {
+      setFeaturedMods([]);
+      setLoadingFeatured(false);
+      return;
+    }
+
+    if (!browseGridReadyForFeatured) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      if (cancelled) return;
       setLoadingFeatured(true);
       try {
         const result = await window.electronMods.fetchGbFeaturedMods(
           game.gbGameId,
         );
+        if (cancelled) return;
         if (result.success && Array.isArray(result.data)) {
           setFeaturedMods(result.data);
           setCurrentHeroIndex(0);
@@ -183,14 +268,20 @@ export default function BrowseView() {
           setFeaturedMods([]);
         }
       } catch (err) {
-        console.error("Failed to fetch featured mods:", err);
-        setFeaturedMods([]);
+        if (!cancelled) {
+          console.error("Failed to fetch featured mods:", err);
+          setFeaturedMods([]);
+        }
       } finally {
-        setLoadingFeatured(false);
+        if (!cancelled) setLoadingFeatured(false);
       }
+    }, FEATURED_FETCH_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
     };
-    fetchFeatured();
-  }, [game.gbGameId, isOnline]);
+  }, [game.gbGameId, isOnline, browseGridReadyForFeatured]);
 
   // Load importer path and bookmarks once
   useEffect(() => {
@@ -200,7 +291,15 @@ export default function BrowseView() {
         const normalizedBookmarks = normalizeBookmarkConfig(config.bookmarks);
         setImporterPath(config[game.id] || null);
         setBookmarkIdsByGame(normalizedBookmarks.bookmarks);
-        setBookmarkedCreators(config.bookmarkedCreators || []);
+        const rawCreators = config.bookmarkedCreators;
+        if (Array.isArray(rawCreators)) {
+          // Migration: Move existing global list to current game
+          const migrated = { [game.id]: rawCreators };
+          setBookmarkedCreatorsByGame(migrated);
+          window.electronConfig.setConfig({ bookmarkedCreators: migrated });
+        } else {
+          setBookmarkedCreatorsByGame(rawCreators || {});
+        }
         if (normalizedBookmarks.migrated) {
           window.electronConfig.setConfig({
             bookmarks: normalizedBookmarks.bookmarks,
@@ -260,20 +359,22 @@ export default function BrowseView() {
   );
 
   const handleToggleCreatorBookmark = useCallback((creator) => {
-    setBookmarkedCreators((prev) => {
-      const index = prev.findIndex((c) => c._idRow === creator._idRow);
+    setBookmarkedCreatorsByGame((prev) => {
+      const gameList = prev[game.id] || [];
+      const index = gameList.findIndex((c) => c._idRow === creator._idRow);
       let newList;
       if (index >= 0) {
-        newList = [...prev.slice(0, index), ...prev.slice(index + 1)];
+        newList = [...gameList.slice(0, index), ...gameList.slice(index + 1)];
       } else {
-        newList = [creator, ...prev];
+        newList = [creator, ...gameList];
       }
+      const newMap = { ...prev, [game.id]: newList };
       if (window.electronConfig) {
-        window.electronConfig.setConfig({ bookmarkedCreators: newList });
+        window.electronConfig.setConfig({ bookmarkedCreators: newMap });
       }
-      return newList;
+      return newMap;
     });
-  }, []);
+  }, [game.id]);
 
   const { mods: allMods, loadMods: refreshInstalledModsInfo } = useLoadGameMods(game.id, true);
 
@@ -326,6 +427,10 @@ export default function BrowseView() {
       setError("GameBanana integration is not yet available for this game.");
       return;
     }
+
+    browseIdentityRef.current = browseIdentityKey;
+
+    const fetchId = ++browseFetchIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -349,17 +454,24 @@ export default function BrowseView() {
         featuredOnly,
         characterSkins: activeTab === "characters",
         hideNsfw: nsfwMode === "hide",
+        // Skip extra ProfilePage batch when Index returns all-zero downloads — main list loads much faster.
+        hydrateZeroDownloadCounts: false,
       });
+      if (fetchId !== browseFetchIdRef.current) return;
       if (result.success) {
         setMods(result.records);
         setTotal(result.total);
       } else {
-        setError(result.error || "Failed to load mods from GameBanana.");
+        setError(formatGbApiError(result, "Failed to load mods from GameBanana."));
       }
     } catch (err) {
-      setError(err.message || "Network error.");
+      if (fetchId !== browseFetchIdRef.current) return;
+      setError(formatGbApiError(err, "Network error."));
     } finally {
-      setLoading(false);
+      if (fetchId === browseFetchIdRef.current) {
+        setLoading(false);
+        setBrowseGridReadyForFeatured(true);
+      }
     }
   }, [
     isOnline,
@@ -371,6 +483,7 @@ export default function BrowseView() {
     characterFilter,
     activeTab,
     debouncedSearchQuery,
+    browseIdentityKey,
   ]);
 
   // Trigger API fetch for non-saved tabs
@@ -406,27 +519,69 @@ export default function BrowseView() {
     setLoading(true);
     setError(null);
 
+    const mergeBookmarkSummaries = (orderedIds, existingCatalog, fetchedMods) => {
+      const summaryMap = new Map(
+        (fetchedMods || []).map((mod) => [mod._idRow, mod]),
+      );
+      return orderedIds.map(
+        (id) =>
+          summaryMap.get(id) ||
+          existingCatalog.find((entry) => entry._idRow === id) ||
+          createUnavailableBookmarkPlaceholder(id),
+      );
+    };
+
+    const activePageIds = visibleBookmarkIds.filter((id) =>
+      currentBookmarkIds.includes(id),
+    );
+    const deferredIds = currentBookmarkIds.filter(
+      (id) => !activePageIds.includes(id),
+    );
+
     window.electronMods
-      .fetchGbModsSummaries(currentBookmarkIds)
-      .then((result) => {
+      .fetchGbModsSummaries(activePageIds, { priority: "high", concurrency: 6 })
+      .then(async (result) => {
         if (cancelled) return;
 
         if (!result.success) {
-          setError(result.error || "Failed to load saved bookmarks.");
+          setError(formatGbApiError(result, "Failed to load saved bookmarks."));
           return;
         }
 
-        const summaryMap = new Map(
-          (result.data || []).map((mod) => [mod._idRow, mod]),
+        setSavedModsCatalog((prev) => {
+          const existingCatalog = prev[game.id] || [];
+          const seededOrderedMods = mergeBookmarkSummaries(
+            currentBookmarkIds,
+            existingCatalog,
+            result.data || [],
+          );
+          return { ...prev, [game.id]: seededOrderedMods };
+        });
+        setLoading(false);
+
+        if (deferredIds.length === 0) return;
+
+        const deferredResult = await window.electronMods.fetchGbModsSummaries(
+          deferredIds,
+          { priority: "low", concurrency: 4 },
         );
-        const orderedMods = currentBookmarkIds.map(
-          (id) => summaryMap.get(id) || createUnavailableBookmarkPlaceholder(id),
-        );
-        setSavedModsCatalog((prev) => ({ ...prev, [game.id]: orderedMods }));
+        if (cancelled || !deferredResult.success) return;
+
+        setSavedModsCatalog((prev) => {
+          const current = prev[game.id] || [];
+          return {
+            ...prev,
+            [game.id]: mergeBookmarkSummaries(
+              currentBookmarkIds,
+              current,
+              deferredResult.data || [],
+            ),
+          };
+        });
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message || "Failed to load saved bookmarks.");
+          setError(formatGbApiError(err, "Failed to load saved bookmarks."));
         }
       })
       .finally(() => {
@@ -438,16 +593,16 @@ export default function BrowseView() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, currentBookmarkIds, bookmarkSignature, game.id]);
+  }, [activeTab, currentBookmarkIds, bookmarkSignature, game.id, visibleBookmarkIds]);
 
   // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
   useEffect(() => {
-    if (activeTab !== "saved" || bookmarkedCreators.length === 0) return;
+    if (activeTab !== "saved" || currentBookmarkedCreators.length === 0) return;
     if (!window.electronMods?.fetchGbMemberProfile) return;
 
     let cancelled = false;
-    const unhydratedCreators = bookmarkedCreators.filter(
-      (c) => c._idRow && !hydratedCreators[c._idRow]
+    const unhydratedCreators = currentBookmarkedCreators.filter(
+      (c) => c._idRow && !hydratedCreators[c._idRow],
     );
     if (unhydratedCreators.length === 0) return;
 
@@ -459,8 +614,8 @@ export default function BrowseView() {
             id: c._idRow,
             profile: res?.data ?? res ?? null,
           }))
-          .catch(() => ({ id: c._idRow, profile: null }))
-      )
+          .catch(() => ({ id: c._idRow, profile: null })),
+      ),
     ).then((results) => {
       if (cancelled) return;
       setHydratedCreators((prev) => {
@@ -472,8 +627,10 @@ export default function BrowseView() {
       });
     });
 
-    return () => { cancelled = true; };
-  }, [activeTab, bookmarkedCreators, hydratedCreators]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, currentBookmarkedCreators, hydratedCreators]);
 
   useEffect(() => {
     if (activeTab !== "saved" || loading) return;
@@ -1039,16 +1196,30 @@ export default function BrowseView() {
           />
         )}
 
-        {/* Loading skeleton */}
-        {loading && (
+        {/* Full skeleton only when there is nothing to show yet (avoids blanking the grid on page/sort changes) */}
+        {loading && mods.length === 0 && (
           <StateGridSkeleton count={PER_PAGE} />
         )}
 
         {/* Mod grid */}
-        {!loading && !error && (
+        {!error && (!loading || mods.length > 0) && (
           <>
+            {loading && activeTab !== "saved" && mods.length > 0 && (
+              <div className="mb-3 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-[11px] font-semibold text-text-secondary">
+                Updating results…
+              </div>
+            )}
+            {loading && activeTab === "saved" && mods.length > 0 && (
+              <div className="mb-3">
+                <StatePanel
+                  title="Refreshing saved mods"
+                  description="Showing cached results while updating metadata in the background."
+                  className="min-h-0"
+                />
+              </div>
+            )}
             {/* Saved Creators Section */}
-            {activeTab === "saved" && bookmarkedCreators.length > 0 && (
+            {activeTab === "saved" && currentBookmarkedCreators.length > 0 && (
               <section className="ui-panel mb-5 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-text-muted">
@@ -1056,11 +1227,11 @@ export default function BrowseView() {
                     Creators
                   </div>
                   <div className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
-                    {bookmarkedCreators.length}
+                    {currentBookmarkedCreators.length}
                   </div>
                 </div>
                 <div className="flex gap-3 overflow-x-auto scroller-hidden pb-2">
-                  {bookmarkedCreators.map((creator) => {
+                  {currentBookmarkedCreators.map((creator) => {
                     const hydrated = hydratedCreators[creator._idRow];
                     const displayCreator = hydrated ?? creator;
                     const avatarUrl = hydrated?._sHdAvatarUrl || hydrated?._sAvatarUrl || creator._sAvatarUrl;
@@ -1197,7 +1368,7 @@ export default function BrowseView() {
           installedModsInfo={installedModsInfo}
           bookmarkIds={currentBookmarkIds}
           onToggleBookmark={handleToggleBookmark}
-          isCreatorBookmarked={bookmarkedCreators.some(
+          isCreatorBookmarked={currentBookmarkedCreators.some(
             (c) => c._idRow === activeCreatorProfile._idRow,
           )}
           onToggleCreatorBookmark={handleToggleCreatorBookmark}

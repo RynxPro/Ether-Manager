@@ -10,9 +10,19 @@ export function fail(error, fields = {}) {
   const message =
     fields.error ||
     (error instanceof Error ? error.message : String(error || "Unknown error"));
+  const details =
+    error && typeof error === "object"
+      ? {
+          ...(typeof error.code === "string" ? { code: error.code } : {}),
+          ...(Number.isFinite(error.retryAfterMs)
+            ? { retryAfterMs: error.retryAfterMs }
+            : {}),
+        }
+      : {};
   return {
     success: false,
     ...fields,
+    ...details,
     error: message,
   };
 }

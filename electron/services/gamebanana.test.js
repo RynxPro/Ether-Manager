@@ -2,16 +2,25 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   browseGbMods,
+  fetchFromGB,
   fetchGbFeaturedMods,
   fetchGbMod,
   fetchGbModsSummaries,
+  getGameBananaRequestStats,
+  resetGameBananaRateLimitState,
   setGameBananaRuntime,
 } from "./gamebanana.js";
 
-function createJsonResponse(payload, status = 200) {
+function createJsonResponse(payload, status = 200, headers = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: {
+      get(name) {
+        const key = String(name || "").toLowerCase();
+        return headers[key] ?? null;
+      },
+    },
     async json() {
       return payload;
     },
@@ -24,8 +33,168 @@ test.afterEach(() => {
     sleepImpl: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     timeoutMs: 12000,
     retryCount: 1,
+    maxConcurrentRequests: 4,
+    rateLimitCooldownMs: 5000,
     nowImpl: () => Date.now(),
+    resetState: true,
   });
+});
+
+test("fetchFromGB deduplicates concurrent identical requests", async () => {
+  let callCount = 0;
+
+  setGameBananaRuntime({
+    retryCount: 0,
+    fetchImpl: async () => {
+      callCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return createJsonResponse({ _idRow: 1, _sName: "Dedupe" });
+    },
+  });
+
+  const first = fetchFromGB("https://gamebanana.com/apiv11/Mod/1/ProfilePage");
+  const second = fetchFromGB("https://gamebanana.com/apiv11/Mod/1/ProfilePage");
+
+  const [resultA, resultB] = await Promise.all([first, second]);
+
+  assert.equal(callCount, 1);
+  assert.equal(resultA._idRow, 1);
+  assert.equal(resultB._idRow, 1);
+});
+
+test("fetchFromGB reuses cached response within TTL", async () => {
+  let now = 1_000_000;
+  let callCount = 0;
+
+  setGameBananaRuntime({
+    retryCount: 0,
+    nowImpl: () => now,
+    fetchImpl: async () => {
+      callCount += 1;
+      return createJsonResponse({
+        _aRecords: [{ _idRow: callCount }],
+        _aMetadata: { _nRecordCount: 1 },
+      });
+    },
+    resetState: true,
+  });
+
+  const url =
+    "https://gamebanana.com/apiv11/Mod/Index?_aFilters[Generic_Game]=1&_nPage=1&_nPerpage=20";
+  const first = await fetchFromGB(url);
+  now += 10_000;
+  const second = await fetchFromGB(url);
+
+  assert.equal(callCount, 1);
+  assert.equal(first._aRecords[0]._idRow, 1);
+  assert.equal(second._aRecords[0]._idRow, 1);
+});
+
+test("fetchFromGB enforces cooldown after 429 and returns rate limit metadata", async () => {
+  let callCount = 0;
+
+  setGameBananaRuntime({
+    retryCount: 0,
+    rateLimitCooldownMs: 1000,
+    fetchImpl: async () => {
+      callCount += 1;
+      return createJsonResponse({ error: "rate limited" }, 429, {
+        "retry-after": "1",
+      });
+    },
+    resetState: true,
+  });
+
+  await assert.rejects(
+    () => fetchFromGB("https://gamebanana.com/apiv11/Mod/2/ProfilePage"),
+    (error) =>
+      error?.code === "RATE_LIMITED" && Number.isFinite(error?.retryAfterMs),
+  );
+
+  await assert.rejects(
+    () => fetchFromGB("https://gamebanana.com/apiv11/Mod/3/ProfilePage"),
+    (error) => error?.code === "RATE_LIMITED",
+  );
+
+  assert.equal(callCount, 1);
+});
+
+test("resetGameBananaRateLimitState clears cooldown for testing", async () => {
+  setGameBananaRuntime({
+    retryCount: 0,
+    rateLimitCooldownMs: 1000,
+    fetchImpl: async () =>
+      createJsonResponse({ error: "rate limited" }, 429, {
+        "retry-after": "120",
+      }),
+    resetState: true,
+  });
+
+  await assert.rejects(() =>
+    fetchFromGB("https://gamebanana.com/apiv11/Mod/9/ProfilePage"),
+  );
+
+  assert.ok(getGameBananaRequestStats().cooldownRemainingMs > 0);
+
+  resetGameBananaRateLimitState();
+
+  assert.equal(getGameBananaRequestStats().cooldownRemainingMs, 0);
+});
+
+test("429 with huge Retry-After seconds is capped so cooldown is not multi-hour", async () => {
+  const MAX_MS = 15 * 60 * 1000;
+
+  setGameBananaRuntime({
+    retryCount: 0,
+    rateLimitCooldownMs: 1000,
+    fetchImpl: async () =>
+      createJsonResponse({ error: "rate limited" }, 429, {
+        "retry-after": "66120",
+      }),
+    resetState: true,
+  });
+
+  let err;
+  try {
+    await fetchFromGB("https://gamebanana.com/apiv11/Mod/1/ProfilePage");
+  } catch (e) {
+    err = e;
+  }
+  assert.equal(err?.code, "RATE_LIMITED");
+  assert.ok(
+    err?.retryAfterMs <= MAX_MS,
+    `retryAfterMs should be capped, got ${err?.retryAfterMs}`,
+  );
+
+  const stats = getGameBananaRequestStats();
+  assert.ok(stats.cooldownRemainingMs <= MAX_MS);
+});
+
+test("getGameBananaRequestStats tracks cache, dedupe, and network usage", async () => {
+  let callCount = 0;
+
+  setGameBananaRuntime({
+    retryCount: 0,
+    fetchImpl: async () => {
+      callCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return createJsonResponse({ _idRow: 1 });
+    },
+    resetState: true,
+  });
+
+  const url = "https://gamebanana.com/apiv11/Mod/1/ProfilePage";
+  const first = fetchFromGB(url);
+  const second = fetchFromGB(url);
+  await Promise.all([first, second]);
+  await fetchFromGB(url);
+
+  const stats = getGameBananaRequestStats();
+  assert.equal(callCount, 1);
+  assert.equal(stats.networkCalls, 1);
+  assert.equal(stats.dedupeHits, 1);
+  assert.equal(stats.cacheHits, 1);
+  assert.equal(stats.totalCalls, 3);
 });
 
 test("fetchGbMod normalizes missing fields into stable defaults", async () => {
@@ -182,7 +351,7 @@ test("browseGbMods hydrates summaries when browse records return zero download c
         });
       }
 
-      if (url.includes("/Mod/101?")) {
+      if (url.includes("/Mod/101/ProfilePage")) {
         return createJsonResponse({
           _idRow: 101,
           _sName: "First Mod",
@@ -190,7 +359,7 @@ test("browseGbMods hydrates summaries when browse records return zero download c
         });
       }
 
-      if (url.includes("/Mod/102?")) {
+      if (url.includes("/Mod/102/ProfilePage")) {
         return createJsonResponse({
           _idRow: 102,
           _sName: "Second Mod",
@@ -210,152 +379,46 @@ test("browseGbMods hydrates summaries when browse records return zero download c
 
   assert.equal(result.records[0]._nDownloadCount, 4567);
   assert.equal(result.records[1]._nDownloadCount, 8901);
-  assert.ok(requestedUrls.some((url) => url.includes("/Mod/101?")));
-  assert.ok(requestedUrls.some((url) => url.includes("/Mod/102?")));
+  assert.ok(requestedUrls.some((url) => url.includes("/Mod/101/ProfilePage")));
+  assert.ok(requestedUrls.some((url) => url.includes("/Mod/102/ProfilePage")));
 });
 
 test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", async () => {
-  const now = Date.UTC(2026, 3, 7);
-  const day = 24 * 60 * 60 * 1000;
-  const candidatePages = new Map([
-    [
-      "Generic_Newest:1",
-      [
-        {
-          _idRow: 201,
-          _sName: "Week Winner",
-          _tsDateAdded: now - 2 * day,
-          _nLikeCount: 100,
-          _nDownloadCount: 0,
-        },
-        {
-          _idRow: 202,
-          _sName: "Month Winner",
-          _tsDateAdded: now - 20 * day,
-          _nLikeCount: 95,
-          _nDownloadCount: 0,
-        },
-        {
-          _idRow: 203,
-          _sName: "Six Month Winner",
-          _tsDateAdded: now - 120 * day,
-          _nLikeCount: 90,
-          _nDownloadCount: 0,
-        },
-        {
-          _idRow: 204,
-          _sName: "Year Winner",
-          _tsDateAdded: now - 300 * day,
-          _nLikeCount: 85,
-          _nDownloadCount: 0,
-        },
-      ],
-    ],
-    [
-      "Generic_Newest:2",
-      [],
-    ],
-    [
-      "Generic_MostLiked:1",
-      [
-        {
-          _idRow: 204,
-          _sName: "Year Winner",
-          _tsDateAdded: now - 300 * day,
-          _nLikeCount: 85,
-          _nDownloadCount: 0,
-          _nViewCount: 1200,
-        },
-        {
-          _idRow: 203,
-          _sName: "Six Month Winner",
-          _tsDateAdded: now - 120 * day,
-          _nLikeCount: 90,
-          _nDownloadCount: 0,
-          _nViewCount: 900,
-        },
-      ],
-    ],
-    ["Generic_MostLiked:2", []],
-    [
-      "Generic_MostDownloaded:1",
-      [
-        {
-          _idRow: 202,
-          _sName: "Month Winner",
-          _tsDateAdded: now - 20 * day,
-          _nLikeCount: 95,
-          _nDownloadCount: 0,
-          _nViewCount: 800,
-        },
-      ],
-    ],
-    ["Generic_MostDownloaded:2", []],
-    [
-      "Generic_MostViewed:1",
-      [
-        {
-          _idRow: 201,
-          _sName: "Week Winner",
-          _tsDateAdded: now - 2 * day,
-          _nLikeCount: 100,
-          _nDownloadCount: 0,
-          _nViewCount: 1500,
-        },
-      ],
-    ],
-    ["Generic_MostViewed:2", []],
-  ]);
-  const detailById = new Map([
-    [201, { _tsDateAdded: now - 2 * day, _nLikeCount: 100 }],
-    [202, { _tsDateAdded: now - 20 * day, _nLikeCount: 95 }],
-    [203, { _tsDateAdded: now - 120 * day, _nLikeCount: 90 }],
-    [204, { _tsDateAdded: now - 300 * day, _nLikeCount: 85 }],
-    [205, { _tsDateAdded: now - 500 * day, _nLikeCount: 999 }],
-  ]);
-
   setGameBananaRuntime({
     retryCount: 0,
-    nowImpl: () => now,
     fetchImpl: async (url) => {
-      if (
-        url.includes("/Mod/Index?") &&
-        url.includes("Generic_MostLiked") &&
-        url.includes("_nPerpage=12")
-      ) {
-        return createJsonResponse({
-          _aRecords: [
-            {
-              _idRow: 205,
-              _sName: "All Time Winner",
-              _nLikeCount: 999,
-              _nDownloadCount: 0,
-            },
-          ],
-          _aMetadata: { _nRecordCount: 1 },
-        });
+      if (url.includes("/Game/1/TopSubs")) {
+        return createJsonResponse([
+          {
+            _idRow: 201,
+            _sName: "Week Winner",
+            _sPeriod: "week",
+            _sImageUrl: "https://img/week.jpg",
+            _sThumbnailUrl: "https://img/week-thumb.jpg",
+          },
+          {
+            _idRow: 202,
+            _sName: "Month Winner",
+            _sPeriod: "month",
+            _sImageUrl: "https://img/month.jpg",
+            _sThumbnailUrl: "https://img/month-thumb.jpg",
+          },
+          {
+            _idRow: 203,
+            _sName: "All Time Winner",
+            _sPeriod: "alltime",
+            _sImageUrl: "https://img/alltime.jpg",
+            _sThumbnailUrl: "https://img/alltime-thumb.jpg",
+          },
+        ]);
       }
 
-      if (url.includes("/Mod/Index?") && url.includes("Generic_Game")) {
-        const pageMatch = url.match(/_nPage=(\d+)/);
-        const page = Number(pageMatch?.[1] || 1);
-        const sortMatch = url.match(/_sSort=([^&]+)/);
-        const sort = sortMatch?.[1] || "Generic_Newest";
-        return createJsonResponse({
-          _aRecords: candidatePages.get(`${sort}:${page}`) || [],
-          _aMetadata: { _nRecordCount: 4 },
-        });
-      }
-
-      const modMatch = url.match(/\/Mod\/(\d+)\?/);
+      const modMatch = url.match(/\/Mod\/(\d+)\/ProfilePage/);
       if (modMatch) {
         const id = Number(modMatch[1]);
-        const detail = detailById.get(id) || {};
         return createJsonResponse({
           _idRow: id,
           _sName: `Hydrated ${id}`,
-          _tsDateAdded: detail._tsDateAdded,
-          _nLikeCount: detail._nLikeCount,
           _nDownloadCount: id * 10,
         });
       }
@@ -368,13 +431,13 @@ test("fetchGbFeaturedMods returns bucketed best-of winners in timeframe order", 
 
   assert.deepEqual(
     result.map((entry) => entry.id),
-    ["week", "month", "sixMonths", "year", "allTime"],
+    ["week", "month", "allTime"],
   );
   assert.deepEqual(
     result.map((entry) => entry.mod._idRow),
-    [201, 202, 203, 204, 205],
+    [201, 202, 203],
   );
   assert.equal(result[0].label, "Best of This Week");
-  assert.equal(result[4].label, "Best of All Time");
+  assert.equal(result[2].label, "Best of All Time");
   assert.equal(result[0].mod._nDownloadCount, 2010);
 });

@@ -47,14 +47,294 @@ const CHARACTER_SKINS_ROOT_CATS = {
 const logger = createLogger("gamebanana");
 const DEFAULT_TIMEOUT_MS = 12000;
 const DEFAULT_RETRY_COUNT = 1;
+const DEFAULT_MAX_CONCURRENT_REQUESTS = 6;
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 5000;
+const MAX_RATE_LIMIT_COOLDOWN_MS = 60000;
+/** Never block the client longer than this (ms). Servers may send Retry-After in tens of hours. */
+const MAX_CLIENT_COOLDOWN_MS = 15 * 60 * 1000;
+
+class RateLimitError extends Error {
+  constructor(message, { retryAfterMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS } = {}) {
+    super(message);
+    this.name = "RateLimitError";
+    this.code = "RATE_LIMITED";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+const requestState = {
+  inFlight: new Map(),
+  cache: new Map(),
+  bucketTail: new Map(),
+  bucketLastStart: new Map(),
+  cooldownUntil: 0,
+  rateLimitStrikeCount: 0,
+  activeCount: 0,
+  waiters: {
+    high: [],
+    medium: [],
+    low: [],
+  },
+  bucketCircuits: new Map(), // bucket -> { failures: 0, lastFailure: 0, state: 'closed' | 'open' }
+};
+
+const requestStats = {
+  rateLimitResponses: 0,
+  throttleWaitMs: 0,
+  circuitBlocks: 0,
+  latency: {
+    totalMs: 0,
+    count: 0,
+    avgMs: 0,
+  },
+};
 
 const runtime = {
   fetchImpl: (...args) => fetch(...args),
   sleepImpl: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   timeoutMs: DEFAULT_TIMEOUT_MS,
   retryCount: DEFAULT_RETRY_COUNT,
+  maxConcurrentRequests: DEFAULT_MAX_CONCURRENT_REQUESTS,
+  rateLimitCooldownMs: DEFAULT_RATE_LIMIT_COOLDOWN_MS,
   nowImpl: () => Date.now(),
 };
+
+export function resetGameBananaRequestState() {
+  requestState.inFlight.clear();
+  requestState.cache.clear();
+  requestState.bucketTail.clear();
+  requestState.bucketLastStart.clear();
+  requestState.cooldownUntil = 0;
+  requestState.rateLimitStrikeCount = 0;
+  requestState.activeCount = 0;
+  requestState.waiters = {
+    high: [],
+    medium: [],
+    low: [],
+  };
+  requestStats.totalCalls = 0;
+  requestStats.networkCalls = 0;
+  requestStats.cacheHits = 0;
+  requestStats.dedupeHits = 0;
+  requestStats.cooldownBlocks = 0;
+  requestStats.rateLimitResponses = 0;
+  requestStats.throttleWaitMs = 0;
+  requestStats.circuitBlocks = 0;
+  requestStats.latency = { totalMs: 0, count: 0, avgMs: 0 };
+}
+
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_RESET_TIMEOUT_MS = 30000;
+
+function isBucketCircuitOpen(bucket) {
+  const circuit = requestState.bucketCircuits.get(bucket);
+  if (!circuit || circuit.state === "closed") return false;
+
+  const now = runtime.nowImpl();
+  if (now - circuit.lastFailure > CIRCUIT_RESET_TIMEOUT_MS) {
+    // Attempt cooling period over: half-open
+    circuit.state = "closed";
+    circuit.failures = 0;
+    return false;
+  }
+  return true;
+}
+
+function recordBucketFailure(bucket) {
+  let circuit = requestState.bucketCircuits.get(bucket);
+  if (!circuit) {
+    circuit = { failures: 0, lastFailure: 0, state: "closed" };
+    requestState.bucketCircuits.set(bucket, circuit);
+  }
+  circuit.failures += 1;
+  circuit.lastFailure = runtime.nowImpl();
+  if (circuit.failures >= CIRCUIT_FAILURE_THRESHOLD) {
+    circuit.state = "open";
+    logger.warn(`Circuit breaker OPEN for bucket: ${bucket}`);
+  }
+}
+
+function recordBucketSuccess(bucket) {
+  const circuit = requestState.bucketCircuits.get(bucket);
+  if (circuit) {
+    circuit.failures = 0;
+    circuit.state = "closed";
+  }
+}
+
+function getRequestPolicy(url) {
+  if (url.includes("/Util/Search/Suggestions")) {
+    return { bucket: "suggestions", throttleMs: 220, ttlMs: 20000, priority: "high" };
+  }
+  if (url.includes("/Game/") && url.includes("/TopSubs")) {
+    return { bucket: "featured", throttleMs: 180, ttlMs: 60000, priority: "medium" };
+  }
+  if (url.includes("/Game/") && url.includes("/Subfeed")) {
+    return { bucket: "subfeed", throttleMs: 180, ttlMs: 35000, priority: "medium" };
+  }
+  if (url.includes("/Util/Search/Results")) {
+    return { bucket: "search", throttleMs: 85, ttlMs: 45000, priority: "high" };
+  }
+  if (url.includes("/Mod/Index")) {
+    return { bucket: "browse", throttleMs: 85, ttlMs: 45000, priority: "high" };
+  }
+  if (url.includes("/ProfilePage")) {
+    return { bucket: "profile", throttleMs: 100, ttlMs: 90000, priority: "medium" };
+  }
+  if (url.includes("/Files")) {
+    return { bucket: "files", throttleMs: 100, ttlMs: 90000, priority: "medium" };
+  }
+  return { bucket: "default", throttleMs: 140, ttlMs: 45000, priority: "medium" };
+}
+
+function makeCacheKey(url) {
+  return url;
+}
+
+function readFromCache(cacheKey) {
+  const cached = requestState.cache.get(cacheKey);
+  if (!cached) return null;
+  if (runtime.nowImpl() >= cached.expiresAt) {
+    requestState.cache.delete(cacheKey);
+    return null;
+  }
+  return cached.value;
+}
+
+function writeToCache(cacheKey, value, ttlMs) {
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0) return;
+  requestState.cache.set(cacheKey, {
+    value,
+    expiresAt: runtime.nowImpl() + ttlMs,
+  });
+}
+
+function resolvePriority(priority) {
+  if (priority === "high" || priority === "medium" || priority === "low") {
+    return priority;
+  }
+  return "medium";
+}
+
+async function acquireNetworkSlot(priority = "medium") {
+  if (requestState.activeCount < runtime.maxConcurrentRequests) {
+    requestState.activeCount += 1;
+    return;
+  }
+  const queue = requestState.waiters[resolvePriority(priority)];
+  await new Promise((resolve) => queue.push(resolve));
+  requestState.activeCount += 1;
+}
+
+function releaseNetworkSlot() {
+  requestState.activeCount = Math.max(0, requestState.activeCount - 1);
+  const waiter =
+    requestState.waiters.high.shift() ||
+    requestState.waiters.medium.shift() ||
+    requestState.waiters.low.shift();
+  if (waiter) waiter();
+}
+
+async function throttleBucket(bucket, throttleMs) {
+  const previous = requestState.bucketTail.get(bucket) || Promise.resolve();
+  let releaseCurrent;
+  const current = new Promise((resolve) => {
+    releaseCurrent = resolve;
+  });
+
+  requestState.bucketTail.set(
+    bucket,
+    previous.catch(() => undefined).then(() => current),
+  );
+
+  await previous.catch(() => undefined);
+
+  try {
+    if (Number.isFinite(throttleMs) && throttleMs > 0) {
+      const now = runtime.nowImpl();
+      const earliestStart =
+        (requestState.bucketLastStart.get(bucket) || 0) + throttleMs;
+      
+      // Add Jitter (0 to 15% of throttle time) to prevent thundering herd
+      const jitter = Math.random() * (throttleMs * 0.15);
+      const waitMs = (earliestStart - now) + jitter;
+      
+      if (waitMs > 0) {
+        requestStats.throttleWaitMs += waitMs;
+        await runtime.sleepImpl(waitMs);
+      }
+    }
+    requestState.bucketLastStart.set(bucket, runtime.nowImpl());
+  } finally {
+    releaseCurrent();
+    if (requestState.bucketTail.get(bucket) === current) {
+      requestState.bucketTail.delete(bucket);
+    }
+  }
+}
+
+function getCooldownRemainingMs() {
+  const now = runtime.nowImpl();
+  let remaining = requestState.cooldownUntil - now;
+  if (remaining <= 0) return 0;
+  if (remaining > MAX_CLIENT_COOLDOWN_MS) {
+    requestState.cooldownUntil = now + MAX_CLIENT_COOLDOWN_MS;
+    return MAX_CLIENT_COOLDOWN_MS;
+  }
+  return remaining;
+}
+
+/**
+ * RFC 7231 Retry-After: delay-seconds OR HTTP-date.
+ * Numeric headers must not be interpreted as ms; cap absurd multi-hour delays for UX.
+ */
+function parseRetryAfterToMs(rawHeader) {
+  if (rawHeader == null || rawHeader === "") return 0;
+  const trimmed = String(rawHeader).trim();
+  if (!trimmed) return 0;
+
+  if (/^\d+$/.test(trimmed)) {
+    const sec = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(sec) || sec <= 0) return 0;
+    const cappedSec = Math.min(sec, Math.floor(MAX_CLIENT_COOLDOWN_MS / 1000));
+    return cappedSec * 1000;
+  }
+
+  const targetMs = Date.parse(trimmed);
+  if (Number.isFinite(targetMs)) {
+    const delta = targetMs - runtime.nowImpl();
+    const ms = Math.max(0, delta);
+    return Math.min(ms, MAX_CLIENT_COOLDOWN_MS);
+  }
+
+  return 0;
+}
+
+function bumpRateLimitCooldown(retryAfterHeader) {
+  const headerValue =
+    typeof retryAfterHeader === "function"
+      ? retryAfterHeader()
+      : retryAfterHeader;
+  const retryAfterMs = parseRetryAfterToMs(headerValue);
+  const strikeMs = Math.min(
+    MAX_RATE_LIMIT_COOLDOWN_MS,
+    runtime.rateLimitCooldownMs * 2 ** requestState.rateLimitStrikeCount,
+  );
+  requestState.rateLimitStrikeCount = Math.min(
+    requestState.rateLimitStrikeCount + 1,
+    8,
+  );
+  const cooldownMs = Math.min(
+    MAX_CLIENT_COOLDOWN_MS,
+    Math.max(strikeMs, retryAfterMs),
+  );
+  const now = runtime.nowImpl();
+  requestState.cooldownUntil = Math.max(
+    requestState.cooldownUntil,
+    now + cooldownMs,
+  );
+  return cooldownMs;
+}
 
 export function setGameBananaRuntime(overrides = {}) {
   if (typeof overrides.fetchImpl === "function") {
@@ -73,8 +353,25 @@ export function setGameBananaRuntime(overrides = {}) {
   ) {
     runtime.retryCount = overrides.retryCount;
   }
+  if (
+    Number.isInteger(overrides.maxConcurrentRequests) &&
+    overrides.maxConcurrentRequests >= 1 &&
+    overrides.maxConcurrentRequests <= 16
+  ) {
+    runtime.maxConcurrentRequests = overrides.maxConcurrentRequests;
+  }
+  if (
+    Number.isFinite(overrides.rateLimitCooldownMs) &&
+    overrides.rateLimitCooldownMs >= 500 &&
+    overrides.rateLimitCooldownMs <= MAX_RATE_LIMIT_COOLDOWN_MS
+  ) {
+    runtime.rateLimitCooldownMs = overrides.rateLimitCooldownMs;
+  }
   if (typeof overrides.nowImpl === "function") {
     runtime.nowImpl = overrides.nowImpl;
+  }
+  if (overrides.resetState) {
+    resetGameBananaRequestState();
   }
 }
 
@@ -373,10 +670,9 @@ export async function fetchGbFeaturedMods(gbGameId) {
   const entries = [...bucketMap.values()];
   const modIds = entries.map((e) => toIntegerOr(0, e.record._idRow)).filter(Boolean);
 
-  const hydrated = await Promise.all(
-    modIds.map((id) =>
-      fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`).catch(() => null),
-    ),
+  // Cap parallel ProfilePage calls: uncapped Promise.all + Subfeed was a common 429 burst on game switch.
+  const hydrated = await runWithConcurrencyLimit(modIds, 2, async (id) =>
+    fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`).catch(() => null),
   );
 
   const profileMap = new Map();
@@ -416,8 +712,12 @@ async function fetchBrowseRecords(
     records.every((record) => record._nDownloadCount === 0);
 
   if (shouldHydrateSummaries) {
+    // Full page hydration (20× ProfilePage) was the main browse slowdown; cap rows for speed.
+    const BROWSE_ZERO_DOWNLOAD_HYDRATE_CAP = 12;
+    const rowsToHydrate = records.slice(0, BROWSE_ZERO_DOWNLOAD_HYDRATE_CAP);
     const summaryRecords = await fetchGbModsSummaries(
-      records.map((record) => record._idRow),
+      rowsToHydrate.map((record) => record._idRow),
+      { concurrency: 4 },
     );
     const summaryMap = new Map(
       summaryRecords.map((record) => [record._idRow, record]),
@@ -437,52 +737,182 @@ async function fetchBrowseRecords(
 }
 
 
-export async function fetchFromGB(url) {
-  let lastError = null;
+export async function fetchFromGB(url, options = {}) {
+  requestStats.totalCalls += 1;
+  const policy = getRequestPolicy(url);
+  const priority = resolvePriority(options.priority || policy.priority);
+  const cacheKey = options.cacheKey || makeCacheKey(url);
+  const bypassCache = options.bypassCache === true;
+  const dedupeKey = options.dedupeKey || cacheKey;
 
-  for (let attempt = 0; attempt <= runtime.retryCount; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), runtime.timeoutMs);
+  const cooldownRemainingMs = getCooldownRemainingMs();
+  if (cooldownRemainingMs > 0) {
+    requestStats.cooldownBlocks += 1;
+    throw new RateLimitError(
+      `Rate limit cooldown active. Please retry in ${Math.ceil(cooldownRemainingMs / 1000)}s.`,
+      { retryAfterMs: cooldownRemainingMs },
+    );
+  }
 
-    try {
-      const res = await runtime.fetchImpl(url, {
-        headers: { "User-Agent": "AetherManager/1.0.0" },
-        signal: controller.signal,
-      });
+  if (isBucketCircuitOpen(policy.bucket)) {
+    requestStats.circuitBlocks += 1;
+    throw new Error(`Service temporarily unavailable (circuit breaker open for ${policy.bucket}). Please try again in 30s.`);
+  }
 
-      if (!res.ok) {
-        const error = new Error(`GB API error: ${res.status}`);
-        error.status = res.status;
-        throw error;
-      }
-
-      const data = await res.json();
-      if (!data || typeof data !== "object") {
-        throw new Error("GB API returned an invalid response payload.");
-      }
-      return data;
-    } catch (error) {
-      lastError = error;
-      if (
-        attempt >= runtime.retryCount ||
-        !shouldRetryRequest(error, error.status)
-      ) {
-        throw error;
-      }
-      await runtime.sleepImpl(250 * (attempt + 1));
-    } finally {
-      clearTimeout(timeout);
+  if (!bypassCache) {
+    const cached = readFromCache(cacheKey);
+    if (cached != null) {
+      requestStats.cacheHits += 1;
+      return cached;
     }
   }
 
-  throw lastError || new Error("GB API request failed.");
+  const inFlight = requestState.inFlight.get(dedupeKey);
+  if (inFlight) {
+    requestStats.dedupeHits += 1;
+    return inFlight;
+  }
+
+  const fetchPromise = (async () => {
+    await throttleBucket(policy.bucket, policy.throttleMs);
+    await acquireNetworkSlot(priority);
+
+    try {
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= runtime.retryCount; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), runtime.timeoutMs);
+        const startTime = runtime.nowImpl();
+
+        try {
+          requestStats.networkCalls += 1;
+          const res = await runtime.fetchImpl(url, {
+            headers: { "User-Agent": "AetherManager/1.0.0" },
+            signal: controller.signal,
+          });
+
+          const latency = runtime.nowImpl() - startTime;
+          requestStats.latency.totalMs += latency;
+          requestStats.latency.count += 1;
+          requestStats.latency.avgMs = Math.round(requestStats.latency.totalMs / requestStats.latency.count);
+
+          if (!res.ok) {
+            if (res.status === 429 || res.status === 1015) {
+              requestStats.rateLimitResponses += 1;
+              const cooldownMs = bumpRateLimitCooldown(
+                typeof res.headers?.get === "function"
+                  ? res.headers.get("retry-after")
+                  : null,
+              );
+              throw new RateLimitError("GameBanana rate limit reached.", {
+                retryAfterMs: cooldownMs,
+              });
+            }
+
+            const error = new Error(`GB API error: ${res.status}`);
+            error.status = res.status;
+            throw error;
+          }
+
+          recordBucketSuccess(policy.bucket);
+          requestState.rateLimitStrikeCount = 0;
+          const data = await res.json();
+          if (!data || typeof data !== "object") {
+            throw new Error("GB API returned an invalid response payload.");
+          }
+          writeToCache(cacheKey, data, policy.ttlMs);
+          return data;
+        } catch (error) {
+          lastError = error;
+          if (error instanceof RateLimitError) {
+            throw error;
+          }
+
+          // Non-rate-limit errors count towards circuit failure
+          recordBucketFailure(policy.bucket);
+
+          if (
+            attempt >= runtime.retryCount ||
+            !shouldRetryRequest(error, error.status)
+          ) {
+            throw error;
+          }
+          
+          // Exponential backoff with Jitter
+          const baseDelay = 300 * (attempt + 1);
+          const jitter = Math.random() * 200;
+          await runtime.sleepImpl(baseDelay + jitter);
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+
+      throw lastError || new Error("GB API request failed.");
+    } finally {
+      releaseNetworkSlot();
+    }
+  })();
+
+  requestState.inFlight.set(dedupeKey, fetchPromise);
+
+  try {
+    return await fetchPromise;
+  } finally {
+    if (requestState.inFlight.get(dedupeKey) === fetchPromise) {
+      requestState.inFlight.delete(dedupeKey);
+    }
+  }
+}
+
+export function getGameBananaRequestStats() {
+  return {
+    ...requestStats,
+    inFlight: requestState.inFlight.size,
+    cacheEntries: requestState.cache.size,
+    cooldownRemainingMs: getCooldownRemainingMs(),
+    maxConcurrentRequests: runtime.maxConcurrentRequests,
+    queuedHigh: requestState.waiters.high.length,
+    queuedMedium: requestState.waiters.medium.length,
+    queuedLow: requestState.waiters.low.length,
+    rateLimitStrikeCount: requestState.rateLimitStrikeCount,
+  };
+}
+
+/**
+ * Dev/testing: clear client-side rate-limit cooldown and exponential strike counter.
+ * Does not clear the response cache or cancel in-flight requests.
+ */
+export function resetGameBananaRateLimitState() {
+  requestState.cooldownUntil = 0;
+  requestState.rateLimitStrikeCount = 0;
+}
+
+async function runWithConcurrencyLimit(items, maxConcurrent, worker) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  const results = new Array(items.length);
+  let cursor = 0;
+
+  const workers = Array.from({
+    length: Math.max(1, Math.min(maxConcurrent, items.length)),
+  }).map(async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
 }
 
 export async function fetchGbMod(gamebananaId) {
   const id = assertInteger(gamebananaId, "gamebananaId", { min: 1 });
   const [profileData, filesData] = await Promise.all([
-    fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`),
-    fetchFromGB(`${GB_API}/Mod/${id}/Files`).catch((err) => {
+    fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`, { priority: "high" }),
+    fetchFromGB(`${GB_API}/Mod/${id}/Files`, { priority: "high" }).catch((err) => {
       logger.warn(`Failed to fetch files for mod ${id}`, err.message);
       return [];
     }),
@@ -500,17 +930,24 @@ export async function fetchGbMod(gamebananaId) {
   return normalizeGbModForCache(rawData);
 }
 
-export async function fetchGbModsBatch(ids) {
+export async function fetchGbModsBatch(ids, options = {}) {
   if (!ids || ids.length === 0) return [];
   const validIds = assertIntegerArray(ids, "ids");
+  const uniqueIds = [...new Set(validIds)];
+  const priority = resolvePriority(options.priority || "low");
+  const perItemConcurrency = Number.isInteger(options.concurrency)
+    ? Math.max(1, Math.min(8, options.concurrency))
+    : 2;
 
-  const results = await Promise.all(
-    validIds.map(async (id) => {
+  const results = await runWithConcurrencyLimit(uniqueIds, perItemConcurrency, async (id) => {
       try {
-        const [profileData, filesData] = await Promise.all([
-          fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`),
-          fetchFromGB(`${GB_API}/Mod/${id}/Files`).catch(() => []),
-        ]);
+        // Sequential Profile then Files keeps peak concurrency low (parallel per mod was 2× fan-out).
+        const profileData = await fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`, {
+          priority,
+        });
+        const filesData = await fetchFromGB(`${GB_API}/Mod/${id}/Files`, {
+          priority,
+        }).catch(() => []);
 
         if (!profileData) return null;
 
@@ -523,21 +960,25 @@ export async function fetchGbModsBatch(ids) {
         logger.warn(`Batch update fetch failed for mod ${id}`, error.message);
         return null;
       }
-    }),
-  );
+    });
 
   return results.filter(Boolean);
 }
 
-export async function fetchGbModsSummaries(ids) {
+export async function fetchGbModsSummaries(ids, options = {}) {
   if (!ids || ids.length === 0) return [];
   const validIds = assertIntegerArray(ids, "ids");
+  const priority = resolvePriority(options.priority || "medium");
+  const perItemConcurrency = Number.isInteger(options.concurrency)
+    ? Math.max(1, Math.min(8, options.concurrency))
+    : 6;
 
-  const results = await Promise.all(
-    validIds.map(async (id) => {
+  const results = await runWithConcurrencyLimit(validIds, perItemConcurrency, async (id) => {
       try {
         // Use the v11 dedicated ProfilePage endpoint
-        const data = await fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`);
+        const data = await fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`, {
+          priority,
+        });
         return normalizeGbModForCache(data);
       } catch (error) {
         logger.warn(
@@ -546,8 +987,7 @@ export async function fetchGbModsSummaries(ids) {
         );
         return null;
       }
-    }),
-  );
+    });
 
   return results.filter(Boolean);
 }
@@ -721,9 +1161,16 @@ export async function browseGbMods(args = {}) {
   const featuredOnly = !!args.featuredOnly;
   const characterSkins = !!args.characterSkins;
   const hideNsfw = !!args.hideNsfw;
+  /** When false, skip N× ProfilePage fixups if Index returns all zero downloads (much faster; counts rely on Index). */
+  const hydrateZeroDownloadCounts = args.hydrateZeroDownloadCounts !== false;
 
   const browseFields =
     "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_tsDateModified,_sProfileUrl,_bWasFeatured,_aTags,_sVersion,_aSubCategory,_bHasContentRatings";
+
+  // v11 Search endpoint can be picky about certain fields (like content ratings or subcategories)
+  // causing 400 errors if they aren't part of the search index metadata.
+  const searchFields =
+    "name,_aPreviewMedia,_aSubmitter,_nLikeCount,_nDownloadCount,_nViewCount,_tsDateAdded,_tsDateUpdated,_tsDateModified,_sProfileUrl,_bWasFeatured,_aTags,_sVersion";
 
   // Accept full Generic_* aliases directly OR legacy shorthand keys
   const sortAliasMap = {
@@ -760,7 +1207,7 @@ export async function browseGbMods(args = {}) {
     url = `${GB_API}/Mod/Index?_aFilters[Generic_Game]=${gbGameId}&_aFilters[Generic_Submitter]=${submitterId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
   } else if (hasManualSearch) {
     const combinedQuery = [context, search].filter(Boolean).join(" ");
-    url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
+    url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(combinedQuery)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(searchFields)}`;
   } else if (hasCategoryContext) {
     const charName = context.trim();
     const catId = await resolveCharCategory(gbGameId, charName);
@@ -768,7 +1215,7 @@ export async function browseGbMods(args = {}) {
     if (catId) {
       url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${catId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
     } else {
-      url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvProperties=${encodeURIComponent(browseFields)}`;
+      url = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gbGameId}&_sSearchString=${encodeURIComponent(charName)}&_nPage=${page}&_nPerpage=${perPage}${sortStr}&_csvFields=${encodeURIComponent(searchFields)}`;
     }
   } else {
     // Characters tab with no specific character selected: scope to the root
@@ -783,7 +1230,7 @@ export async function browseGbMods(args = {}) {
 
   logger.debug("GB API request", url);
   const { records, total } = await fetchBrowseRecords(url, {
-    hydrateZeroDownloadCounts: true,
+    hydrateZeroDownloadCounts,
   });
 
   return { records, total };
@@ -828,3 +1275,4 @@ export async function fetchGbSubfeed(args = {}) {
 
   return { records, total };
 }
+

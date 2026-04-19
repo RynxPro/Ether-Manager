@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Plus, Search, Package, X, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy } from "lucide-react";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
@@ -11,8 +11,16 @@ import {
   findMatchingLibraryMod,
   getMissingPresetMods,
 } from "../lib/presetMatching";
+import {
+  thumbFromGbMap,
+  isGbThumbResolved,
+  thumbnailUrlFromGbModItem,
+} from "../lib/gbThumbMap";
+
 export default function PresetDetailModal({
   preset: initialPreset,
+  /** Thumbnails already loaded on the Presets grid — reuse to avoid duplicate GB batch calls */
+  initialGbData = {},
   importerPath,
   onClose,
   onUpdated,
@@ -29,7 +37,7 @@ export default function PresetDetailModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [gbData, setGbData] = useState({});
+  const [gbData, setGbData] = useState(() => ({ ...initialGbData }));
 
   // Edit mode state
   const [editName, setEditName] = useState(preset.name);
@@ -42,8 +50,10 @@ export default function PresetDetailModal({
   const { mods: loadedMods, loading: loadingLibrary } = useLoadGameMods(game.id, true);
   const [allLibraryMods, setAllLibraryMods] = useState([]);
   const [addSearch, setAddSearch] = useState("");
+  const isEditModeRef = useRef(isEditMode);
+  isEditModeRef.current = isEditMode;
 
-  const syncLibraryState = useCallback(async () => {
+  useEffect(() => {
     const libraryMods = Array.isArray(loadedMods) ? loadedMods : [];
     setAllLibraryMods(libraryMods);
 
@@ -52,78 +62,121 @@ export default function PresetDetailModal({
     }
 
     // SELF-HEALING: If preset mods are missing gamebananaId, try to find them in the loaded library
-    let needsUpdate = false;
-    const healedMods = preset.mods.map(pm => {
-      if (!pm.gamebananaId || pm.character === "Unassigned") {
-        const libraryMod = findMatchingLibraryMod(libraryMods, pm);
-        if (libraryMod) {
-          let updated = { ...pm };
-          const classifiedCharacter = getModDisplayCharacter(libraryMod);
-          if (libraryMod.gamebananaId) {
-            updated.gamebananaId = libraryMod.gamebananaId;
+    setPreset((currentPreset) => {
+      let needsUpdate = false;
+      const healedMods = currentPreset.mods.map((pm) => {
+        if (!pm.gamebananaId || pm.character === "Unassigned") {
+          const libraryMod = findMatchingLibraryMod(libraryMods, pm);
+          if (libraryMod) {
+            let updated = { ...pm };
+            const classifiedCharacter = getModDisplayCharacter(libraryMod);
+            if (libraryMod.gamebananaId) {
+              updated.gamebananaId = libraryMod.gamebananaId;
+            }
+            if (classifiedCharacter !== pm.character) {
+              updated.character = classifiedCharacter;
+            }
+            if (libraryMod.category && libraryMod.category !== pm.category) {
+              updated.category = libraryMod.category;
+            }
+            needsUpdate = true;
+            return updated;
           }
-          if (classifiedCharacter !== pm.character) {
-            updated.character = classifiedCharacter;
-          }
-          if (libraryMod.category && libraryMod.category !== pm.category) {
-            updated.category = libraryMod.category;
-          }
-          needsUpdate = true;
-          return updated;
         }
-      }
-      return pm;
-    });
+        return pm;
+      });
 
-    if (needsUpdate) {
-      setPreset((currentPreset) => ({
+      if (!needsUpdate) {
+        return currentPreset;
+      }
+      return {
         ...currentPreset,
         mods: healedMods,
-      }));
-      setEditMods(healedMods);
-    }
+      };
+    });
 
-    // Fetch GB data for thumbnails in the library panel
-    const gbIds = libraryMods.map(m => m.gamebananaId).filter(Boolean);
-    if (gbIds.length > 0) {
-      const result = await window.electronMods.fetchGbModsBatch(gbIds);
-      if (result.success && result.data) {
-        const dataMap = {};
-        result.data.forEach(item => {
-          const thumb = item._aPreviewMedia?._aImages?.[0];
-          dataMap[item._idRow] = {
-            thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
-          };
-        });
-        setGbData(prev => ({ ...prev, ...dataMap }));
+    setEditMods((prevEdit) => {
+      if (!isEditModeRef.current) {
+        return prevEdit;
       }
-    }
-  }, [loadedMods, preset.mods]);
+      const libraryModsInner = Array.isArray(loadedMods) ? loadedMods : [];
+      let needsUpdate = false;
+      const healedMods = prevEdit.map((pm) => {
+        if (!pm.gamebananaId || pm.character === "Unassigned") {
+          const libraryMod = findMatchingLibraryMod(libraryModsInner, pm);
+          if (libraryMod) {
+            let updated = { ...pm };
+            const classifiedCharacter = getModDisplayCharacter(libraryMod);
+            if (libraryMod.gamebananaId) {
+              updated.gamebananaId = libraryMod.gamebananaId;
+            }
+            if (classifiedCharacter !== pm.character) {
+              updated.character = classifiedCharacter;
+            }
+            if (libraryMod.category && libraryMod.category !== pm.category) {
+              updated.category = libraryMod.category;
+            }
+            needsUpdate = true;
+            return updated;
+          }
+        }
+        return pm;
+      });
+      return needsUpdate ? healedMods : prevEdit;
+    });
+  }, [loadedMods]);
+
+  const gbIdsNeeded = useMemo(() => {
+    const presetIds = preset.mods.map((m) => m.gamebananaId).filter(Boolean);
+    const libIds = (Array.isArray(loadedMods) ? loadedMods : [])
+      .map((m) => m.gamebananaId)
+      .filter(Boolean);
+    return [...new Set([...presetIds, ...libIds])].map(Number).filter((n) => n > 0);
+  }, [preset.mods, loadedMods]);
+
+  /** IDs we still need to fetch thumbs for (depends on gbData so we recompute after merges) */
+  const gbThumbFetchKey = useMemo(() => {
+    const missing = gbIdsNeeded.filter((id) => !isGbThumbResolved(gbData, id));
+    return missing.sort((a, b) => a - b).join(",");
+  }, [gbIdsNeeded, gbData]);
 
   useEffect(() => {
-    syncLibraryState();
-  }, [syncLibraryState]);
+    if (!gbThumbFetchKey) return;
 
-  // Fetch GB data for mods ALREADY in the preset
-  useEffect(() => {
-    const fetchPresetGbData = async () => {
-      const gbIds = preset.mods.map(m => m.gamebananaId).filter(Boolean);
-      if (gbIds.length === 0) return;
-      
-      const result = await window.electronMods.fetchGbModsBatch(gbIds);
-      if (result.success && result.data) {
-        const dataMap = {};
-        result.data.forEach(item => {
-          const thumb = item._aPreviewMedia?._aImages?.[0];
-          dataMap[item._idRow] = {
-            thumbnailUrl: thumb ? `${thumb._sBaseUrl}/${thumb._sFile}` : null
-          };
-        });
-        setGbData(prev => ({ ...prev, ...dataMap }));
-      }
+    const missing = gbThumbFetchKey
+      .split(",")
+      .map((s) => Number(s))
+      .filter((n) => n > 0);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const result = await window.electronMods.fetchGbModsBatch(missing, {
+        priority: "low",
+        concurrency: 2,
+      });
+      if (cancelled || !result.success || !result.data) return;
+      const dataMap = {};
+      result.data.forEach((item) => {
+        dataMap[item._idRow] = {
+          thumbnailUrl: thumbnailUrlFromGbModItem(item),
+        };
+      });
+      setGbData((prev) => {
+        const next = { ...prev, ...dataMap };
+        // Prevent refetch loops when GB omits a mod or returns null thumb — mark id as loaded.
+        for (const id of missing) {
+          if (next[id] == null && next[String(id)] == null) {
+            next[id] = { thumbnailUrl: null };
+          }
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
     };
-    fetchPresetGbData();
-  }, [preset.mods]);
+  }, [gbThumbFetchKey]);
 
   const handleToggleEdit = async () => {
     if (isEditMode) {
@@ -399,9 +452,9 @@ export default function PresetDetailModal({
                         className="relative flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 group shadow-sm"
                       >
                         <div className="w-24 h-14 rounded-xl overflow-hidden bg-background border border-white/5 shrink-0 relative shadow-inner">
-                          {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
+                          {mod.customThumbnail || thumbFromGbMap(gbData, mod.gamebananaId) ? (
                             <img 
-                              src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
+                              src={mod.customThumbnail ? `file://${mod.customThumbnail}` : thumbFromGbMap(gbData, mod.gamebananaId)} 
                               alt="" 
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                             />
@@ -484,9 +537,9 @@ export default function PresetDetailModal({
                                 className="flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-white/5 text-left transition-all group/add border border-transparent hover:border-white/5"
                               >
                                 <div className="w-20 h-11 rounded-lg overflow-hidden bg-surface border border-white/10 shrink-0 relative shadow-md">
-                                  {mod.customThumbnail || gbData[mod.gamebananaId]?.thumbnailUrl ? (
+                                  {mod.customThumbnail || thumbFromGbMap(gbData, mod.gamebananaId) ? (
                                     <img 
-                                      src={mod.customThumbnail ? `file://${mod.customThumbnail}` : gbData[mod.gamebananaId]?.thumbnailUrl} 
+                                      src={mod.customThumbnail ? `file://${mod.customThumbnail}` : thumbFromGbMap(gbData, mod.gamebananaId)} 
                                       alt="" 
                                       className="w-full h-full object-cover group-hover/add:scale-110 transition-transform duration-700" 
                                     />

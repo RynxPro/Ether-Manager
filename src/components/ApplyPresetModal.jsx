@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { thumbnailUrlFromGbModItem, thumbFromGbMap } from "../lib/gbThumbMap";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
 import { StatePanel } from "./ui/StatePanel";
@@ -76,11 +77,8 @@ export default function ApplyPresetModal({
           if (batch.success && batch.data) {
             const dataMap = {};
             batch.data.forEach((item) => {
-              const thumb = item._aPreviewMedia?._aImages?.[0];
               dataMap[item._idRow] = {
-                thumbnailUrl: thumb
-                  ? `${thumb._sBaseUrl}/${thumb._sFile}`
-                  : null,
+                thumbnailUrl: thumbnailUrlFromGbModItem(item),
               };
             });
             setGbData(dataMap);
@@ -316,7 +314,7 @@ function Section({ icon, label, color, items, gbData }) {
       <div className="flex flex-col gap-2">
         {items.map((item, i) => {
           const thumb =
-            item.customThumbnail || gbData[item.gamebananaId]?.thumbnailUrl;
+            item.customThumbnail || thumbFromGbMap(gbData, item.gamebananaId);
           return (
             <div
               key={i}

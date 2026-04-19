@@ -47,6 +47,7 @@ export default function LibraryView({ isActive }) {
   const [updatesMap, setUpdatesMap] = useState({});
   const [showDisableAllConfirm, setShowDisableAllConfirm] = useState(false);
   const [sharedImporterGames, setSharedImporterGames] = useState([]);
+  const [apiNotice, setApiNotice] = useState("");
 
   // Use fetch cache hook for update checks
   const { fetchModsBatch } = useFetchCache();
@@ -57,6 +58,8 @@ export default function LibraryView({ isActive }) {
 
   useEffect(() => {
     const checkUpdates = async () => {
+      // Library is always mounted but often hidden; do not compete with Browse/Presets on startup.
+      if (!isActive) return;
       if (!isOnline || !mods || mods.length === 0) return;
 
       const modsWithId = mods.filter((m) => m.gamebananaId);
@@ -64,7 +67,24 @@ export default function LibraryView({ isActive }) {
       if (gbIds.length === 0) return;
 
       try {
-        const result = await fetchModsBatch(gbIds);
+        const result = await fetchModsBatch(gbIds, {
+          priority: "low",
+          concurrency: 2,
+        });
+        if (!result.success) {
+          if (result.code === "RATE_LIMITED") {
+            const retryInSeconds = Math.max(
+              1,
+              Math.ceil((Number(result.retryAfterMs) || 5000) / 1000),
+            );
+            setApiNotice(
+              `GameBanana update checks are temporarily paused due to rate limits. Retrying in about ${retryInSeconds}s.`,
+            );
+          }
+          return;
+        }
+
+        setApiNotice("");
         if (result.success && result.data) {
           const newUpdatesMap = {};
 
@@ -103,7 +123,7 @@ export default function LibraryView({ isActive }) {
     };
 
     checkUpdates();
-  }, [fetchModsBatch, mods, isOnline, game.id]);
+  }, [isActive, fetchModsBatch, mods, isOnline, game.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +311,7 @@ export default function LibraryView({ isActive }) {
               Untagged legacy mods may be hidden or scoped away until they are re-tagged for a specific game.
             </StatusBanner>
           )}
+          {apiNotice && <StatusBanner tone="warning">{apiNotice}</StatusBanner>}
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <nav className="flex flex-wrap items-center gap-2">
