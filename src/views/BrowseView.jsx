@@ -68,7 +68,10 @@ function formatGbApiError(errorLike, fallback = "Request failed.") {
   const code = errorLike?.code;
   const retryAfterMs = Number(errorLike?.retryAfterMs);
   if (code === "RATE_LIMITED") {
-    const seconds = Math.max(1, Math.ceil((Number.isFinite(retryAfterMs) ? retryAfterMs : 5000) / 1000));
+    const seconds = Math.max(
+      1,
+      Math.ceil((Number.isFinite(retryAfterMs) ? retryAfterMs : 5000) / 1000),
+    );
     return `GameBanana is rate-limiting requests. Cooling down for about ${seconds}s before retrying.`;
   }
   return errorLike?.error || errorLike?.message || fallback;
@@ -183,13 +186,18 @@ export default function BrowseView() {
         setSuggestions(Array.isArray(results) ? results : []);
       })
       .catch(() => setSuggestions([]));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [debouncedSearchQuery, game.gbGameId]);
 
   // Close suggestion dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target)
+      ) {
         setShowSuggestions(false);
       }
     };
@@ -363,25 +371,31 @@ export default function BrowseView() {
     [game.id],
   );
 
-  const handleToggleCreatorBookmark = useCallback((creator) => {
-    setBookmarkedCreatorsByGame((prev) => {
-      const gameList = prev[game.id] || [];
-      const index = gameList.findIndex((c) => c._idRow === creator._idRow);
-      let newList;
-      if (index >= 0) {
-        newList = [...gameList.slice(0, index), ...gameList.slice(index + 1)];
-      } else {
-        newList = [creator, ...gameList];
-      }
-      const newMap = { ...prev, [game.id]: newList };
-      if (window.electronConfig) {
-        window.electronConfig.setConfig({ bookmarkedCreators: newMap });
-      }
-      return newMap;
-    });
-  }, [game.id]);
+  const handleToggleCreatorBookmark = useCallback(
+    (creator) => {
+      setBookmarkedCreatorsByGame((prev) => {
+        const gameList = prev[game.id] || [];
+        const index = gameList.findIndex((c) => c._idRow === creator._idRow);
+        let newList;
+        if (index >= 0) {
+          newList = [...gameList.slice(0, index), ...gameList.slice(index + 1)];
+        } else {
+          newList = [creator, ...gameList];
+        }
+        const newMap = { ...prev, [game.id]: newList };
+        if (window.electronConfig) {
+          window.electronConfig.setConfig({ bookmarkedCreators: newMap });
+        }
+        return newMap;
+      });
+    },
+    [game.id],
+  );
 
-  const { mods: allMods, loadMods: refreshInstalledModsInfo } = useLoadGameMods(game.id, true);
+  const { mods: allMods, loadMods: refreshInstalledModsInfo } = useLoadGameMods(
+    game.id,
+    true,
+  );
 
   useEffect(() => {
     if (!allMods) return;
@@ -409,7 +423,6 @@ export default function BrowseView() {
     });
     setInstalledModsInfo(infoMap);
   }, [allMods]);
-
 
   // Fetch mods from GameBanana when params change (API Tabs ONLY)
   const fetchMods = useCallback(async () => {
@@ -467,7 +480,9 @@ export default function BrowseView() {
         setMods(result.records);
         setTotal(result.total);
       } else {
-        setError(formatGbApiError(result, "Failed to load mods from GameBanana."));
+        setError(
+          formatGbApiError(result, "Failed to load mods from GameBanana."),
+        );
       }
     } catch (err) {
       if (fetchId !== browseFetchIdRef.current) return;
@@ -524,7 +539,11 @@ export default function BrowseView() {
     setLoading(true);
     setError(null);
 
-    const mergeBookmarkSummaries = (orderedIds, existingCatalog, fetchedMods) => {
+    const mergeBookmarkSummaries = (
+      orderedIds,
+      existingCatalog,
+      fetchedMods,
+    ) => {
       const summaryMap = new Map(
         (fetchedMods || []).map((mod) => [mod._idRow, mod]),
       );
@@ -598,7 +617,13 @@ export default function BrowseView() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, currentBookmarkIds, bookmarkSignature, game.id, visibleBookmarkIds]);
+  }, [
+    activeTab,
+    currentBookmarkIds,
+    bookmarkSignature,
+    game.id,
+    visibleBookmarkIds,
+  ]);
 
   // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
   useEffect(() => {
@@ -643,15 +668,33 @@ export default function BrowseView() {
     const savedMods = savedModsCatalog[game.id] || [];
     const searchTarget = debouncedSearchQuery.toLowerCase();
     const filtered = searchTarget
-      ? savedMods.filter((m) => (m._sName || "").toLowerCase().includes(searchTarget))
+      ? savedMods.filter((m) =>
+          (m._sName || "").toLowerCase().includes(searchTarget),
+        )
       : savedMods;
 
     setTotal(filtered.length);
     setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
-  }, [activeTab, savedModsCatalog, game.id, debouncedSearchQuery, page, loading]);
+  }, [
+    activeTab,
+    savedModsCatalog,
+    game.id,
+    debouncedSearchQuery,
+    page,
+    loading,
+  ]);
 
   const handleInstall = useCallback(
-    async ({ characterName, gbModId, fileUrl, fileName, gbFileId, fileAddedAt, modVersion, category }) => {
+    async ({
+      characterName,
+      gbModId,
+      fileUrl,
+      fileName,
+      gbFileId,
+      fileAddedAt,
+      modVersion,
+      category,
+    }) => {
       if (!importerPath)
         throw new Error("No importer path configured. Go to Settings first.");
 
@@ -684,7 +727,11 @@ export default function BrowseView() {
 
           await refreshInstalledModsInfo(true);
         } catch (err) {
-          completeDownload(gbModId, false, err.message || "Installation failed");
+          completeDownload(
+            gbModId,
+            false,
+            err.message || "Installation failed",
+          );
         }
       })();
     },
@@ -737,40 +784,45 @@ export default function BrowseView() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
 
-  const PaginationBar = totalPages > 1 ? (
-    <div className="flex items-center justify-center gap-2">
-      <button
-        onClick={() => setPage((p) => Math.max(1, p - 1))}
-        disabled={page === 1}
-        className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
-        aria-label="Previous page"
-      >
-        <ChevronLeft size={16} />
-      </button>
-      <div className="text-sm text-text-muted px-2">
-        Page{" "}
-        <span className="text-text-primary font-bold">{page}</span>{" "}
-        of{" "}
-        <span className="text-text-primary font-bold">{totalPages}</span>
+  const PaginationBar =
+    totalPages > 1 ? (
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+          aria-label="Previous page"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <div className="text-sm text-text-muted px-2">
+          Page <span className="text-text-primary font-bold">{page}</span> of{" "}
+          <span className="text-text-primary font-bold">{totalPages}</span>
+        </div>
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+          className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+          aria-label="Next page"
+        >
+          <ChevronRight size={16} />
+        </button>
       </div>
-      <button
-        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-        disabled={page === totalPages}
-        className="ui-focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
-        aria-label="Next page"
-      >
-        <ChevronRight size={16} />
-      </button>
-    </div>
-  ) : null;
+    ) : null;
   const isSavedView = activeTab === "saved";
-  const isFiltering = activeTab !== "all" || !!debouncedSearchQuery || !!sort || featuredOnly;
-  const showFeaturedHero = activeTab === "all" && !debouncedSearchQuery && !featuredOnly;
+  const isFiltering =
+    activeTab !== "all" || !!debouncedSearchQuery || !!sort || featuredOnly;
+  const showFeaturedHero =
+    activeTab === "all" && !debouncedSearchQuery && !featuredOnly;
   const showCharacterFilter = activeTab === "characters";
   const showSortControl = activeTab !== "saved";
   const showFeaturedToggle = activeTab !== "saved";
   const hasActiveRefinements =
-    !!searchQuery || !!characterFilter || !!sort || featuredOnly || activeTab !== "all";
+    !!searchQuery ||
+    !!characterFilter ||
+    !!sort ||
+    featuredOnly ||
+    activeTab !== "all";
   const activeSearchLabel = [
     activeTab === "ui"
       ? "User Interface"
@@ -847,7 +899,8 @@ export default function BrowseView() {
                     <Icon
                       size={16}
                       className={cn(
-                        isActive && "drop-shadow-[0_0_8px_var(--color-primary)]",
+                        isActive &&
+                          "drop-shadow-[0_0_8px_var(--color-primary)]",
                       )}
                     />
                     <span className="text-[12px] font-black uppercase tracking-[0.15em]">
@@ -866,7 +919,10 @@ export default function BrowseView() {
           </div>
 
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="relative w-full xl:max-w-xl 2xl:max-w-2xl" ref={searchContainerRef}>
+            <div
+              className="relative w-full xl:max-w-xl 2xl:max-w-2xl"
+              ref={searchContainerRef}
+            >
               <Input
                 icon={Search}
                 placeholder={searchPlaceholder}
@@ -877,12 +933,16 @@ export default function BrowseView() {
                   setShowSuggestions(true);
                   setActiveSuggestionIdx(-1);
                 }}
-                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onFocus={() =>
+                  suggestions.length > 0 && setShowSuggestions(true)
+                }
                 onKeyDown={(e) => {
                   if (!showSuggestions || suggestions.length === 0) return;
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
-                    setActiveSuggestionIdx((i) => Math.min(i + 1, suggestions.length - 1));
+                    setActiveSuggestionIdx((i) =>
+                      Math.min(i + 1, suggestions.length - 1),
+                    );
                   } else if (e.key === "ArrowUp") {
                     e.preventDefault();
                     setActiveSuggestionIdx((i) => Math.max(i - 1, -1));
@@ -912,7 +972,9 @@ export default function BrowseView() {
                   >
                     <div className="px-2 py-1.5 border-b border-border flex items-center gap-1.5">
                       <Sparkles size={10} className="text-primary opacity-60" />
-                      <span className="text-[10px] text-text-muted uppercase tracking-widest font-semibold">Suggestions</span>
+                      <span className="text-[10px] text-text-muted uppercase tracking-widest font-semibold">
+                        Suggestions
+                      </span>
                     </div>
                     {suggestions.map((s, i) => (
                       <button
@@ -973,23 +1035,31 @@ export default function BrowseView() {
               {showFeaturedToggle && (
                 <button
                   type="button"
-                  onClick={() => { setFeaturedOnly((v) => !v); setPage(1); }}
+                  onClick={() => {
+                    setFeaturedOnly((v) => !v);
+                    setPage(1);
+                  }}
                   className={cn(
                     "ui-focus-ring inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-[11px] font-black uppercase tracking-[0.18em] transition-all",
                     featuredOnly
                       ? "border-yellow-500/40 bg-yellow-500/15 text-yellow-400"
-                      : "border-white/10 bg-white/5 text-text-muted hover:border-white/20 hover:text-text-primary"
+                      : "border-white/10 bg-white/5 text-text-muted hover:border-white/20 hover:text-text-primary",
                   )}
                   title="Show only GameBanana staff-featured mods"
                 >
-                  <Star size={13} className={cn(featuredOnly && "fill-yellow-400")} />
+                  <Star
+                    size={13}
+                    className={cn(featuredOnly && "fill-yellow-400")}
+                  />
                   Featured
                 </button>
               )}
             </div>
           </div>
 
-          {(activeTab === "saved" || (showCharacterFilter && characterFilter) || (showSortControl && sort)) && (
+          {(activeTab === "saved" ||
+            (showCharacterFilter && characterFilter) ||
+            (showSortControl && sort)) && (
             <div className="flex flex-wrap items-center gap-2 border-t border-white/6 pt-3">
               {activeTab === "saved" && (
                 <div className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">
@@ -1003,7 +1073,8 @@ export default function BrowseView() {
               )}
               {showSortControl && sort && (
                 <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
-                  {SORT_OPTIONS.find((option) => option.value === sort)?.label || "Latest"}
+                  {SORT_OPTIONS.find((option) => option.value === sort)
+                    ?.label || "Latest"}
                 </div>
               )}
             </div>
@@ -1052,13 +1123,12 @@ export default function BrowseView() {
 
           return (
             <div className="mb-5 w-full">
-
               <div
                 className="relative w-full h-[360px] rounded-3xl overflow-hidden border border-white/10 group cursor-pointer bg-[#0a0a0a]"
                 onClick={() => {
-                  window.electronMods
-                    ?.fetchGbMod(mod._idRow)
-                    .then((res) => { if (res.success) setInstallTarget(res.data); });
+                  window.electronMods?.fetchGbMod(mod._idRow).then((res) => {
+                    if (res.success) setInstallTarget(res.data);
+                  });
                 }}
               >
                 {/* Blurred atmospheric backdrop */}
@@ -1105,18 +1175,27 @@ export default function BrowseView() {
                         {mod._sName}
                       </h2>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleCreatorClick(mod._aSubmitter); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreatorClick(mod._aSubmitter);
+                        }}
                         className="flex items-center gap-3 group/creator w-max"
                       >
                         {mod._aSubmitter?._sAvatarUrl ? (
-                          <img src={mod._aSubmitter._sAvatarUrl} alt={mod._aSubmitter._sName} className="w-8 h-8 rounded-full object-cover border border-white/20 group-hover/creator:border-primary/60 transition-all" />
+                          <img
+                            src={mod._aSubmitter._sAvatarUrl}
+                            alt={mod._aSubmitter._sName}
+                            className="w-8 h-8 rounded-full object-cover border border-white/20 group-hover/creator:border-primary/60 transition-all"
+                          />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
                             <User size={12} className="text-white/60" />
                           </div>
                         )}
                         <div className="flex flex-col">
-                          <span className="text-[9px] uppercase tracking-[0.2em] font-black text-white/40">Creator</span>
+                          <span className="text-[9px] uppercase tracking-[0.2em] font-black text-white/40">
+                            Creator
+                          </span>
                           <span className="text-sm font-bold text-white group-hover/creator:text-primary transition-colors leading-tight">
                             {mod._aSubmitter?._sName || "Unknown"}
                           </span>
@@ -1135,13 +1214,19 @@ export default function BrowseView() {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.7, ease: "easeInOut" }}
                     className="absolute inset-y-0 right-0 w-[58%] z-10"
-                    style={{ clipPath: "polygon(12% 0%, 100% 0%, 100% 100%, 0% 100%)" }}
+                    style={{
+                      clipPath: "polygon(12% 0%, 100% 0%, 100% 100%, 0% 100%)",
+                    }}
                   >
-                    {(mod.heroImageUrl || mod.thumbnailUrl) ? (
+                    {mod.heroImageUrl || mod.thumbnailUrl ? (
                       <img
                         src={mod.heroImageUrl || mod.thumbnailUrl}
                         className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
-                        style={{ filter: "contrast(1.05) saturate(1.1) brightness(1.03)", willChange: "transform" }}
+                        style={{
+                          filter:
+                            "contrast(1.05) saturate(1.1) brightness(1.03)",
+                          willChange: "transform",
+                        }}
                         alt={mod._sName}
                         decoding="async"
                         fetchPriority="high"
@@ -1155,17 +1240,46 @@ export default function BrowseView() {
 
                 {/* Dot Navigator */}
                 <div className="absolute bottom-5 right-8 z-30 flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full">
-                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev > 0 ? prev - 1 : featuredMods.length - 1); resetHeroInterval(); }} className="text-white/50 hover:text-white transition-colors">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentHeroIndex((prev) =>
+                        prev > 0 ? prev - 1 : featuredMods.length - 1,
+                      );
+                      resetHeroInterval();
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                  >
                     <ChevronLeft size={14} strokeWidth={3} />
                   </button>
                   <div className="flex items-center gap-1.5">
                     {featuredMods.map((_, i) => (
-                      <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex(i); resetHeroInterval(); }}
-                        className={cn("rounded-full transition-all duration-300", i === currentHeroIndex ? "w-4 h-1.5 bg-primary" : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60")}
+                      <button
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentHeroIndex(i);
+                          resetHeroInterval();
+                        }}
+                        className={cn(
+                          "rounded-full transition-all duration-300",
+                          i === currentHeroIndex
+                            ? "w-4 h-1.5 bg-primary"
+                            : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60",
+                        )}
                       />
                     ))}
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setCurrentHeroIndex((prev) => prev < featuredMods.length - 1 ? prev + 1 : 0); resetHeroInterval(); }} className="text-white/50 hover:text-white transition-colors">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentHeroIndex((prev) =>
+                        prev < featuredMods.length - 1 ? prev + 1 : 0,
+                      );
+                      resetHeroInterval();
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                  >
                     <ChevronRight size={14} strokeWidth={3} />
                   </button>
                 </div>
@@ -1189,13 +1303,17 @@ export default function BrowseView() {
         })()}
 
       {/* ── SECTION: Mod Cards Grid ───────────────────────────────────────── */}
-      <div ref={gridTopRef} className="min-h-[60vh] relative w-full flex flex-col">
+      <div
+        ref={gridTopRef}
+        className="min-h-[60vh] relative w-full flex flex-col"
+      >
         {/* Rate-limit feedback banner */}
         {apiStatus.isCoolingDown && (
           <div className="mb-3 rounded-xl border border-orange-500/35 bg-orange-500/10 px-4 py-3 flex items-center gap-3 text-orange-200/95 text-[11px] font-semibold">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>
-              GameBanana is rate-limiting requests. Retrying automatically in about{" "}
+              GameBanana is rate-limiting requests. Retrying automatically in
+              about{" "}
               <span className="font-black text-orange-300">
                 {apiStatus.cooldownSecondsRemaining}s
               </span>
@@ -1216,9 +1334,7 @@ export default function BrowseView() {
         )}
 
         {/* Full skeleton only when there is nothing to show yet (avoids blanking the grid on page/sort changes) */}
-        {loading && mods.length === 0 && (
-          <StateGridSkeleton count={PER_PAGE} />
-        )}
+        {loading && mods.length === 0 && <StateGridSkeleton count={PER_PAGE} />}
 
         {/* Mod grid */}
         {!error && (!loading || mods.length > 0) && (
@@ -1253,7 +1369,10 @@ export default function BrowseView() {
                   {currentBookmarkedCreators.map((creator) => {
                     const hydrated = hydratedCreators[creator._idRow];
                     const displayCreator = hydrated ?? creator;
-                    const avatarUrl = hydrated?._sHdAvatarUrl || hydrated?._sAvatarUrl || creator._sAvatarUrl;
+                    const avatarUrl =
+                      hydrated?._sHdAvatarUrl ||
+                      hydrated?._sAvatarUrl ||
+                      creator._sAvatarUrl;
                     const isOnline = hydrated?._bIsOnline ?? false;
                     return (
                       <button
@@ -1277,10 +1396,12 @@ export default function BrowseView() {
                             )}
                           </div>
                           {/* Online indicator dot */}
-                          <span className={cn(
-                            "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background",
-                            isOnline ? "bg-green-500" : "bg-gray-600"
-                          )} />
+                          <span
+                            className={cn(
+                              "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background",
+                              isOnline ? "bg-green-500" : "bg-gray-600",
+                            )}
+                          />
                         </div>
                         <span className="block w-full truncate pt-3 text-center text-sm font-bold text-text-primary transition-colors group-hover/savedcreator:text-primary">
                           {displayCreator._sName}
@@ -1315,23 +1436,34 @@ export default function BrowseView() {
                 if (isInstalled && installedInfo.installedFiles.length > 0) {
                   hasUpdate = installedInfo.installedFiles.some((f) => {
                     // 1. Version string mismatch (if both are provided and not identical)
-                    if (f.modVersion && mod._sVersion && f.modVersion !== mod._sVersion) {
+                    if (
+                      f.modVersion &&
+                      mod._sVersion &&
+                      f.modVersion !== mod._sVersion
+                    ) {
                       return true;
                     }
 
                     // 2. File upload timestamps.
-                    // If we have precise file timestamps, check if the mod has any activity 
-                    // (either an explicit update log OR any modification like adding a new file) 
+                    // If we have precise file timestamps, check if the mod has any activity
+                    // (either an explicit update log OR any modification like adding a new file)
                     // AFTER the file we installed was uploaded.
                     if (f.fileAddedAt != null) {
-                      const latestActivity = Math.max(mod._tsDateUpdated || 0, mod._tsDateModified || 0);
+                      const latestActivity = Math.max(
+                        mod._tsDateUpdated || 0,
+                        mod._tsDateModified || 0,
+                      );
                       return latestActivity > f.fileAddedAt;
                     }
 
                     // 3. Legacy fallback: wall-clock installedAt with a 5-minute buffer.
                     if (!f.installedAt) return false;
-                    const installedDate = new Date(f.installedAt).getTime() / 1000;
-                    return (mod._tsDateUpdated || mod._tsDateModified || 0) > installedDate + 300;
+                    const installedDate =
+                      new Date(f.installedAt).getTime() / 1000;
+                    return (
+                      (mod._tsDateUpdated || mod._tsDateModified || 0) >
+                      installedDate + 300
+                    );
                   });
                 }
                 const isBookmarked = currentBookmarkIdSet.has(mod._idRow);
@@ -1372,9 +1504,7 @@ export default function BrowseView() {
             </div>
 
             {/* Pagination – bottom */}
-            {PaginationBar && (
-              <div className="mt-8 pb-8">{PaginationBar}</div>
-            )}
+            {PaginationBar && <div className="mt-8 pb-8">{PaginationBar}</div>}
           </>
         )}
       </div>
@@ -1405,7 +1535,7 @@ export default function BrowseView() {
           onClose={() => setInstallTarget(null)}
           onInstall={handleInstall}
           isBookmarked={currentBookmarkIdSet.has(installTarget._idRow)}
-         onToggleBookmark={() => handleToggleBookmark(installTarget)}
+          onToggleBookmark={() => handleToggleBookmark(installTarget)}
           onCreatorClick={handleCreatorClick}
         />
       )}

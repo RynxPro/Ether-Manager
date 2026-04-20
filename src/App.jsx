@@ -23,7 +23,9 @@ function App() {
   const setSelectedCharacter = useAppStore(
     (state) => state.setSelectedCharacter,
   );
-  const updateDownloadProgress = useAppStore((state) => state.updateDownloadProgress);
+  const updateDownloadProgress = useAppStore(
+    (state) => state.updateDownloadProgress,
+  );
   const setNsfwMode = useAppStore((state) => state.setNsfwMode);
   const setActiveGameId = useAppStore((state) => state.setActiveGameId);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -175,7 +177,9 @@ function App() {
               <PresetsView />
             </AppViewShell>
 
-            <AppViewShell isActive={activeView === "mods" && !selectedCharacter}>
+            <AppViewShell
+              isActive={activeView === "mods" && !selectedCharacter}
+            >
               <LibraryView
                 isActive={activeView === "mods" && !selectedCharacter}
               />
@@ -212,9 +216,7 @@ function App() {
       </Suspense>
       {import.meta.env.DEV && <DevNetworkMonitor />}
       {/* Production API stats monitor (hidden by default, enabled via env) */}
-      {import.meta.env.VITE_SHOW_API_STATS === "true" && (
-        <DevNetworkMonitor />
-      )}
+      {import.meta.env.VITE_SHOW_API_STATS === "true" && <DevNetworkMonitor />}
     </div>
   );
 }

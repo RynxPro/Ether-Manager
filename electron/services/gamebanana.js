@@ -40,7 +40,7 @@ const characterCategoryCache = {};
 // Root "Character Skins" category IDs per GB game ID — scopes the Characters tab
 // when no specific character sub-category is selected.
 const CHARACTER_SKINS_ROOT_CATS = {
-  8552:  17510, // Genshin Impact       -> Skins
+  8552: 17510, // Genshin Impact       -> Skins
   20357: 29524, // Wuthering Waves      -> Skins
   19567: 30305, // Zenless Zone Zero    -> Character Skins
   18366: 22633, // Honkai: Star Rail    -> Skins
@@ -170,13 +170,28 @@ function recordBucketSuccess(bucket) {
 
 function getRequestPolicy(url) {
   if (url.includes("/Util/Search/Suggestions")) {
-    return { bucket: "suggestions", throttleMs: 220, ttlMs: 20000, priority: "high" };
+    return {
+      bucket: "suggestions",
+      throttleMs: 220,
+      ttlMs: 20000,
+      priority: "high",
+    };
   }
   if (url.includes("/Game/") && url.includes("/TopSubs")) {
-    return { bucket: "featured", throttleMs: 180, ttlMs: 60000, priority: "medium" };
+    return {
+      bucket: "featured",
+      throttleMs: 180,
+      ttlMs: 60000,
+      priority: "medium",
+    };
   }
   if (url.includes("/Game/") && url.includes("/Subfeed")) {
-    return { bucket: "subfeed", throttleMs: 180, ttlMs: 35000, priority: "medium" };
+    return {
+      bucket: "subfeed",
+      throttleMs: 180,
+      ttlMs: 35000,
+      priority: "medium",
+    };
   }
   if (url.includes("/Util/Search/Results")) {
     return { bucket: "search", throttleMs: 85, ttlMs: 45000, priority: "high" };
@@ -185,12 +200,27 @@ function getRequestPolicy(url) {
     return { bucket: "browse", throttleMs: 85, ttlMs: 45000, priority: "high" };
   }
   if (url.includes("/ProfilePage")) {
-    return { bucket: "profile", throttleMs: 100, ttlMs: 90000, priority: "medium" };
+    return {
+      bucket: "profile",
+      throttleMs: 100,
+      ttlMs: 90000,
+      priority: "medium",
+    };
   }
   if (url.includes("/Files")) {
-    return { bucket: "files", throttleMs: 100, ttlMs: 90000, priority: "medium" };
+    return {
+      bucket: "files",
+      throttleMs: 100,
+      ttlMs: 90000,
+      priority: "medium",
+    };
   }
-  return { bucket: "default", throttleMs: 140, ttlMs: 45000, priority: "medium" };
+  return {
+    bucket: "default",
+    throttleMs: 140,
+    ttlMs: 45000,
+    priority: "medium",
+  };
 }
 
 function makeCacheKey(url) {
@@ -260,11 +290,11 @@ async function throttleBucket(bucket, throttleMs) {
       const now = runtime.nowImpl();
       const earliestStart =
         (requestState.bucketLastStart.get(bucket) || 0) + throttleMs;
-      
+
       // Add Jitter (0 to 15% of throttle time) to prevent thundering herd
       const jitter = Math.random() * (throttleMs * 0.15);
-      const waitMs = (earliestStart - now) + jitter;
-      
+      const waitMs = earliestStart - now + jitter;
+
       if (waitMs > 0) {
         requestStats.throttleWaitMs += waitMs;
         await runtime.sleepImpl(waitMs);
@@ -674,7 +704,9 @@ export async function fetchGbFeaturedMods(gbGameId) {
 
   // Hydrate each winner with full ProfilePage data (parallel)
   const entries = [...bucketMap.values()];
-  const modIds = entries.map((e) => toIntegerOr(0, e.record._idRow)).filter(Boolean);
+  const modIds = entries
+    .map((e) => toIntegerOr(0, e.record._idRow))
+    .filter(Boolean);
 
   // Cap parallel ProfilePage calls: uncapped Promise.all + Subfeed was a common 429 burst on game switch.
   const hydrated = await runWithConcurrencyLimit(modIds, 2, async (id) =>
@@ -769,7 +801,6 @@ async function fetchBrowseRecords(
   };
 }
 
-
 export async function fetchFromGB(url, options = {}) {
   requestStats.totalCalls += 1;
   const policy = getRequestPolicy(url);
@@ -789,7 +820,9 @@ export async function fetchFromGB(url, options = {}) {
 
   if (isBucketCircuitOpen(policy.bucket)) {
     requestStats.circuitBlocks += 1;
-    throw new Error(`Service temporarily unavailable (circuit breaker open for ${policy.bucket}). Please try again in 30s.`);
+    throw new Error(
+      `Service temporarily unavailable (circuit breaker open for ${policy.bucket}). Please try again in 30s.`,
+    );
   }
 
   if (!bypassCache) {
@@ -828,7 +861,9 @@ export async function fetchFromGB(url, options = {}) {
           const latency = runtime.nowImpl() - startTime;
           requestStats.latency.totalMs += latency;
           requestStats.latency.count += 1;
-          requestStats.latency.avgMs = Math.round(requestStats.latency.totalMs / requestStats.latency.count);
+          requestStats.latency.avgMs = Math.round(
+            requestStats.latency.totalMs / requestStats.latency.count,
+          );
 
           if (!res.ok) {
             if (res.status === 429 || res.status === 1015) {
@@ -871,7 +906,7 @@ export async function fetchFromGB(url, options = {}) {
           ) {
             throw error;
           }
-          
+
           // Exponential backoff with Jitter
           const baseDelay = 300 * (attempt + 1);
           const jitter = Math.random() * 200;
@@ -945,10 +980,12 @@ export async function fetchGbMod(gamebananaId) {
   const id = assertInteger(gamebananaId, "gamebananaId", { min: 1 });
   const [profileData, filesData] = await Promise.all([
     fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`, { priority: "high" }),
-    fetchFromGB(`${GB_API}/Mod/${id}/Files`, { priority: "high" }).catch((err) => {
-      logger.warn(`Failed to fetch files for mod ${id}`, err.message);
-      return [];
-    }),
+    fetchFromGB(`${GB_API}/Mod/${id}/Files`, { priority: "high" }).catch(
+      (err) => {
+        logger.warn(`Failed to fetch files for mod ${id}`, err.message);
+        return [];
+      },
+    ),
   ]);
 
   if (!profileData) {
@@ -972,12 +1009,18 @@ export async function fetchGbModsBatch(ids, options = {}) {
     ? Math.max(1, Math.min(8, options.concurrency))
     : 2;
 
-  const results = await runWithConcurrencyLimit(uniqueIds, perItemConcurrency, async (id) => {
+  const results = await runWithConcurrencyLimit(
+    uniqueIds,
+    perItemConcurrency,
+    async (id) => {
       try {
         // Sequential Profile then Files keeps peak concurrency low (parallel per mod was 2× fan-out).
-        const profileData = await fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`, {
-          priority,
-        });
+        const profileData = await fetchFromGB(
+          `${GB_API}/Mod/${id}/ProfilePage`,
+          {
+            priority,
+          },
+        );
         const filesData = await fetchFromGB(`${GB_API}/Mod/${id}/Files`, {
           priority,
         }).catch(() => []);
@@ -993,7 +1036,8 @@ export async function fetchGbModsBatch(ids, options = {}) {
         logger.warn(`Batch update fetch failed for mod ${id}`, error.message);
         return null;
       }
-    });
+    },
+  );
 
   return results.filter(Boolean);
 }
@@ -1006,7 +1050,10 @@ export async function fetchGbModsSummaries(ids, options = {}) {
     ? Math.max(1, Math.min(8, options.concurrency))
     : 6;
 
-  const results = await runWithConcurrencyLimit(validIds, perItemConcurrency, async (id) => {
+  const results = await runWithConcurrencyLimit(
+    validIds,
+    perItemConcurrency,
+    async (id) => {
       try {
         // Use the v11 dedicated ProfilePage endpoint
         const data = await fetchFromGB(`${GB_API}/Mod/${id}/ProfilePage`, {
@@ -1020,7 +1067,8 @@ export async function fetchGbModsSummaries(ids, options = {}) {
         );
         return null;
       }
-    });
+    },
+  );
 
   return results.filter(Boolean);
 }
@@ -1053,7 +1101,11 @@ async function resolveCharCategory(gameId, charName) {
         continue;
       }
 
-      const rootName = (modData._aSuperCategory?._sName || modData._aRootCategory?._sName || "").toLowerCase();
+      const rootName = (
+        modData._aSuperCategory?._sName ||
+        modData._aRootCategory?._sName ||
+        ""
+      ).toLowerCase();
       const catName = (modData._aCategory._sName || "").toLowerCase();
 
       if (rootName.includes("skin") || rootName.includes("character")) {
@@ -1151,16 +1203,25 @@ export async function fetchGbMemberProfile(memberId) {
     _tsJoinDate: toIntegerOr(0, data._tsJoinDate),
     _nPoints: toNumberOr(0, coreStats._nPoints ?? data._nPoints),
     _nPointsRank: toNumberOr(0, data._nPointsRank),
-    _nSubscriberCount: toNumberOr(0, coreStats._nCurrentSubscribers ?? data._nSubscriberCount),
+    _nSubscriberCount: toNumberOr(
+      0,
+      coreStats._nCurrentSubscribers ?? data._nSubscriberCount,
+    ),
     _nSubmissionsCount: toNumberOr(0, coreStats._nCurrentSubmissions),
     _nThanksReceived: toNumberOr(0, coreStats._nThanksReceived),
     _nFeaturedCount: toNumberOr(0, coreStats._nSubmissionsFeatured),
     _nMedalsCount: toNumberOr(0, coreStats._nMedalsCount),
     _sAccountAge: toStringOr("", coreStats._sAccountAge),
-    _aNormalMedals: Array.isArray(data._aNormalMedals) ? data._aNormalMedals : [],
+    _aNormalMedals: Array.isArray(data._aNormalMedals)
+      ? data._aNormalMedals
+      : [],
     _aRareMedals: Array.isArray(data._aRareMedals) ? data._aRareMedals : [],
-    _aLegendaryMedals: Array.isArray(data._aLegendaryMedals) ? data._aLegendaryMedals : [],
-    _aDonationMethods: Array.isArray(data._aDonationMethods) ? data._aDonationMethods : [],
+    _aLegendaryMedals: Array.isArray(data._aLegendaryMedals)
+      ? data._aLegendaryMedals
+      : [],
+    _aDonationMethods: Array.isArray(data._aDonationMethods)
+      ? data._aDonationMethods
+      : [],
   };
 }
 
@@ -1225,11 +1286,16 @@ export async function browseGbMods(args = {}) {
     "Generic_LatestComment",
     "Generic_MostDownloaded",
   ]);
-  const resolvedSort = sortAliasMap[sort] || (VALID_SORT_ALIASES.has(sort) ? sort : "");
+  const resolvedSort =
+    sortAliasMap[sort] || (VALID_SORT_ALIASES.has(sort) ? sort : "");
   const sortStr = resolvedSort ? `&_sSort=${resolvedSort}` : "";
-  const featuredFilter = featuredOnly ? "&_aFilters[Generic_WasFeatured]=true" : "";
+  const featuredFilter = featuredOnly
+    ? "&_aFilters[Generic_WasFeatured]=true"
+    : "";
   // _aFilters[Generic_ContentRatings]=- means "Unrated only" — effectively hides all NSFW-flagged mods
-  const contentRatingsFilter = hideNsfw ? "&_aFilters[Generic_ContentRatings]=-" : "";
+  const contentRatingsFilter = hideNsfw
+    ? "&_aFilters[Generic_ContentRatings]=-"
+    : "";
 
   const hasManualSearch = search && search.trim().length >= 1;
   const hasCategoryContext = context && context.trim().length >= 1;
@@ -1253,7 +1319,9 @@ export async function browseGbMods(args = {}) {
   } else {
     // Characters tab with no specific character selected: scope to the root
     // Character Skins category so UI/Misc mods don't leak through.
-    const rootCatId = characterSkins ? CHARACTER_SKINS_ROOT_CATS[gbGameId] : null;
+    const rootCatId = characterSkins
+      ? CHARACTER_SKINS_ROOT_CATS[gbGameId]
+      : null;
     if (rootCatId) {
       url = `${GB_API}/Mod/Index?_aFilters[Generic_Category]=${rootCatId}&_nPage=${page}&_nPerpage=${perPage}${sortStr}${featuredFilter}${contentRatingsFilter}&_csvFields=${encodeURIComponent(browseFields)}`;
     } else {
@@ -1278,7 +1346,10 @@ export async function fetchGbSubfeed(args = {}) {
   assertPlainObject(args, "subfeedArgs");
   const gbGameId = assertInteger(args.gbGameId, "gbGameId", { min: 1 });
   const page = assertInteger(args.page ?? 1, "page", { min: 1, max: 1000 });
-  const perPage = assertInteger(args.perPage ?? 20, "perPage", { min: 1, max: 50 });
+  const perPage = assertInteger(args.perPage ?? 20, "perPage", {
+    min: 1,
+    max: 50,
+  });
 
   const url = `${GB_API}/Game/${gbGameId}/Subfeed?_nPage=${page}&_nPerpage=${perPage}`;
   logger.debug("GB Subfeed request", url);
@@ -1298,7 +1369,10 @@ export async function fetchGbSubfeed(args = {}) {
       _nLikeCount: toNumberOr(0, item._nLikeCount),
       _nViewCount: toNumberOr(0, item._nViewCount),
       _tsDateAdded: toIntegerOr(0, item._tsDateAdded),
-      _tsDateUpdated: toIntegerOr(0, item._tsDateUpdated ?? item._tsDateModified),
+      _tsDateUpdated: toIntegerOr(
+        0,
+        item._tsDateUpdated ?? item._tsDateModified,
+      ),
     }))
     .filter((item) => item?._idRow > 0);
 
@@ -1308,4 +1382,3 @@ export async function fetchGbSubfeed(args = {}) {
 
   return { records, total };
 }
-

@@ -2,10 +2,10 @@ import { create } from "zustand";
 
 /**
  * API State Store (Zustand)
- * 
+ *
  * Syncs real-time GameBanana request statistics from the Electron service.
  * Polled every 500ms to keep cooldown countdown, queue depths, and latency current.
- * 
+ *
  * All components subscribe to this store for consistent API feedback.
  */
 export const useApiStore = create((set) => {
@@ -131,7 +131,10 @@ export function useApiStatus() {
   return {
     isCoolingDown: stats.cooldownRemainingMs > 0,
     cooldownRemainingMs: stats.cooldownRemainingMs,
-    cooldownSecondsRemaining: Math.max(1, Math.ceil(stats.cooldownRemainingMs / 1000)),
+    cooldownSecondsRemaining: Math.max(
+      1,
+      Math.ceil(stats.cooldownRemainingMs / 1000),
+    ),
     isQueued:
       (stats.queuedHigh || 0) +
         (stats.queuedMedium || 0) +

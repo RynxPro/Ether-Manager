@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Plus, Upload, Package, ChevronRight, Layers3, AlertCircle } from "lucide-react";
+import {
+  Zap,
+  Plus,
+  Upload,
+  Package,
+  ChevronRight,
+  Layers3,
+  AlertCircle,
+} from "lucide-react";
 import CreatePresetModal from "../components/CreatePresetModal";
 import PresetDetailModal from "../components/PresetDetailModal";
 import { Button } from "../components/ui/Button";
@@ -18,7 +26,11 @@ import { thumbFromGbMap, thumbnailUrlFromGbModItem } from "../lib/gbThumbMap";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
-  show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] } }),
+  show: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] },
+  }),
 };
 
 export default function PresetsView() {
@@ -55,7 +67,10 @@ export default function PresetsView() {
       // Thumbnails only when this view is visible — avoids batch Profile+Files competing with Browse on launch.
       const allModIds = [
         ...new Set(
-          data.flatMap((p) => p.mods).map((m) => m.gamebananaId).filter(Boolean),
+          data
+            .flatMap((p) => p.mods)
+            .map((m) => m.gamebananaId)
+            .filter(Boolean),
         ),
       ];
       if (allModIds.length > 0 && activeView === "presets") {
@@ -93,8 +108,8 @@ export default function PresetsView() {
   }, [game.id]);
 
   const handlePresetSaved = (preset) => {
-    setPresets(prev => {
-      const idx = prev.findIndex(p => p.id === preset.id);
+    setPresets((prev) => {
+      const idx = prev.findIndex((p) => p.id === preset.id);
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = preset;
@@ -105,7 +120,7 @@ export default function PresetsView() {
   };
 
   const handlePresetDeleted = (presetId) => {
-    setPresets(prev => prev.filter(p => p.id !== presetId));
+    setPresets((prev) => prev.filter((p) => p.id !== presetId));
     setActivePreset(null);
   };
 
@@ -141,9 +156,11 @@ export default function PresetsView() {
         };
         const saveResult = await window.electronMods.savePreset(imported);
         if (!saveResult.success) {
-          throw new Error(saveResult.error || "Failed to save imported preset.");
+          throw new Error(
+            saveResult.error || "Failed to save imported preset.",
+          );
         }
-        setPresets(prev => [imported, ...prev]);
+        setPresets((prev) => [imported, ...prev]);
         setImportFeedback({
           type: "success",
           message: `Imported "${imported.name}" successfully.`,
@@ -199,7 +216,8 @@ export default function PresetsView() {
         <div className="mb-3 mx-2 rounded-xl border border-orange-500/35 bg-orange-500/10 px-4 py-3 flex items-center gap-3 text-orange-200/95 text-[11px] font-semibold">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>
-            GameBanana is rate-limiting requests. Retrying automatically in about{" "}
+            GameBanana is rate-limiting requests. Retrying automatically in
+            about{" "}
             <span className="font-black text-orange-300">
               {apiStatus.cooldownSecondsRemaining}s
             </span>
@@ -213,7 +231,10 @@ export default function PresetsView() {
           <div className="flex flex-wrap items-center gap-2">
             <SummaryPill label="Presets" value={presets.length} />
             <SummaryPill label="Saved Mods" value={totalModsAcrossPresets} />
-            <SummaryPill label="Characters" value={totalCharactersAcrossPresets} />
+            <SummaryPill
+              label="Characters"
+              value={totalCharactersAcrossPresets}
+            />
             <SummaryPill
               label="Status"
               value={importerPath ? "Ready" : "Needs Mods Path"}
@@ -305,11 +326,34 @@ function PresetCard({ preset, index, onClick, gbData }) {
     >
       <div className="relative aspect-4/3 w-full shrink-0 overflow-hidden bg-background border-b border-border">
         {thumbs.length > 0 ? (
-          <div className={cn("absolute inset-0 grid gap-px", thumbs.length === 1 ? "grid-cols-1" : thumbs.length === 2 ? "grid-cols-2" : thumbs.length === 3 ? "grid-cols-2 grid-rows-2" : "grid-cols-2 grid-rows-2")}>
+          <div
+            className={cn(
+              "absolute inset-0 grid gap-px",
+              thumbs.length === 1
+                ? "grid-cols-1"
+                : thumbs.length === 2
+                  ? "grid-cols-2"
+                  : thumbs.length === 3
+                    ? "grid-cols-2 grid-rows-2"
+                    : "grid-cols-2 grid-rows-2",
+            )}
+          >
             {thumbs.map((src, i) => (
-              <div key={i} className={cn("relative bg-surface overflow-hidden", thumbs.length === 3 && i === 0 ? "row-span-2 col-span-2 sm:col-span-1" : "")}>
+              <div
+                key={i}
+                className={cn(
+                  "relative bg-surface overflow-hidden",
+                  thumbs.length === 3 && i === 0
+                    ? "row-span-2 col-span-2 sm:col-span-1"
+                    : "",
+                )}
+              >
                 {src ? (
-                  <img src={src} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <img
+                    src={src}
+                    alt=""
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-white/5">
                     <Package size={16} className="text-white/10" />
@@ -335,19 +379,24 @@ function PresetCard({ preset, index, onClick, gbData }) {
             {preset.description}
           </p>
         )}
-        
+
         <div className="mt-auto mb-4 flex flex-wrap items-center gap-2">
-           <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">
-             {preset.mods.length} Mods
-           </span>
-           <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-             {new Set(preset.mods.map(m => m.character)).size} Characters
-           </span>
+          <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">
+            {preset.mods.length} Mods
+          </span>
+          <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+            {new Set(preset.mods.map((m) => m.character)).size} Characters
+          </span>
         </div>
 
         <div className="mt-auto pt-4 border-t border-white/5">
           <div className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group/btn bg-background border border-border text-text-muted cursor-pointer hover:border-primary/50 hover:text-primary shadow-sm hover:shadow-[0_0_15px_var(--color-primary)]/20">
-            Open <ChevronRight size={12} strokeWidth={4} className="group-hover/btn:translate-x-1 transition-transform" />
+            Open{" "}
+            <ChevronRight
+              size={12}
+              strokeWidth={4}
+              className="group-hover/btn:translate-x-1 transition-transform"
+            />
           </div>
         </div>
       </div>
@@ -364,7 +413,9 @@ function SummaryPill({ label, value, tone = "neutral" }) {
         : "border-border bg-background text-text-muted";
 
   return (
-    <div className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${toneClass}`}>
+    <div
+      className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${toneClass}`}
+    >
       {label}: <span className="text-text-primary">{value}</span>
     </div>
   );
@@ -376,11 +427,11 @@ function EmptyState({ onCreateClick }) {
       icon={Package}
       title="No Presets Yet"
       message="Create a preset to save a set of mods."
-      action={(
+      action={
         <Button onClick={onCreateClick} icon={Plus}>
           Create Preset
         </Button>
-      )}
+      }
       className="py-20"
     />
   );
