@@ -1,3 +1,11 @@
+import {
+  assertInteger,
+  assertIntegerArray,
+  assertOptionalString,
+  assertPlainObject,
+} from "./validation.js";
+import { createLogger } from "./logger.js";
+
 // Ensures a consistent, fully normalized mod object for cache/UI
 function normalizeGbModForCache(mod) {
   const normalized = normalizeModRecord(mod) || {};
@@ -24,13 +32,6 @@ function normalizeGbModForCache(mod) {
     allImages: buildAllImages(normalized._aPreviewMedia),
   };
 }
-import {
-  assertInteger,
-  assertIntegerArray,
-  assertOptionalString,
-  assertPlainObject,
-} from "./validation.js";
-import { createLogger } from "./logger.js";
 
 const GB_API = "https://gamebanana.com/apiv11";
 
@@ -79,6 +80,11 @@ const requestState = {
 };
 
 const requestStats = {
+  totalCalls: 0,
+  networkCalls: 0,
+  cacheHits: 0,
+  dedupeHits: 0,
+  cooldownBlocks: 0,
   rateLimitResponses: 0,
   throttleWaitMs: 0,
   circuitBlocks: 0,
@@ -706,26 +712,53 @@ async function fetchBrowseRecords(
     ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
     : [];
 
-  const shouldHydrateSummaries =
-    hydrateZeroDownloadCounts &&
-    records.length > 0 &&
-    records.every((record) => record._nDownloadCount === 0);
+  // Selective hydration: only hydrate rows missing critical fields
+  // Critical fields: _aFiles (needed for version info and file structure)
+  const rowsNeedingHydration = records
+    .map((record, idx) => ({
+      record,
+      idx,
+      needsHydration: (record._aFiles?.length ?? 0) === 0,
+    }))
+    .filter((item) => item.needsHydration && hydrateZeroDownloadCounts);
 
-  if (shouldHydrateSummaries) {
-    // Full page hydration (20× ProfilePage) was the main browse slowdown; cap rows for speed.
-    const BROWSE_ZERO_DOWNLOAD_HYDRATE_CAP = 12;
-    const rowsToHydrate = records.slice(0, BROWSE_ZERO_DOWNLOAD_HYDRATE_CAP);
-    const summaryRecords = await fetchGbModsSummaries(
-      rowsToHydrate.map((record) => record._idRow),
-      { concurrency: 4 },
-    );
-    const summaryMap = new Map(
-      summaryRecords.map((record) => [record._idRow, record]),
+  if (rowsNeedingHydration.length > 0) {
+    // Hydrate top 8 immediately in parallel, mark rest as "cached" for later
+    const BROWSE_IMMEDIATE_HYDRATE_COUNT = 8;
+    const rowsToHydrateImmediately = rowsNeedingHydration.slice(
+      0,
+      BROWSE_IMMEDIATE_HYDRATE_COUNT,
     );
 
-    records = records.map((record) =>
-      mergeNormalizedModRecords(record, summaryMap.get(record._idRow)),
+    if (rowsToHydrateImmediately.length > 0) {
+      const summaryRecords = await fetchGbModsSummaries(
+        rowsToHydrateImmediately.map((item) => item.record._idRow),
+        { concurrency: 4 },
+      );
+      const summaryMap = new Map(
+        summaryRecords.map((record) => [record._idRow, record]),
+      );
+
+      // Update only the immediately hydrated rows
+      rowsToHydrateImmediately.forEach((item) => {
+        records[item.idx] = mergeNormalizedModRecords(
+          item.record,
+          summaryMap.get(item.record._idRow),
+        );
+      });
+    }
+
+    // Mark rows not yet hydrated so UI can show "(cached)" label
+    const hydratedIds = new Set(
+      rowsToHydrateImmediately.map((item) => item.record._idRow),
     );
+    records = records.map((record) => ({
+      ...record,
+      _isHydrated: hydratedIds.has(record._idRow),
+    }));
+  } else {
+    // No hydration needed, mark all as hydrated
+    records = records.map((record) => ({ ...record, _isHydrated: true }));
   }
 
   return {

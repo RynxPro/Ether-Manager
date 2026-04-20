@@ -123,14 +123,18 @@ const LaunchScreen = ({ status = "Initializing..." }) => {
             {/* Progress Bar */}
             <div className="w-48 h-[2px] bg-white/5 rounded-full overflow-hidden relative">
               <motion.div
-                className="absolute inset-0 bg-linear-to-r from-transparent via-indigo-400 to-transparent"
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to right, transparent, #818CF8, transparent)",
+                }}
                 animate={{
-                  x: ["-100%", "100%"]
+                  x: ["-100%", "100%"],
                 }}
                 transition={{
                   duration: 2,
                   repeat: Infinity,
-                  ease: "easeInOut"
+                  ease: "easeInOut",
                 }}
               />
             </div>

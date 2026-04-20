@@ -11,6 +11,7 @@ import {
   Bookmark,
   Sparkles,
   Star,
+  AlertCircle,
 } from "lucide-react";
 import GbModCard from "../components/GbModCard";
 import ModDetailModal from "../components/ModDetailModal";
@@ -25,6 +26,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
+import { useApiStatus } from "../store/useApiStore";
 import PageHeader from "../components/layout/PageHeader";
 import {
   createUnavailableBookmarkPlaceholder,
@@ -78,6 +80,9 @@ export default function BrowseView() {
   const addDownload = useAppStore((state) => state.addDownload);
   const completeDownload = useAppStore((state) => state.completeDownload);
   const nsfwMode = useAppStore((state) => state.nsfwMode);
+
+  // Real-time API status (cooldown, queue depths, etc.)
+  const apiStatus = useApiStatus();
 
   const gridTopRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all");
@@ -1185,6 +1190,20 @@ export default function BrowseView() {
 
       {/* ── SECTION: Mod Cards Grid ───────────────────────────────────────── */}
       <div ref={gridTopRef} className="min-h-[60vh] relative w-full flex flex-col">
+        {/* Rate-limit feedback banner */}
+        {apiStatus.isCoolingDown && (
+          <div className="mb-3 rounded-xl border border-orange-500/35 bg-orange-500/10 px-4 py-3 flex items-center gap-3 text-orange-200/95 text-[11px] font-semibold">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              GameBanana is rate-limiting requests. Retrying automatically in about{" "}
+              <span className="font-black text-orange-300">
+                {apiStatus.cooldownSecondsRemaining}s
+              </span>
+              ...
+            </span>
+          </div>
+        )}
+
         {/* Error state */}
         {error && !loading && (
           <StatePanel

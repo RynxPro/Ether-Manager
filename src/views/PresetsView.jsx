@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Plus, Upload, Package, ChevronRight, Layers3 } from "lucide-react";
+import { Zap, Plus, Upload, Package, ChevronRight, Layers3, AlertCircle } from "lucide-react";
 import CreatePresetModal from "../components/CreatePresetModal";
 import PresetDetailModal from "../components/PresetDetailModal";
 import { Button } from "../components/ui/Button";
 import { useAppStore } from "../store/useAppStore";
+import { useApiStatus } from "../store/useApiStore";
 import PageHeader from "../components/layout/PageHeader";
 import { InteractiveCard } from "../components/ui/InteractiveCard";
 import {
@@ -24,6 +25,7 @@ export default function PresetsView() {
   const game = useAppStore((state) => state.activeGame);
   const activeView = useAppStore((state) => state.activeView);
   const configVersion = useAppStore((state) => state.configVersion);
+  const apiStatus = useApiStatus();
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importerPath, setImporterPath] = useState(null);
@@ -190,6 +192,20 @@ export default function PresetsView() {
         >
           {importFeedback.message}
         </StatusBanner>
+      )}
+
+      {/* Rate-limit feedback banner */}
+      {apiStatus.isCoolingDown && (
+        <div className="mb-3 mx-2 rounded-xl border border-orange-500/35 bg-orange-500/10 px-4 py-3 flex items-center gap-3 text-orange-200/95 text-[11px] font-semibold">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            GameBanana is rate-limiting requests. Retrying automatically in about{" "}
+            <span className="font-black text-orange-300">
+              {apiStatus.cooldownSecondsRemaining}s
+            </span>
+            ...
+          </span>
+        </div>
       )}
 
       {!loading && (

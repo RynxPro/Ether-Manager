@@ -1,6 +1,7 @@
-import { useEffect, useState, lazy } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { GAME_CONFIG } from "./gameConfig";
 import { useAppStore } from "./store/useAppStore";
+import { useApiStore } from "./store/useApiStore";
 import Sidebar from "./components/layout/Sidebar";
 import LibraryView from "./views/LibraryView";
 import OnboardingModal from "./components/OnboardingModal";
@@ -10,7 +11,6 @@ import AppViewShell from "./components/layout/AppViewShell";
 import { WifiOff } from "lucide-react";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import DevNetworkMonitor from "./components/dev/DevNetworkMonitor";
-import LaunchScreen from "./components/layout/LaunchScreen";
 
 const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
 const BrowseView = lazy(() => import("./views/BrowseView"));
@@ -27,8 +27,8 @@ function App() {
   const setNsfwMode = useAppStore((state) => state.setNsfwMode);
   const setActiveGameId = useAppStore((state) => state.setActiveGameId);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isBooting, setIsBooting] = useState(true);
-  const [bootStatus, setBootStatus] = useState("Initializing Aether...");
+  const [isBooting, setIsBooting] = useState(false);
+  const [bootStatus, setBootStatus] = useState("");
   const isOnline = useNetworkStatus();
 
   // Global IPC Listeners
@@ -42,44 +42,64 @@ function App() {
 
   // Structured Initialization Sequence
   useEffect(() => {
+    let mounted = true;
+
     async function initializeApp() {
-      if (!window.electronConfig) {
-        setIsBooting(false);
-        return;
-      }
-
       try {
-        setBootStatus("Loading configuration...");
-        const config = await window.electronConfig.getConfig();
-        
-        // Restore preferences
-        if (!config.hasSeenOnboarding) {
-          setShowOnboarding(true);
-        }
-        setNsfwMode(config.nsfwMode ?? "blur");
-        
-        if (config.lastActiveGameId) {
-          setActiveGameId(config.lastActiveGameId);
-        }
+        if (!window.electronConfig) return;
 
-        setBootStatus("Readying engines...");
-        // Small artificial delay for premium feel and engine warmup
-        await new Promise(resolve => setTimeout(resolve, 1400));
+        const config = await window.electronConfig.getConfig();
+        if (!mounted) return;
+
+        // Restore preferences safely
+        if (config) {
+          if (!config.hasSeenOnboarding) {
+            setShowOnboarding(true);
+          }
+          if (typeof setNsfwMode === "function") {
+            setNsfwMode(config.nsfwMode ?? "blur");
+          }
+          if (
+            config.lastActiveGameId &&
+            typeof setActiveGameId === "function"
+          ) {
+            setActiveGameId(config.lastActiveGameId);
+          }
+        }
       } catch (err) {
         console.error("Initialization failed:", err);
-      } finally {
-        setIsBooting(false);
       }
     }
+
     initializeApp();
+    return () => {
+      mounted = false;
+    };
   }, [setNsfwMode, setActiveGameId]);
+
+  const startPolling = useApiStore((state) => state.startStatsPolling);
+  const stopPolling = useApiStore((state) => state.stopStatsPolling);
+
+  // Initialize API stats polling (sync cooldown, queue depths, latency in real-time)
+  useEffect(() => {
+    startPolling();
+    return () => {
+      stopPolling();
+    };
+  }, [startPolling, stopPolling]);
 
   // Update accent color variable when game changes
   useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--color-primary",
-      GAME_CONFIG[activeGameId].accentColor,
-    );
+    const game = GAME_CONFIG[activeGameId];
+    if (game && game.accentColor) {
+      document.documentElement.style.setProperty(
+        "--color-primary",
+        game.accentColor,
+      );
+    } else {
+      // Fallback to a safe default if configuration is missing
+      document.documentElement.style.setProperty("--color-primary", "#00f5cc");
+    }
   }, [activeGameId]);
 
   const handleCloseOnboarding = async () => {
@@ -95,10 +115,6 @@ function App() {
 
   return (
     <div className="h-screen w-screen flex flex-row bg-background text-text-primary relative overflow-hidden">
-      <AnimatePresence mode="wait">
-        {isBooting && <LaunchScreen key="launcher" status={bootStatus} />}
-      </AnimatePresence>
-
       <div className="absolute top-0 left-0 w-full h-8 z-[100] titlebar-drag pointer-events-auto" />
 
       {/* Background radial gradient corresponding to game color */}
@@ -136,51 +152,69 @@ function App() {
               className="absolute top-6 left-1/2 z-50 text-red-500 bg-red-500/10 border border-red-500/20 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 shadow-lg"
             >
               <WifiOff size={16} />
-              <span className="text-sm font-medium uppercase tracking-widest">Offline Mode</span>
+              <span className="text-sm font-medium uppercase tracking-widest">
+                Offline Mode
+              </span>
             </motion.div>
           )}
         </AnimatePresence>
 
         <ErrorBoundary>
-          <AppViewShell isActive={activeView === "browse"}>
-            <BrowseView />
-          </AppViewShell>
+          <Suspense
+            fallback={
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              </div>
+            }
+          >
+            <AppViewShell isActive={activeView === "browse"}>
+              <BrowseView />
+            </AppViewShell>
 
-          <AppViewShell isActive={activeView === "presets"}>
-            <PresetsView />
-          </AppViewShell>
+            <AppViewShell isActive={activeView === "presets"}>
+              <PresetsView />
+            </AppViewShell>
 
-          <AppViewShell isActive={activeView === "mods" && !selectedCharacter}>
-            <LibraryView isActive={activeView === "mods" && !selectedCharacter} />
-          </AppViewShell>
+            <AppViewShell isActive={activeView === "mods" && !selectedCharacter}>
+              <LibraryView
+                isActive={activeView === "mods" && !selectedCharacter}
+              />
+            </AppViewShell>
 
-          {/* MOD DETAIL VIEWPORT (conditionally rendered to save memory when inactive) */}
-          <AnimatePresence>
-            {activeView === "mods" && selectedCharacter && (
-              <AppViewShell isActive={true} zIndex={30}>
-                <motion.div
-                  key="mod-detail"
-                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -15, scale: 1.02 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  className="h-full w-full"
-                >
-                  <CharacterDetail
-                    character={selectedCharacter}
-                    onBack={() => setSelectedCharacter(null)}
-                  />
-                </motion.div>
-              </AppViewShell>
-            )}
-          </AnimatePresence>
+            {/* MOD DETAIL VIEWPORT (conditionally rendered to save memory when inactive) */}
+            <AnimatePresence>
+              {activeView === "mods" && selectedCharacter && (
+                <AppViewShell isActive={true} zIndex={30}>
+                  <motion.div
+                    key="mod-detail"
+                    initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -15, scale: 1.02 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    className="h-full w-full"
+                  >
+                    <CharacterDetail
+                      character={selectedCharacter}
+                      onBack={() => setSelectedCharacter(null)}
+                    />
+                  </motion.div>
+                </AppViewShell>
+              )}
+            </AnimatePresence>
+          </Suspense>
         </ErrorBoundary>
       </main>
-      <OnboardingModal
-        isOpen={showOnboarding}
-        onClose={handleCloseOnboarding}
-      />
+      <Suspense fallback={null}>
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onClose={handleCloseOnboarding}
+        />
+      </Suspense>
       {import.meta.env.DEV && <DevNetworkMonitor />}
+      {/* Production API stats monitor (hidden by default, enabled via env) */}
+      {import.meta.env.VITE_SHOW_API_STATS === "true" && (
+        <DevNetworkMonitor />
+      )}
     </div>
   );
 }

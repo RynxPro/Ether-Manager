@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# API Documentation (local development)
+docs/gamebanana-api-usage.md
+docs/API-ARCHITECTURE-IMPROVEMENTS.md
+docs/API-REVIEW-ANALYSIS.md
+docs/DEADLOCK-COMPARISON.md

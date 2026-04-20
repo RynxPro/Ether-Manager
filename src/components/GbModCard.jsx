@@ -126,8 +126,13 @@ const BrowseModCard = React.memo(function BrowseModCard({
            </button>
         </div>
 
-        {/* Right: NSFW badge + featured + installed/update */}
+        {/* Right: NSFW badge + featured + installed/update + cached */}
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-20">
+            {!mod._isHydrated && (
+              <div className="flex items-center gap-1 rounded-full border border-slate-500/40 bg-slate-600/40 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-slate-100 shadow-lg">
+                <span className="font-mono">(cached)</span>
+              </div>
+            )}
             {isNsfw && (
               <div className="flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/80 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-lg">
                 <EyeOff size={9} />
