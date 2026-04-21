@@ -170,11 +170,11 @@ function App() {
             }
           >
             <AppViewShell isActive={activeView === "browse"}>
-              <BrowseView />
+              <BrowseView isActive={activeView === "browse"} />
             </AppViewShell>
 
             <AppViewShell isActive={activeView === "presets"}>
-              <PresetsView />
+              <PresetsView isActive={activeView === "presets"} />
             </AppViewShell>
 
             <AppViewShell

@@ -283,7 +283,11 @@ export default function CharacterDetail({
           // Reload the global cache so the library sees the new files
           await reloadAllMods(true);
         } catch (err) {
-          completeDownload(gbModId, false, err.message || "Installation failed");
+          completeDownload(
+            gbModId,
+            false,
+            err.message || "Installation failed",
+          );
         }
       })();
     }
@@ -378,7 +382,7 @@ export default function CharacterDetail({
                   decoding="async"
                   className={cn(
                     "absolute right-12 top-0 h-full w-auto object-contain object-right transition-all duration-1000 ease-out z-0",
-                    imgLoaded ? "opacity-60 blur-0" : "opacity-0 blur-xl"
+                    imgLoaded ? "opacity-60 blur-0" : "opacity-0 blur-xl",
                   )}
                 />
               )}

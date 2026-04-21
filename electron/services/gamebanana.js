@@ -131,32 +131,77 @@ export function resetGameBananaRequestState() {
 
 const CIRCUIT_FAILURE_THRESHOLD = 3;
 const CIRCUIT_RESET_TIMEOUT_MS = 30000;
+const CIRCUIT_HALF_OPEN_TIMEOUT_MS = 60000; // Time before half-open can retry after open
 
 function isBucketCircuitOpen(bucket) {
   const circuit = requestState.bucketCircuits.get(bucket);
   if (!circuit || circuit.state === "closed") return false;
 
   const now = runtime.nowImpl();
-  if (now - circuit.lastFailure > CIRCUIT_RESET_TIMEOUT_MS) {
-    // Attempt cooling period over: half-open
-    circuit.state = "closed";
-    circuit.failures = 0;
+  const timeSinceLastFailure = now - circuit.lastFailure;
+
+  if (circuit.state === "open") {
+    // Allow half-open test after CIRCUIT_RESET_TIMEOUT_MS
+    // Mark as "half-open" to allow one test request
+    if (timeSinceLastFailure > CIRCUIT_RESET_TIMEOUT_MS) {
+      circuit.state = "half-open";
+      circuit.testInProgress = false;
+      logger.info(
+        `Circuit breaker HALF-OPEN for bucket: ${bucket} (allowing test request)`,
+      );
+      return false; // Allow the request to proceed as a test
+    }
+    return true; // Still open, reject
+  }
+
+  if (circuit.state === "half-open") {
+    // Allow one test request, then wait for result
+    if (
+      !circuit.testInProgress &&
+      timeSinceLastFailure > CIRCUIT_HALF_OPEN_TIMEOUT_MS
+    ) {
+      // Test period expired without success, reopen
+      circuit.state = "open";
+      circuit.failures = 0; // Reset for next test
+      logger.warn(
+        `Circuit breaker RE-OPENED for bucket: ${bucket} (test timeout)`,
+      );
+      return true;
+    }
+
+    // If test in progress, wait
+    if (circuit.testInProgress) {
+      return true;
+    }
+
+    // First test request
+    circuit.testInProgress = true;
     return false;
   }
-  return true;
+
+  return false;
 }
 
 function recordBucketFailure(bucket) {
   let circuit = requestState.bucketCircuits.get(bucket);
   if (!circuit) {
-    circuit = { failures: 0, lastFailure: 0, state: "closed" };
+    circuit = {
+      failures: 0,
+      lastFailure: 0,
+      state: "closed",
+      testInProgress: false,
+    };
     requestState.bucketCircuits.set(bucket, circuit);
   }
   circuit.failures += 1;
   circuit.lastFailure = runtime.nowImpl();
+  circuit.testInProgress = false;
+
   if (circuit.failures >= CIRCUIT_FAILURE_THRESHOLD) {
     circuit.state = "open";
-    logger.warn(`Circuit breaker OPEN for bucket: ${bucket}`);
+    logger.warn(
+      `Circuit breaker OPEN for bucket: ${bucket} (${circuit.failures} failures)`,
+    );
   }
 }
 
@@ -165,6 +210,12 @@ function recordBucketSuccess(bucket) {
   if (circuit) {
     circuit.failures = 0;
     circuit.state = "closed";
+    circuit.testInProgress = false;
+    if (circuit.state === "half-open") {
+      logger.info(
+        `Circuit breaker CLOSED for bucket: ${bucket} (recovery successful)`,
+      );
+    }
   }
 }
 
@@ -227,7 +278,8 @@ function makeCacheKey(url) {
   return url;
 }
 
-function readFromCache(cacheKey) {
+async function readFromCache(cacheKey, bucket) {
+  // In-memory cache only (survives session)
   const cached = requestState.cache.get(cacheKey);
   if (!cached) return null;
   if (runtime.nowImpl() >= cached.expiresAt) {
@@ -237,7 +289,7 @@ function readFromCache(cacheKey) {
   return cached.value;
 }
 
-function writeToCache(cacheKey, value, ttlMs) {
+async function writeToCache(cacheKey, value, ttlMs, bucket) {
   if (!Number.isFinite(ttlMs) || ttlMs <= 0) return;
   requestState.cache.set(cacheKey, {
     value,
@@ -826,9 +878,8 @@ export async function fetchFromGB(url, options = {}) {
   }
 
   if (!bypassCache) {
-    const cached = readFromCache(cacheKey);
+    const cached = await readFromCache(cacheKey, policy.bucket);
     if (cached != null) {
-      requestStats.cacheHits += 1;
       return cached;
     }
   }
@@ -889,7 +940,7 @@ export async function fetchFromGB(url, options = {}) {
           if (!data || typeof data !== "object") {
             throw new Error("GB API returned an invalid response payload.");
           }
-          writeToCache(cacheKey, data, policy.ttlMs);
+          await writeToCache(cacheKey, data, policy.ttlMs, policy.bucket);
           return data;
         } catch (error) {
           lastError = error;
@@ -1009,20 +1060,23 @@ export async function fetchGbModsBatch(ids, options = {}) {
     ? Math.max(1, Math.min(8, options.concurrency))
     : 2;
 
-  const results = await runWithConcurrencyLimit(
-    uniqueIds,
-    perItemConcurrency,
-    async (id) => {
+  // Per-item fetch with automatic retry on timeout/failure
+  async function fetchModWithRetry(id, maxRetries = 2) {
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         // Sequential Profile then Files keeps peak concurrency low (parallel per mod was 2× fan-out).
         const profileData = await fetchFromGB(
           `${GB_API}/Mod/${id}/ProfilePage`,
           {
             priority,
+            timeoutMs: 8000, // Per-item timeout (shorter than global 12s)
           },
         );
         const filesData = await fetchFromGB(`${GB_API}/Mod/${id}/Files`, {
           priority,
+          timeoutMs: 8000,
         }).catch(() => []);
 
         if (!profileData) return null;
@@ -1033,10 +1087,39 @@ export async function fetchGbModsBatch(ids, options = {}) {
         };
         return normalizeGbModForCache(rawData);
       } catch (error) {
-        logger.warn(`Batch update fetch failed for mod ${id}`, error.message);
+        lastError = error;
+
+        // Don't retry on rate limits or circuit breaker
+        if (
+          error instanceof RateLimitError ||
+          error.message?.includes("circuit breaker")
+        ) {
+          throw error;
+        }
+
+        // Timeout or network errors: retry with exponential backoff
+        if (attempt < maxRetries) {
+          const delayMs = 300 * (attempt + 1) + Math.random() * 200;
+          await runtime.sleepImpl(delayMs);
+          continue;
+        }
+
+        // Max retries exceeded
+        logger.warn(
+          `Batch update fetch failed for mod ${id} after ${maxRetries + 1} attempts:`,
+          error.message,
+        );
         return null;
       }
-    },
+    }
+
+    return null;
+  }
+
+  const results = await runWithConcurrencyLimit(
+    uniqueIds,
+    perItemConcurrency,
+    (id) => fetchModWithRetry(id, 2),
   );
 
   return results.filter(Boolean);

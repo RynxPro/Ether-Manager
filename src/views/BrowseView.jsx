@@ -77,7 +77,7 @@ function formatGbApiError(errorLike, fallback = "Request failed.") {
   return errorLike?.error || errorLike?.message || fallback;
 }
 
-export default function BrowseView() {
+export default function BrowseView({ isActive = false }) {
   const game = useAppStore((state) => state.activeGame);
   const configVersion = useAppStore((state) => state.configVersion);
   const addDownload = useAppStore((state) => state.addDownload);
@@ -172,6 +172,13 @@ export default function BrowseView() {
 
   // Fetch autocomplete suggestions when the debounced query changes
   useEffect(() => {
+    if (!isActive) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setActiveSuggestionIdx(-1);
+      return;
+    }
+
     const query = debouncedSearchQuery?.trim() || "";
     if (query.length < 2) {
       setSuggestions([]);
@@ -189,7 +196,7 @@ export default function BrowseView() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearchQuery, game.gbGameId]);
+  }, [debouncedSearchQuery, game.gbGameId, isActive]);
 
   // Close suggestion dropdown when clicking outside
   useEffect(() => {
@@ -234,7 +241,7 @@ export default function BrowseView() {
   }, [activeTab, game.gbGameId]);
 
   // Use fetch cache for individual mod details
-  const { fetchMod } = useFetchCache();
+  const { fetchMod, fetchModsSummaries } = useFetchCache();
   const currentBookmarkIds = useMemo(
     () => bookmarkIdsByGame[game.id] || [],
     [bookmarkIdsByGame, game.id],
@@ -251,6 +258,11 @@ export default function BrowseView() {
 
   // Featured hero: runs only after browse grid completes for this game (saved tab skips browse API — see effect above).
   useEffect(() => {
+    if (!isActive) {
+      setLoadingFeatured(false);
+      return;
+    }
+
     if (
       !isOnline ||
       !game.gbGameId ||
@@ -294,7 +306,7 @@ export default function BrowseView() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [game.gbGameId, isOnline, browseGridReadyForFeatured]);
+  }, [browseGridReadyForFeatured, game.gbGameId, isActive, isOnline]);
 
   // Load importer path and bookmarks once
   useEffect(() => {
@@ -426,6 +438,11 @@ export default function BrowseView() {
 
   // Fetch mods from GameBanana when params change (API Tabs ONLY)
   const fetchMods = useCallback(async () => {
+    if (!isActive) {
+      setLoading(false);
+      return;
+    }
+
     if (activeTab === "saved") return;
 
     if (!isOnline) {
@@ -495,6 +512,7 @@ export default function BrowseView() {
     }
   }, [
     isOnline,
+    isActive,
     game.gbGameId,
     page,
     sort,
@@ -508,15 +526,21 @@ export default function BrowseView() {
 
   // Trigger API fetch for non-saved tabs
   useEffect(() => {
+    if (!isActive) {
+      browseFetchIdRef.current += 1;
+      setLoading(false);
+      return;
+    }
+
     if (activeTab !== "saved") {
       fetchMods();
     } else {
       setError(null);
     }
-  }, [fetchMods, activeTab, debouncedSearchQuery]);
+  }, [activeTab, debouncedSearchQuery, fetchMods, isActive]);
 
   useEffect(() => {
-    if (activeTab !== "saved") return;
+    if (!isActive || activeTab !== "saved") return;
 
     if (currentBookmarkIds.length === 0) {
       setSavedModsCatalog((prev) => ({ ...prev, [game.id]: [] }));
@@ -562,8 +586,7 @@ export default function BrowseView() {
       (id) => !activePageIds.includes(id),
     );
 
-    window.electronMods
-      .fetchGbModsSummaries(activePageIds, { priority: "high", concurrency: 6 })
+    fetchModsSummaries(activePageIds, { priority: "high", concurrency: 6 })
       .then(async (result) => {
         if (cancelled) return;
 
@@ -585,10 +608,10 @@ export default function BrowseView() {
 
         if (deferredIds.length === 0) return;
 
-        const deferredResult = await window.electronMods.fetchGbModsSummaries(
-          deferredIds,
-          { priority: "low", concurrency: 4 },
-        );
+        const deferredResult = await fetchModsSummaries(deferredIds, {
+          priority: "low",
+          concurrency: 4,
+        });
         if (cancelled || !deferredResult.success) return;
 
         setSavedModsCatalog((prev) => {
@@ -619,15 +642,19 @@ export default function BrowseView() {
     };
   }, [
     activeTab,
-    currentBookmarkIds,
     bookmarkSignature,
+    currentBookmarkIds,
+    fetchModsSummaries,
     game.id,
+    isActive,
     visibleBookmarkIds,
   ]);
 
   // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
   useEffect(() => {
-    if (activeTab !== "saved" || currentBookmarkedCreators.length === 0) return;
+    if (!isActive || activeTab !== "saved" || currentBookmarkedCreators.length === 0) {
+      return;
+    }
     if (!window.electronMods?.fetchGbMemberProfile) return;
 
     let cancelled = false;
@@ -660,7 +687,7 @@ export default function BrowseView() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, currentBookmarkedCreators, hydratedCreators]);
+  }, [activeTab, currentBookmarkedCreators, hydratedCreators, isActive]);
 
   useEffect(() => {
     if (activeTab !== "saved" || loading) return;

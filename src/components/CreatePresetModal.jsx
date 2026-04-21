@@ -4,6 +4,7 @@ import { X, Search, ChevronRight, ChevronLeft, Zap, Check, Loader2, Camera } fro
 import { cn } from "../lib/utils";
 import { thumbnailUrlFromGbModItem, thumbFromGbMap } from "../lib/gbThumbMap";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
 import { getModClassification, getModDisplayCharacter } from "../lib/modClassification";
 import SidePanel from "./layout/SidePanel";
@@ -29,6 +30,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
   const [gbData, setGbData] = useState({});
   const [saving, setSaving] = useState(false);
   const [snapshotError, setSnapshotError] = useState(null);
+  const { fetchModsBatch } = useFetchCache();
 
   const hydrateGbData = useCallback(async (mods) => {
     const gbIds = mods.map((mod) => mod.gamebananaId).filter(Boolean);
@@ -36,7 +38,10 @@ export default function CreatePresetModal({ onClose, onSaved }) {
       return;
     }
 
-    const result = await window.electronMods.fetchGbModsBatch(gbIds);
+    const result = await fetchModsBatch(gbIds, {
+      priority: "low",
+      concurrency: 2,
+    });
     if (result.success && result.data) {
       const dataMap = {};
       result.data.forEach((item) => {
@@ -46,7 +51,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
       });
       setGbData((prev) => ({ ...prev, ...dataMap }));
     }
-  }, []);
+  }, [fetchModsBatch]);
 
   // Load all installed mods (wrapper for fetching GB thumbnails)
   const processMods = useCallback(async () => {

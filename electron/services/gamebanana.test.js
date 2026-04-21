@@ -296,11 +296,12 @@ test("browseGbMods retries transient upstream failures before succeeding", async
     perPage: 20,
   });
 
-  assert.equal(attempts, 2);
-  assert.equal(attemptedUrls.length, 2);
+  assert.equal(attempts, 3);
+  assert.equal(attemptedUrls.length, 3);
   assert.equal(result.total, 99);
   assert.equal(result.records.length, 1);
   assert.equal(result.records[0].thumbnailUrl, "https://cdn.example.com/recovered.webp");
+  assert.ok(attemptedUrls.some((url) => url.includes("/Mod/42/ProfilePage")));
 });
 
 test("browseGbMods normalizes numeric string counters from upstream records", async () => {

@@ -11,6 +11,7 @@ import {
 import { cn } from "../lib/utils";
 import { thumbnailUrlFromGbModItem, thumbFromGbMap } from "../lib/gbThumbMap";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
 import { StatePanel } from "./ui/StatePanel";
 import {
@@ -31,6 +32,7 @@ export default function ApplyPresetModal({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState(null);
   const [gbData, setGbData] = useState({});
+  const { fetchModsBatch } = useFetchCache();
 
   useEffect(() => {
     setLoading(true);
@@ -73,7 +75,7 @@ export default function ApplyPresetModal({
       const allChanged = [...willEnable, ...willDisable, ...notFound];
       const gbIds = allChanged.map((m) => m.gamebananaId).filter(Boolean);
       if (gbIds.length > 0) {
-        window.electronMods.fetchGbModsBatch(gbIds).then((batch) => {
+        fetchModsBatch(gbIds, { priority: "low", concurrency: 2 }).then((batch) => {
           if (batch.success && batch.data) {
             const dataMap = {};
             batch.data.forEach((item) => {
@@ -90,7 +92,7 @@ export default function ApplyPresetModal({
     } finally {
       setLoading(false);
     }
-  }, [allMods, preset]);
+  }, [allMods, fetchModsBatch, preset]);
 
   const handleApply = async () => {
     setApplying(true);

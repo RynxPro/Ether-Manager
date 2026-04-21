@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap,
@@ -16,6 +16,7 @@ import { useAppStore } from "../store/useAppStore";
 import { useApiStatus } from "../store/useApiStore";
 import PageHeader from "../components/layout/PageHeader";
 import { InteractiveCard } from "../components/ui/InteractiveCard";
+import { useFetchCache } from "../hooks/useFetchCache";
 import {
   StateGridSkeleton,
   StatePanel,
@@ -33,11 +34,11 @@ const cardVariants = {
   }),
 };
 
-export default function PresetsView() {
+export default function PresetsView({ isActive = false }) {
   const game = useAppStore((state) => state.activeGame);
-  const activeView = useAppStore((state) => state.activeView);
   const configVersion = useAppStore((state) => state.configVersion);
   const apiStatus = useApiStatus();
+  const { fetchModsBatch } = useFetchCache();
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importerPath, setImporterPath] = useState(null);
@@ -46,6 +47,8 @@ export default function PresetsView() {
   const [importing, setImporting] = useState(false);
   const [gbData, setGbData] = useState({});
   const [importFeedback, setImportFeedback] = useState(null);
+  const loadRequestIdRef = useRef(0);
+  const lastLoadedKeyRef = useRef("");
   const totalModsAcrossPresets = presets.reduce(
     (sum, preset) => sum + preset.mods.length,
     0,
@@ -54,13 +57,13 @@ export default function PresetsView() {
     presets.flatMap((preset) => preset.mods.map((mod) => mod.character)),
   ).size;
 
-  const loadPresets = useCallback(async () => {
-    setLoading(true);
+  const loadPresets = useCallback(async (requestId) => {
     try {
       const [config, data] = await Promise.all([
         window.electronConfig.getConfig(),
         window.electronMods.getPresets(game.id),
       ]);
+      if (requestId !== loadRequestIdRef.current) return;
       setImporterPath(config[game.id] || null);
       setPresets(data || []);
 
@@ -73,11 +76,12 @@ export default function PresetsView() {
             .filter(Boolean),
         ),
       ];
-      if (allModIds.length > 0 && activeView === "presets") {
-        const result = await window.electronMods.fetchGbModsBatch(allModIds, {
+      if (allModIds.length > 0) {
+        const result = await fetchModsBatch(allModIds, {
           priority: "low",
           concurrency: 2,
         });
+        if (requestId !== loadRequestIdRef.current) return;
         if (result.success && result.data) {
           const dataMap = {};
           result.data.forEach((item) => {
@@ -91,15 +95,34 @@ export default function PresetsView() {
         setGbData({});
       }
     } catch (err) {
-      console.error("PresetsView: load error", err);
+      if (requestId === loadRequestIdRef.current) {
+        console.error("PresetsView: load error", err);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [game.id, activeView]);
+  }, [fetchModsBatch, game.id]);
 
   useEffect(() => {
-    loadPresets();
-  }, [configVersion, loadPresets]);
+    if (!isActive) {
+      loadRequestIdRef.current += 1;
+      setLoading(false);
+      return;
+    }
+
+    const loadKey = `${game.id}:${configVersion}`;
+    if (lastLoadedKeyRef.current === loadKey) {
+      return;
+    }
+
+    lastLoadedKeyRef.current = loadKey;
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+    setLoading(true);
+    void loadPresets(requestId);
+  }, [configVersion, game.id, isActive, loadPresets]);
 
   // Reset modal state when switching games
   useEffect(() => {

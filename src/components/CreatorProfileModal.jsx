@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useId } from "react";
+import { useId, useState } from "react";
 import {
   X,
   User,
@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import GbModCard from "./GbModCard";
 import { cn } from "../lib/utils";
 import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
+import { useGbQuery } from "../hooks/useGbQuery";
 
 const PER_PAGE = 20;
 
@@ -69,64 +70,36 @@ export default function CreatorProfileModal({
   onModClick,
 }) {
   const titleId = useId();
-  const [mods, setMods] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-
-  // Rich profile from /Member/{id}/ProfilePage
-  const [profile, setProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-
-  // Fetch rich member profile
-  useEffect(() => {
-    if (!creator._idRow) return;
-    let cancelled = false;
-    setProfileLoading(true);
-    window.electronMods
-      ?.fetchGbMemberProfile?.(creator._idRow)
-      ?.then((res) => {
-        if (cancelled) return;
-        const data = res?.data ?? res;
-        if (data && data._idRow) setProfile(data);
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setProfileLoading(false); });
-    return () => { cancelled = true; };
-  }, [creator._idRow]);
-
-  const fetchMods = useCallback(async () => {
-    if (!game.gbGameId || !creator._idRow) return;
-    if (!window.electronMods?.browseGbMods) {
-      setLoading(false);
-      setError("GameBanana browser is unavailable.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await window.electronMods.browseGbMods({
+  const {
+    data: profile,
+    loading: profileLoading,
+  } = useGbQuery({
+    enabled: Boolean(creator._idRow && window.electronMods?.fetchGbMemberProfile),
+    queryKey: ["gb-member-profile", creator._idRow],
+    queryFn: () => window.electronMods.fetchGbMemberProfile(creator._idRow),
+    ttlMs: 90_000,
+  });
+  const {
+    data: modsResult,
+    loading,
+    error,
+  } = useGbQuery({
+    enabled: Boolean(game.gbGameId && creator._idRow && window.electronMods?.browseGbMods),
+    queryKey: ["gb-creator-mods", game.gbGameId, creator._idRow, page],
+    queryFn: () =>
+      window.electronMods.browseGbMods({
         gbGameId: game.gbGameId,
         submitterId: creator._idRow,
         page,
         perPage: PER_PAGE,
-      });
-      if (result.success) {
-        setMods(result.records);
-        setTotal(result.total);
-      } else {
-        setError(result.error || "Failed to load mods from GameBanana.");
-      }
-    } catch (err) {
-      setError(err.message || "Network error.");
-    } finally {
-      setLoading(false);
-    }
-  }, [game.gbGameId, creator._idRow, page]);
+      }),
+    ttlMs: 45_000,
+    initialData: { records: [], total: 0 },
+  });
 
-  useEffect(() => { fetchMods(); }, [fetchMods]);
-
+  const mods = modsResult?.records || [];
+  const total = modsResult?.total || 0;
   const totalPages = Math.ceil(total / PER_PAGE);
   const displayProfile = profile ?? creator;
   const avatarUrl = profile?._sHdAvatarUrl || profile?._sAvatarUrl || creator._sAvatarUrl;

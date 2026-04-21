@@ -16,6 +16,7 @@ import {
   isGbThumbResolved,
   thumbnailUrlFromGbModItem,
 } from "../lib/gbThumbMap";
+import { useFetchCache } from "../hooks/useFetchCache";
 
 export default function PresetDetailModal({
   preset: initialPreset,
@@ -38,6 +39,7 @@ export default function PresetDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [gbData, setGbData] = useState(() => ({ ...initialGbData }));
+  const { fetchModsBatch } = useFetchCache();
 
   // Edit mode state
   const [editName, setEditName] = useState(preset.name);
@@ -151,7 +153,7 @@ export default function PresetDetailModal({
 
     let cancelled = false;
     (async () => {
-      const result = await window.electronMods.fetchGbModsBatch(missing, {
+      const result = await fetchModsBatch(missing, {
         priority: "low",
         concurrency: 2,
       });
@@ -176,7 +178,7 @@ export default function PresetDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [gbThumbFetchKey]);
+  }, [fetchModsBatch, gbThumbFetchKey]);
 
   const handleToggleEdit = async () => {
     if (isEditMode) {

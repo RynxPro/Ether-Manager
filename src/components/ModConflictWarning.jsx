@@ -86,15 +86,9 @@ export default function ModConflictWarning({ conflicts = [], className = "" }) {
                 </p>
               </div>
               {expandedIndex === index ? (
-                <ChevronUp
-                  size={16}
-                  className="text-text-muted shrink-0"
-                />
+                <ChevronUp size={16} className="text-text-muted shrink-0" />
               ) : (
-                <ChevronDown
-                  size={16}
-                  className="text-text-muted shrink-0"
-                />
+                <ChevronDown size={16} className="text-text-muted shrink-0" />
               )}
             </button>
 
