@@ -49,6 +49,24 @@ export const useAppStore = create((set) => ({
     }
   })),
 
+  // Update Check Cache
+  updateCheckCache: {}, // { [gameId]: { signature, checkedAt, updatesMap } }
+  setUpdateCheckCache: (gameId, entry) => set((state) => ({
+    updateCheckCache: {
+      ...state.updateCheckCache,
+      [gameId]: entry,
+    },
+  })),
+  clearUpdateCheckCache: (gameId) => set((state) => {
+    if (!gameId) {
+      return { updateCheckCache: {} };
+    }
+
+    const nextCache = { ...state.updateCheckCache };
+    delete nextCache[gameId];
+    return { updateCheckCache: nextCache };
+  }),
+
   // Config invalidation
   configVersion: 0,
   bumpConfigVersion: () => set((state) => ({

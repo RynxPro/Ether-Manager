@@ -63,6 +63,7 @@ const SORT_OPTIONS = [
 const PER_PAGE = 20;
 /** Defer hero carousel fetch so the main grid request wins the API queue first */
 const FEATURED_FETCH_DELAY_MS = 160;
+const CREATOR_HYDRATION_BATCH_SIZE = 3;
 
 function formatGbApiError(errorLike, fallback = "Request failed.") {
   const code = errorLike?.code;
@@ -151,6 +152,15 @@ export default function BrowseView({ isActive = false }) {
     ],
   );
 
+  const {
+    fetchMod,
+    fetchModsSummaries,
+    browseMods,
+    fetchFeaturedMods,
+    fetchMemberProfile,
+    searchModSuggestions,
+  } = useFetchCache();
+
   // Auto-advance the featured banner every 10 seconds.
   const resetHeroInterval = useCallback(() => {
     if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
@@ -185,18 +195,21 @@ export default function BrowseView({ isActive = false }) {
       return;
     }
     let cancelled = false;
-    window.electronMods
-      ?.searchGbModSuggestions({ query, gbGameId: game.gbGameId })
-      ?.then((res) => {
+    searchModSuggestions({ query, gbGameId: game.gbGameId })
+      .then((res) => {
         if (cancelled) return;
         const results = res?.data ?? res ?? [];
         setSuggestions(Array.isArray(results) ? results : []);
       })
-      .catch(() => setSuggestions([]));
+      .catch(() => {
+        if (!cancelled) {
+          setSuggestions([]);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearchQuery, game.gbGameId, isActive]);
+  }, [debouncedSearchQuery, game.gbGameId, isActive, searchModSuggestions]);
 
   // Close suggestion dropdown when clicking outside
   useEffect(() => {
@@ -240,8 +253,6 @@ export default function BrowseView({ isActive = false }) {
     }
   }, [activeTab, game.gbGameId]);
 
-  // Use fetch cache for individual mod details
-  const { fetchMod, fetchModsSummaries } = useFetchCache();
   const currentBookmarkIds = useMemo(
     () => bookmarkIdsByGame[game.id] || [],
     [bookmarkIdsByGame, game.id],
@@ -263,11 +274,7 @@ export default function BrowseView({ isActive = false }) {
       return;
     }
 
-    if (
-      !isOnline ||
-      !game.gbGameId ||
-      !window.electronMods?.fetchGbFeaturedMods
-    ) {
+    if (!isOnline || !game.gbGameId) {
       setFeaturedMods([]);
       setLoadingFeatured(false);
       return;
@@ -282,9 +289,7 @@ export default function BrowseView({ isActive = false }) {
       if (cancelled) return;
       setLoadingFeatured(true);
       try {
-        const result = await window.electronMods.fetchGbFeaturedMods(
-          game.gbGameId,
-        );
+        const result = await fetchFeaturedMods(game.gbGameId);
         if (cancelled) return;
         if (result.success && Array.isArray(result.data)) {
           setFeaturedMods(result.data);
@@ -306,7 +311,13 @@ export default function BrowseView({ isActive = false }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [browseGridReadyForFeatured, game.gbGameId, isActive, isOnline]);
+  }, [
+    browseGridReadyForFeatured,
+    fetchFeaturedMods,
+    game.gbGameId,
+    isActive,
+    isOnline,
+  ]);
 
   // Load importer path and bookmarks once
   useEffect(() => {
@@ -450,14 +461,6 @@ export default function BrowseView({ isActive = false }) {
       return;
     }
 
-    if (!window.electronMods?.browseGbMods) {
-      setLoading(false);
-      setError(
-        "GameBanana browser is unavailable because the Electron bridge failed to load.",
-      );
-      return;
-    }
-
     if (!game.gbGameId) {
       setError("GameBanana integration is not yet available for this game.");
       return;
@@ -479,7 +482,7 @@ export default function BrowseView({ isActive = false }) {
             : characterFilter;
 
     try {
-      const result = await window.electronMods.browseGbMods({
+      const result = await browseMods({
         gbGameId: game.gbGameId,
         page,
         perPage: PER_PAGE,
@@ -511,6 +514,7 @@ export default function BrowseView({ isActive = false }) {
       }
     }
   }, [
+    browseMods,
     isOnline,
     isActive,
     game.gbGameId,
@@ -655,7 +659,6 @@ export default function BrowseView({ isActive = false }) {
     if (!isActive || activeTab !== "saved" || currentBookmarkedCreators.length === 0) {
       return;
     }
-    if (!window.electronMods?.fetchGbMemberProfile) return;
 
     let cancelled = false;
     const unhydratedCreators = currentBookmarkedCreators.filter(
@@ -663,31 +666,52 @@ export default function BrowseView({ isActive = false }) {
     );
     if (unhydratedCreators.length === 0) return;
 
-    Promise.all(
-      unhydratedCreators.map((c) =>
-        window.electronMods
-          .fetchGbMemberProfile(c._idRow)
-          .then((res) => ({
-            id: c._idRow,
-            profile: res?.data ?? res ?? null,
-          }))
-          .catch(() => ({ id: c._idRow, profile: null })),
-      ),
-    ).then((results) => {
+    void (async () => {
+      const allResults = [];
+
+      for (let index = 0; index < unhydratedCreators.length; index += CREATOR_HYDRATION_BATCH_SIZE) {
+        if (cancelled) return;
+
+        const chunk = unhydratedCreators.slice(
+          index,
+          index + CREATOR_HYDRATION_BATCH_SIZE,
+        );
+
+        const chunkResults = await Promise.all(
+          chunk.map((creator) =>
+            fetchMemberProfile(creator._idRow)
+              .then((res) => ({
+                id: creator._idRow,
+                profile: res?.success ? (res.data ?? null) : null,
+              }))
+              .catch(() => ({ id: creator._idRow, profile: null })),
+          ),
+        );
+
+        allResults.push(...chunkResults);
+      }
+
       if (cancelled) return;
+
       setHydratedCreators((prev) => {
         const next = { ...prev };
-        for (const { id, profile } of results) {
+        for (const { id, profile } of allResults) {
           if (profile) next[id] = profile;
         }
         return next;
       });
-    });
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [activeTab, currentBookmarkedCreators, hydratedCreators, isActive]);
+  }, [
+    activeTab,
+    currentBookmarkedCreators,
+    fetchMemberProfile,
+    hydratedCreators,
+    isActive,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "saved" || loading) return;
@@ -1153,7 +1177,7 @@ export default function BrowseView({ isActive = false }) {
               <div
                 className="relative w-full h-[360px] rounded-3xl overflow-hidden border border-white/10 group cursor-pointer bg-[#0a0a0a]"
                 onClick={() => {
-                  window.electronMods?.fetchGbMod(mod._idRow).then((res) => {
+                  fetchMod(mod._idRow).then((res) => {
                     if (res.success) setInstallTarget(res.data);
                   });
                 }}

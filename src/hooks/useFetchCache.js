@@ -6,6 +6,22 @@ function normalizeIds(modIds = []) {
     .sort((a, b) => a - b);
 }
 
+function normalizeBrowseArgs(args = {}) {
+  return {
+    gbGameId: Number(args.gbGameId) || 0,
+    page: Number(args.page) || 1,
+    perPage: Number(args.perPage) || 20,
+    sort: String(args.sort || ""),
+    context: String(args.context || ""),
+    search: String(args.search || ""),
+    submitterId: args.submitterId == null ? null : Number(args.submitterId) || null,
+    featuredOnly: Boolean(args.featuredOnly),
+    characterSkins: Boolean(args.characterSkins),
+    hideNsfw: Boolean(args.hideNsfw),
+    hydrateZeroDownloadCounts: args.hydrateZeroDownloadCounts !== false,
+  };
+}
+
 /**
  * Thin wrapper hook for GameBanana fetches.
  * The Electron service remains the source of truth for HTTP throttling/cache,
@@ -106,5 +122,128 @@ export function useFetchCache() {
     }
   }, []);
 
-  return { fetchMod, fetchModsBatch, fetchModsSummaries };
+  const browseMods = useCallback(async (args = {}, options = {}) => {
+    const normalizedArgs = normalizeBrowseArgs(args);
+
+    try {
+      if (!window.electronMods?.browseGbMods) {
+        throw new Error("browseGbMods API not available");
+      }
+
+      return await fetchGbCachedQuery(
+        ["gb-browse", normalizedArgs],
+        () => window.electronMods.browseGbMods(normalizedArgs),
+        {
+          ttlMs: options.ttlMs ?? 45_000,
+          force: options.force === true,
+        },
+      );
+    } catch (error) {
+      console.error("Failed to browse mods:", error);
+      return {
+        success: false,
+        error: error.message,
+        code: error?.code,
+        retryAfterMs: error?.retryAfterMs,
+      };
+    }
+  }, []);
+
+  const fetchFeaturedMods = useCallback(async (gbGameId, options = {}) => {
+    const normalizedGameId = Number(gbGameId);
+
+    try {
+      if (!window.electronMods?.fetchGbFeaturedMods) {
+        throw new Error("fetchGbFeaturedMods API not available");
+      }
+
+      return await fetchGbCachedQuery(
+        ["gb-featured", normalizedGameId],
+        () => window.electronMods.fetchGbFeaturedMods(normalizedGameId),
+        {
+          ttlMs: options.ttlMs ?? 120_000,
+          force: options.force === true,
+        },
+      );
+    } catch (error) {
+      console.error("Failed to fetch featured mods:", error);
+      return {
+        success: false,
+        error: error.message,
+        code: error?.code,
+        retryAfterMs: error?.retryAfterMs,
+      };
+    }
+  }, []);
+
+  const fetchMemberProfile = useCallback(async (memberId, options = {}) => {
+    const normalizedMemberId = Number(memberId);
+
+    try {
+      if (!window.electronMods?.fetchGbMemberProfile) {
+        throw new Error("fetchGbMemberProfile API not available");
+      }
+
+      return await fetchGbCachedQuery(
+        ["gb-member-profile", normalizedMemberId],
+        () => window.electronMods.fetchGbMemberProfile(normalizedMemberId),
+        {
+          ttlMs: options.ttlMs ?? 90_000,
+          force: options.force === true,
+        },
+      );
+    } catch (error) {
+      console.error("Failed to fetch member profile:", error);
+      return {
+        success: false,
+        error: error.message,
+        code: error?.code,
+        retryAfterMs: error?.retryAfterMs,
+      };
+    }
+  }, []);
+
+  const searchModSuggestions = useCallback(async (args = {}, options = {}) => {
+    const normalizedArgs = {
+      query: String(args.query || "").trim(),
+      gbGameId: args.gbGameId == null ? null : Number(args.gbGameId) || null,
+    };
+
+    if (normalizedArgs.query.length < 2) {
+      return { success: true, data: [] };
+    }
+
+    try {
+      if (!window.electronMods?.searchGbModSuggestions) {
+        throw new Error("searchGbModSuggestions API not available");
+      }
+
+      return await fetchGbCachedQuery(
+        ["gb-suggestions", normalizedArgs.gbGameId, normalizedArgs.query.toLowerCase()],
+        () => window.electronMods.searchGbModSuggestions(normalizedArgs),
+        {
+          ttlMs: options.ttlMs ?? 15_000,
+          force: options.force === true,
+        },
+      );
+    } catch (error) {
+      console.error("Failed to fetch suggestions:", error);
+      return {
+        success: false,
+        error: error.message,
+        code: error?.code,
+        retryAfterMs: error?.retryAfterMs,
+      };
+    }
+  }, []);
+
+  return {
+    fetchMod,
+    fetchModsBatch,
+    fetchModsSummaries,
+    browseMods,
+    fetchFeaturedMods,
+    fetchMemberProfile,
+    searchModSuggestions,
+  };
 }

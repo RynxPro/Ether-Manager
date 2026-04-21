@@ -23,6 +23,7 @@ import GbModCard from "./GbModCard";
 import { cn } from "../lib/utils";
 import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
 import { useGbQuery } from "../hooks/useGbQuery";
+import { useFetchCache } from "../hooks/useFetchCache";
 
 const PER_PAGE = 20;
 
@@ -71,13 +72,14 @@ export default function CreatorProfileModal({
 }) {
   const titleId = useId();
   const [page, setPage] = useState(1);
+  const { fetchMemberProfile, browseMods } = useFetchCache();
   const {
     data: profile,
     loading: profileLoading,
   } = useGbQuery({
-    enabled: Boolean(creator._idRow && window.electronMods?.fetchGbMemberProfile),
+    enabled: Boolean(creator._idRow),
     queryKey: ["gb-member-profile", creator._idRow],
-    queryFn: () => window.electronMods.fetchGbMemberProfile(creator._idRow),
+    queryFn: () => fetchMemberProfile(creator._idRow),
     ttlMs: 90_000,
   });
   const {
@@ -85,10 +87,10 @@ export default function CreatorProfileModal({
     loading,
     error,
   } = useGbQuery({
-    enabled: Boolean(game.gbGameId && creator._idRow && window.electronMods?.browseGbMods),
+    enabled: Boolean(game.gbGameId && creator._idRow),
     queryKey: ["gb-creator-mods", game.gbGameId, creator._idRow, page],
     queryFn: () =>
-      window.electronMods.browseGbMods({
+      browseMods({
         gbGameId: game.gbGameId,
         submitterId: creator._idRow,
         page,

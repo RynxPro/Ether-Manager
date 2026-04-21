@@ -36,6 +36,7 @@ function normalizeGbModForCache(mod) {
 const GB_API = "https://gamebanana.com/apiv11";
 
 const characterCategoryCache = {};
+const characterCategoryLookups = new Map();
 
 // Root "Character Skins" category IDs per GB game ID — scopes the Characters tab
 // when no specific character sub-category is selected.
@@ -118,6 +119,10 @@ export function resetGameBananaRequestState() {
     medium: [],
     low: [],
   };
+  characterCategoryLookups.clear();
+  for (const key of Object.keys(characterCategoryCache)) {
+    delete characterCategoryCache[key];
+  }
   requestStats.totalCalls = 0;
   requestStats.networkCalls = 0;
   requestStats.cacheHits = 0;
@@ -286,6 +291,7 @@ async function readFromCache(cacheKey, bucket) {
     requestState.cache.delete(cacheKey);
     return null;
   }
+  requestStats.cacheHits += 1;
   return cached.value;
 }
 
@@ -1159,77 +1165,87 @@ export async function fetchGbModsSummaries(ids, options = {}) {
 async function resolveCharCategory(gameId, charName) {
   const searchLower = charName.toLowerCase();
   const cacheKey = `${gameId}_${searchLower}`;
-  if (characterCategoryCache[cacheKey]) {
+  if (Object.prototype.hasOwnProperty.call(characterCategoryCache, cacheKey)) {
     return characterCategoryCache[cacheKey];
   }
+  const inFlightLookup = characterCategoryLookups.get(cacheKey);
+  if (inFlightLookup) {
+    return inFlightLookup;
+  }
 
-  if (searchLower === "ui" || searchLower.includes("interface")) {
-    if (gameId === 19567) return 30395;
-  }
-  if (searchLower === "misc" || searchLower === "miscellaneous") {
-    if (gameId === 19567) return 29874;
-  }
+  const lookupPromise = (async () => {
+    if (searchLower === "ui" || searchLower.includes("interface")) {
+      if (gameId === 19567) return 30395;
+    }
+    if (searchLower === "misc" || searchLower === "miscellaneous") {
+      if (gameId === 19567) return 29874;
+    }
+
+    try {
+      const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
+      const searchRes = await fetchFromGB(searchUrl);
+      if (!Array.isArray(searchRes._aRecords)) return null;
+
+      for (const mod of searchRes._aRecords) {
+        // Use v11 ProfilePage endpoint for the full category data
+        const modData = await fetchFromGB(
+          `${GB_API}/Mod/${mod._idRow}/ProfilePage`,
+        );
+        if (!modData._aCategory || !modData._aSuperCategory) {
+          continue;
+        }
+
+        const rootName = (
+          modData._aSuperCategory?._sName ||
+          modData._aRootCategory?._sName ||
+          ""
+        ).toLowerCase();
+        const catName = (modData._aCategory._sName || "").toLowerCase();
+
+        if (rootName.includes("skin") || rootName.includes("character")) {
+          return modData._aCategory._idRow;
+        }
+
+        if (searchLower.includes("interface") || searchLower === "ui") {
+          if (
+            rootName.includes("ui") ||
+            rootName.includes("gui") ||
+            rootName.includes("interface") ||
+            catName.includes("ui") ||
+            catName.includes("gui") ||
+            catName.includes("interface")
+          ) {
+            return modData._aCategory._idRow;
+          }
+        }
+
+        if (searchLower.includes("misc")) {
+          if (
+            rootName.includes("misc") ||
+            rootName.includes("other") ||
+            catName.includes("misc") ||
+            catName.includes("other")
+          ) {
+            return modData._aCategory._idRow;
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn("Failed to auto-discover category ID", error.message);
+    }
+
+    return null;
+  })();
+
+  characterCategoryLookups.set(cacheKey, lookupPromise);
 
   try {
-    const searchUrl = `${GB_API}/Util/Search/Results?_sModelName=Mod&_idGameRow=${gameId}&_nPage=1&_nPerpage=3&_sSearchString=${encodeURIComponent(charName)}`;
-    const searchRes = await fetchFromGB(searchUrl);
-    if (!Array.isArray(searchRes._aRecords)) return null;
-
-    for (const mod of searchRes._aRecords) {
-      // Use v11 ProfilePage endpoint for the full category data
-      const modData = await fetchFromGB(
-        `${GB_API}/Mod/${mod._idRow}/ProfilePage`,
-      );
-      if (!modData._aCategory || !modData._aSuperCategory) {
-        continue;
-      }
-
-      const rootName = (
-        modData._aSuperCategory?._sName ||
-        modData._aRootCategory?._sName ||
-        ""
-      ).toLowerCase();
-      const catName = (modData._aCategory._sName || "").toLowerCase();
-
-      if (rootName.includes("skin") || rootName.includes("character")) {
-        const catId = modData._aCategory._idRow;
-        characterCategoryCache[cacheKey] = catId;
-        return catId;
-      }
-
-      if (searchLower.includes("interface") || searchLower === "ui") {
-        if (
-          rootName.includes("ui") ||
-          rootName.includes("gui") ||
-          rootName.includes("interface") ||
-          catName.includes("ui") ||
-          catName.includes("gui") ||
-          catName.includes("interface")
-        ) {
-          const catId = modData._aCategory._idRow;
-          characterCategoryCache[cacheKey] = catId;
-          return catId;
-        }
-      }
-
-      if (searchLower.includes("misc")) {
-        if (
-          rootName.includes("misc") ||
-          rootName.includes("other") ||
-          catName.includes("misc") ||
-          catName.includes("other")
-        ) {
-          const catId = modData._aCategory._idRow;
-          characterCategoryCache[cacheKey] = catId;
-          return catId;
-        }
-      }
-    }
-  } catch (error) {
-    logger.warn("Failed to auto-discover category ID", error.message);
+    const resolvedCategoryId = await lookupPromise;
+    characterCategoryCache[cacheKey] = resolvedCategoryId;
+    return resolvedCategoryId;
+  } finally {
+    characterCategoryLookups.delete(cacheKey);
   }
-
-  return null;
 }
 
 /**
