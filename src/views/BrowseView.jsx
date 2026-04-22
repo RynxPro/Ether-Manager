@@ -103,6 +103,7 @@ export default function BrowseView({ isActive = false }) {
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [submittedSearchQuery, setSubmittedSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 150);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -135,7 +136,7 @@ export default function BrowseView({ isActive = false }) {
       [
         game.gbGameId,
         activeTab,
-        debouncedSearchQuery,
+        submittedSearchQuery,
         characterFilter,
         String(featuredOnly),
         nsfwMode,
@@ -144,7 +145,7 @@ export default function BrowseView({ isActive = false }) {
     [
       game.gbGameId,
       activeTab,
-      debouncedSearchQuery,
+      submittedSearchQuery,
       characterFilter,
       featuredOnly,
       nsfwMode,
@@ -252,6 +253,13 @@ export default function BrowseView({ isActive = false }) {
       setBrowseGridReadyForFeatured(true);
     }
   }, [activeTab, game.gbGameId]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "" && submittedSearchQuery !== "") {
+      setSubmittedSearchQuery("");
+      setPage(1);
+    }
+  }, [searchQuery, submittedSearchQuery]);
 
   const currentBookmarkIds = useMemo(
     () => bookmarkIdsByGame[game.id] || [],
@@ -488,7 +496,7 @@ export default function BrowseView({ isActive = false }) {
         perPage: PER_PAGE,
         sort,
         context: categoryTarget,
-        search: debouncedSearchQuery,
+        search: submittedSearchQuery,
         featuredOnly,
         characterSkins: activeTab === "characters",
         hideNsfw: nsfwMode === "hide",
@@ -524,7 +532,7 @@ export default function BrowseView({ isActive = false }) {
     nsfwMode,
     characterFilter,
     activeTab,
-    debouncedSearchQuery,
+    submittedSearchQuery,
     browseIdentityKey,
   ]);
 
@@ -541,7 +549,7 @@ export default function BrowseView({ isActive = false }) {
     } else {
       setError(null);
     }
-  }, [activeTab, debouncedSearchQuery, fetchMods, isActive]);
+  }, [activeTab, fetchMods, isActive]);
 
   useEffect(() => {
     if (!isActive || activeTab !== "saved") return;
@@ -717,7 +725,7 @@ export default function BrowseView({ isActive = false }) {
     if (activeTab !== "saved" || loading) return;
 
     const savedMods = savedModsCatalog[game.id] || [];
-    const searchTarget = debouncedSearchQuery.toLowerCase();
+    const searchTarget = submittedSearchQuery.toLowerCase();
     const filtered = searchTarget
       ? savedMods.filter((m) =>
           (m._sName || "").toLowerCase().includes(searchTarget),
@@ -730,7 +738,7 @@ export default function BrowseView({ isActive = false }) {
     activeTab,
     savedModsCatalog,
     game.id,
-    debouncedSearchQuery,
+    submittedSearchQuery,
     page,
     loading,
   ]);
@@ -862,9 +870,9 @@ export default function BrowseView({ isActive = false }) {
     ) : null;
   const isSavedView = activeTab === "saved";
   const isFiltering =
-    activeTab !== "all" || !!debouncedSearchQuery || !!sort || featuredOnly;
+    activeTab !== "all" || !!submittedSearchQuery || !!sort || featuredOnly;
   const showFeaturedHero =
-    activeTab === "all" && !debouncedSearchQuery && !featuredOnly;
+    activeTab === "all" && !submittedSearchQuery && !featuredOnly;
   const showCharacterFilter = activeTab === "characters";
   const showSortControl = activeTab !== "saved";
   const showFeaturedToggle = activeTab !== "saved";
@@ -880,7 +888,7 @@ export default function BrowseView({ isActive = false }) {
       : activeTab === "misc"
         ? "Miscellaneous"
         : characterFilter,
-    debouncedSearchQuery,
+    submittedSearchQuery,
   ]
     .filter(Boolean)
     .join(" + ");
@@ -904,23 +912,33 @@ export default function BrowseView({ isActive = false }) {
         ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} for ${activeSearchLabel || game.name}.`
         : `${Math.max(0, total).toLocaleString()} GameBanana listing${total !== 1 ? "s" : ""} for ${game.name}.`;
   const searchPlaceholder = isSavedView
-    ? "Search saved mods..."
+    ? "Search saved mods and press Enter..."
     : activeTab === "characters"
-      ? "Search character mods..."
+      ? "Search character mods and press Enter..."
       : activeTab === "ui"
-        ? "Search UI mods..."
+        ? "Search UI mods and press Enter..."
         : activeTab === "misc"
-          ? "Search miscellaneous mods..."
-          : "Search GameBanana...";
+          ? "Search miscellaneous mods and press Enter..."
+          : "Search GameBanana and press Enter...";
 
   const handleResetFilters = () => {
     setActiveTab("all");
     setCharacterFilter("");
     setSearchQuery("");
+    setSubmittedSearchQuery("");
     setSort("");
     setFeaturedOnly(false);
     setPage(1);
   };
+
+  const commitSearch = useCallback((value) => {
+    const nextQuery = String(value ?? "").trim();
+    setSearchQuery(value ?? "");
+    setSubmittedSearchQuery(nextQuery);
+    setPage(1);
+    setShowSuggestions(false);
+    setActiveSuggestionIdx(-1);
+  }, []);
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -980,8 +998,7 @@ export default function BrowseView({ isActive = false }) {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setPage(1);
-                  setShowSuggestions(true);
+                  setShowSuggestions(e.target.value.trim().length >= 2);
                   setActiveSuggestionIdx(-1);
                 }}
                 onFocus={() =>
@@ -1000,9 +1017,10 @@ export default function BrowseView({ isActive = false }) {
                   } else if (e.key === "Enter" && activeSuggestionIdx >= 0) {
                     e.preventDefault();
                     const picked = suggestions[activeSuggestionIdx];
-                    setSearchQuery(picked);
-                    setShowSuggestions(false);
-                    setPage(1);
+                    commitSearch(picked);
+                  } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitSearch(searchQuery);
                   } else if (e.key === "Escape") {
                     setShowSuggestions(false);
                   }
@@ -1038,9 +1056,7 @@ export default function BrowseView({ isActive = false }) {
                         )}
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setSearchQuery(s);
-                          setShowSuggestions(false);
-                          setPage(1);
+                          commitSearch(s);
                         }}
                         onMouseEnter={() => setActiveSuggestionIdx(i)}
                       >
