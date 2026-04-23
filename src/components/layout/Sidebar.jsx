@@ -6,6 +6,7 @@ import {
   Globe,
   Database,
   ArrowRight,
+  Heart,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useState } from "react";
@@ -201,6 +202,22 @@ export default function Sidebar({ onShowHelp }) {
           <div className="flex flex-col gap-2">
             <Button
               variant="ghost"
+              onClick={() => onSelectView("support")}
+              className={cn(
+                "w-full justify-start gap-3 border px-3 py-3 hover:bg-white/5 transition-all",
+                activeView === "support" 
+                  ? "border-pink-500/30 bg-pink-500/10 text-pink-400 hover:border-pink-500/50" 
+                  : "border-transparent text-text-muted hover:border-white/10 hover:text-pink-300"
+              )}
+            >
+              <Heart size={16} className={cn("transition-colors", activeView === "support" ? "fill-pink-500/30 text-pink-400" : "")} />
+              <span className="text-[12px] font-semibold tracking-tight text-text-primary">
+                Support Aether
+              </span>
+            </Button>
+
+            <Button
+              variant="ghost"
               onClick={onShowHelp}
               className="w-full justify-start gap-3 border border-transparent px-3 py-3 hover:border-white/10 hover:bg-white/5"
             >
@@ -211,9 +228,9 @@ export default function Sidebar({ onShowHelp }) {
             </Button>
 
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={() => setShowSettings(true)}
-              className="w-full justify-start gap-3 border-white/8 bg-surface px-3 py-3 hover:bg-white/8"
+              className="w-full justify-start gap-3 border border-transparent px-3 py-3 hover:border-white/10 hover:bg-white/5"
             >
               <Settings size={16} className="text-text-muted" />
               <span className="text-[12px] font-semibold tracking-tight text-text-primary">

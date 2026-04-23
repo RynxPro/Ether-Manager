@@ -20,12 +20,19 @@ export const useAppStore = create((set) => ({
       activeGame: GAME_CONFIG[resolvedGameId],
       // Reset view-specific state when switching games
       selectedCharacter: null,
+      pageStack: [],
     });
   },
 
   // Navigation / View State
   activeView: 'mods', // "mods" | "browse" | "presets"
-  setActiveView: (view) => set({ activeView: view }),
+  setActiveView: (view) => set({ activeView: view, pageStack: [] }),
+
+  // Global Page Stack
+  pageStack: [], // Array of { id: string, component: string, props: object }
+  pushPage: (page) => set((state) => ({ pageStack: [...state.pageStack, page] })),
+  popPage: () => set((state) => ({ pageStack: state.pageStack.slice(0, -1) })),
+  clearPages: () => set({ pageStack: [] }),
 
   // Content Settings
   nsfwMode: "blur", // "blur" | "hide" | "show"

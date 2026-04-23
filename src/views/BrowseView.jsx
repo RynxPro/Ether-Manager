@@ -14,8 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import GbModCard from "../components/GbModCard";
-import ModDetailModal from "../components/ModDetailModal";
-import CreatorProfileModal from "../components/CreatorProfileModal";
+
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -98,8 +97,7 @@ export default function BrowseView({ isActive = false }) {
   const [page, setPage] = useState(1);
   const [mods, setMods] = useState([]);
   const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFile }
-  const [installTarget, setInstallTarget] = useState(null);
-  const [activeCreatorProfile, setActiveCreatorProfile] = useState(null);
+  const pushPage = useAppStore(state => state.pushPage);
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -804,16 +802,41 @@ export default function BrowseView({ isActive = false }) {
   );
 
   const handleCreatorClick = useCallback((submitter) => {
-    setActiveCreatorProfile(submitter);
-    setInstallTarget(null); // Close the mod detail modal if it's currently open
-  }, []);
+    pushPage({
+      id: `creator-${submitter._idRow}`,
+      component: 'CreatorProfile',
+      props: {
+        creator: submitter,
+        game,
+        installedModsInfo,
+        bookmarkIds: currentBookmarkIds,
+        onToggleBookmark: handleToggleBookmark,
+        isCreatorBookmarked: currentBookmarkedCreators.some(
+          (c) => c._idRow === submitter._idRow,
+        ),
+        onToggleCreatorBookmark: handleToggleCreatorBookmark,
+      }
+    });
+  }, [pushPage, game, installedModsInfo, currentBookmarkIds, handleToggleBookmark, currentBookmarkedCreators, handleToggleCreatorBookmark]);
 
   const handleCardInstallClick = useCallback(
     async (mod) => {
       try {
         const result = await fetchMod(mod._idRow);
         if (result.success && result.data) {
-          setInstallTarget(result.data);
+          pushPage({
+            id: `mod-${result.data._idRow}`,
+            component: 'ModDetail',
+            props: {
+              mod: result.data,
+              game,
+              installedFileInfo: installedModsInfo[result.data._idRow],
+              onInstall: handleInstall,
+              isBookmarked: currentBookmarkIdSet.has(result.data._idRow),
+              onToggleBookmark: () => handleToggleBookmark(result.data),
+              onCreatorClick: handleCreatorClick,
+            }
+          });
         } else {
           setError("Failed to fetch mod details.");
         }
@@ -821,7 +844,7 @@ export default function BrowseView({ isActive = false }) {
         setError("Failed to fetch mod details.");
       }
     },
-    [fetchMod],
+    [fetchMod, pushPage, game, installedModsInfo, handleInstall, currentBookmarkIdSet, handleToggleBookmark, handleCreatorClick],
   );
 
   const totalPages = Math.ceil(total / PER_PAGE);
@@ -1192,11 +1215,7 @@ export default function BrowseView({ isActive = false }) {
             <div className="mb-5 w-full">
               <div
                 className="relative w-full h-[360px] rounded-3xl overflow-hidden border border-white/10 group cursor-pointer bg-[#0a0a0a]"
-                onClick={() => {
-                  fetchMod(mod._idRow).then((res) => {
-                    if (res.success) setInstallTarget(res.data);
-                  });
-                }}
+                onClick={() => handleCardInstallClick(mod)}
               >
                 {/* Blurred atmospheric backdrop */}
                 <AnimatePresence initial={false}>
@@ -1576,36 +1595,6 @@ export default function BrowseView({ isActive = false }) {
         )}
       </div>
 
-      {/* Creator Profile Modal */}
-      {activeCreatorProfile && (
-        <CreatorProfileModal
-          creator={activeCreatorProfile}
-          game={game}
-          installedModsInfo={installedModsInfo}
-          bookmarkIds={currentBookmarkIds}
-          onToggleBookmark={handleToggleBookmark}
-          isCreatorBookmarked={currentBookmarkedCreators.some(
-            (c) => c._idRow === activeCreatorProfile._idRow,
-          )}
-          onToggleCreatorBookmark={handleToggleCreatorBookmark}
-          onModClick={handleCardInstallClick}
-          onClose={() => setActiveCreatorProfile(null)}
-        />
-      )}
-
-      {/* Mod detail modal */}
-      {installTarget && (
-        <ModDetailModal
-          mod={installTarget}
-          game={game}
-          installedFileInfo={installedModsInfo[installTarget._idRow]}
-          onClose={() => setInstallTarget(null)}
-          onInstall={handleInstall}
-          isBookmarked={currentBookmarkIdSet.has(installTarget._idRow)}
-          onToggleBookmark={() => handleToggleBookmark(installTarget)}
-          onCreatorClick={handleCreatorClick}
-        />
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Search } from "lucide-react";
-import ModDetailModal from "../components/ModDetailModal";
+
 import CharacterDetailHeader from "../components/CharacterDetailHeader";
 import CharacterDetailGrid from "../components/CharacterDetailGrid";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -24,8 +24,8 @@ export default function CharacterDetail({
   const portraitUrl = useCharacterPortrait(character.name, game.id);
   // Removed old useState for mods
   const [imgLoaded, setImgLoaded] = useState(false);
+  const pushPage = useAppStore(state => state.pushPage);
   const [gbDataMap, setGbDataMap] = useState({});
-  const [selectedMod, setSelectedMod] = useState(null);
   const [installedModsInfo, setInstalledModsInfo] = useState({});
   const [modToDelete, setModToDelete] = useState(null);
   const [disablingAll, setDisablingAll] = useState(false);
@@ -438,29 +438,27 @@ export default function CharacterDetail({
         character={character}
         game={game}
         hideHeader={hideHeader}
-        onSelectMod={setSelectedMod}
+        onSelectMod={(mod) => {
+          pushPage({
+            id: `mod-${mod._idRow || mod.id}`, // fallback to id if _idRow is undefined (local mod vs GB mod)
+            component: 'ModDetail',
+            props: {
+              mod: mod,
+              game,
+              installedFileInfo: installedModsInfo[mod._idRow],
+              preSelectedCharacter: character.name !== "Unassigned" ? character.name : "",
+              isUpdating: mod.isUpdating,
+              isLibraryContext: true,
+              onInstall: handleInstallUpdate,
+              onThumbnailChange: () => reloadAllMods(true)
+            }
+          });
+        }}
         onToggle={handleToggle}
         onOpenFolder={handleOpenFolder}
         onAssign={handleAssign}
         onDelete={handleDelete}
       />
-
-      {/* Mod Detail Modal */}
-      {selectedMod && (
-        <ModDetailModal
-          mod={selectedMod}
-          game={game}
-          installedFileInfo={installedModsInfo[selectedMod._idRow]}
-          preSelectedCharacter={
-            character.name !== "Unassigned" ? character.name : ""
-          }
-          isUpdating={selectedMod.isUpdating}
-          isLibraryContext={true}
-          onClose={() => setSelectedMod(null)}
-          onInstall={handleInstallUpdate}
-          onThumbnailChange={() => reloadAllMods(true)}
-        />
-      )}
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}

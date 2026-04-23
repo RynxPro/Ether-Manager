@@ -43,6 +43,12 @@ const BrowseModCard = React.memo(function BrowseModCard({
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [localBookmarked, setLocalBookmarked] = useState(isBookmarked);
+
+  // Sync if parent updates it
+  React.useEffect(() => {
+    setLocalBookmarked(isBookmarked);
+  }, [isBookmarked]);
   const downloadJob = useAppStore(
     useCallback(
       (state) => state.downloads.find((d) => d.id === mod._idRow),
@@ -139,23 +145,24 @@ const BrowseModCard = React.memo(function BrowseModCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              setLocalBookmarked(!localBookmarked);
               onToggleBookmark?.(mod);
             }}
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all shadow-lg border group/bookmark",
-              isBookmarked
+              localBookmarked
                 ? "bg-primary/20 border-primary/50 text-primary hover:bg-primary/30"
                 : "bg-black/50 border-white/10 text-white/50 hover:bg-white/10 hover:text-white",
             )}
-            title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
+            title={localBookmarked ? "Remove Bookmark" : "Save Bookmark"}
           >
             <Bookmark
               size={14}
-              strokeWidth={isBookmarked ? 3 : 2}
+              strokeWidth={localBookmarked ? 3 : 2}
               className={cn(
                 "transition-all duration-300",
-                isBookmarked
-                  ? "fill-primary"
+                localBookmarked
+                  ? "fill-primary text-primary"
                   : "group-hover/bookmark:scale-110",
               )}
             />

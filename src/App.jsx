@@ -11,10 +11,12 @@ import AppViewShell from "./components/layout/AppViewShell";
 import { WifiOff } from "lucide-react";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import DevNetworkMonitor from "./components/dev/DevNetworkMonitor";
+import PageStackRenderer from "./components/PageStackRenderer";
 
 const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
 const BrowseView = lazy(() => import("./views/BrowseView"));
 const PresetsView = lazy(() => import("./views/PresetsView"));
+const SupportView = lazy(() => import("./views/SupportView"));
 
 function App() {
   const activeGameId = useAppStore((state) => state.activeGameId);
@@ -177,6 +179,10 @@ function App() {
               <PresetsView isActive={activeView === "presets"} />
             </AppViewShell>
 
+            <AppViewShell isActive={activeView === "support"}>
+              <SupportView />
+            </AppViewShell>
+
             <AppViewShell
               isActive={activeView === "mods" && !selectedCharacter}
             >
@@ -205,6 +211,9 @@ function App() {
                 </AppViewShell>
               )}
             </AnimatePresence>
+
+            {/* GLOBAL PAGE STACK FOR DEEP NAVIGATION */}
+            <PageStackRenderer />
           </Suspense>
         </ErrorBoundary>
       </main>
