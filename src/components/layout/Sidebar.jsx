@@ -11,7 +11,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import SettingsModal from "../SettingsModal";
+
 import { Button } from "../ui/Button";
 import { useAppStore } from "../../store/useAppStore";
 import { VISIBLE_GAMES } from "../../gameConfig";
@@ -41,8 +41,7 @@ export default function Sidebar({ onShowHelp }) {
   const activeView = useAppStore((state) => state.activeView);
   const onSelectView = useAppStore((state) => state.setActiveView);
   const games = VISIBLE_GAMES;
-  const [showSettings, setShowSettings] = useState(false);
-
+  const pushPage = useAppStore((state) => state.pushPage);
   return (
     <>
       <aside className="titlebar-drag relative z-20 flex h-full w-72 shrink-0 flex-col border-r border-border bg-surface/82 backdrop-blur-2xl transition-colors duration-300">
@@ -229,7 +228,7 @@ export default function Sidebar({ onShowHelp }) {
 
             <Button
               variant="ghost"
-              onClick={() => setShowSettings(true)}
+              onClick={() => pushPage({ id: 'settings', component: 'Settings', props: { games } })}
               className="w-full justify-start gap-3 border border-transparent px-3 py-3 hover:border-white/10 hover:bg-white/5"
             >
               <Settings size={16} className="text-text-muted" />
@@ -241,9 +240,7 @@ export default function Sidebar({ onShowHelp }) {
         </div>
       </aside>
 
-      {showSettings && (
-        <SettingsModal onClose={() => setShowSettings(false)} games={games} />
-      )}
+
     </>
   );
 }

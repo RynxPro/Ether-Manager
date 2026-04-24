@@ -2,10 +2,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 import ModDetailPage from "./ModDetailPage";
 import CreatorProfilePage from "./CreatorProfilePage";
+import SettingsPage from "./SettingsPage";
 
 const PAGE_COMPONENTS = {
   ModDetail: ModDetailPage,
   CreatorProfile: CreatorProfilePage,
+  Settings: SettingsPage,
 };
 
 export default function PageStackRenderer() {

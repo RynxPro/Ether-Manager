@@ -34,6 +34,25 @@ import {
 import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 
+function RateLimitBanner() {
+  const apiStatus = useApiStatus();
+  
+  if (!apiStatus.isCoolingDown) return null;
+
+  return (
+    <div className="mb-3 rounded-xl border border-orange-500/35 bg-orange-500/10 px-4 py-3 flex items-center gap-3 text-orange-200/95 text-[11px] font-semibold">
+      <AlertCircle className="h-4 w-4 shrink-0" />
+      <span>
+        GameBanana is rate-limiting requests. Retrying automatically in about{" "}
+        <span className="font-black text-orange-300">
+          {apiStatus.cooldownSecondsRemaining}s
+        </span>
+        ...
+      </span>
+    </div>
+  );
+}
+
 const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
   { id: "characters", label: "Characters", icon: User },
@@ -84,8 +103,6 @@ export default function BrowseView({ isActive = false }) {
   const completeDownload = useAppStore((state) => state.completeDownload);
   const nsfwMode = useAppStore((state) => state.nsfwMode);
 
-  // Real-time API status (cooldown, queue depths, etc.)
-  const apiStatus = useApiStatus();
 
   const gridTopRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all");
@@ -1393,20 +1410,7 @@ export default function BrowseView({ isActive = false }) {
         ref={gridTopRef}
         className="min-h-[60vh] relative w-full flex flex-col"
       >
-        {/* Rate-limit feedback banner */}
-        {apiStatus.isCoolingDown && (
-          <div className="mb-3 rounded-xl border border-orange-500/35 bg-orange-500/10 px-4 py-3 flex items-center gap-3 text-orange-200/95 text-[11px] font-semibold">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>
-              GameBanana is rate-limiting requests. Retrying automatically in
-              about{" "}
-              <span className="font-black text-orange-300">
-                {apiStatus.cooldownSecondsRemaining}s
-              </span>
-              ...
-            </span>
-          </div>
-        )}
+        <RateLimitBanner />
 
         {/* Error state */}
         {error && !loading && (
@@ -1565,7 +1569,7 @@ export default function BrowseView({ isActive = false }) {
                     isBookmarked={isBookmarked}
                     onClick={handleCardInstallClick}
                     onInstall={handleCardInstallClick}
-                    onToggleBookmark={() => handleToggleBookmark(mod)}
+                    onToggleBookmark={handleToggleBookmark}
                     onCreatorClick={handleCreatorClick}
                   />
                 );
