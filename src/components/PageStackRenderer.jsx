@@ -1,4 +1,4 @@
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 import ModDetailPage from "./ModDetailPage";
 import CreatorProfilePage from "./CreatorProfilePage";
@@ -21,9 +21,17 @@ export default function PageStackRenderer() {
         const zIndexOffset = 100 + index * 10;
 
         return (
-          <div key={page.id} style={{ zIndex: zIndexOffset }} className="fixed top-0 bottom-0 right-0 left-72">
+          <motion.div 
+            key={page.id} 
+            style={{ zIndex: zIndexOffset }} 
+            className="fixed top-0 bottom-0 right-0 left-72 bg-background shadow-[-20px_0_40px_rgba(0,0,0,0.5)]"
+            initial={{ opacity: 0, x: "100%" }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          >
             <Component {...page.props} />
-          </div>
+          </motion.div>
         );
       })}
     </AnimatePresence>

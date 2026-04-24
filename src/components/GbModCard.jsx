@@ -283,12 +283,12 @@ const BrowseModCard = React.memo(function BrowseModCard({
 
           <div className="flex shrink-0 items-center gap-3 text-[10px] font-bold text-text-secondary">
             <div className="flex items-center gap-1">
-              <Heart size={10} className="text-text-muted" />
+              <Heart size={10} className="text-primary" />
               <span>{formatCount(mod._nLikeCount)}</span>
             </div>
             {mod._nDownloadCount != null && (
               <div className="flex items-center gap-1">
-                <Download size={10} className="text-text-muted" />
+                <Download size={10} className="text-blue-400" />
                 <span>{formatCount(mod._nDownloadCount)}</span>
               </div>
             )}
