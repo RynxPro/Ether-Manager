@@ -25,6 +25,7 @@ import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
 import { useGbQuery } from "../hooks/useGbQuery";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
 
 const PER_PAGE = 20;
 
@@ -63,16 +64,43 @@ function formatJoinDate(ts) {
 export default function CreatorProfilePage({
   creator,
   game,
-  installedModsInfo,
   bookmarkIds,
   onToggleBookmark,
+  onInstall,
   isCreatorBookmarked,
   onToggleCreatorBookmark,
 }) {
   const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
   const [page, setPage] = useState(1);
-  const { fetchMemberProfile, browseMods } = useFetchCache();
+  const { fetchMemberProfile, browseMods, fetchMod } = useFetchCache();
+
+  // Live installed mods — reads from global Zustand cache so it updates
+  // automatically after any install without needing a prop refresh.
+  const { mods: allMods } = useLoadGameMods(game.id, true);
+  const installedModsInfo = (() => {
+    const infoMap = {};
+    (allMods || []).forEach((m) => {
+      if (m.gamebananaId != null) {
+        if (!infoMap[m.gamebananaId]) infoMap[m.gamebananaId] = { installedFiles: [] };
+        if (m.installedFile) {
+          const exists = infoMap[m.gamebananaId].installedFiles.find(
+            (f) => f.fileName === m.installedFile
+          );
+          if (!exists) {
+            infoMap[m.gamebananaId].installedFiles.push({
+              fileName: m.installedFile,
+              installedAt: m.installedAt,
+              gbFileId: m.gbFileId ?? null,
+              fileAddedAt: m.fileAddedAt ?? null,
+              modVersion: m.modVersion ?? null,
+            });
+          }
+        }
+      }
+    });
+    return infoMap;
+  })();
 
   const {
     data: profile,
@@ -103,32 +131,52 @@ export default function CreatorProfilePage({
     initialData: { records: [], total: 0 },
   });
 
-  const handleModClick = (mod) => {
-    pushPage({
-      id: `mod-${mod._idRow}`,
-      component: 'ModDetail',
-      props: {
-        mod,
-        game,
-        installedFileInfo: installedModsInfo?.[mod._idRow] || null,
-        isBookmarked: (bookmarkIds || []).includes(mod._idRow),
-        onToggleBookmark: () => onToggleBookmark?.(mod),
-        onCreatorClick: (clickedCreator) => {
-          if (clickedCreator._idRow === creator._idRow) return; // Prevent pushing same creator
-          pushPage({
-            id: `creator-${clickedCreator._idRow}`,
-            component: 'CreatorProfile',
-            props: {
-              creator: clickedCreator,
-              game,
-              installedModsInfo,
-              bookmarkIds,
-              onToggleBookmark,
-            }
-          });
+  const handleModClick = async (mod) => {
+    try {
+      // Fetch full mod details before pushing the detail page
+      const result = await fetchMod(mod._idRow);
+      const fullMod = (result?.success && result.data) ? result.data : mod;
+      pushPage({
+        id: `mod-${fullMod._idRow}`,
+        component: 'ModDetail',
+        props: {
+          mod: fullMod,
+          game,
+          installedFileInfo: installedModsInfo?.[fullMod._idRow] || null,
+          isBookmarked: (bookmarkIds || []).includes(fullMod._idRow),
+          onToggleBookmark: () => onToggleBookmark?.(fullMod),
+          onInstall,
+          onCreatorClick: (clickedCreator) => {
+            if (clickedCreator._idRow === creator._idRow) return;
+            pushPage({
+              id: `creator-${clickedCreator._idRow}`,
+              component: 'CreatorProfile',
+              props: {
+                creator: clickedCreator,
+                game,
+                bookmarkIds,
+                onToggleBookmark,
+                onInstall,
+              }
+            });
+          }
         }
-      }
-    });
+      });
+    } catch {
+      // Fallback: push with the summary mod data we already have
+      pushPage({
+        id: `mod-${mod._idRow}`,
+        component: 'ModDetail',
+        props: {
+          mod,
+          game,
+          installedFileInfo: installedModsInfo?.[mod._idRow] || null,
+          isBookmarked: (bookmarkIds || []).includes(mod._idRow),
+          onToggleBookmark: () => onToggleBookmark?.(mod),
+          onInstall,
+        }
+      });
+    }
   };
 
   const mods = modsResult?.records || [];
@@ -384,10 +432,10 @@ export default function CreatorProfilePage({
                     mod={mod}
                     isInstalled={isInstalled}
                     hasUpdate={hasUpdate}
-                    onClick={() => handleModClick(mod)}
-                    onInstall={() => handleModClick(mod)}
+                    onClick={handleModClick}
+                    onInstall={handleModClick}
                     isBookmarked={isBookmarked}
-                    onToggleBookmark={() => onToggleBookmark?.(mod)}
+                    onToggleBookmark={onToggleBookmark}
                   />
                 );
               })}

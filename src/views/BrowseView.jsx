@@ -78,7 +78,7 @@ const SORT_OPTIONS = [
   { label: "Oldest", value: "Generic_Oldest" },
 ];
 
-const PER_PAGE = 20;
+const PER_PAGE = 25;
 /** Defer hero carousel fetch so the main grid request wins the API queue first */
 const FEATURED_FETCH_DELAY_MS = 160;
 const CREATOR_HYDRATION_BATCH_SIZE = 3;
@@ -825,16 +825,16 @@ export default function BrowseView({ isActive = false }) {
       props: {
         creator: submitter,
         game,
-        installedModsInfo,
         bookmarkIds: currentBookmarkIds,
         onToggleBookmark: handleToggleBookmark,
+        onInstall: handleInstall,
         isCreatorBookmarked: currentBookmarkedCreators.some(
           (c) => c._idRow === submitter._idRow,
         ),
         onToggleCreatorBookmark: handleToggleCreatorBookmark,
       }
     });
-  }, [pushPage, game, installedModsInfo, currentBookmarkIds, handleToggleBookmark, currentBookmarkedCreators, handleToggleCreatorBookmark]);
+  }, [pushPage, game, currentBookmarkIds, handleToggleBookmark, handleInstall, currentBookmarkedCreators, handleToggleCreatorBookmark]);
 
   const handleCardInstallClick = useCallback(
     async (mod) => {
@@ -1250,6 +1250,8 @@ export default function BrowseView({ isActive = false }) {
                         className="w-full h-full object-cover scale-110 blur-2xl opacity-30 saturate-150"
                         alt=""
                         aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                   </motion.div>
@@ -1288,6 +1290,8 @@ export default function BrowseView({ isActive = false }) {
                           <img
                             src={mod._aSubmitter._sAvatarUrl}
                             alt={mod._aSubmitter._sName}
+                            loading="lazy"
+                            decoding="async"
                             className="w-8 h-8 rounded-full object-cover border border-white/20 group-hover/creator:border-primary/60 transition-all"
                           />
                         ) : (
@@ -1476,6 +1480,8 @@ export default function BrowseView({ isActive = false }) {
                               <img
                                 src={avatarUrl}
                                 alt={displayCreator._sName}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover"
                               />
                             ) : (

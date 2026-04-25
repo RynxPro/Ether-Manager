@@ -31,7 +31,7 @@ function usefulTags(tags = []) {
     .slice(0, 2);
 }
 
-const BrowseModCard = React.memo(function BrowseModCard({
+const BrowseModCard = function BrowseModCard({
   mod,
   onClick,
   onInstall,
@@ -257,6 +257,8 @@ const BrowseModCard = React.memo(function BrowseModCard({
                       mod._aSubmitter._sAvatarUrl
                     }
                     alt={mod._aSubmitter._sName}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -360,6 +362,18 @@ const BrowseModCard = React.memo(function BrowseModCard({
       )}
     </InteractiveCard>
   );
-});
+};
 
-export default BrowseModCard;
+function areGbModCardPropsEqual(prevProps, nextProps) {
+  return (
+    prevProps.mod._idRow === nextProps.mod._idRow &&
+    prevProps.mod._sName === nextProps.mod._sName && // Just in case name updates in cache
+    prevProps.isInstalled === nextProps.isInstalled &&
+    prevProps.hasUpdate === nextProps.hasUpdate &&
+    prevProps.isBookmarked === nextProps.isBookmarked
+    // We intentionally ignore function references (onClick, onInstall, etc.)
+    // so they do not break memoization if the parent re-renders.
+  );
+}
+
+export default React.memo(BrowseModCard, areGbModCardPropsEqual);

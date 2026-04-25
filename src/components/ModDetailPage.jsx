@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
+import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import SearchableDropdown from "./SearchableDropdown";
@@ -73,7 +74,6 @@ export default function ModDetailPage({
   game,
   onClose,
   onInstall,
-  installedFileInfo,
   isBookmarked = false,
   onToggleBookmark,
   preSelectedCharacter = "",
@@ -106,6 +106,30 @@ export default function ModDetailPage({
   );
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
   const nsfwMode = useAppStore((state) => state.nsfwMode);
+
+  // Derive live installed state from global cache so this page always reflects
+  // the real on-disk state, even when opened from a stale pushPage snapshot.
+  const { mods: allMods } = useLoadGameMods(game.id, true);
+  const installedFileInfo = (() => {
+    const entry = { installedFiles: [] };
+    (allMods || []).forEach((m) => {
+      if (m.gamebananaId === mod._idRow) {
+        if (m.installedFile) {
+          const exists = entry.installedFiles.find((f) => f.fileName === m.installedFile);
+          if (!exists) {
+            entry.installedFiles.push({
+              fileName: m.installedFile,
+              installedAt: m.installedAt,
+              gbFileId: m.gbFileId ?? null,
+              fileAddedAt: m.fileAddedAt ?? null,
+              modVersion: m.modVersion ?? null,
+            });
+          }
+        }
+      }
+    });
+    return entry.installedFiles.length > 0 ? entry : null;
+  })();
 
   const isNsfw = !!mod._bHasContentRatings;
   const blurHero = isNsfw && nsfwMode === "blur" && !revealedDetail;
@@ -268,6 +292,8 @@ export default function ModDetailPage({
                       >
                         <img 
                           src={src} 
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
@@ -577,6 +603,8 @@ export default function ModDetailPage({
                               <img
                                 src={author._sAvatarUrl}
                                 alt={author._sName}
+                                loading="lazy"
+                                decoding="async"
                                 className="h-8 w-8 rounded-full object-cover border border-white/10"
                               />
                             ) : (
