@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
-import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
 import SearchableDropdown from "./SearchableDropdown";
 import { sanitizeHtml } from "../lib/sanitizeHtml";
 import ImageLightbox from "./ImageLightbox";
 import UpdateBadge from "./UpdateBadge";
+import ConfirmDialog from "./ConfirmDialog";
 
 function inferCharacterFromMod(mod, characters) {
   const cats = [
@@ -96,6 +96,7 @@ export default function ModDetailPage({
   const [customThumbUrl, setCustomThumbUrl] = useState("");
   const [showLightbox, setShowLightbox] = useState(false);
   const [localBookmarked, setLocalBookmarked] = useState(isBookmarked);
+  const [showReinstallConfirm, setShowReinstallConfirm] = useState(false);
 
   useEffect(() => {
     setLocalBookmarked(isBookmarked);
@@ -107,29 +108,11 @@ export default function ModDetailPage({
   const isDownloading = downloadJob?.status === "downloading" || downloadJob?.status === "extracting";
   const nsfwMode = useAppStore((state) => state.nsfwMode);
 
-  // Derive live installed state from global cache so this page always reflects
-  // the real on-disk state, even when opened from a stale pushPage snapshot.
-  const { mods: allMods } = useLoadGameMods(game.id, true);
-  const installedFileInfo = (() => {
-    const entry = { installedFiles: [] };
-    (allMods || []).forEach((m) => {
-      if (m.gamebananaId === mod._idRow) {
-        if (m.installedFile) {
-          const exists = entry.installedFiles.find((f) => f.fileName === m.installedFile);
-          if (!exists) {
-            entry.installedFiles.push({
-              fileName: m.installedFile,
-              installedAt: m.installedAt,
-              gbFileId: m.gbFileId ?? null,
-              fileAddedAt: m.fileAddedAt ?? null,
-              modVersion: m.modVersion ?? null,
-            });
-          }
-        }
-      }
-    });
-    return entry.installedFiles.length > 0 ? entry : null;
-  })();
+  // Read live installed state directly from the global store — always up-to-date,
+  // no prop drilling, no stale snapshots from pushPage.
+  const installedFileInfo = useAppStore(
+    (state) => state.installedModsMap[game.id]?.[mod._idRow] ?? null
+  );
 
   const isNsfw = !!mod._bHasContentRatings;
   const blurHero = isNsfw && nsfwMode === "blur" && !revealedDetail;
@@ -496,7 +479,6 @@ export default function ModDetailPage({
                           props: {
                             creator: mod._aSubmitter,
                             game,
-                            installedModsInfo: {},
                             bookmarkIds: [],
                             onToggleBookmark,
                           }
@@ -591,7 +573,6 @@ export default function ModDetailPage({
                                 props: {
                                   creator: author,
                                   game,
-                                  installedModsInfo: {},
                                   bookmarkIds: [],
                                   onToggleBookmark,
                                 }
@@ -659,7 +640,7 @@ export default function ModDetailPage({
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 w-full mb-6">
+                  <div className="flex items-center gap-3 w-full mb-3">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -674,38 +655,64 @@ export default function ModDetailPage({
                     >
                       <Bookmark size={20} className={cn(localBookmarked && "fill-primary")} />
                     </button>
+
                     {!mod.isImported && (
-                      <button
-                        onClick={(e) => {
-                          if (isDownloading) e.preventDefault();
-                          else handleInstall();
-                        }}
-                        disabled={!effectiveSelectedCharacter || (isLibraryContext && !isUpdating) || isDownloading}
-                        className={cn(
-                          "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base transition-all uppercase tracking-wider shadow-lg",
-                          isDownloading 
-                            ? "bg-primary/20 text-primary border border-primary/30 cursor-not-allowed"
-                            : isLibraryContext && !isUpdating
-                            ? "bg-white/5 text-gray-600 cursor-not-allowed border border-white/5"
-                            : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-                        )}
-                      >
-                        {isDownloading && (
-                          <div 
+                      isDownloading ? (
+                        /* ── Downloading / Extracting progress ── */
+                        <div className="flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 cursor-not-allowed">
+                          <div
                             className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300 ease-linear"
                             style={{ width: `${downloadJob.percent}%` }}
                           />
-                        )}
-
-                        <div className="relative z-10 flex items-center gap-2">
-                          <Download size={20} className={cn(isDownloading && "animate-bounce")} />
-                          {isDownloading 
-                            ? (downloadJob.status === "extracting" ? "Extracting..." : `${downloadJob.percent}%`) 
-                            : isLibraryContext ? "Update Mod" : "Install Mod"}
+                          <div className="relative z-10 flex items-center gap-2">
+                            <Download size={20} className="animate-bounce" />
+                            {downloadJob.status === "extracting" ? "Extracting..." : `${downloadJob.percent}%`}
+                          </div>
                         </div>
-                      </button>
+                      ) : installedFileInfo?.installedFiles?.length > 0 ? (
+                        /* ── Already installed ── */
+                        <div className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base uppercase tracking-wider bg-primary/5 text-primary/70 border border-primary/20 select-none">
+                          <Check size={20} />
+                          Installed
+                        </div>
+                      ) : (
+                        /* ── Not yet installed ── */
+                        <button
+                          onClick={(e) => {
+                            if (isDownloading) e.preventDefault();
+                            else handleInstall();
+                          }}
+                          disabled={!effectiveSelectedCharacter || (isLibraryContext && !isUpdating) || isDownloading}
+                          className={cn(
+                            "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base transition-all uppercase tracking-wider shadow-lg",
+                            isLibraryContext && !isUpdating
+                              ? "bg-white/5 text-gray-600 cursor-not-allowed border border-white/5"
+                              : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                          )}
+                        >
+                          <div className="relative z-10 flex items-center gap-2">
+                            <Download size={20} />
+                            {isLibraryContext ? "Update Mod" : "Install Mod"}
+                          </div>
+                        </button>
+                      )
                     )}
                   </div>
+
+                  {/* Reinstall — shown below the CTA only when already installed */}
+                  {!mod.isImported && installedFileInfo?.installedFiles?.length > 0 && !isDownloading && (
+                    <div className="mb-6 flex justify-end">
+                      <button
+                        onClick={() => setShowReinstallConfirm(true)}
+                        disabled={!effectiveSelectedCharacter}
+                        className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-text-muted hover:text-text-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Download and overwrite existing files"
+                      >
+                        <RefreshCw size={11} />
+                        Reinstall
+                      </button>
+                    </div>
+                  )}
 
                   {/* Files Selection */}
                   {!mod.isImported && mod._aFiles?.length > 0 && (
@@ -802,6 +809,20 @@ export default function ModDetailPage({
           onIndexChange={setCurrentImgIndex}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={showReinstallConfirm}
+        title="Reinstall mod?"
+        message={`This will re-download and overwrite the existing installation of "${mod._sName}". Any local changes to the mod files will be replaced.`}
+        confirmText="Reinstall"
+        cancelText="Cancel"
+        confirmVariant="primary"
+        onConfirm={() => {
+          setShowReinstallConfirm(false);
+          handleInstall();
+        }}
+        onCancel={() => setShowReinstallConfirm(false)}
+      />
     </motion.div>
   );
 }

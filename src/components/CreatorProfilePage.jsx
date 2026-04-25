@@ -25,7 +25,6 @@ import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
 import { useGbQuery } from "../hooks/useGbQuery";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
-import { useLoadGameMods } from "../hooks/useLoadGameMods";
 
 const PER_PAGE = 20;
 
@@ -75,32 +74,10 @@ export default function CreatorProfilePage({
   const [page, setPage] = useState(1);
   const { fetchMemberProfile, browseMods, fetchMod } = useFetchCache();
 
-  // Live installed mods — reads from global Zustand cache so it updates
-  // automatically after any install without needing a prop refresh.
-  const { mods: allMods } = useLoadGameMods(game.id, true);
-  const installedModsInfo = (() => {
-    const infoMap = {};
-    (allMods || []).forEach((m) => {
-      if (m.gamebananaId != null) {
-        if (!infoMap[m.gamebananaId]) infoMap[m.gamebananaId] = { installedFiles: [] };
-        if (m.installedFile) {
-          const exists = infoMap[m.gamebananaId].installedFiles.find(
-            (f) => f.fileName === m.installedFile
-          );
-          if (!exists) {
-            infoMap[m.gamebananaId].installedFiles.push({
-              fileName: m.installedFile,
-              installedAt: m.installedAt,
-              gbFileId: m.gbFileId ?? null,
-              fileAddedAt: m.fileAddedAt ?? null,
-              modVersion: m.modVersion ?? null,
-            });
-          }
-        }
-      }
-    });
-    return infoMap;
-  })();
+  // Read live installed state from global store — always current, no prop needed.
+  const installedModsMap = useAppStore(
+    (state) => state.installedModsMap[game.id] ?? {}
+  );
 
   const {
     data: profile,
@@ -142,7 +119,6 @@ export default function CreatorProfilePage({
         props: {
           mod: fullMod,
           game,
-          installedFileInfo: installedModsInfo?.[fullMod._idRow] || null,
           isBookmarked: (bookmarkIds || []).includes(fullMod._idRow),
           onToggleBookmark: () => onToggleBookmark?.(fullMod),
           onInstall,
@@ -170,7 +146,6 @@ export default function CreatorProfilePage({
         props: {
           mod,
           game,
-          installedFileInfo: installedModsInfo?.[mod._idRow] || null,
           isBookmarked: (bookmarkIds || []).includes(mod._idRow),
           onToggleBookmark: () => onToggleBookmark?.(mod),
           onInstall,
@@ -415,7 +390,7 @@ export default function CreatorProfilePage({
               className="grid grid-cols-2 gap-4 pb-12 md:grid-cols-3 lg:grid-cols-4"
             >
               {mods.map((mod) => {
-                const installedInfo = installedModsInfo?.[mod._idRow];
+                const installedInfo = installedModsMap?.[mod._idRow];
                 const isInstalled = !!installedInfo;
                 let hasUpdate = false;
                 if (isInstalled && installedInfo.installedFiles.length > 0) {

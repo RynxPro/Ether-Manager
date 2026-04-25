@@ -309,9 +309,11 @@ const BrowseModCard = function BrowseModCard({
               "group/btn relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg border text-[10px] font-black uppercase tracking-[0.2em] transition-all",
               blurImage || isDownloading
                 ? "cursor-not-allowed opacity-40 border-white/10 bg-white/5 text-text-muted"
-                : hasUpdate || !isInstalled
-                  ? "border-primary/50 bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/20 hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
-                  : "border-border bg-surface text-text-primary hover:border-white/20 hover:bg-white/6",
+                : hasUpdate
+                  ? "border-amber-500/50 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                  : isInstalled
+                    ? "border-primary/20 bg-primary/5 text-primary/70 cursor-default"
+                    : "border-primary/50 bg-primary text-black shadow-[0_0_15px_var(--color-primary)]/20 hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]",
             )}
           >
             {isDownloading ? (
@@ -320,23 +322,20 @@ const BrowseModCard = function BrowseModCard({
                   size={12}
                   strokeWidth={4}
                   className="animate-bounce"
-                />{" "}
+                />
                 {downloadJob.status === "extracting"
                   ? "Extracting..."
                   : `${downloadJob.percent}%`}
               </>
             ) : hasUpdate ? (
               <>
-                <Download
-                  size={12}
-                  strokeWidth={4}
-                  className="group-hover/btn:animate-bounce"
-                />{" "}
-                View Update
+                <Download size={12} strokeWidth={4} className="group-hover/btn:animate-bounce" />
+                Update Available
               </>
             ) : isInstalled ? (
               <>
-                <Check size={12} strokeWidth={4} /> View Details
+                <Check size={12} strokeWidth={4} />
+                Installed
               </>
             ) : (
               <>
@@ -344,7 +343,7 @@ const BrowseModCard = function BrowseModCard({
                   size={12}
                   strokeWidth={4}
                   className="group-hover/btn:animate-bounce"
-                />{" "}
+                />
                 Install
               </>
             )}

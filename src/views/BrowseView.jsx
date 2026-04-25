@@ -113,7 +113,8 @@ export default function BrowseView({ isActive = false }) {
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [mods, setMods] = useState([]);
-  const [installedModsInfo, setInstalledModsInfo] = useState({}); // gbId -> { installedFile }
+  const installedModsMap = useAppStore(state => state.installedModsMap);
+  const installedModsInfo = installedModsMap[game.id] ?? {};
   const pushPage = useAppStore(state => state.pushPage);
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
@@ -443,32 +444,6 @@ export default function BrowseView({ isActive = false }) {
     true,
   );
 
-  useEffect(() => {
-    if (!allMods) return;
-    const infoMap = {};
-    allMods.forEach((m) => {
-      if (m.gamebananaId != null) {
-        if (!infoMap[m.gamebananaId]) {
-          infoMap[m.gamebananaId] = { installedFiles: [] };
-        }
-        if (m.installedFile) {
-          const exists = infoMap[m.gamebananaId].installedFiles.find(
-            (f) => f.fileName === m.installedFile,
-          );
-          if (!exists) {
-            infoMap[m.gamebananaId].installedFiles.push({
-              fileName: m.installedFile,
-              installedAt: m.installedAt,
-              gbFileId: m.gbFileId ?? null,
-              fileAddedAt: m.fileAddedAt ?? null,
-              modVersion: m.modVersion ?? null,
-            });
-          }
-        }
-      }
-    });
-    setInstalledModsInfo(infoMap);
-  }, [allMods]);
 
   // Fetch mods from GameBanana when params change (API Tabs ONLY)
   const fetchMods = useCallback(async () => {

@@ -14,6 +14,7 @@ export function useLoadGameMods(gameId, isActive = true) {
   const cachedMods = useAppStore(state => state.modsCache[gameId]);
   const cachedMeta = useAppStore(state => state.modsCacheMeta[gameId]);
   const setModsCache = useAppStore(state => state.setModsCache);
+  const setInstalledModsMap = useAppStore(state => state.setInstalledModsMap);
   const configVersion = useAppStore(state => state.configVersion);
 
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,27 @@ export function useLoadGameMods(gameId, isActive = true) {
         importerPath,
         sharedImporterAcrossGames,
       });
+
+      // Derive and store the pre-computed installedModsMap.
+      // Number() coercion is critical: gamebananaId is stored as a string on
+      // disk but _idRow from the GB API is always a number.
+      const infoMap = {};
+      loadedMods.forEach((m) => {
+        const gbId = Number(m.gamebananaId);
+        if (!gbId) return;
+        if (!infoMap[gbId]) infoMap[gbId] = { installedFiles: [] };
+        if (m.installedFile) {
+          infoMap[gbId].installedFiles.push({
+            fileName: m.installedFile,
+            installedAt: m.installedAt,
+            gbFileId: m.gbFileId ?? null,
+            fileAddedAt: m.fileAddedAt ?? null,
+            modVersion: m.modVersion ?? null,
+          });
+        }
+      });
+      setInstalledModsMap(gameId, infoMap);
+
       return loadedMods;
     } catch (err) {
       console.error("Failed to load mods:", err);

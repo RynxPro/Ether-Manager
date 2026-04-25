@@ -157,6 +157,14 @@ export const useAppStore = create((set) => ({
     }
   })),
 
+  // Pre-derived installed mods map — updated atomically after every disk scan.
+  // Shape: { [gameId]: { [gbModId: number]: { installedFiles: InstalledFile[] } } }
+  // All browse/detail components read from here — no prop drilling needed.
+  installedModsMap: {},
+  setInstalledModsMap: (gameId, infoMap) => set((state) => ({
+    installedModsMap: { ...state.installedModsMap, [gameId]: infoMap },
+  })),
+
   // Update Check Cache
   updateCheckCache: {}, // { [gameId]: { signature, checkedAt, updatesMap } }
   setUpdateCheckCache: (gameId, entry) => set((state) => ({
