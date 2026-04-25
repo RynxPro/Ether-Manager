@@ -44,7 +44,7 @@ export default function Sidebar({ onShowHelp }) {
   const pushPage = useAppStore((state) => state.pushPage);
   return (
     <>
-      <aside className="titlebar-drag relative z-20 flex h-full w-72 shrink-0 flex-col border-r border-border bg-surface/82 backdrop-blur-2xl transition-colors duration-300">
+      <aside className="titlebar-drag relative z-20 flex h-full w-72 shrink-0 flex-col rounded-2xl border border-white/[0.07] bg-surface/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)] transition-colors duration-300 overflow-hidden">
         <div className="no-drag border-b border-white/5 px-6 pb-5 pt-10">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-background shadow-card">

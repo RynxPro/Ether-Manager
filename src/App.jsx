@@ -118,7 +118,7 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-row bg-background text-text-primary relative overflow-hidden">
+    <div className="h-screen w-screen flex flex-row bg-background text-text-primary relative overflow-hidden py-3 pl-3 gap-3">
       <div className="absolute top-0 left-0 w-full h-8 z-[100] titlebar-drag pointer-events-auto" />
 
       {/* Background radial gradient corresponding to game color */}
