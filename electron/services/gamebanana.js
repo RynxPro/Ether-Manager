@@ -797,7 +797,30 @@ async function fetchBrowseRecords(
   url,
   { hydrateZeroDownloadCounts = true } = {},
 ) {
-  const data = await fetchFromGB(url);
+  let data;
+
+  try {
+    data = await fetchFromGB(url);
+  } catch (error) {
+    const isSearchResultsRequest = url.includes("/Util/Search/Results");
+    const hasCsvFields = url.includes("_csvFields=");
+
+    if (
+      error?.status === 400 &&
+      isSearchResultsRequest &&
+      hasCsvFields
+    ) {
+      const fallbackUrl = url.replace(/([&?])_csvFields=[^&]+&?/, "$1").replace(/[?&]$/, "");
+      logger.warn("Retrying GB search request without _csvFields after 400");
+      data = await fetchFromGB(fallbackUrl, {
+        cacheKey: fallbackUrl,
+        dedupeKey: fallbackUrl,
+      });
+    } else {
+      throw error;
+    }
+  }
+
   let records = Array.isArray(data._aRecords)
     ? data._aRecords.map(withThumbnail).filter((item) => item?._idRow > 0)
     : [];
