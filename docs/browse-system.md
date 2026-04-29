@@ -25,6 +25,12 @@ Shared browse-state helpers live in:
 
 - `src/lib/browseState.js`
 
+Browse surface components are split into:
+
+- `src/components/browse/BrowseControls.jsx`
+- `src/components/browse/BrowseFeaturedHero.jsx`
+- `src/components/browse/SavedCreatorsStrip.jsx`
+
 Request helpers live in:
 
 - `src/hooks/useFetchCache.js`
@@ -44,6 +50,30 @@ Browse has two kinds of tabs:
 
 `saved` is intentionally different. It does not use the main browse listing
 endpoint. It hydrates bookmarked mod IDs and bookmarked creators instead.
+
+## Component Boundaries
+
+`BrowseView.jsx` remains the orchestrator, but it should not own every visual
+surface inline.
+
+Current split:
+
+- `BrowseControls`:
+  - tabs
+  - search box
+  - suggestions
+  - sort / character / featured controls
+  - active refinement badges
+- `BrowseFeaturedHero`:
+  - hero loading shell
+  - hero carousel rendering
+  - hero navigation
+- `SavedCreatorsStrip`:
+  - saved creator hydration display
+  - creator quick entry cards
+
+This keeps the page-level component focused on request timing and state
+transitions instead of carrying several hundred lines of independent UI markup.
 
 ## Search Model
 
@@ -92,6 +122,20 @@ The mod list is hydrated in two phases:
 2. deferred bookmark IDs after that
 
 Creator hydration is also batched to avoid request bursts.
+
+## Improvement Targets
+
+Browse is still the largest orchestration surface in the renderer.
+
+The next worthwhile split is not more visual components. It is moving the
+remaining request/state coordination into dedicated hooks, for example:
+
+- `useBrowseListing`
+- `useBrowseSavedCatalog`
+- `useBrowseFeaturedHero`
+
+That would reduce the amount of fetch lifecycle code still living directly in
+`BrowseView.jsx`.
 
 ## Invariants
 
