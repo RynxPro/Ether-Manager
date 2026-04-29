@@ -22,6 +22,11 @@ import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { StatePanel, StatusBanner } from "../components/ui/StatePanel";
 import { Button } from "../components/ui/Button";
 import { VISIBLE_GAMES } from "../gameConfig";
+import {
+  createInstalledFileInfo,
+  getInstalledModUpdateState,
+  getInstalledModsUpdateSignature,
+} from "../lib/modUpdateState";
 
 function normalizeImporterPath(pathValue) {
   return String(pathValue || "")
@@ -38,6 +43,8 @@ const TABS = [
   { id: "misc", label: "Miscellaneous", icon: Box },
 ];
 
+const UPDATE_CACHE_TTL_MS = 2 * 60 * 1000;
+
 export default function LibraryView({ isActive }) {
   const game = useAppStore((state) => state.activeGame);
   const onSelectCharacter = useAppStore((state) => state.setSelectedCharacter);
@@ -48,23 +55,42 @@ export default function LibraryView({ isActive }) {
   const [showDisableAllConfirm, setShowDisableAllConfirm] = useState(false);
   const [sharedImporterGames, setSharedImporterGames] = useState([]);
   const [apiNotice, setApiNotice] = useState("");
+  const updateCheckCache = useAppStore((state) => state.updateCheckCache);
+  const setUpdateCheckCache = useAppStore((state) => state.setUpdateCheckCache);
 
   // Use fetch cache hook for update checks
   const { fetchModsBatch } = useFetchCache();
 
   // Standardized Mod Loading
   const { mods, loadMods } = useLoadGameMods(game.id, isActive !== false);
+  const updateSignature = useMemo(
+    () => getInstalledModsUpdateSignature(mods),
+    [mods],
+  );
   const isOnline = useNetworkStatus();
 
   useEffect(() => {
     const checkUpdates = async () => {
       // Library is always mounted but often hidden; do not compete with Browse/Presets on startup.
       if (!isActive) return;
-      if (!isOnline || !mods || mods.length === 0) return;
+      if (!isOnline || !mods || mods.length === 0) {
+        setUpdatesMap({});
+        return;
+      }
 
       const modsWithId = mods.filter((m) => m.gamebananaId);
       const gbIds = [...new Set(modsWithId.map((m) => m.gamebananaId))];
       if (gbIds.length === 0) return;
+
+      const cachedEntry = updateCheckCache[game.id];
+      if (
+        cachedEntry?.signature === updateSignature &&
+        Date.now() - Number(cachedEntry.checkedAt || 0) < UPDATE_CACHE_TTL_MS
+      ) {
+        setApiNotice("");
+        setUpdatesMap(cachedEntry.updatesMap || {});
+        return;
+      }
 
       try {
         const result = await fetchModsBatch(gbIds, {
@@ -88,21 +114,21 @@ export default function LibraryView({ isActive }) {
         if (result.success && result.data) {
           const newUpdatesMap = {};
 
-          // Map fetched data for quick lookup
-          const latestDates = {};
-          result.data.forEach((m) => {
-            if (m._idRow) latestDates[String(m._idRow)] = m._tsDateUpdated;
+          const latestModsById = {};
+          result.data.forEach((gbMod) => {
+            if (gbMod?._idRow) {
+              latestModsById[String(gbMod._idRow)] = gbMod;
+            }
           });
 
           // Check each mod
           mods.forEach((mod) => {
             const gbId = mod.gamebananaId ? String(mod.gamebananaId) : null;
-            if (gbId && mod.installedAt && latestDates[gbId]) {
-              const installedDate = new Date(mod.installedAt).getTime() / 1000;
-              const gbDate = latestDates[gbId];
+            const gbMod = gbId ? latestModsById[gbId] : null;
+            if (gbId && gbMod) {
+              const installedFileInfo = createInstalledFileInfo(mod);
 
-              // Use a 5-minute buffer (300s) to account for slight clock skews
-              if (gbDate > installedDate + 300) {
+              if (getInstalledModUpdateState(gbMod, installedFileInfo).hasUpdate) {
                 const classification = getModClassification(mod);
                 newUpdatesMap[classification.label] = true;
 
@@ -116,6 +142,11 @@ export default function LibraryView({ isActive }) {
             }
           });
           setUpdatesMap(newUpdatesMap);
+          setUpdateCheckCache(game.id, {
+            signature: updateSignature,
+            checkedAt: Date.now(),
+            updatesMap: newUpdatesMap,
+          });
         }
       } catch (err) {
         console.error("Failed to check character updates:", err);
@@ -123,7 +154,16 @@ export default function LibraryView({ isActive }) {
     };
 
     checkUpdates();
-  }, [isActive, fetchModsBatch, mods, isOnline, game.id]);
+  }, [
+    isActive,
+    fetchModsBatch,
+    mods,
+    isOnline,
+    game.id,
+    updateCheckCache,
+    setUpdateCheckCache,
+    updateSignature,
+  ]);
 
   useEffect(() => {
     let cancelled = false;

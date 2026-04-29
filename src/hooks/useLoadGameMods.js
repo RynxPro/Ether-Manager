@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getAllCharacterNames, GLOBAL_CATEGORIES } from "../lib/portraits";
 import { useAppStore } from "../store/useAppStore";
 import { VISIBLE_GAMES } from "../gameConfig";
+import { createInstalledFileInfoFromMods } from "../lib/modUpdateState";
 
 function normalizeImporterPath(pathValue) {
   return String(pathValue || "")
@@ -74,22 +75,19 @@ export function useLoadGameMods(gameId, isActive = true) {
       });
 
       // Derive and store the pre-computed installedModsMap.
-      // Number() coercion is critical: gamebananaId is stored as a string on
-      // disk but _idRow from the GB API is always a number.
+      // This is the canonical installed-file map consumed by all update-aware
+      // UI surfaces. Keeping it centralized prevents each screen from
+      // rebuilding slightly different installed-file shapes.
       const infoMap = {};
+      const groupedModsByGbId = new Map();
       loadedMods.forEach((m) => {
         const gbId = Number(m.gamebananaId);
         if (!gbId) return;
-        if (!infoMap[gbId]) infoMap[gbId] = { installedFiles: [] };
-        if (m.installedFile) {
-          infoMap[gbId].installedFiles.push({
-            fileName: m.installedFile,
-            installedAt: m.installedAt,
-            gbFileId: m.gbFileId ?? null,
-            fileAddedAt: m.fileAddedAt ?? null,
-            modVersion: m.modVersion ?? null,
-          });
-        }
+        if (!groupedModsByGbId.has(gbId)) groupedModsByGbId.set(gbId, []);
+        groupedModsByGbId.get(gbId).push(m);
+      });
+      groupedModsByGbId.forEach((modsForGbId, gbId) => {
+        infoMap[gbId] = createInstalledFileInfoFromMods(modsForGbId);
       });
       setInstalledModsMap(gameId, infoMap);
 
@@ -106,7 +104,7 @@ export function useLoadGameMods(gameId, isActive = true) {
     } finally {
       setLoading(false);
     }
-  }, [gameId, cachedMeta, cachedMods, setModsCache]);
+  }, [gameId, cachedMeta, cachedMods, setModsCache, setInstalledModsMap]);
 
   useEffect(() => {
     const configChanged = lastSeenConfigVersion.current !== configVersion;

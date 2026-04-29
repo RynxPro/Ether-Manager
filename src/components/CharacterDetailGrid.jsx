@@ -1,6 +1,10 @@
 import LibraryModCard from "./LibraryModCard";
 import { getAllCharacterNames } from "../lib/portraits";
 import { StatePanel } from "./ui/StatePanel";
+import {
+  createInstalledFileInfo,
+  getInstalledModUpdateState,
+} from "../lib/modUpdateState";
 
 export default function CharacterDetailGrid({
   mods,
@@ -25,14 +29,10 @@ export default function CharacterDetailGrid({
 
   const renderModCard = (mod) => {
     const gbData = mod.gamebananaId ? gbDataMap[mod.gamebananaId] : undefined;
-    let hasUpdate = false;
-
-    if (gbData?.fullData && mod.installedAt) {
-      const installedDate = new Date(mod.installedAt).getTime() / 1000;
-      if (gbData.fullData._tsDateUpdated > installedDate + 300) {
-        hasUpdate = true;
-      }
-    }
+    const installedFileInfo = createInstalledFileInfo(mod);
+    const hasUpdate = gbData?.fullData
+      ? getInstalledModUpdateState(gbData.fullData, installedFileInfo).hasUpdate
+      : false;
 
     const cardGbData = gbData ? { ...gbData, hasUpdate } : undefined;
 

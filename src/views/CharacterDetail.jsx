@@ -11,6 +11,10 @@ import { cn } from "../lib/utils";
 import { isModInCollection } from "../lib/modClassification";
 import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 import { Input } from "../components/ui/Input";
+import {
+  createInstalledFileInfoFromMods,
+  createInstalledFileRecord,
+} from "../lib/modUpdateState";
 
 export default function CharacterDetail({
   character,
@@ -77,25 +81,19 @@ export default function CharacterDetail({
         setGbDataMap(map);
       }
 
-      // Build installedModsInfo
+      // Build installedModsInfo using the same normalized shape consumed by
+      // Browse/Library so update badges remain consistent everywhere.
       const infoMap = {};
+      const groupedModsByGbId = new Map();
       charMods.forEach((m) => {
-        if (m.gamebananaId != null) {
-          if (!infoMap[m.gamebananaId]) {
-            infoMap[m.gamebananaId] = { installedFiles: [] };
-          }
-          if (m.installedFile) {
-            const exists = infoMap[m.gamebananaId].installedFiles.find(
-              (f) => f.fileName === m.installedFile,
-            );
-            if (!exists) {
-              infoMap[m.gamebananaId].installedFiles.push({
-                fileName: m.installedFile,
-                installedAt: m.installedAt,
-              });
-            }
-          }
+        if (m.gamebananaId == null) return;
+        if (!groupedModsByGbId.has(m.gamebananaId)) {
+          groupedModsByGbId.set(m.gamebananaId, []);
         }
+        groupedModsByGbId.get(m.gamebananaId).push(m);
+      });
+      groupedModsByGbId.forEach((modsForGbId, gbId) => {
+        infoMap[gbId] = createInstalledFileInfoFromMods(modsForGbId);
       });
       setInstalledModsInfo(infoMap);
     } else {
@@ -236,6 +234,9 @@ export default function CharacterDetail({
     gbModId,
     fileUrl,
     fileName,
+    gbFileId,
+    fileAddedAt,
+    modVersion,
     modName,
   }) => {
     if (window.electronConfig && window.electronMods) {
@@ -253,6 +254,9 @@ export default function CharacterDetail({
             gbModId,
             fileUrl,
             fileName,
+            gbFileId,
+            fileAddedAt,
+            modVersion,
             gameId: game.id,
           });
 
@@ -265,17 +269,29 @@ export default function CharacterDetail({
           // Update local state so badge shows immediately
           setInstalledModsInfo((prev) => {
             const current = prev[gbModId] || { installedFiles: [] };
-            if (current.installedFiles.find((f) => f.fileName === fileName)) {
+            const nextRecord = createInstalledFileRecord({
+              fileName,
+              installedAt: new Date().toISOString(),
+              gbFileId: gbFileId ?? null,
+              fileAddedAt: fileAddedAt ?? null,
+              modVersion: modVersion ?? null,
+            });
+            if (
+              current.installedFiles.find(
+                (f) =>
+                  (nextRecord.gbFileId != null &&
+                    f.gbFileId != null &&
+                    Number(f.gbFileId) === Number(nextRecord.gbFileId)) ||
+                  f.fileName === nextRecord.fileName,
+              )
+            ) {
               return prev;
             }
             return {
               ...prev,
               [gbModId]: {
                 ...current,
-                installedFiles: [
-                  ...current.installedFiles,
-                  { fileName, installedAt: new Date().toISOString() },
-                ],
+                installedFiles: [...current.installedFiles, nextRecord],
               },
             };
           });

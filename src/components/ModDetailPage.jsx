@@ -26,6 +26,7 @@ import { sanitizeHtml } from "../lib/sanitizeHtml";
 import ImageLightbox from "./ImageLightbox";
 import UpdateBadge from "./UpdateBadge";
 import ConfirmDialog from "./ConfirmDialog";
+import { getInstalledFileUpdateState } from "../lib/modUpdateState";
 
 function inferCharacterFromMod(mod, characters) {
   const cats = [
@@ -721,13 +722,8 @@ export default function ModDetailPage({
                       <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                         {mod._aFiles.map((file) => {
                           const installedData = installedFileInfo?.installedFiles?.find((f) => f.fileName === file._sFile);
-                          const isInstalled = !!installedData;
-                          let isOutdated = false;
-
-                          if (isInstalled && mod._tsDateUpdated && installedData.installedAt) {
-                            const installedDate = new Date(installedData.installedAt).getTime() / 1000;
-                            if (mod._tsDateUpdated > installedDate + 300) isOutdated = true;
-                          }
+                          const { isInstalled, hasUpdate: isOutdated } =
+                            getInstalledFileUpdateState(mod, installedData, file);
 
                           return (
                             <button

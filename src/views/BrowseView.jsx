@@ -33,6 +33,7 @@ import {
 } from "../lib/bookmarks";
 import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
+import { getInstalledModUpdateState } from "../lib/modUpdateState";
 
 function RateLimitBanner() {
   const apiStatus = useApiStatus();
@@ -1501,42 +1502,10 @@ export default function BrowseView({ isActive = false }) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {mods.map((mod) => {
                 const installedInfo = installedModsInfo[mod._idRow];
-                const isInstalled = !!installedInfo;
-                let hasUpdate = false;
-
-                if (isInstalled && installedInfo.installedFiles.length > 0) {
-                  hasUpdate = installedInfo.installedFiles.some((f) => {
-                    // 1. Version string mismatch (if both are provided and not identical)
-                    if (
-                      f.modVersion &&
-                      mod._sVersion &&
-                      f.modVersion !== mod._sVersion
-                    ) {
-                      return true;
-                    }
-
-                    // 2. File upload timestamps.
-                    // If we have precise file timestamps, check if the mod has any activity
-                    // (either an explicit update log OR any modification like adding a new file)
-                    // AFTER the file we installed was uploaded.
-                    if (f.fileAddedAt != null) {
-                      const latestActivity = Math.max(
-                        mod._tsDateUpdated || 0,
-                        mod._tsDateModified || 0,
-                      );
-                      return latestActivity > f.fileAddedAt;
-                    }
-
-                    // 3. Legacy fallback: wall-clock installedAt with a 5-minute buffer.
-                    if (!f.installedAt) return false;
-                    const installedDate =
-                      new Date(f.installedAt).getTime() / 1000;
-                    return (
-                      (mod._tsDateUpdated || mod._tsDateModified || 0) >
-                      installedDate + 300
-                    );
-                  });
-                }
+                const { isInstalled, hasUpdate } = getInstalledModUpdateState(
+                  mod,
+                  installedInfo,
+                );
                 const isBookmarked = currentBookmarkIdSet.has(mod._idRow);
 
                 return (

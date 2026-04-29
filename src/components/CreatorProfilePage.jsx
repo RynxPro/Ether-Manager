@@ -25,6 +25,7 @@ import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
 import { useGbQuery } from "../hooks/useGbQuery";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
+import { getInstalledModUpdateState } from "../lib/modUpdateState";
 
 const PER_PAGE = 20;
 
@@ -391,15 +392,10 @@ export default function CreatorProfilePage({
             >
               {mods.map((mod) => {
                 const installedInfo = installedModsMap?.[mod._idRow];
-                const isInstalled = !!installedInfo;
-                let hasUpdate = false;
-                if (isInstalled && installedInfo.installedFiles.length > 0) {
-                  hasUpdate = installedInfo.installedFiles.some((file) => {
-                    if (!file.installedAt) return false;
-                    const installedDate = new Date(file.installedAt).getTime() / 1000;
-                    return mod._tsDateUpdated > installedDate + 300;
-                  });
-                }
+                const { isInstalled, hasUpdate } = getInstalledModUpdateState(
+                  mod,
+                  installedInfo,
+                );
                 const isBookmarked = (bookmarkIds || []).includes(mod._idRow);
                 return (
                   <GbModCard
