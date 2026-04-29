@@ -38,6 +38,11 @@ import {
   createGbInstallPayload,
   runGbInstallJob,
 } from "../lib/installFlow";
+import {
+  buildBrowseIdentityKey,
+  getBrowseCategoryTarget,
+  getBrowseViewModel,
+} from "../lib/browseState";
 
 function RateLimitBanner() {
   const apiStatus = useApiStatus();
@@ -119,7 +124,10 @@ export default function BrowseView({ isActive = false }) {
   const [page, setPage] = useState(1);
   const [mods, setMods] = useState([]);
   const installedModsMap = useAppStore(state => state.installedModsMap);
-  const installedModsInfo = installedModsMap[game.id] ?? {};
+  const installedModsInfo = useMemo(
+    () => installedModsMap[game.id] ?? {},
+    [installedModsMap, game.id],
+  );
   const pushPage = useAppStore(state => state.pushPage);
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
@@ -154,15 +162,15 @@ export default function BrowseView({ isActive = false }) {
 
   const browseIdentityKey = useMemo(
     () =>
-      [
-        game.gbGameId,
+      buildBrowseIdentityKey({
+        gbGameId: game.gbGameId,
         activeTab,
         submittedSearchQuery,
         characterFilter,
-        String(featuredOnly),
+        featuredOnly,
         nsfwMode,
         sort,
-      ].join("|"),
+      }),
     [
       game.gbGameId,
       activeTab,
@@ -444,7 +452,7 @@ export default function BrowseView({ isActive = false }) {
     [game.id],
   );
 
-  const { mods: allMods, loadMods: refreshInstalledModsInfo } = useLoadGameMods(
+  const { loadMods: refreshInstalledModsInfo } = useLoadGameMods(
     game.id,
     true,
   );
@@ -475,14 +483,10 @@ export default function BrowseView({ isActive = false }) {
     setLoading(true);
     setError(null);
 
-    const categoryTarget =
-      activeTab === "all"
-        ? ""
-        : activeTab === "ui"
-          ? "UI"
-          : activeTab === "misc"
-            ? "Misc"
-            : characterFilter;
+    const categoryTarget = getBrowseCategoryTarget(
+      activeTab,
+      characterFilter,
+    );
 
     try {
       const result = await browseMods({
@@ -881,58 +885,41 @@ export default function BrowseView({ isActive = false }) {
         </button>
       </div>
     ) : null;
-  const isSavedView = activeTab === "saved";
-  const isFiltering =
-    activeTab !== "all" || !!submittedSearchQuery || !!sort || featuredOnly;
-  const showFeaturedHero =
-    activeTab === "all" && !submittedSearchQuery && !featuredOnly;
-  const showCharacterFilter = activeTab === "characters";
-  const showSortControl = activeTab !== "saved";
-  const showFeaturedToggle = activeTab !== "saved";
-  const hasActiveRefinements =
-    !!searchQuery ||
-    !!characterFilter ||
-    !!sort ||
-    featuredOnly ||
-    activeTab !== "all";
-  const activeSearchLabel = [
-    activeTab === "ui"
-      ? "User Interface"
-      : activeTab === "misc"
-        ? "Miscellaneous"
-        : characterFilter,
-    submittedSearchQuery,
-  ]
-    .filter(Boolean)
-    .join(" + ");
-  const title =
-    activeTab === "all"
-      ? "Browse"
-      : activeTab === "characters"
-        ? characterFilter
-          ? `${characterFilter} Mods`
-          : "Characters"
-        : activeTab === "ui"
-          ? "Interface"
-          : activeTab === "saved"
-            ? "Saved"
-            : "Misc";
-  const description = loading
-    ? "Loading mods."
-    : activeTab === "saved"
-      ? `${Math.max(0, total).toLocaleString()} saved mod${total !== 1 ? "s" : ""} for ${game.name}.`
-      : isFiltering
-        ? `${Math.max(0, total).toLocaleString()} result${total !== 1 ? "s" : ""} for ${activeSearchLabel || game.name}.`
-        : `${Math.max(0, total).toLocaleString()} GameBanana listing${total !== 1 ? "s" : ""} for ${game.name}.`;
-  const searchPlaceholder = isSavedView
-    ? "Search saved mods and press Enter..."
-    : activeTab === "characters"
-      ? "Search character mods and press Enter..."
-      : activeTab === "ui"
-        ? "Search UI mods and press Enter..."
-        : activeTab === "misc"
-          ? "Search miscellaneous mods and press Enter..."
-          : "Search GameBanana and press Enter...";
+  const {
+    isFiltering,
+    showFeaturedHero,
+    showCharacterFilter,
+    showSortControl,
+    showFeaturedToggle,
+    hasActiveRefinements,
+    activeSearchLabel,
+    title,
+    searchPlaceholder,
+  } = useMemo(
+    () =>
+      getBrowseViewModel({
+        activeTab,
+        submittedSearchQuery,
+        searchQuery,
+        characterFilter,
+        featuredOnly,
+        sort,
+        total,
+        loading,
+        gameName: game.name,
+      }),
+    [
+      activeTab,
+      submittedSearchQuery,
+      searchQuery,
+      characterFilter,
+      featuredOnly,
+      sort,
+      total,
+      loading,
+      game.name,
+    ],
+  );
 
   const handleResetFilters = () => {
     setActiveTab("all");

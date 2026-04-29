@@ -9,7 +9,6 @@ import {
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from "../components/CharacterCard";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { getAllCharacterNames } from "../lib/portraits";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
@@ -27,6 +26,10 @@ import {
   getInstalledModUpdateState,
   getInstalledModsUpdateSignature,
 } from "../lib/modUpdateState";
+import {
+  buildLibraryCollections,
+  filterLibraryCollections,
+} from "../lib/libraryCollections";
 
 function normalizeImporterPath(pathValue) {
   return String(pathValue || "")
@@ -254,80 +257,21 @@ export default function LibraryView({ isActive }) {
 
   // Group and Filter logic
   const { displayItems, counts } = useMemo(() => {
-    const charactersMap = new Map();
-    const globalMods = {
-      ui: { name: "User Interface", totalMods: 0, enabledMods: 0, mods: [] },
-      misc: { name: "Miscellaneous", totalMods: 0, enabledMods: 0, mods: [] },
-    };
-
-    // Pre-populate characters only for the characters tab
-    const currentChars = getAllCharacterNames(game.id);
-    currentChars.forEach((name) => {
-      charactersMap.set(name, {
-        name,
-        totalMods: 0,
-        enabledMods: 0,
-        mods: [],
-      });
-    });
-
-    mods.forEach((mod) => {
-      const classification = getModClassification(mod);
-
-      if (classification.bucket === "ui") {
-        globalMods.ui.totalMods++;
-        globalMods.ui.mods.push(mod);
-        if (mod.isEnabled) globalMods.ui.enabledMods++;
-      } else if (classification.bucket === "misc") {
-        globalMods.misc.totalMods++;
-        globalMods.misc.mods.push(mod);
-        if (mod.isEnabled) globalMods.misc.enabledMods++;
-      } else {
-        // Character Bound
-        if (!charactersMap.has(classification.label)) {
-          charactersMap.set(classification.label, {
-            name: classification.label,
-            totalMods: 0,
-            enabledMods: 0,
-            mods: [],
-          });
-        }
-        const charData = charactersMap.get(classification.label);
-        charData.totalMods++;
-        charData.mods.push(mod);
-        if (mod.isEnabled) charData.enabledMods++;
-      }
-    });
-
+    const collections = buildLibraryCollections(mods, game.id);
     let items = [];
     if (activeTab === "characters") {
-      items = Array.from(charactersMap.values())
-        .filter((c) => c.name !== "Unassigned" || c.totalMods > 0)
-        .sort((a, b) => {
-          if (a.name === "Unassigned") return -1;
-          if (b.name === "Unassigned") return 1;
-          return a.name.localeCompare(b.name);
-        });
+      items = collections.characters;
     } else if (activeTab === "ui") {
-      items = globalMods.ui.totalMods > 0 ? [globalMods.ui] : [];
+      items = collections.ui;
     } else {
-      items = globalMods.misc.totalMods > 0 ? [globalMods.misc] : [];
+      items = collections.misc;
     }
 
-    const filteredItems = items.filter((item) => {
-      return item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    const filteredItems = filterLibraryCollections(items, searchQuery);
 
     return {
       displayItems: filteredItems,
-      counts: {
-        characters: Array.from(charactersMap.values()).reduce(
-          (acc, c) => acc + c.totalMods,
-          0,
-        ),
-        ui: globalMods.ui.totalMods,
-        misc: globalMods.misc.totalMods,
-      },
+      counts: collections.counts,
     };
   }, [mods, game.id, activeTab, searchQuery]);
 
