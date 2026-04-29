@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Plus, Search, Package, X, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy } from "lucide-react";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
@@ -8,8 +8,9 @@ import SidePanel from "./layout/SidePanel";
 import { useAppStore } from "../store/useAppStore";
 import { getModDisplayCharacter } from "../lib/modClassification";
 import {
-  findMatchingLibraryMod,
+  createPresetModFromLibraryMod,
   getMissingPresetMods,
+  reconcilePresetModsWithLibrary,
 } from "../lib/presetMatching";
 import {
   thumbFromGbMap,
@@ -63,37 +64,21 @@ export default function PresetDetailModal({
       return;
     }
 
-    // SELF-HEALING: If preset mods are missing gamebananaId, try to find them in the loaded library
+    // Reconcile preset entries with the live library so matching rules stay
+    // centralized instead of each modal healing fields differently.
     setPreset((currentPreset) => {
-      let needsUpdate = false;
-      const healedMods = currentPreset.mods.map((pm) => {
-        if (!pm.gamebananaId || pm.character === "Unassigned") {
-          const libraryMod = findMatchingLibraryMod(libraryMods, pm);
-          if (libraryMod) {
-            let updated = { ...pm };
-            const classifiedCharacter = getModDisplayCharacter(libraryMod);
-            if (libraryMod.gamebananaId) {
-              updated.gamebananaId = libraryMod.gamebananaId;
-            }
-            if (classifiedCharacter !== pm.character) {
-              updated.character = classifiedCharacter;
-            }
-            if (libraryMod.category && libraryMod.category !== pm.category) {
-              updated.category = libraryMod.category;
-            }
-            needsUpdate = true;
-            return updated;
-          }
-        }
-        return pm;
-      });
+      const reconciled = reconcilePresetModsWithLibrary(
+        currentPreset.mods,
+        libraryMods,
+        getModDisplayCharacter,
+      );
 
-      if (!needsUpdate) {
+      if (!reconciled.changed) {
         return currentPreset;
       }
       return {
         ...currentPreset,
-        mods: healedMods,
+        mods: reconciled.mods,
       };
     });
 
@@ -102,29 +87,12 @@ export default function PresetDetailModal({
         return prevEdit;
       }
       const libraryModsInner = Array.isArray(loadedMods) ? loadedMods : [];
-      let needsUpdate = false;
-      const healedMods = prevEdit.map((pm) => {
-        if (!pm.gamebananaId || pm.character === "Unassigned") {
-          const libraryMod = findMatchingLibraryMod(libraryModsInner, pm);
-          if (libraryMod) {
-            let updated = { ...pm };
-            const classifiedCharacter = getModDisplayCharacter(libraryMod);
-            if (libraryMod.gamebananaId) {
-              updated.gamebananaId = libraryMod.gamebananaId;
-            }
-            if (classifiedCharacter !== pm.character) {
-              updated.character = classifiedCharacter;
-            }
-            if (libraryMod.category && libraryMod.category !== pm.category) {
-              updated.category = libraryMod.category;
-            }
-            needsUpdate = true;
-            return updated;
-          }
-        }
-        return pm;
-      });
-      return needsUpdate ? healedMods : prevEdit;
+      const reconciled = reconcilePresetModsWithLibrary(
+        prevEdit,
+        libraryModsInner,
+        getModDisplayCharacter,
+      );
+      return reconciled.changed ? reconciled.mods : prevEdit;
     });
   }, [loadedMods]);
 
@@ -216,15 +184,10 @@ export default function PresetDetailModal({
   const handleAddMod = (mod) => {
     const already = editMods.find(m => m.modId === mod.id);
     if (already) return;
-    setEditMods(prev => [...prev, {
-      modId: mod.id,
-      originalFolderName: mod.originalFolderName,
-      character: getModDisplayCharacter(mod),
-      category: mod.category || null,
-      name: mod.name,
-      gamebananaId: mod.gamebananaId || null,
-      customThumbnail: mod.customThumbnail || null,
-    }]);
+    setEditMods((prev) => [
+      ...prev,
+      createPresetModFromLibraryMod(mod, getModDisplayCharacter),
+    ]);
   };
 
   const handleDelete = async () => {

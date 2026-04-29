@@ -8,6 +8,7 @@ import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
 import { getModClassification, getModDisplayCharacter } from "../lib/modClassification";
 import SidePanel from "./layout/SidePanel";
+import { createPresetModFromLibraryMod } from "../lib/presetMatching";
 
 const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -124,15 +125,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
     try {
       const selectedMods = allMods
         .filter(m => selectedModIds.has(m.id))
-        .map(m => ({
-          modId: m.id,
-          originalFolderName: m.originalFolderName,
-          character: getModDisplayCharacter(m),
-          category: m.category || null,
-          name: m.name,
-          gamebananaId: m.gamebananaId || null,
-          customThumbnail: m.customThumbnail || null,
-        }));
+        .map((mod) => createPresetModFromLibraryMod(mod, getModDisplayCharacter));
 
       const preset = {
         id: generateId(),

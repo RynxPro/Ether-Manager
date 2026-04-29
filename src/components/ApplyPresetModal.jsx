@@ -15,8 +15,7 @@ import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";
 import { StatePanel } from "./ui/StatePanel";
 import {
-  findMatchingLibraryMod,
-  matchesPresetMod,
+  buildPresetDiff,
 } from "../lib/presetMatching";
 
 export default function ApplyPresetModal({
@@ -39,40 +38,15 @@ export default function ApplyPresetModal({
     setError(null);
     try {
       const availableMods = Array.isArray(allMods) ? allMods : [];
-
-      // 1. Identify Scope (Affected Characters)
-      const affectedCharacters = new Set(preset.mods.map((m) => m.character));
-
-      // 2. Diff Targeting
-      const willEnable = [];
-      const willDisable = [];
-      const notFound = [];
-
-      // Check which preset mods exist in allMods and need enabling
-      for (const pm of preset.mods) {
-        const exists = findMatchingLibraryMod(availableMods, pm);
-        if (!exists) {
-          notFound.push(pm);
-        } else if (!exists.isEnabled) {
-          willEnable.push(exists);
-        }
-      }
-
-      // Check which currently enabled mods should be disabled
-      for (const m of availableMods) {
-        if (m.isEnabled && affectedCharacters.has(m.character)) {
-          // Is it part of the preset?
-          const isPart = preset.mods.find((pm) => matchesPresetMod(m, pm));
-          if (!isPart) {
-            willDisable.push(m);
-          }
-        }
-      }
-
-      setDiff({ willEnable, willDisable, notFound });
+      const nextDiff = buildPresetDiff(preset.mods, availableMods);
+      setDiff(nextDiff);
 
       // Fetch GB data for thumbnails asynchronously
-      const allChanged = [...willEnable, ...willDisable, ...notFound];
+      const allChanged = [
+        ...nextDiff.willEnable,
+        ...nextDiff.willDisable,
+        ...nextDiff.notFound,
+      ];
       const gbIds = allChanged.map((m) => m.gamebananaId).filter(Boolean);
       if (gbIds.length > 0) {
         fetchModsBatch(gbIds, { priority: "low", concurrency: 2 }).then((batch) => {
