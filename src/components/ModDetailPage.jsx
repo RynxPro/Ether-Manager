@@ -27,6 +27,7 @@ import ImageLightbox from "./ImageLightbox";
 import UpdateBadge from "./UpdateBadge";
 import ConfirmDialog from "./ConfirmDialog";
 import { getInstalledFileUpdateState } from "../lib/modUpdateState";
+import { createGbInstallSelection } from "../lib/installFlow";
 
 function inferCharacterFromMod(mod, characters) {
   const cats = [
@@ -167,18 +168,15 @@ export default function ModDetailPage({
     setError(null);
 
     try {
-      await onInstall({
-        characterName: effectiveSelectedCharacter,
-        gbModId: mod._idRow,
-        fileUrl: selectedFile._sDownloadUrl,
-        fileName: selectedFile._sFile,
-        gbFileId: selectedFile._idRow,
-        fileAddedAt: selectedFile._tsDateAdded,
-        modVersion: mod._sVersion,
-        modName: mod._sName,
-        category:
-          mod._aRootCategory?._sName || mod._aCategory?._sName || "Unknown",
-      });
+      await onInstall(
+        createGbInstallSelection({
+          characterName: effectiveSelectedCharacter,
+          mod,
+          file: selectedFile,
+          category:
+            mod._aRootCategory?._sName || mod._aCategory?._sName || "Unknown",
+        }),
+      );
       // Optionally close the page after install, but keeping it open is fine for a store page.
       // onClose();
     } catch (err) {

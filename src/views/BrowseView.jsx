@@ -34,6 +34,10 @@ import {
 import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { getInstalledModUpdateState } from "../lib/modUpdateState";
+import {
+  createGbInstallPayload,
+  runGbInstallJob,
+} from "../lib/installFlow";
 
 function RateLimitBanner() {
   const apiStatus = useApiStatus();
@@ -752,38 +756,31 @@ export default function BrowseView({ isActive = false }) {
         throw new Error("Mod installation is unavailable right now.");
       }
 
-      addDownload({ id: gbModId, title: fileName || "Mod Library" });
+      const selection = {
+        characterName,
+        gbModId,
+        fileUrl,
+        fileName,
+        gbFileId,
+        fileAddedAt,
+        modVersion,
+        category,
+      };
 
-      void (async () => {
-        try {
-          const result = await window.electronMods.installGbMod({
-            importerPath,
-            characterName,
-            gbModId,
-            fileUrl,
-            fileName,
-            gbFileId,
-            fileAddedAt,
-            modVersion,
-            category,
-            gameId: game.id,
-          });
-
-          completeDownload(gbModId, result.success, result.error);
-
-          if (!result.success) {
-            return;
-          }
-
+      runGbInstallJob({
+        electronMods: window.electronMods,
+        selection,
+        payload: createGbInstallPayload({
+          importerPath,
+          gameId: game.id,
+          selection,
+        }),
+        addDownload,
+        completeDownload,
+        onInstalled: async () => {
           await refreshInstalledModsInfo(true);
-        } catch (err) {
-          completeDownload(
-            gbModId,
-            false,
-            err.message || "Installation failed",
-          );
-        }
-      })();
+        },
+      });
     },
     [
       importerPath,

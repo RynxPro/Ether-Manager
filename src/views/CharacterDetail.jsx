@@ -13,8 +13,12 @@ import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
 import { Input } from "../components/ui/Input";
 import {
   createInstalledFileInfoFromMods,
-  createInstalledFileRecord,
 } from "../lib/modUpdateState";
+import {
+  createGbInstallPayload,
+  createOptimisticInstallRecord,
+  runGbInstallJob,
+} from "../lib/installFlow";
 
 export default function CharacterDetail({
   character,
@@ -243,39 +247,32 @@ export default function CharacterDetail({
       const config = await window.electronConfig.getConfig();
       const importerPath = config[game.id];
       if (!importerPath) throw new Error("No importer path configured.");
+      const selection = {
+        characterName,
+        gbModId,
+        fileUrl,
+        fileName,
+        gbFileId,
+        fileAddedAt,
+        modVersion,
+        modName,
+      };
 
-      addDownload({ id: gbModId, title: modName || fileName });
-
-      void (async () => {
-        try {
-          const result = await window.electronMods.installGbMod({
-            importerPath,
-            characterName,
-            gbModId,
-            fileUrl,
-            fileName,
-            gbFileId,
-            fileAddedAt,
-            modVersion,
-            gameId: game.id,
-          });
-
-          completeDownload(gbModId, result.success, result.error);
-
-          if (!result.success) {
-            return;
-          }
-
+      runGbInstallJob({
+        electronMods: window.electronMods,
+        selection,
+        payload: createGbInstallPayload({
+          importerPath,
+          gameId: game.id,
+          selection,
+        }),
+        addDownload,
+        completeDownload,
+        onInstalled: async () => {
           // Update local state so badge shows immediately
           setInstalledModsInfo((prev) => {
             const current = prev[gbModId] || { installedFiles: [] };
-            const nextRecord = createInstalledFileRecord({
-              fileName,
-              installedAt: new Date().toISOString(),
-              gbFileId: gbFileId ?? null,
-              fileAddedAt: fileAddedAt ?? null,
-              modVersion: modVersion ?? null,
-            });
+            const nextRecord = createOptimisticInstallRecord(selection);
             if (
               current.installedFiles.find(
                 (f) =>
@@ -298,14 +295,8 @@ export default function CharacterDetail({
 
           // Reload the global cache so the library sees the new files
           await reloadAllMods(true);
-        } catch (err) {
-          completeDownload(
-            gbModId,
-            false,
-            err.message || "Installation failed",
-          );
-        }
-      })();
+        },
+      });
     }
   };
 
