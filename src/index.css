@@ -427,3 +427,13 @@ main,
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Scroll Lock for Modals */
+.stop-scrolling,
+.stop-scrolling body,
+.stop-scrolling main,
+.stop-scrolling .custom-scrollbar,
+.stop-scrolling [class*="overflow-y-auto"] {
+  overflow: hidden !important;
+  padding-right: 0px; /* Prevent layout shift if possible */
+}

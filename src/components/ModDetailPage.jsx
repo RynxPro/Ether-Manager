@@ -698,19 +698,17 @@ export default function ModDetailPage({
                     )}
                   </div>
 
-                  {/* Reinstall — shown below the CTA only when already installed */}
+                  {/* Reinstall — prominent secondary action when already installed */}
                   {!mod.isImported && installedFileInfo?.installedFiles?.length > 0 && !isDownloading && (
-                    <div className="mb-6 flex justify-end">
-                      <button
-                        onClick={() => setShowReinstallConfirm(true)}
-                        disabled={!effectiveSelectedCharacter}
-                        className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-text-muted hover:text-text-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Download and overwrite existing files"
-                      >
-                        <RefreshCw size={11} />
-                        Reinstall
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowReinstallConfirm(true)}
+                      disabled={!effectiveSelectedCharacter}
+                      className="w-full flex items-center justify-center gap-2 py-3 mb-6 rounded-xl border border-white/10 bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-30 disabled:cursor-not-allowed group"
+                      title="Download and overwrite existing files"
+                    >
+                      <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+                      Reinstall Mod
+                    </button>
                   )}
 
                   {/* Files Selection */}
