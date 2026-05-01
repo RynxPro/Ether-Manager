@@ -633,6 +633,7 @@ function normalizeModRecord(mod) {
     _aFiles: files,
     thumbnailUrl: buildThumbnailUrl(previewMedia),
     heroImageUrl: buildHeroImageUrl(previewMedia),
+    _isHydrated: true,
   };
 }
 
@@ -656,6 +657,7 @@ function shouldRetryRequest(error, status) {
   }
   return (
     error?.name === "AbortError" ||
+    error?.name === "SyntaxError" ||
     error?.code === "ETIMEDOUT" ||
     error?.code === "ECONNRESET" ||
     error?.code === "ENOTFOUND"
@@ -965,9 +967,21 @@ export async function fetchFromGB(url, options = {}) {
 
           recordBucketSuccess(policy.bucket);
           requestState.rateLimitStrikeCount = 0;
-          const data = await res.json();
+          
+          let data;
+          try {
+            const text = await res.text();
+            data = text ? JSON.parse(text) : null;
+          } catch (err) {
+            const syntaxError = new Error(`Failed to parse JSON: ${err.message}`);
+            syntaxError.name = "SyntaxError";
+            throw syntaxError;
+          }
+
           if (!data || typeof data !== "object") {
-            throw new Error("GB API returned an invalid response payload.");
+            const invalidError = new Error("GB API returned an invalid response payload.");
+            invalidError.name = "SyntaxError"; // Force retry
+            throw invalidError;
           }
           await writeToCache(cacheKey, data, policy.ttlMs, policy.bucket);
           return data;

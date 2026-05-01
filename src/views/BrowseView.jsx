@@ -588,25 +588,40 @@ export default function BrowseView({ isActive = false }) {
       (id) => !activePageIds.includes(id),
     );
 
-    fetchModsSummaries(activePageIds, { priority: "high", concurrency: 6 })
-      .then(async (result) => {
+    // Provide initial placeholders immediately
+    setSavedModsCatalog((prev) => {
+      const existingCatalog = prev[game.id] || [];
+      const seeded = mergeBookmarkSummaries(currentBookmarkIds, existingCatalog, []);
+      return { ...prev, [game.id]: seeded };
+    });
+
+    // Stream the active page mods into the UI as they arrive
+    let activeFinishedCount = 0;
+    
+    // We fetch them individually but throttle them through the cache
+    Promise.all(
+      activePageIds.map((id) =>
+        fetchMod(id, { priority: "high" }).then((result) => {
+          if (cancelled) return;
+          if (result.success && result.data) {
+            setSavedModsCatalog((prev) => {
+              const current = prev[game.id] || [];
+              const idx = current.findIndex((entry) => entry._idRow === id);
+              if (idx < 0) return prev;
+              const next = [...current];
+              next[idx] = result.data;
+              return { ...prev, [game.id]: next };
+            });
+          }
+        }).finally(() => {
+          activeFinishedCount++;
+          if (activeFinishedCount >= activePageIds.length && !cancelled) {
+            setLoading(false);
+          }
+        })
+      )
+    ).then(async () => {
         if (cancelled) return;
-
-        if (!result.success) {
-          setError(formatGbApiError(result, "Failed to load saved bookmarks."));
-          return;
-        }
-
-        setSavedModsCatalog((prev) => {
-          const existingCatalog = prev[game.id] || [];
-          const seededOrderedMods = mergeBookmarkSummaries(
-            currentBookmarkIds,
-            existingCatalog,
-            result.data || [],
-          );
-          return { ...prev, [game.id]: seededOrderedMods };
-        });
-        setLoading(false);
 
         if (deferredIds.length === 0) return;
 
@@ -651,6 +666,22 @@ export default function BrowseView({ isActive = false }) {
     isActive,
     visibleBookmarkIds,
   ]);
+
+  // Sync Saved tab mods from the catalog dynamically so streaming updates appear instantly
+  useEffect(() => {
+    if (activeTab === "saved" && isActive) {
+      const current = savedModsCatalog[game.id] || [];
+      const startIndex = (page - 1) * PER_PAGE;
+      const endIndex = startIndex + PER_PAGE;
+      const activeIds = currentBookmarkIds.slice(startIndex, endIndex);
+      
+      const nextMods = activeIds.map((id) => 
+        current.find(m => m._idRow === id) || createUnavailableBookmarkPlaceholder(id)
+      );
+      setMods(nextMods);
+      setTotal(currentBookmarkIds.length);
+    }
+  }, [activeTab, page, game.id, currentBookmarkIds, savedModsCatalog, isActive]);
 
   // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
   useEffect(() => {

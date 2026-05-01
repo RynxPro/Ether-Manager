@@ -96,6 +96,7 @@ export default function CreatorProfileModal({
         submitterId: creator._idRow,
         page,
         perPage: PER_PAGE,
+        hydrateZeroDownloadCounts: false,
       }),
     ttlMs: 45_000,
     initialData: { records: [], total: 0 },

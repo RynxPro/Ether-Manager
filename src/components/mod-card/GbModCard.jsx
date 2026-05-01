@@ -149,10 +149,10 @@ const BrowseModCard = function BrowseModCard({
               onToggleBookmark?.(mod);
             }}
             className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all shadow-lg border group/bookmark",
+              "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg border group/bookmark",
               localBookmarked
-                ? "bg-primary/20 border-primary/50 text-primary hover:bg-primary/30"
-                : "bg-black/50 border-white/10 text-white/50 hover:bg-white/10 hover:text-white",
+                ? "bg-primary/90 border-primary/50 text-black hover:bg-primary"
+                : "bg-black/70 border-white/10 text-white/50 hover:bg-black hover:text-white",
             )}
             title={localBookmarked ? "Remove Bookmark" : "Save Bookmark"}
           >
@@ -171,11 +171,6 @@ const BrowseModCard = function BrowseModCard({
 
         {/* Right: NSFW badge + featured + installed/update + cached */}
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-20">
-          {!mod._isHydrated && (
-            <div className="flex items-center gap-1 rounded-full border border-slate-500/40 bg-slate-600/40 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-slate-100 shadow-lg">
-              <span className="font-mono">(cached)</span>
-            </div>
-          )}
           {isNsfw && (
             <div className="flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/80 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-lg">
               <EyeOff size={9} />

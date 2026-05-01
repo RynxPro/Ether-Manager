@@ -18,7 +18,7 @@ import {
   WifiOff,
   ArrowLeft,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import GbModCard from '../components/mod-card/GbModCard';
 import { cn } from "../lib/utils";
 import { StateGridSkeleton, StatePanel } from '../components/ui/StatePanel';
@@ -40,7 +40,7 @@ const containerVariants = {
 function StatPill({ icon: Icon, label, value, accent }) {
   return (
     <div className={cn(
-      "flex flex-col items-center justify-center p-4 rounded-2xl border bg-background/50 backdrop-blur-sm",
+      "flex flex-col items-center justify-center p-4 rounded-2xl border bg-surface/90",
       accent
         ? "border-primary/25 bg-primary/10 text-primary"
         : "border-white/5 shadow-sm"
@@ -104,6 +104,7 @@ export default function CreatorProfilePage({
         submitterId: creator._idRow,
         page,
         perPage: PER_PAGE,
+        hydrateZeroDownloadCounts: false,
       }),
     ttlMs: 45_000,
     initialData: { records: [], total: 0 },
@@ -181,19 +182,15 @@ export default function CreatorProfilePage({
         </button>
 
         {/* Blurred Background */}
-        <AnimatePresence>
-          {avatarUrl && (
-            <motion.div 
-              key={avatarUrl}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.2 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1 }}
-              className="absolute inset-0 bg-cover bg-center blur-3xl transform scale-110"
-              style={{ backgroundImage: `url(${avatarUrl})` }}
-            />
-          )}
-        </AnimatePresence>
+        {avatarUrl && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.2 }}
+            transition={{ duration: 1 }}
+            className="absolute inset-0 bg-cover bg-center blur-3xl transform-gpu scale-110 will-change-[transform,opacity] backface-hidden"
+            style={{ backgroundImage: `url(${avatarUrl})` }}
+          />
+        )}
 
         {/* Creator Info Overlay */}
         <div className="relative z-10 w-full max-w-[1400px] px-6 lg:px-12 pb-12 flex flex-col md:flex-row items-end gap-8">
@@ -201,22 +198,15 @@ export default function CreatorProfilePage({
           {/* Avatar */}
           <div className="relative shrink-0 group">
             <div className="relative flex h-32 w-32 md:h-40 md:w-40 items-center justify-center overflow-hidden rounded-[2rem] border-4 border-background bg-surface shadow-2xl transition-transform duration-500 group-hover:scale-105">
-              <AnimatePresence mode="popLayout">
-                {avatarUrl ? (
-                    <motion.img
-                      key={avatarUrl}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.5 }}
-                      src={avatarUrl}
-                      alt={displayProfile._sName}
-                      className="h-full w-full object-cover absolute inset-0 will-change-transform transform-gpu backface-hidden antialiased"
-                    />
-                ) : (
-                  <User size={64} className="text-white/20" />
-                )}
-              </AnimatePresence>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayProfile._sName}
+                  className="h-full w-full object-cover absolute inset-0 will-change-transform transform-gpu backface-hidden antialiased"
+                />
+              ) : (
+                <User size={64} className="text-white/20" />
+              )}
             </div>
             {/* Online indicator */}
             <div className={cn(

@@ -144,3 +144,13 @@ That would reduce the amount of fetch lifecycle code still living directly in
 - Typing should not directly trigger full browse result fetches.
 - Saved mode should stay separate from remote browse-list semantics.
 - Browse should consume installed state, not recreate install/update rules.
+
+## Hydration & Streaming Constraints
+
+The GameBanana API does not return deep file data (`_aFiles`) on bulk index/search endpoints. This data is critical for accurate Update detection and Quick Install workflows. 
+
+To manage this safely:
+1. **Browse & Creator Pages:** These pages bypass server-side hydration entirely by passing `hydrateZeroDownloadCounts: false`. Because `modUpdateState.js` handles unhydrated mods gracefully (suppressing false update badges), there is no need to hammer the API for file data until the user explicitly opens a mod.
+2. **Saved Tab (Streaming):** Bookmarks *do* require full Profile fetches because we only store their IDs locally. Because GameBanana lacks a bulk ID endpoint, the Saved tab must make $N$ individual Profile requests.
+3. **Optimistic Rendering:** To prevent UI thread locking or long loading screens, the Saved tab instantly renders placeholder cards for all known bookmark IDs. As individual `fetchMod()` network requests finish, the results are injected into the global `savedModsCatalog`, and a React `useEffect` dynamically syncs the grid state (`mods`), visually cascading the cards into the screen.
+4. **No (cached) Tags:** Previously, the app attempted to expose the difference between hydrated and unhydrated mods to the user via a `(cached)` visual badge. This proved technically brittle and confusing to users. **Do not reintroduce technical state indicators like `(cached)` to the UI.** If a mod is unhydrated, the "Install" button simply delegates to opening the detail page.
