@@ -246,8 +246,7 @@ export default function ModDetailPage({
           images={images}
           currentIndex={currentImgIndex}
           onClose={() => setShowLightbox(false)}
-          onNext={() => setCurrentImgIndex((i) => (i + 1) % images.length)}
-          onPrev={() => setCurrentImgIndex((i) => (i - 1 + images.length) % images.length)}
+          onIndexChange={setCurrentImgIndex}
         />
       )}
 
