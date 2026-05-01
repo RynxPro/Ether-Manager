@@ -31,6 +31,11 @@ export function useGbQuery({
   const requestIdRef = useRef(0);
   const resolvedKey = useMemo(() => makeGbQueryKey(queryKey), [queryKey]);
 
+  const queryFnRef = useRef(queryFn);
+  useEffect(() => {
+    queryFnRef.current = queryFn;
+  }, [queryFn]);
+
   const runQuery = useCallback(
     async ({ force = false } = {}) => {
       if (!enabled) {
@@ -47,7 +52,7 @@ export function useGbQuery({
       setError(null);
 
       try {
-        const result = await fetchGbCachedQuery(resolvedKey, queryFn, {
+        const result = await fetchGbCachedQuery(resolvedKey, queryFnRef.current, {
           ttlMs,
           force,
         });
@@ -71,7 +76,7 @@ export function useGbQuery({
         }
       }
     },
-    [enabled, initialData, keepPreviousData, queryFn, resolvedKey, ttlMs],
+    [enabled, initialData, keepPreviousData, resolvedKey, ttlMs],
   );
 
   useEffect(() => {

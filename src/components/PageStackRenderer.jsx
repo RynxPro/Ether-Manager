@@ -32,10 +32,17 @@ export default function PageStackRenderer() {
 
         const zIndexOffset = 100 + index * 10;
 
+        // Memory optimization: Only physically paint the top 2 pages in the stack.
+        // The others remain in React's tree to preserve state/scroll, but don't consume GPU tile memory.
+        const isVisible = index >= pageStack.length - 2;
+
         return (
           <motion.div
             key={page.id}
-            style={{ zIndex: zIndexOffset }}
+            style={{ 
+              zIndex: zIndexOffset,
+              display: isVisible ? 'block' : 'none'
+            }}
             className="absolute inset-0 bg-background shadow-[-20px_0_40px_rgba(0,0,0,0.5)] page-stack-container will-change-transform transform-gpu backface-hidden antialiased rounded-2xl overflow-hidden"
             initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
