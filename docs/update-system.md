@@ -64,16 +64,16 @@ Character Detail may also build a local view of the same shape for optimistic UI
 
 ## Comparison Rules
 
-The comparison order in `modUpdateState.js` is intentional:
+The app uses strict, deterministic rules to detect updates, dropping brittle timestamp guesswork:
 
-1. If installed `modVersion` differs from current GB mod version, the install is outdated.
-2. If a matching remote file exists:
-   - compare `fileAddedAt` when possible
-   - otherwise accept exact `gbFileId` match as current
-3. If no exact remote file match exists:
-   - compare the mod's latest activity timestamp against installed `fileAddedAt`
-4. Final fallback:
-   - compare latest mod activity against `installedAt` with a small buffer
+1. **Rule A: The Version Bump**
+   - If `installedFile.modVersion` and the remote `mod._sVersion` exist but do not match, the mod is unequivocally **outdated**.
+2. **Partial Data Fast-Path**
+   - In UI surfaces where the full file list is not available (e.g., Browse grid), we cannot reliably detect silent file replacements. To prevent false positives, we assume the file is **current** unless Rule A explicitly catches a version bump.
+3. **Rule B: The Silent Replacement**
+   - If the exact `gbFileId` the user installed is NO LONGER in the remote file list, we check if the author uploaded a newer file since the user's install date. If yes, the mod is **outdated**.
+4. **Rule C: The File Update**
+   - If the exact `gbFileId` is still present, we compare its `_tsDateAdded` to the user's `fileAddedAt` (with a 5-minute server sync buffer). If the remote file's date is newer, it's an **update**. Otherwise, it's **current**.
 
 ## Card-Level Rule
 

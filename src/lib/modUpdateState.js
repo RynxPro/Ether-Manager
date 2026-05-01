@@ -31,13 +31,6 @@ function toUnixSeconds(value) {
   return 0;
 }
 
-function getLatestModActivity(mod) {
-  return Math.max(
-    toUnixSeconds(mod?._tsDateUpdated),
-    toUnixSeconds(mod?._tsDateModified),
-    toUnixSeconds(mod?._tsDateAdded),
-  );
-}
 
 function findMatchingRemoteFile(installedFile, mod) {
   const files = Array.isArray(mod?._aFiles) ? mod._aFiles : [];
@@ -135,46 +128,70 @@ export function getInstalledModsUpdateSignature(mods = []) {
 export function isInstalledFileUpToDate(installedFile, mod, remoteFile = null) {
   if (!installedFile || !mod) return false;
 
+  // RULE A: The Version Bump
+  // If the mod has a version string, and it doesn't match what we installed, it's an update.
   if (
     installedFile.modVersion &&
     mod._sVersion &&
-    installedFile.modVersion !== mod._sVersion
+    String(installedFile.modVersion) !== String(mod._sVersion)
   ) {
-    return false;
+    return false; // Outdated
   }
 
+  // If we don't have detailed file info from the API (e.g., Browse grid), we CANNOT
+  // accurately detect file-level updates. To prevent false positives, we assume it's
+  // up to date if the version string hasn't changed (or doesn't exist).
+  const hasDetailedFiles = Array.isArray(mod._aFiles) && mod._aFiles.length > 0;
+  if (!hasDetailedFiles) {
+    return true; 
+  }
+
+  // Find the exact file the user installed in the remote list
   const matchedRemoteFile = remoteFile || findMatchingRemoteFile(installedFile, mod);
+
   if (matchedRemoteFile) {
+    // RULE C: The File Update (Same ID, Newer Date)
+    // The exact file is still there. Check if its specific _tsDateAdded has changed.
+    // This happens if the author replaces the file on the backend without changing its ID.
     const installedFileAddedAt = toUnixSeconds(installedFile.fileAddedAt);
     const remoteFileAddedAt = toUnixSeconds(matchedRemoteFile._tsDateAdded);
 
     if (installedFileAddedAt && remoteFileAddedAt) {
-      return installedFileAddedAt >= remoteFileAddedAt;
+      // 5-minute buffer for server time sync quirks
+      return installedFileAddedAt + 300 >= remoteFileAddedAt;
     }
 
+    // If dates are missing, but the IDs match exactly, assume it's current.
     if (
       installedFile.gbFileId != null &&
       Number(installedFile.gbFileId) === Number(matchedRemoteFile._idRow)
     ) {
       return true;
     }
-  }
+  } else {
+    // RULE B: The Silent Replacement
+    // The exact file the user installed is NO LONGER in the remote list.
+    // This usually means the author deleted V1 and uploaded V2 without changing the version string.
+    // Check if ANY file in the mod is newer than our installation date.
+    const installedAt = toUnixSeconds(installedFile.installedAt) || toUnixSeconds(installedFile.fileAddedAt);
+    
+    if (installedAt > 0) {
+      // Find the newest file in the mod
+      const newestRemoteFileDate = Math.max(
+        ...mod._aFiles.map((f) => toUnixSeconds(f._tsDateAdded) || 0)
+      );
 
-  const latestActivity = getLatestModActivity(mod);
-
-  if (installedFile.fileAddedAt != null) {
-    const installedFileAddedAt = toUnixSeconds(installedFile.fileAddedAt);
-    if (installedFileAddedAt > 0) {
-      return latestActivity <= installedFileAddedAt;
+      // If a file exists that is newer than our install (with a 1-hour buffer for upload delays)
+      if (newestRemoteFileDate > installedAt + 3600) {
+        return false; // There is a newer file, so it's outdated.
+      }
     }
   }
 
-  const installedAt = toUnixSeconds(installedFile.installedAt);
-  if (installedAt > 0) {
-    return latestActivity <= installedAt + 300;
-  }
-
-  return false;
+  // If all else fails (e.g., no version string, file still exists but no dates, 
+  // or file deleted but no newer file found), we assume it is up to date to 
+  // avoid false-positive update spam.
+  return true;
 }
 
 export function getInstalledModUpdateState(mod, installedFileInfo) {
