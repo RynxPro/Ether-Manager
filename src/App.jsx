@@ -45,13 +45,18 @@ function App() {
     }
   }, [updateDownloadProgress]);
 
+  const [hasLoadedConfig, setHasLoadedConfig] = useState(false);
+
   // Structured Initialization Sequence
   useEffect(() => {
     let mounted = true;
 
     async function initializeApp() {
       try {
-        if (!window.electronConfig) return;
+        if (!window.electronConfig) {
+          setHasLoadedConfig(true);
+          return;
+        }
 
         const config = await window.electronConfig.getConfig();
         if (!mounted) return;
@@ -71,8 +76,10 @@ function App() {
             setActiveGameId(config.lastActiveGameId);
           }
         }
+        setHasLoadedConfig(true);
       } catch (err) {
         console.error("Initialization failed:", err);
+        setHasLoadedConfig(true);
       }
     }
 
@@ -105,7 +112,12 @@ function App() {
       // Fallback to a safe default if configuration is missing
       document.documentElement.style.setProperty("--color-primary", "#00f5cc");
     }
-  }, [activeGameId]);
+
+    // Persist selection to disk (ONLY after we've finished loading the initial config)
+    if (hasLoadedConfig && window.electronConfig?.setConfig) {
+      window.electronConfig.setConfig({ lastActiveGameId: activeGameId });
+    }
+  }, [activeGameId, hasLoadedConfig]);
 
   const handleCloseOnboarding = async () => {
     setShowOnboarding(false);
