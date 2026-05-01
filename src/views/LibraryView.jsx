@@ -7,8 +7,8 @@ import {
   lazy,
 } from "react";
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
-import CharacterCard from "../components/CharacterCard";
-import ConfirmDialog from "../components/ConfirmDialog";
+import CharacterCard from '../components/character/CharacterCard';
+import ConfirmDialog from '../components/modals/ConfirmDialog';
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";
@@ -38,7 +38,7 @@ function normalizeImporterPath(pathValue) {
     .toLowerCase();
 }
 
-const CharacterDetail = lazy(() => import("./CharacterDetail"));
+const CharacterDetail = lazy(() => import('./CharacterDetail'));
 
 const TABS = [
   { id: "characters", label: "Characters", icon: User },

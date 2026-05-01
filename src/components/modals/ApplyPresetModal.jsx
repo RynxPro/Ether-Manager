@@ -8,15 +8,15 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { cn } from "../lib/utils";
-import { thumbnailUrlFromGbModItem, thumbFromGbMap } from "../lib/gbThumbMap";
-import { useLoadGameMods } from "../hooks/useLoadGameMods";
-import { useFetchCache } from "../hooks/useFetchCache";
-import { useAppStore } from "../store/useAppStore";
-import { StatePanel } from "./ui/StatePanel";
+import { cn } from '../../lib/utils';
+import { thumbnailUrlFromGbModItem, thumbFromGbMap } from '../../lib/gbThumbMap';
+import { useLoadGameMods } from '../../hooks/useLoadGameMods';
+import { useFetchCache } from '../../hooks/useFetchCache';
+import { useAppStore } from '../../store/useAppStore';
+import { StatePanel } from '../ui/StatePanel';
 import {
   buildPresetDiff,
-} from "../lib/presetMatching";
+} from "../../lib/presetMatching";
 
 export default function ApplyPresetModal({
   preset,

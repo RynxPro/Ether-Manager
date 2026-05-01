@@ -10,8 +10,8 @@ import {
   CheckCircle2,
   Rocket,
 } from "lucide-react";
-import { cn } from "../lib/utils";
-import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
+import { cn } from '../../lib/utils';
+import { useCharacterPortrait } from '../../hooks/useCharacterPortrait';
 
 const STEPS = [
   {

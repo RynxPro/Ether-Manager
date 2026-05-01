@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { FolderOpen, EyeOff, Eye, ShieldAlert, EyeClosed } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { useAppStore } from "../store/useAppStore";
-import PageHeader from "./layout/PageHeader";
+import PageHeader from '../components/layout/PageHeader';
 
 function normalizeImporterPath(pathValue) {
   return String(pathValue || "")

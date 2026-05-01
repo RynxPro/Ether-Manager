@@ -9,8 +9,8 @@ import {
   Layers3,
   AlertCircle,
 } from "lucide-react";
-import CreatePresetModal from "../components/CreatePresetModal";
-import PresetDetailModal from "../components/PresetDetailModal";
+import CreatePresetModal from '../components/modals/CreatePresetModal';
+import PresetDetailModal from '../components/modals/PresetDetailModal';
 import { Button } from "../components/ui/Button";
 import { useAppStore } from "../store/useAppStore";
 import { useApiStatus } from "../store/useApiStore";

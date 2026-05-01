@@ -2,9 +2,9 @@ import { Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 
-const ModDetailPage     = lazy(() => import("./ModDetailPage"));
-const CreatorProfilePage = lazy(() => import("./CreatorProfilePage"));
-const SettingsPage      = lazy(() => import("./SettingsPage"));
+const ModDetailPage     = lazy(() => import('../views/ModDetailPage'));
+const CreatorProfilePage = lazy(() => import('../views/CreatorProfilePage'));
+const SettingsPage      = lazy(() => import('../views/SettingsPage'));
 
 const PAGE_COMPONENTS = {
   ModDetail: ModDetailPage,

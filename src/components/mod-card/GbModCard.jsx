@@ -10,11 +10,11 @@ import {
   EyeOff,
   Eye,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn } from '../../lib/utils';
 
-import UpdateBadge from "./UpdateBadge";
-import { InteractiveCard } from "./ui/InteractiveCard";
-import { useAppStore } from "../store/useAppStore";
+import UpdateBadge from './UpdateBadge';
+import { InteractiveCard } from '../ui/InteractiveCard';
+import { useAppStore } from '../../store/useAppStore';
 
 function formatCount(n) {
   if (!n) return "0";

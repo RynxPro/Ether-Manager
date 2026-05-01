@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Plus, EyeOff } from "lucide-react";
-import { Button } from "./ui/Button";
+import { Button } from '../ui/Button';
 
 export default function CharacterDetailHeader({
   character,

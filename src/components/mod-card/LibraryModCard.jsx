@@ -1,10 +1,10 @@
 import { useState, memo } from "react";
 import { FileText, FolderOpen, Check, Trash2 } from "lucide-react";
-import { cn } from "../lib/utils";
-import UpdateBadge from "./UpdateBadge";
-import SearchableDropdown from "./SearchableDropdown";
+import { cn } from '../../lib/utils';
+import UpdateBadge from './UpdateBadge';
+import SearchableDropdown from '../SearchableDropdown';
 import { motion } from "framer-motion";
-import { InteractiveCard } from "./ui/InteractiveCard";
+import { InteractiveCard } from '../ui/InteractiveCard';
 
 const ModCard = memo(function ModCard({
   mod,

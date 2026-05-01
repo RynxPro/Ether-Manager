@@ -19,9 +19,9 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import GbModCard from "./GbModCard";
+import GbModCard from '../components/mod-card/GbModCard';
 import { cn } from "../lib/utils";
-import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
+import { StateGridSkeleton, StatePanel } from '../components/ui/StatePanel';
 import { useGbQuery } from "../hooks/useGbQuery";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useAppStore } from "../store/useAppStore";

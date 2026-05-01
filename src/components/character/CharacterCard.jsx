@@ -1,11 +1,11 @@
-import { cn } from "../lib/utils";
+import { cn } from '../../lib/utils';
 import { User, Monitor, Box } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, memo } from "react";
-import { useCharacterPortrait } from "../hooks/useCharacterPortrait";
+import { useCharacterPortrait } from '../../hooks/useCharacterPortrait';
 
-import UpdateBadge from "./UpdateBadge";
-import { InteractiveCard } from "./ui/InteractiveCard";
+import UpdateBadge from '../mod-card/UpdateBadge';
+import { InteractiveCard } from '../ui/InteractiveCard';
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },

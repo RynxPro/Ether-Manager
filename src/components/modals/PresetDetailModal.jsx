@@ -1,23 +1,23 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Plus, Search, Package, X, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy } from "lucide-react";
-import { useLoadGameMods } from "../hooks/useLoadGameMods";
-import { cn } from "../lib/utils";
-import ApplyPresetModal from "./ApplyPresetModal";
-import SidePanel from "./layout/SidePanel";
-import { useAppStore } from "../store/useAppStore";
-import { getModDisplayCharacter } from "../lib/modClassification";
+import { useLoadGameMods } from '../../hooks/useLoadGameMods';
+import { cn } from '../../lib/utils';
+import ApplyPresetModal from './ApplyPresetModal';
+import SidePanel from '../layout/SidePanel';
+import { useAppStore } from '../../store/useAppStore';
+import { getModDisplayCharacter } from '../../lib/modClassification';
 import {
   createPresetModFromLibraryMod,
   getMissingPresetMods,
   reconcilePresetModsWithLibrary,
-} from "../lib/presetMatching";
+} from "../../lib/presetMatching";
 import {
   thumbFromGbMap,
   isGbThumbResolved,
   thumbnailUrlFromGbModItem,
-} from "../lib/gbThumbMap";
-import { useFetchCache } from "../hooks/useFetchCache";
+} from "../../lib/gbThumbMap";
+import { useFetchCache } from '../../hooks/useFetchCache';
 
 export default function PresetDetailModal({
   preset: initialPreset,

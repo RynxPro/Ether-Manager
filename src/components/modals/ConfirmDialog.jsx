@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, X } from "lucide-react";
-import { Button } from "./ui/Button";
+import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ConfirmDialog({

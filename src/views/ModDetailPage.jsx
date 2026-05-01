@@ -21,11 +21,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 import { getAllCharacterNames } from "../lib/portraits";
 import { cn } from "../lib/utils";
-import SearchableDropdown from "./SearchableDropdown";
+import SearchableDropdown from '../components/SearchableDropdown';
 import { sanitizeHtml } from "../lib/sanitizeHtml";
-import ImageLightbox from "./ImageLightbox";
-import UpdateBadge from "./UpdateBadge";
-import ConfirmDialog from "./ConfirmDialog";
+import ImageLightbox from '../components/modals/ImageLightbox';
+import UpdateBadge from '../components/mod-card/UpdateBadge';
+import ConfirmDialog from '../components/modals/ConfirmDialog';
 import { getInstalledFileUpdateState } from "../lib/modUpdateState";
 import { createGbInstallSelection } from "../lib/installFlow";
 

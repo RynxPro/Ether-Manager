@@ -1,10 +1,10 @@
-import LibraryModCard from "./LibraryModCard";
-import { getAllCharacterNames } from "../lib/portraits";
-import { StatePanel } from "./ui/StatePanel";
+import LibraryModCard from '../mod-card/LibraryModCard';
+import { getAllCharacterNames } from '../../lib/portraits';
+import { StatePanel } from '../ui/StatePanel';
 import {
   createInstalledFileInfo,
   getInstalledModUpdateState,
-} from "../lib/modUpdateState";
+} from "../../lib/modUpdateState";
 
 export default function CharacterDetailGrid({
   mods,

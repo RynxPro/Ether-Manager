@@ -5,7 +5,7 @@ import {
   ChevronRight,
   AlertCircle,
 } from "lucide-react";
-import GbModCard from "../components/GbModCard";
+import GbModCard from '../components/mod-card/GbModCard';
 
 import { getAllCharacterNames } from "../lib/portraits";
 import { motion, AnimatePresence } from "framer-motion";

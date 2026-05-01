@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Search } from "lucide-react";
 
-import CharacterDetailHeader from "../components/CharacterDetailHeader";
-import CharacterDetailGrid from "../components/CharacterDetailGrid";
-import ConfirmDialog from "../components/ConfirmDialog";
+import CharacterDetailHeader from '../components/character/CharacterDetailHeader';
+import CharacterDetailGrid from '../components/character/CharacterDetailGrid';
+import ConfirmDialog from '../components/modals/ConfirmDialog';
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useAppStore } from "../store/useAppStore";

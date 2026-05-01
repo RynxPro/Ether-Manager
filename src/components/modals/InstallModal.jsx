@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useLoadGameMods } from '../../hooks/useLoadGameMods';
 import { X, Download, ChevronDown, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getAllCharacterNames } from "../lib/portraits";
+import { getAllCharacterNames } from '../../lib/portraits';
 
 export default function InstallModal({ mod, game, onClose, onInstall }) {
   const [selectedCharacter, setSelectedCharacter] = useState("");

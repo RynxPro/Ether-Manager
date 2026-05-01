@@ -19,12 +19,12 @@ import {
   WifiOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import GbModCard from "./GbModCard";
-import { cn } from "../lib/utils";
-import { StateGridSkeleton, StatePanel } from "./ui/StatePanel";
-import { useGbQuery } from "../hooks/useGbQuery";
-import { getInstalledModUpdateState } from "../lib/modUpdateState";
-import { useFetchCache } from "../hooks/useFetchCache";
+import GbModCard from '../mod-card/GbModCard';
+import { cn } from '../../lib/utils';
+import { StateGridSkeleton, StatePanel } from '../ui/StatePanel';
+import { useGbQuery } from '../../hooks/useGbQuery';
+import { getInstalledModUpdateState } from '../../lib/modUpdateState';
+import { useFetchCache } from '../../hooks/useFetchCache';
 
 const PER_PAGE = 20;
 

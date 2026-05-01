@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn } from '../../lib/utils';
 
 export default function ImageLightbox({ images, currentIndex, onClose, onIndexChange }) {
   // Handle keyboard navigation

@@ -4,7 +4,7 @@ import { useAppStore } from "./store/useAppStore";
 import { useApiStore } from "./store/useApiStore";
 import Sidebar from "./components/layout/Sidebar";
 import LibraryView from "./views/LibraryView";
-import OnboardingModal from "./components/OnboardingModal";
+import OnboardingModal from './components/modals/OnboardingModal';
 import ErrorBoundary from "./components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 import AppViewShell from "./components/layout/AppViewShell";
