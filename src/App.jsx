@@ -11,6 +11,7 @@ import AppViewShell from "./components/layout/AppViewShell";
 import { WifiOff } from "lucide-react";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import DevNetworkMonitor from "./components/dev/DevNetworkMonitor";
+import DevPerformanceMonitor from "./components/dev/DevPerformanceMonitor";
 import PageStackRenderer from "./components/PageStackRenderer";
 
 const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
@@ -223,7 +224,12 @@ function App() {
           onClose={handleCloseOnboarding}
         />
       </Suspense>
-      {import.meta.env.DEV && <DevNetworkMonitor />}
+      {import.meta.env.DEV && (
+        <>
+          <DevNetworkMonitor />
+          <DevPerformanceMonitor />
+        </>
+      )}
       {/* Production API stats monitor (hidden by default, enabled via env) */}
       {import.meta.env.VITE_SHOW_API_STATS === "true" && <DevNetworkMonitor />}
     </div>

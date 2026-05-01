@@ -416,3 +416,14 @@
   background: transparent !important;
   background-color: transparent !important;
 }
+
+/* Hardware Acceleration Layer Promotion */
+aside, 
+main,
+.custom-scrollbar,
+.page-stack-container {
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}

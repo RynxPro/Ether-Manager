@@ -19,7 +19,7 @@ export default function AppViewShell({
         zIndex: isActive ? zIndex : 0,
       }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="absolute inset-0 h-full w-full overflow-y-auto overflow-x-hidden scroller-hidden"
+      className="absolute inset-0 h-full w-full overflow-y-auto overflow-x-hidden scroller-hidden transform-gpu will-change-transform backface-hidden antialiased"
     >
       <div className="mx-auto min-h-full w-full max-w-[1500px] px-6 py-6 sm:px-8 sm:py-8 xl:px-10">
         <Suspense
