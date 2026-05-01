@@ -203,6 +203,7 @@ export default function ModDetailPage({
             installedFileInfo={installedFileInfo}
             pushPage={pushPage}
             onToggleBookmark={onToggleBookmark}
+            onInstall={onInstall}
           />
 
           <ModDescription

@@ -8,6 +8,7 @@ export default function ModHeader({
   installedFileInfo,
   pushPage,
   onToggleBookmark,
+  onInstall,
 }) {
   const formatDate = (unixSeconds) => {
     if (!unixSeconds) return "Unknown";
@@ -94,6 +95,7 @@ export default function ModHeader({
                     game,
                     bookmarkIds: [],
                     onToggleBookmark,
+                    onInstall,
                   },
                 });
               }}
