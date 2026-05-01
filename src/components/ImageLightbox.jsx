@@ -73,7 +73,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onIndexCh
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
               transition={{ duration: 0.2 }}
-              className="max-w-full max-h-[80vh] object-contain drop-shadow-2xl rounded-lg"
+              className="max-w-full max-h-[80vh] object-contain drop-shadow-2xl rounded-lg will-change-transform transform-gpu backface-hidden antialiased"
               alt={`Gallery Image ${currentIndex + 1}`}
             />
           </AnimatePresence>

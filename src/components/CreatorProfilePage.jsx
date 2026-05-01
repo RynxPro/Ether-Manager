@@ -203,16 +203,16 @@ export default function CreatorProfilePage({
             <div className="relative flex h-32 w-32 md:h-40 md:w-40 items-center justify-center overflow-hidden rounded-[2rem] border-4 border-background bg-surface shadow-2xl transition-transform duration-500 group-hover:scale-105">
               <AnimatePresence mode="popLayout">
                 {avatarUrl ? (
-                  <motion.img
-                    key={avatarUrl}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5 }}
-                    src={avatarUrl}
-                    alt={displayProfile._sName}
-                    className="h-full w-full object-cover absolute inset-0"
-                  />
+                    <motion.img
+                      key={avatarUrl}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      src={avatarUrl}
+                      alt={displayProfile._sName}
+                      className="h-full w-full object-cover absolute inset-0 will-change-transform transform-gpu backface-hidden antialiased"
+                    />
                 ) : (
                   <User size={64} className="text-white/20" />
                 )}

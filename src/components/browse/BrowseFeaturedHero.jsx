@@ -143,10 +143,9 @@ export default function BrowseFeaturedHero({
                   {mod.heroImageUrl || mod.thumbnailUrl ? (
                     <img
                       src={mod.heroImageUrl || mod.thumbnailUrl}
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out will-change-transform transform-gpu backface-hidden antialiased"
                       style={{
                         filter: "contrast(1.05) saturate(1.1) brightness(1.03)",
-                        willChange: "transform",
                       }}
                       alt={mod._sName}
                       decoding="async"

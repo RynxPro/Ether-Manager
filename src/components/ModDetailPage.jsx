@@ -276,7 +276,7 @@ export default function ModDetailPage({
                           src={src} 
                           loading="lazy"
                           decoding="async"
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 will-change-transform transform-gpu backface-hidden antialiased"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
                       </div>
@@ -487,7 +487,7 @@ export default function ModDetailPage({
                     >
                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-white/10 border border-white/5 flex items-center justify-center shrink-0 shadow-sm">
                         {(mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl) ? (
-                          <img src={mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl} alt="Creator" className="w-full h-full object-cover" />
+                          <img src={mod._aSubmitter._sHdAvatarUrl || mod._aSubmitter._sAvatarUrl} alt="Creator" className="w-full h-full object-cover will-change-transform transform-gpu backface-hidden antialiased" />
                         ) : (
                           <User size={14} className="text-white/30" />
                         )}

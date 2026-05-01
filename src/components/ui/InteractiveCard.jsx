@@ -15,7 +15,7 @@ export function InteractiveCard({
       whileHover={whileHover}
       transition={transition}
       className={cn(
-        "ui-panel ui-panel-hover group relative flex flex-col overflow-hidden",
+        "ui-panel ui-panel-hover group relative flex flex-col overflow-hidden will-change-transform transform-gpu backface-hidden antialiased",
         className,
       )}
       {...props}

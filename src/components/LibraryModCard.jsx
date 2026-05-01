@@ -47,7 +47,7 @@ const ModCard = memo(function ModCard({
             alt={mod.name}
             onLoad={() => setImgLoaded(true)}
             className={cn(
-              "absolute inset-0 w-full h-full object-cover transition-all duration-1000",
+              "absolute inset-0 w-full h-full object-cover transition-all duration-1000 will-change-transform transform-gpu backface-hidden antialiased",
               imgLoaded ? "opacity-100" : "opacity-0",
             )}
             loading="lazy"

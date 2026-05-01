@@ -42,7 +42,7 @@ const CharacterCard = memo(function CharacterCard({ character, game, onClick, ha
               alt={character.name}
               onLoad={() => setImgLoaded(true)}
               className={cn(
-                "absolute inset-0 w-full h-full object-cover object-top transition-all duration-1000",
+                "absolute inset-0 w-full h-full object-cover object-top transition-all duration-1000 will-change-transform transform-gpu backface-hidden antialiased",
                 imgLoaded ? "opacity-100" : "opacity-0",
                 !hasMods && "scale-105 group-hover:scale-100"
               )}

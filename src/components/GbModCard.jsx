@@ -127,7 +127,7 @@ const BrowseModCard = function BrowseModCard({
               decoding="async"
               onLoad={() => setImgLoaded(true)}
               className={cn(
-                "absolute inset-0 w-full h-full object-cover transition-[transform,opacity] duration-300 z-0 transform-gpu group-hover:scale-105",
+                "absolute inset-0 w-full h-full object-cover transition-[transform,opacity] duration-300 z-0 will-change-transform transform-gpu backface-hidden antialiased group-hover:scale-105",
                 imgLoaded ? "opacity-100" : "opacity-0",
               )}
             />
