@@ -108,7 +108,7 @@ export function reconcilePresetModsWithLibrary(
   };
 }
 
-export function buildPresetDiff(presetMods, libraryMods) {
+export function buildPresetDiff(presetMods, libraryMods, scope = "scoped") {
   const affectedCharacters = new Set((presetMods || []).map((mod) => mod.character));
   const willEnable = [];
   const willDisable = [];
@@ -124,8 +124,15 @@ export function buildPresetDiff(presetMods, libraryMods) {
   }
 
   for (const libraryMod of libraryMods || []) {
-    if (!libraryMod.isEnabled || !affectedCharacters.has(libraryMod.character)) {
+    if (!libraryMod.isEnabled) {
       continue;
+    }
+
+    if (scope === "scoped" && !affectedCharacters.has(libraryMod.character)) {
+      continue;
+    }
+    if (scope === "layered") {
+      continue; // Layered disables nothing
     }
 
     const isPartOfPreset = (presetMods || []).some((presetMod) =>

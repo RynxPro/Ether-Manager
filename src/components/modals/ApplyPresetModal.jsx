@@ -7,6 +7,10 @@ import {
   AlertTriangle,
   Loader2,
   X,
+  Check,
+  Layers,
+  Shield,
+  Globe,
 } from "lucide-react";
 import { cn } from '../../lib/utils';
 import { thumbnailUrlFromGbModItem, thumbFromGbMap } from '../../lib/gbThumbMap';
@@ -32,14 +36,29 @@ export default function ApplyPresetModal({
   const [error, setError] = useState(null);
   const [gbData, setGbData] = useState({});
   const { fetchModsBatch } = useFetchCache();
+  
+  const [applyMode, setApplyMode] = useState("scoped");
+  const [selectedToEnable, setSelectedToEnable] = useState(new Set());
+  const [selectedToDisable, setSelectedToDisable] = useState(new Set());
 
   useEffect(() => {
     setLoading(true);
     setError(null);
     try {
       const availableMods = Array.isArray(allMods) ? allMods : [];
-      const nextDiff = buildPresetDiff(preset.mods, availableMods);
+      const nextDiff = buildPresetDiff(preset.mods, availableMods, applyMode);
       setDiff(nextDiff);
+      
+      setSelectedToEnable(prev => {
+        const next = new Set(prev);
+        nextDiff.willEnable.forEach(m => next.add(m.id));
+        return next;
+      });
+      setSelectedToDisable(prev => {
+        const next = new Set(prev);
+        nextDiff.willDisable.forEach(m => next.add(m.id));
+        return next;
+      });
 
       // Fetch GB data for thumbnails asynchronously
       const allChanged = [
@@ -66,14 +85,13 @@ export default function ApplyPresetModal({
     } finally {
       setLoading(false);
     }
-  }, [allMods, fetchModsBatch, preset]);
+  }, [allMods, fetchModsBatch, preset, applyMode]);
 
   const handleApply = async () => {
     setApplying(true);
     try {
-      // Form precise instructions for the backend
-      const enableList = diff.willEnable.map((m) => m.originalFolderName);
-      const disableList = diff.willDisable.map((m) => m.originalFolderName);
+      const enableList = diff.willEnable.filter(m => selectedToEnable.has(m.id)).map((m) => m.originalFolderName);
+      const disableList = diff.willDisable.filter(m => selectedToDisable.has(m.id)).map((m) => m.originalFolderName);
 
       const result = await window.electronMods.executePresetDiff({
         importerPath,
@@ -138,7 +156,7 @@ export default function ApplyPresetModal({
           )}
 
           {error && (
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm mb-6">
               <AlertTriangle size={18} className="shrink-0" />
               {error}
             </div>
@@ -146,6 +164,47 @@ export default function ApplyPresetModal({
 
           {diff && !loading && (
             <div className="flex flex-col gap-6">
+              {/* Mode Selection */}
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-black/40 border border-white/5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Apply Mode</span>
+                </div>
+                <div className="flex bg-background border border-white/5 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setApplyMode("global")} 
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black tracking-widest uppercase rounded-lg transition-all", 
+                      applyMode === "global" ? "bg-primary text-black shadow-md" : "text-white/40 hover:text-white"
+                    )}
+                  >
+                    <Globe size={14} strokeWidth={2.5} /> Global
+                  </button>
+                  <button 
+                    onClick={() => setApplyMode("scoped")} 
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black tracking-widest uppercase rounded-lg transition-all", 
+                      applyMode === "scoped" ? "bg-primary text-black shadow-md" : "text-white/40 hover:text-white"
+                    )}
+                  >
+                    <Shield size={14} strokeWidth={2.5} /> Scoped
+                  </button>
+                  <button 
+                    onClick={() => setApplyMode("layered")} 
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black tracking-widest uppercase rounded-lg transition-all", 
+                      applyMode === "layered" ? "bg-primary text-black shadow-md" : "text-white/40 hover:text-white"
+                    )}
+                  >
+                    <Layers size={14} strokeWidth={2.5} /> Layered
+                  </button>
+                </div>
+                <p className="text-xs font-medium text-text-secondary leading-relaxed px-1 min-h-[32px]">
+                  {applyMode === "global" && "Global Strict Mode will disable ALL active mods in your entire library that are not in this preset. A true clean slate."}
+                  {applyMode === "scoped" && "Character Scoped Mode will only disable active mods for the characters this preset actively touches. UI and Audio are ignored unless explicitly in the preset."}
+                  {applyMode === "layered" && "Layered Mode will only enable the preset's mods and leave all your other active mods entirely untouched."}
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <DiffSummaryCard
                   label="Enable"
@@ -153,9 +212,9 @@ export default function ApplyPresetModal({
                   tone="emerald"
                 />
                 <DiffSummaryCard
-                  label="Disable"
+                  label={applyMode === "layered" ? "Disable (Skipped)" : "Disable"}
                   value={diff.willDisable.length}
-                  tone="red"
+                  tone={applyMode === "layered" ? "neutral" : "red"}
                 />
                 <DiffSummaryCard
                   label="Missing"
@@ -173,21 +232,33 @@ export default function ApplyPresetModal({
               {diff.willEnable.length > 0 && (
                 <Section
                   icon={<CheckCircle size={16} className="text-emerald-400" />}
-                  label={`Will Enable (${diff.willEnable.length})`}
+                  label={`Will Enable (${diff.willEnable.filter(m => selectedToEnable.has(m.id)).length} / ${diff.willEnable.length})`}
                   color="emerald"
                   items={diff.willEnable}
                   gbData={gbData}
+                  selectedIds={selectedToEnable}
+                  onToggle={(id) => setSelectedToEnable(prev => {
+                    const next = new Set(prev);
+                    next.has(id) ? next.delete(id) : next.add(id);
+                    return next;
+                  })}
                 />
               )}
 
               {/* Will Disable */}
-              {diff.willDisable.length > 0 && (
+              {diff.willDisable.length > 0 && applyMode !== "layered" && (
                 <Section
                   icon={<XCircle size={16} className="text-red-400" />}
-                  label={`Will Disable (${diff.willDisable.length})`}
+                  label={`Will Disable (${diff.willDisable.filter(m => selectedToDisable.has(m.id)).length} / ${diff.willDisable.length})`}
                   color="red"
                   items={diff.willDisable}
                   gbData={gbData}
+                  selectedIds={selectedToDisable}
+                  onToggle={(id) => setSelectedToDisable(prev => {
+                    const next = new Set(prev);
+                    next.has(id) ? next.delete(id) : next.add(id);
+                    return next;
+                  })}
                 />
               )}
 
@@ -270,7 +341,7 @@ function DiffSummaryCard({ label, value, tone }) {
   );
 }
 
-function Section({ icon, label, color, items, gbData }) {
+function Section({ icon, label, color, items, gbData, selectedIds, onToggle }) {
   const colorMap = {
     emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
     red: "bg-red-500/10 border-red-500/20 text-red-400",
@@ -291,12 +362,30 @@ function Section({ icon, label, color, items, gbData }) {
         {items.map((item, i) => {
           const thumb =
             item.customThumbnail || thumbFromGbMap(gbData, item.gamebananaId);
+          const isSelected = selectedIds ? selectedIds.has(item.id) : false;
+          const isMissing = color === "yellow";
           return (
             <div
               key={i}
-              className="flex items-center gap-3 p-2 rounded-xl bg-background border border-border"
+              onClick={() => onToggle && onToggle(item.id)}
+              className={cn(
+                "flex items-center gap-3 p-2 rounded-xl border transition-all",
+                !isMissing && "cursor-pointer group/item",
+                !isMissing && isSelected 
+                  ? "bg-primary/10 border-primary/30 hover:border-primary/50" 
+                  : "bg-background border-border hover:bg-white/5 hover:border-white/10",
+                !isSelected && !isMissing && "opacity-60 hover:opacity-100"
+              )}
             >
-              <div className="w-12 h-8 rounded-lg overflow-hidden bg-surface border border-border shrink-0 relative">
+              {!isMissing && (
+                <div className={cn(
+                  "w-5 h-5 ml-2 rounded flex items-center justify-center shrink-0 transition-colors border",
+                  isSelected ? "bg-primary border-primary" : "border-white/20 group-hover/item:border-white/40"
+                )}>
+                  {isSelected && <Check size={12} strokeWidth={4} className="text-black" />}
+                </div>
+              )}
+              <div className="w-12 h-8 rounded-lg overflow-hidden bg-surface border border-border shrink-0 relative ml-1">
                 {thumb ? (
                   <img
                     src={
