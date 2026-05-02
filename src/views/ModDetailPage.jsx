@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 import { getAllCharacterNames } from "../lib/portraits";
@@ -69,6 +69,7 @@ export default function ModDetailPage({
 }) {
   const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
+  const clearPages = useAppStore(state => state.clearPages);
   
   const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
   const [selectedCharacter, setSelectedCharacter] = useState(
@@ -168,76 +169,87 @@ export default function ModDetailPage({
   const handleSetThumbnail = () => handleSetThumbnailUrl(images[currentImgIndex]);
 
   return (
-    <motion.div className="w-full h-full bg-background overflow-y-auto custom-scrollbar flex flex-col">
-      <button
-        onClick={popPage}
-        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-lg group"
-      >
-        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-        <span className="font-bold tracking-wider uppercase text-[11px]">Back</span>
-      </button>
+    <motion.div className="w-full h-full bg-background flex flex-col relative overflow-hidden">
+      <div className="absolute top-6 left-6 z-50 flex items-center gap-2">
+        <button
+          onClick={popPage}
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-lg group"
+        >
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="font-bold tracking-wider uppercase text-[11px]">Back</span>
+        </button>
+        <button
+          onClick={clearPages}
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 hover:text-white/50 text-white backdrop-blur-md transition-all shadow-lg"
+          title="Return to Browse"
+        >
+          <X size={16} />
+        </button>
+      </div>
 
-      <ModGallery
-        images={images}
-        blurHero={blurHero}
-        setRevealedDetail={setRevealedDetail}
-        setCurrentImgIndex={setCurrentImgIndex}
-        setShowLightbox={setShowLightbox}
-        isLibraryContext={isLibraryContext}
-        mod={mod}
-        handleSetThumbnailUrl={handleSetThumbnailUrl}
-        handleSetThumbnail={handleSetThumbnail}
-        isAddingThumbUrl={isAddingThumbUrl}
-        setIsAddingThumbUrl={setIsAddingThumbUrl}
-        customThumbUrl={customThumbUrl}
-        setCustomThumbUrl={setCustomThumbUrl}
-      />
+      <div className="flex-1 w-full overflow-y-auto custom-scrollbar flex flex-col">
+        <ModGallery
+          images={images}
+          blurHero={blurHero}
+          setRevealedDetail={setRevealedDetail}
+          setCurrentImgIndex={setCurrentImgIndex}
+          setShowLightbox={setShowLightbox}
+          isLibraryContext={isLibraryContext}
+          mod={mod}
+          handleSetThumbnailUrl={handleSetThumbnailUrl}
+          handleSetThumbnail={handleSetThumbnail}
+          isAddingThumbUrl={isAddingThumbUrl}
+          setIsAddingThumbUrl={setIsAddingThumbUrl}
+          customThumbUrl={customThumbUrl}
+          setCustomThumbUrl={setCustomThumbUrl}
+        />
 
-      <div className="flex-1 w-full max-w-[1400px] mx-auto px-6 lg:px-12 py-10 flex flex-col xl:flex-row gap-12 relative">
-        <div className="flex-1 flex flex-col min-w-0">
-          <ModHeader
-            mod={mod}
-            game={game}
-            isNsfw={isNsfw}
-            localBookmarked={localBookmarked}
-            installedFileInfo={installedFileInfo}
-            pushPage={pushPage}
-            onToggleBookmark={onToggleBookmark}
-            onInstall={onInstall}
-          />
-
-          <ModDescription
-            mod={mod}
-            game={game}
-            pushPage={pushPage}
-            onToggleBookmark={onToggleBookmark}
-          />
-        </div>
-
-        <div className="w-full xl:w-[380px] shrink-0">
-          <div className="sticky top-10 flex flex-col gap-6">
-            <ModInstaller
+        <div className="flex-1 w-full max-w-[1400px] mx-auto px-6 lg:px-12 py-10 flex flex-col xl:flex-row gap-12 relative">
+          <div className="flex-1 flex flex-col min-w-0">
+            <ModHeader
               mod={mod}
               game={game}
-              characters={characters}
-              effectiveSelectedCharacter={effectiveSelectedCharacter}
-              setSelectedCharacter={setSelectedCharacter}
-              error={error}
+              isNsfw={isNsfw}
               localBookmarked={localBookmarked}
-              setLocalBookmarked={setLocalBookmarked}
-              onToggleBookmark={onToggleBookmark}
-              isDownloading={isDownloading}
-              downloadJob={downloadJob}
               installedFileInfo={installedFileInfo}
-              handleInstall={handleInstall}
-              isLibraryContext={isLibraryContext}
-              isUpdating={isUpdating}
-              setShowReinstallConfirm={setShowReinstallConfirm}
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
+              pushPage={pushPage}
+              onToggleBookmark={onToggleBookmark}
+              onInstall={onInstall}
             />
 
-            <ModStats mod={mod} />
+            <ModDescription
+              mod={mod}
+              game={game}
+              pushPage={pushPage}
+              onToggleBookmark={onToggleBookmark}
+            />
+          </div>
+
+          <div className="w-full xl:w-[380px] shrink-0">
+            <div className="sticky top-10 flex flex-col gap-6">
+              <ModInstaller
+                mod={mod}
+                game={game}
+                characters={characters}
+                effectiveSelectedCharacter={effectiveSelectedCharacter}
+                setSelectedCharacter={setSelectedCharacter}
+                error={error}
+                localBookmarked={localBookmarked}
+                setLocalBookmarked={setLocalBookmarked}
+                onToggleBookmark={onToggleBookmark}
+                isDownloading={isDownloading}
+                downloadJob={downloadJob}
+                installedFileInfo={installedFileInfo}
+                handleInstall={handleInstall}
+                isLibraryContext={isLibraryContext}
+                isUpdating={isUpdating}
+                setShowReinstallConfirm={setShowReinstallConfirm}
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}
+              />
+
+              <ModStats mod={mod} />
+            </div>
           </div>
         </div>
       </div>

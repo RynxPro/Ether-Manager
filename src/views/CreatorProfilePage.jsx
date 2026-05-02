@@ -17,6 +17,7 @@ import {
   Wifi,
   WifiOff,
   ArrowLeft,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import GbModCard from '../components/mod-card/GbModCard';
@@ -72,6 +73,7 @@ export default function CreatorProfilePage({
 }) {
   const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
+  const clearPages = useAppStore(state => state.clearPages);
   const [page, setPage] = useState(1);
   const { fetchMemberProfile, browseMods, fetchMod } = useFetchCache();
 
@@ -140,7 +142,8 @@ export default function CreatorProfilePage({
           }
         }
       });
-    } catch {
+    } catch (err) {
+      console.error("Failed to load mod details:", err);
       // Fallback: push with the summary mod data we already have
       pushPage({
         id: `mod-${mod._idRow}`,
@@ -167,30 +170,39 @@ export default function CreatorProfilePage({
 
   return (
     <motion.div
-      className="w-full h-full bg-background overflow-y-auto custom-scrollbar flex flex-col"
+      className="w-full h-full bg-background flex flex-col relative overflow-hidden"
     >
-      {/* 1. Hero Banner */}
-      <div className="relative w-full h-[45vh] min-h-[350px] shrink-0 bg-[#050505] overflow-hidden flex items-end justify-center border-b border-border">
-        
-        {/* Back Button */}
+      {/* Back Button */}
+      <div className="absolute top-6 left-6 z-50 flex items-center gap-2">
         <button
           onClick={popPage}
-          className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-lg group"
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-lg group"
         >
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
           <span className="font-bold tracking-wider uppercase text-[11px]">Back</span>
         </button>
+        <button
+          onClick={clearPages}
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 hover:text-white/50 text-white backdrop-blur-md transition-all shadow-lg"
+          title="Return to Browse"
+        >
+          <X size={16} />
+        </button>
+      </div>
 
-        {/* Blurred Background */}
-        {avatarUrl && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.2 }}
-            transition={{ duration: 1 }}
-            className="absolute inset-0 bg-cover bg-center blur-3xl transform-gpu scale-110 will-change-[transform,opacity] backface-hidden"
-            style={{ backgroundImage: `url(${avatarUrl})` }}
-          />
-        )}
+      <div className="flex-1 w-full overflow-y-auto custom-scrollbar flex flex-col">
+        {/* 1. Hero Banner */}
+        <div className="relative w-full h-[45vh] min-h-[350px] shrink-0 bg-[#050505] overflow-hidden flex items-end justify-center border-b border-border">
+          {/* Blurred Background */}
+          {avatarUrl && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.2 }}
+              transition={{ duration: 1 }}
+              className="absolute inset-0 bg-cover bg-center blur-3xl transform-gpu scale-110 will-change-[transform,opacity] backface-hidden"
+              style={{ backgroundImage: `url(${avatarUrl})` }}
+            />
+          )}
 
         {/* Creator Info Overlay */}
         <div className="relative z-10 w-full max-w-[1400px] px-6 lg:px-12 pb-12 flex flex-col md:flex-row items-end gap-8">
@@ -413,6 +425,7 @@ export default function CreatorProfilePage({
             </motion.div>
           )}
         </div>
+      </div>
       </div>
     </motion.div>
   );

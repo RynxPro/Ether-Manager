@@ -120,13 +120,20 @@ export const useAppStore = create((set) => ({
   pageStack: [], // Array of { id: string, component: string, props: object }
   forwardStack: [], // Array of popped pages for Native Forward
   pushPage: (page) => {
-    modalIdCounter++;
-    currentModalId = modalIdCounter;
-    window.history.pushState({ modalId: modalIdCounter }, '');
-    set((state) => ({ 
-      pageStack: [...state.pageStack, page],
-      forwardStack: []
-    }));
+    set((state) => {
+      // Duplicate push protection: ignore if pushing the exact same page currently on top
+      const topPage = state.pageStack[state.pageStack.length - 1];
+      if (topPage && topPage.id === page.id) return state;
+
+      modalIdCounter++;
+      currentModalId = modalIdCounter;
+      window.history.pushState({ modalId: modalIdCounter }, '');
+      
+      return { 
+        pageStack: [...state.pageStack, page],
+        forwardStack: []
+      };
+    });
   },
   popPage: () => {
     if (useAppStore.getState().pageStack.length > 0) {

@@ -38,7 +38,7 @@ export default function PageStackRenderer() {
 
         return (
           <motion.div
-            key={page.id}
+            key={`${page.id}-${index}`}
             style={{ 
               zIndex: zIndexOffset,
               display: isVisible ? 'block' : 'none'
