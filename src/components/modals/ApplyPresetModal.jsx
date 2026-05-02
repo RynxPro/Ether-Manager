@@ -29,6 +29,7 @@ export default function ApplyPresetModal({
   onApplied,
 }) {
   const game = useAppStore((state) => state.activeGame);
+  const setActivePreset = useAppStore((state) => state.setActivePreset);
   const { mods: allMods, loadMods } = useLoadGameMods(game.id);
   const [diff, setDiff] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,6 +101,7 @@ export default function ApplyPresetModal({
       });
 
       if (result.success) {
+        setActivePreset(preset); // Mark this as the active loadout
         await loadMods(true); // Force global cache invalidation
         onApplied?.();
         onClose();

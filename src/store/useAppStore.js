@@ -109,6 +109,10 @@ export const useAppStore = create((set) => ({
       selectedCharacter: null,
       pageStack: [],
       forwardStack: [],
+      // Clear active loadout when switching games
+      activePresetId: null,
+      activePresetName: null,
+      activePresetGameId: null,
     });
   },
 
@@ -195,6 +199,21 @@ export const useAppStore = create((set) => ({
   bumpConfigVersion: () => set((state) => ({
     configVersion: state.configVersion + 1,
   })),
+
+  // Active Loadout State
+  activePresetId: null,      // string | null
+  activePresetGameId: null,  // string | null
+  activePresetName: null,    // string | null
+  setActivePreset: (preset) => set({
+    activePresetId: preset.id,
+    activePresetGameId: preset.gameId,
+    activePresetName: preset.name,
+  }),
+  clearActivePreset: () => set({
+    activePresetId: null,
+    activePresetGameId: null,
+    activePresetName: null,
+  }),
 
   // Downloads Queue
   // Job format: { id: string|number, title: string, percent: number, status: "downloading" | "extracting" | "done" | "error", error?: string }

@@ -8,15 +8,21 @@ import {
   ArrowRight,
   Heart,
   ChevronDown,
+  CheckCircle2,
+  AlertCircle,
+  RotateCcw,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "../ui/Button";
 import { useAppStore } from "../../store/useAppStore";
 import { VISIBLE_GAMES } from "../../gameConfig";
 import DownloadsPanel from "./DownloadsPanel";
+import { useActiveLoadout } from "../../hooks/useActiveLoadout";
 
 const MENU_ITEMS = [
   {
@@ -44,8 +50,37 @@ export default function Sidebar({ onShowHelp }) {
   const games = VISIBLE_GAMES;
   const pushPage = useAppStore((state) => state.pushPage);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+  const [importerPath, setImporterPath] = useState(null);
+  const [reverting, setReverting] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const activeGameData = games.find(g => g.id === activeGame) || games[0];
+  const {
+    activePresetName,
+    status: loadoutStatus,
+    clearActivePreset,
+    revertToPreset,
+    saveCurrentAsPreset,
+  } = useActiveLoadout();
+
+  useEffect(() => {
+    window.electronConfig?.getConfig().then((config) => {
+      setImporterPath(config[activeGame] || null);
+    }).catch(() => {});
+  }, [activeGame]);
+
+  const handleRevert = async () => {
+    if (!importerPath) return;
+    setReverting(true);
+    await revertToPreset(importerPath);
+    setReverting(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await saveCurrentAsPreset();
+    setSaving(false);
+  };
   return (
     <>
       <aside className="titlebar-drag relative z-20 flex h-full w-72 shrink-0 flex-col rounded-2xl border border-white/[0.07] bg-surface/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)] transition-colors duration-300 overflow-hidden">
@@ -208,6 +243,75 @@ export default function Sidebar({ onShowHelp }) {
           </section>
 
           <DownloadsPanel />
+
+          {/* Active Loadout Widget */}
+          <AnimatePresence>
+            {loadoutStatus !== "none" && activePresetName && (
+              <motion.section
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="flex flex-col gap-2"
+              >
+                <p className="ui-eyebrow px-3">Active Loadout</p>
+                <div className={cn(
+                  "rounded-2xl border p-3 flex flex-col gap-3 transition-colors",
+                  loadoutStatus === "synced"
+                    ? "border-emerald-500/20 bg-emerald-500/5"
+                    : "border-yellow-500/20 bg-yellow-500/5"
+                )}>
+                  {/* Status header */}
+                  <div className="flex items-start gap-2">
+                    <div className={cn(
+                      "mt-0.5 shrink-0",
+                      loadoutStatus === "synced" ? "text-emerald-400" : "text-yellow-400"
+                    )}>
+                      {loadoutStatus === "synced"
+                        ? <CheckCircle2 size={14} />
+                        : <AlertCircle size={14} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-black text-white truncate leading-tight">{activePresetName}</p>
+                      <p className={cn(
+                        "text-[9px] font-black uppercase tracking-widest mt-0.5",
+                        loadoutStatus === "synced" ? "text-emerald-400" : "text-yellow-400"
+                      )}>
+                        {loadoutStatus === "synced" ? "✓ Synced" : "⚡ Modified"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={clearActivePreset}
+                      className="shrink-0 p-1 text-white/20 hover:text-white/60 rounded transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+
+                  {/* Quick actions — only show when modified */}
+                  {loadoutStatus === "modified" && (
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={handleRevert}
+                        disabled={reverting || saving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 transition-all disabled:opacity-40"
+                      >
+                        <RotateCcw size={11} className={cn(reverting && "animate-spin")} />
+                        Revert
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={reverting || saving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all disabled:opacity-40"
+                      >
+                        <RefreshCw size={11} className={cn(saving && "animate-spin")} />
+                        Update
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.section>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="no-drag border-t border-border bg-background/45 p-4">
