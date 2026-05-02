@@ -550,37 +550,56 @@ export default function PresetDetailPage({
                             {group.character}
                             <span className="text-white/20 ml-auto">{group.mods.length} items</span>
                           </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {group.mods.map((mod) => (
-                              <div
-                                key={mod.modId}
-                                className="relative flex items-center gap-4 p-4 rounded-[20px] bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all duration-300 group shadow-sm"
-                              >
-                                <div className="w-24 h-16 rounded-xl overflow-hidden bg-background border border-white/5 shrink-0 relative shadow-inner">
-                                  {mod.customThumbnail || thumbFromGbMap(gbData, mod.gamebananaId) ? (
-                                    <img 
-                                      src={mod.customThumbnail ? `file://${mod.customThumbnail}` : thumbFromGbMap(gbData, mod.gamebananaId)} 
-                                      alt="" 
-                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-white/5 italic text-[10px] text-white/10 font-black tracking-tighter">NO IMAGE</div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {group.mods.map((mod) => {
+                              const thumbSrc = mod.customThumbnail
+                                ? `file://${mod.customThumbnail}`
+                                : thumbFromGbMap(gbData, mod.gamebananaId);
+                              return (
+                                <div
+                                  key={mod.modId}
+                                  className="relative flex flex-col rounded-2xl overflow-hidden bg-surface border border-white/5 hover:border-white/15 transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-black/30"
+                                >
+                                  {/* Thumbnail */}
+                                  <div className="relative aspect-square w-full overflow-hidden bg-black/40">
+                                    {thumbSrc ? (
+                                      <img
+                                        src={thumbSrc}
+                                        alt=""
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                                        <Package size={24} className="text-white/10" />
+                                      </div>
+                                    )}
+                                    {/* Gradient overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                                    {/* Pinned version dot */}
+                                    {mod.gbFileId && (
+                                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_6px_var(--color-primary)]" title="Pinned version" />
+                                    )}
+                                  </div>
+
+                                  {/* Name */}
+                                  <div className="p-3">
+                                    <p className="text-[11px] font-bold text-white/80 group-hover:text-white transition-colors leading-snug line-clamp-2 tracking-tight">
+                                      {mod.name}
+                                    </p>
+                                  </div>
+
+                                  {/* Edit mode remove button */}
+                                  {isEditMode && (
+                                    <button
+                                      onClick={() => handleRemoveMod(mod.modId)}
+                                      className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/70 backdrop-blur-md border border-red-500/40 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-xl z-20"
+                                    >
+                                      <X size={12} strokeWidth={3} />
+                                    </button>
                                   )}
-                                  <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent pointer-events-none" />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-black text-white/90 truncate group-hover:text-primary transition-colors tracking-tight leading-tight">{mod.name}</p>
-                                </div>
-                                {isEditMode && (
-                                  <button
-                                    onClick={() => handleRemoveMod(mod.modId)}
-                                    className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-red-500/10 backdrop-blur-md border border-red-500/30 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-xl z-20"
-                                  >
-                                    <X size={14} strokeWidth={3} />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       ))}

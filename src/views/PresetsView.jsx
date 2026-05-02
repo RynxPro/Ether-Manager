@@ -63,34 +63,6 @@ export default function PresetsView({ isActive = false }) {
       if (requestId !== loadRequestIdRef.current) return;
       setImporterPath(config[game.id] || null);
       setPresets(data || []);
-
-      // Thumbnails only when this view is visible — avoids batch Profile+Files competing with Browse on launch.
-      const allModIds = [
-        ...new Set(
-          data
-            .flatMap((p) => p.mods)
-            .map((m) => m.gamebananaId)
-            .filter(Boolean),
-        ),
-      ];
-      if (allModIds.length > 0) {
-        const result = await fetchModsBatch(allModIds, {
-          priority: "low",
-          concurrency: 2,
-        });
-        if (requestId !== loadRequestIdRef.current) return;
-        if (result.success && result.data) {
-          const dataMap = {};
-          result.data.forEach((item) => {
-            dataMap[item._idRow] = {
-              thumbnailUrl: thumbnailUrlFromGbModItem(item),
-            };
-          });
-          setGbData(dataMap);
-        }
-      } else {
-        setGbData({});
-      }
     } catch (err) {
       if (requestId === loadRequestIdRef.current) {
         console.error("PresetsView: load error", err);
@@ -100,7 +72,39 @@ export default function PresetsView({ isActive = false }) {
         setLoading(false);
       }
     }
-  }, [fetchModsBatch, game.id]);
+  }, [game.id]);
+
+  // Thumbnail fetching is decoupled from the preset load cache so it always
+  // runs when presets change (e.g. navigating back to the Presets view).
+  useEffect(() => {
+    if (!isActive || presets.length === 0) return;
+
+    const allModIds = [
+      ...new Set(
+        presets
+          .flatMap((p) => p.mods)
+          .map((m) => m.gamebananaId)
+          .filter(Boolean),
+      ),
+    ].map(Number).filter(n => n > 0);
+
+    if (allModIds.length === 0) {
+      setGbData({});
+      return;
+    }
+
+    fetchModsBatch(allModIds, { priority: "low", concurrency: 2 }).then((result) => {
+      if (result.success && result.data) {
+        const dataMap = {};
+        result.data.forEach((item) => {
+          dataMap[item._idRow] = { thumbnailUrl: thumbnailUrlFromGbModItem(item) };
+        });
+        setGbData(dataMap);
+      } else {
+        setGbData({});
+      }
+    }).catch(() => setGbData({}));
+  }, [isActive, presets, fetchModsBatch]);
 
   useEffect(() => {
     if (!isActive) {
