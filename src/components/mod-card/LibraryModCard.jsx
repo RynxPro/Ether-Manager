@@ -109,21 +109,7 @@ const ModCard = memo(function ModCard({
       {/* Info Section */}
       <div className="p-5 flex flex-col flex-1 bg-surface min-h-36 relative z-10">
         <div className="flex-1">
-          {mod.category &&
-            !hideCategoryTag &&
-            !mod.category.toLowerCase().includes("skin") &&
-            !mod.category.toLowerCase().includes("character") && (
-              <div className="mb-2 flex">
-                <span className="px-2 py-0.5 rounded-full bg-surface/50 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
-                  {mod.category === "User Interface" || mod.category === "UI"
-                    ? "UI"
-                    : mod.category === "Other/Misc" ||
-                        mod.category === "Miscellaneous"
-                      ? "MISC"
-                      : mod.category}
-                </span>
-              </div>
-            )}
+
           <h3
             className={cn(
               "text-base font-bold leading-tight line-clamp-2 min-h-12 transition-colors tracking-tight",
