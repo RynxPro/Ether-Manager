@@ -5,11 +5,13 @@ import { useAppStore } from "../store/useAppStore";
 const ModDetailPage     = lazy(() => import('../views/ModDetailPage'));
 const CreatorProfilePage = lazy(() => import('../views/CreatorProfilePage'));
 const SettingsPage      = lazy(() => import('../views/SettingsPage'));
+const PresetDetailPage  = lazy(() => import('../views/PresetDetailPage'));
 
 const PAGE_COMPONENTS = {
   ModDetail: ModDetailPage,
   CreatorProfile: CreatorProfilePage,
   Settings: SettingsPage,
+  PresetDetail: PresetDetailPage,
 };
 
 // Minimal skeleton shown while the lazy chunk is loading (first time only)

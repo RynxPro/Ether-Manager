@@ -151,7 +151,7 @@ const BrowseModCard = function BrowseModCard({
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg border group/bookmark",
               localBookmarked
-                ? "bg-primary/90 border-primary/50 text-black hover:bg-primary"
+                ? "bg-black/80 border-primary/40 text-primary hover:bg-black hover:border-primary/80"
                 : "bg-black/70 border-white/10 text-white/50 hover:bg-black hover:text-white",
             )}
             title={localBookmarked ? "Remove Bookmark" : "Save Bookmark"}
@@ -162,7 +162,7 @@ const BrowseModCard = function BrowseModCard({
               className={cn(
                 "transition-all duration-300",
                 localBookmarked
-                  ? "fill-primary text-primary"
+                  ? "fill-primary"
                   : "group-hover/bookmark:scale-110",
               )}
             />

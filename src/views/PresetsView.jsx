@@ -10,7 +10,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import CreatePresetModal from '../components/modals/CreatePresetModal';
-import PresetDetailModal from '../components/modals/PresetDetailModal';
 import { Button } from "../components/ui/Button";
 import { useAppStore } from "../store/useAppStore";
 import { useApiStatus } from "../store/useApiStore";
@@ -43,10 +42,8 @@ export default function PresetsView({ isActive = false }) {
   const [loading, setLoading] = useState(true);
   const [importerPath, setImporterPath] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [activePreset, setActivePreset] = useState(null);
-  const [importing, setImporting] = useState(false);
+  const pushPage = useAppStore(state => state.pushPage);
   const [gbData, setGbData] = useState({});
-  const [importFeedback, setImportFeedback] = useState(null);
   const loadRequestIdRef = useRef(0);
   const lastLoadedKeyRef = useRef("");
   const totalModsAcrossPresets = presets.reduce(
@@ -127,7 +124,6 @@ export default function PresetsView({ isActive = false }) {
   // Reset modal state when switching games
   useEffect(() => {
     setShowCreate(false);
-    setActivePreset(null);
   }, [game.id]);
 
   const handlePresetSaved = (preset) => {
@@ -144,95 +140,26 @@ export default function PresetsView({ isActive = false }) {
 
   const handlePresetDeleted = (presetId) => {
     setPresets((prev) => prev.filter((p) => p.id !== presetId));
-    setActivePreset(null);
   };
 
-  const handleImport = async () => {
-    setImporting(true);
-    setImportFeedback(null);
-    try {
-      const result = await window.electronMods.importPreset();
-      if (result.success && result.preset) {
-        const importedGameId = result.preset.gameId || null;
-        if (importedGameId && importedGameId !== game.id) {
-          setImportFeedback({
-            type: "error",
-            message: `This preset targets ${importedGameId}, but you are currently on ${game.id}. Switch games before importing it.`,
-          });
-          return;
-        }
 
-        if (!Array.isArray(result.preset.mods)) {
-          setImportFeedback({
-            type: "error",
-            message: "The selected preset file is invalid. Missing mods data.",
-          });
-          return;
-        }
-
-        // Assign a new ID while preserving the preset's actual game scope.
-        const imported = {
-          ...result.preset,
-          id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-          gameId: importedGameId || game.id,
-          updatedAt: new Date().toISOString(),
-        };
-        const saveResult = await window.electronMods.savePreset(imported);
-        if (!saveResult.success) {
-          throw new Error(
-            saveResult.error || "Failed to save imported preset.",
-          );
-        }
-        setPresets((prev) => [imported, ...prev]);
-        setImportFeedback({
-          type: "success",
-          message: `Imported "${imported.name}" successfully.`,
-        });
-      }
-    } catch (err) {
-      console.error("Import failed", err);
-      setImportFeedback({
-        type: "error",
-        message: err.message || "Failed to import preset.",
-      });
-    } finally {
-      setImporting(false);
-    }
-  };
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <PageHeader
         title="Presets"
         actions={
-          <>
-            <Button
-              variant="secondary"
-              onClick={handleImport}
-              disabled={importing}
-              icon={Upload}
-            >
-              Import
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => setShowCreate(true)}
-              icon={Plus}
-            >
-              New Preset
-            </Button>
-          </>
+          <Button
+            variant="primary"
+            onClick={() => setShowCreate(true)}
+            icon={Plus}
+          >
+            New Preset
+          </Button>
         }
       />
 
-      {importFeedback && (
-        <StatusBanner
-          tone={importFeedback.type === "error" ? "danger" : "success"}
-          className="mb-4 mx-2"
-        >
-          {importFeedback.message}
-        </StatusBanner>
-      )}
+
 
       {/* Rate-limit feedback banner */}
       {apiStatus.isCoolingDown && (
@@ -287,7 +214,19 @@ export default function PresetsView({ isActive = false }) {
               key={preset.id}
               preset={preset}
               index={i}
-              onClick={() => setActivePreset(preset)}
+              onClick={() => {
+                pushPage({
+                  id: `preset-${preset.id}`,
+                  component: 'PresetDetail',
+                  props: {
+                    preset,
+                    initialGbData: gbData,
+                    importerPath,
+                    onUpdated: handlePresetSaved,
+                    onDeleted: handlePresetDeleted,
+                  }
+                });
+              }}
               gbData={gbData}
             />
           ))}
@@ -306,20 +245,7 @@ export default function PresetsView({ isActive = false }) {
             }}
           />
         )}
-        {activePreset && importerPath && (
-          <PresetDetailModal
-            key={activePreset.id}
-            preset={activePreset}
-            initialGbData={gbData}
-            importerPath={importerPath}
-            onClose={() => setActivePreset(null)}
-            onUpdated={(updated) => {
-              handlePresetSaved(updated);
-              setActivePreset(updated);
-            }}
-            onDeleted={handlePresetDeleted}
-          />
-        )}
+
       </AnimatePresence>
 
       {/* No importer path warning */}
