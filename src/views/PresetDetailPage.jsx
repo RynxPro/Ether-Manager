@@ -246,7 +246,20 @@ export default function PresetDetailPage({
         
         const result = await fetchMod(missingMod.gamebananaId);
         if (result.success && result.data && result.data._aFiles?.length > 0) {
-          const file = result.data._aFiles[0];
+          const files = result.data._aFiles;
+
+          // Prefer the exact file version that was originally installed
+          let file = missingMod.gbFileId
+            ? files.find(f => Number(f._idRow) === Number(missingMod.gbFileId))
+            : null;
+
+          if (!file) {
+            // Fall back to the most recent file (sorted by date descending)
+            file = [...files].sort((a, b) => (b._tsDateAdded || 0) - (a._tsDateAdded || 0))[0];
+            if (missingMod.gbFileId) {
+              setDownloadProgress(`Note: original version not found, using latest for ${missingMod.name || "Mod"} (${i + 1}/${missingWithGbId.length})`);
+            }
+          }
           
           const payload = {
             importerPath,

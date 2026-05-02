@@ -69,6 +69,12 @@ function normalizePresetMod(mod, index) {
         : assertInteger(validMod.gamebananaId, `preset.mods[${index}].gamebananaId`, {
             min: 1,
           }),
+    gbFileId:
+      validMod.gbFileId == null
+        ? null
+        : assertInteger(validMod.gbFileId, `preset.mods[${index}].gbFileId`, {
+            min: 1,
+          }),
     customThumbnail: assertOptionalString(
       validMod.customThumbnail,
       `preset.mods[${index}].customThumbnail`,

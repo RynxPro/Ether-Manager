@@ -66,6 +66,7 @@ export function createPresetModFromLibraryMod(libraryMod, getDisplayCharacter) {
     category: libraryMod.category || null,
     name: libraryMod.name,
     gamebananaId: libraryMod.gamebananaId || null,
+    gbFileId: libraryMod.gbFileId || null,
     customThumbnail: libraryMod.customThumbnail || null,
   };
 }

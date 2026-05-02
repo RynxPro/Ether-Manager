@@ -6,6 +6,7 @@ import { getAllCharacterNames } from "../lib/portraits";
 import ImageLightbox from '../components/modals/ImageLightbox';
 import ConfirmDialog from '../components/modals/ConfirmDialog';
 import { createGbInstallSelection } from "../lib/installFlow";
+import { useFetchCache } from "../hooks/useFetchCache";
 
 import ModGallery from "./mod-detail/ModGallery";
 import ModHeader from "./mod-detail/ModHeader";
@@ -84,6 +85,8 @@ export default function ModDetailPage({
   const [showLightbox, setShowLightbox] = useState(false);
   const [localBookmarked, setLocalBookmarked] = useState(isBookmarked);
   const [showReinstallConfirm, setShowReinstallConfirm] = useState(false);
+  const [reinstallError, setReinstallError] = useState(null);
+  const { fetchMod } = useFetchCache();
 
   useEffect(() => {
     setLocalBookmarked(isBookmarked);
@@ -140,6 +143,57 @@ export default function ModDetailPage({
       );
     } catch (err) {
       setError(err.message || "Installation failed.");
+    }
+  };
+
+  /**
+   * Reinstall flow — handles both Browse context (selectedFile is set from GB API)
+   * and Library context (local mod with no _aFiles, must fetch from GB).
+   */
+  const handleReinstall = async () => {
+    setReinstallError(null);
+
+    // If we already have a selected file (Browse context), just install it
+    if (selectedFile) {
+      return handleInstall();
+    }
+
+    // Library context: mod is a local record, need to fetch from GB
+    const gbId = mod.gamebananaId || mod._idRow;
+    if (!gbId) {
+      setReinstallError("This mod has no GameBanana ID — cannot re-download.");
+      return;
+    }
+
+    try {
+      const result = await fetchMod(gbId);
+      if (!result.success || !result.data?._aFiles?.length) {
+        setReinstallError("Could not fetch mod files from GameBanana.");
+        return;
+      }
+
+      // Find the exact file version that was originally installed
+      const files = result.data._aFiles;
+      const installedFileId = installedFileInfo?.installedFiles?.[0]?.gbFileId;
+      let fileToInstall = installedFileId
+        ? files.find(f => Number(f._idRow) === Number(installedFileId))
+        : null;
+
+      // Fall back to newest file if original version not found
+      if (!fileToInstall) {
+        fileToInstall = [...files].sort((a, b) => (b._tsDateAdded || 0) - (a._tsDateAdded || 0))[0];
+      }
+
+      await onInstall(
+        createGbInstallSelection({
+          characterName: effectiveSelectedCharacter,
+          mod: result.data,
+          file: fileToInstall,
+          category: result.data._aRootCategory?._sName || result.data._aCategory?._sName || "Unknown",
+        }),
+      );
+    } catch (err) {
+      setReinstallError(err.message || "Reinstall failed.");
     }
   };
 
@@ -263,19 +317,28 @@ export default function ModDetailPage({
         />
       )}
 
-      {showReinstallConfirm && (
-        <ConfirmDialog
-          title="Reinstall Mod"
-          message={`Are you sure you want to download and overwrite the files for "${mod._sName}"?`}
-          confirmText="Reinstall"
-          cancelText="Cancel"
-          onConfirm={() => {
-            setShowReinstallConfirm(false);
-            handleInstall();
-          }}
-          onCancel={() => setShowReinstallConfirm(false)}
-        />
-      )}
+      <ConfirmDialog
+        isOpen={showReinstallConfirm}
+        title="Reinstall Mod"
+        message={`Are you sure you want to download and overwrite the files for "${mod._sName || mod.name}"?`}
+        confirmText="Reinstall"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setShowReinstallConfirm(false);
+          setReinstallError(null);
+          handleReinstall();
+        }}
+        onCancel={() => {
+          setShowReinstallConfirm(false);
+          setReinstallError(null);
+        }}
+      >        
+        {reinstallError && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+            {reinstallError}
+          </div>
+        )}
+      </ConfirmDialog>
     </motion.div>
   );
 }

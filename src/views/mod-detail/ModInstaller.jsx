@@ -89,37 +89,59 @@ export default function ModInstaller({
                     : `${downloadJob.percent}%`}
                 </div>
               </div>
-            ) : installedFileInfo?.installedFiles?.length > 0 ? (
-              /* ── Already installed ── */
-              <div className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base uppercase tracking-wider bg-primary/5 text-primary/70 border border-primary/20 select-none">
-                <Check size={20} />
-                Installed
-              </div>
-            ) : (
-              /* ── Not yet installed ── */
-              <button
-                onClick={(e) => {
-                  if (isDownloading) e.preventDefault();
-                  else handleInstall();
-                }}
-                disabled={
-                  !effectiveSelectedCharacter ||
-                  (isLibraryContext && !isUpdating) ||
-                  isDownloading
-                }
-                className={cn(
-                  "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base transition-all uppercase tracking-wider shadow-lg",
-                  isLibraryContext && !isUpdating
-                    ? "bg-white/5 text-gray-600 cursor-not-allowed border border-white/5"
-                    : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-                )}
-              >
-                <div className="relative z-10 flex items-center gap-2">
-                  <Download size={20} />
-                  {isLibraryContext ? "Update Mod" : "Install Mod"}
-                </div>
-              </button>
-            ))}
+            ) : (() => {
+              // Check if the *currently selected* file is already installed
+              const selectedInstalledData = selectedFile
+                ? installedFileInfo?.installedFiles?.find(
+                    (f) =>
+                      (f.gbFileId != null && Number(f.gbFileId) === Number(selectedFile._idRow)) ||
+                      f.fileName === selectedFile._sFile
+                  )
+                : null;
+              const selectedFileIsInstalled = Boolean(selectedInstalledData);
+
+              if (selectedFileIsInstalled) {
+                /* ── Selected file already installed ── */
+                return (
+                  <div className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base uppercase tracking-wider bg-primary/5 text-primary/70 border border-primary/20 select-none">
+                    <Check size={20} />
+                    Installed
+                  </div>
+                );
+              }
+
+              /* ── Not yet installed / different version selected ── */
+              const anyInstalled = installedFileInfo?.installedFiles?.length > 0;
+              return (
+                <button
+                  onClick={(e) => {
+                    if (isDownloading) e.preventDefault();
+                    else handleInstall();
+                  }}
+                  disabled={
+                    !effectiveSelectedCharacter ||
+                    (isLibraryContext && !isUpdating) ||
+                    isDownloading
+                  }
+                  className={cn(
+                    "flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base transition-all uppercase tracking-wider shadow-lg",
+                    isLibraryContext && !isUpdating
+                      ? "bg-white/5 text-gray-600 cursor-not-allowed border border-white/5"
+                      : "bg-primary text-black hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                  )}
+                >
+                  <div className="relative z-10 flex items-center gap-2">
+                    <Download size={20} />
+                    {isLibraryContext
+                      ? "Update Mod"
+                      : anyInstalled
+                      ? "Install This Version"
+                      : "Install Mod"}
+                  </div>
+                </button>
+              );
+            })()
+          )}
         </div>
 
         {/* Reinstall — prominent secondary action when already installed */}
