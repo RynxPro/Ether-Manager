@@ -18,6 +18,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
   const game = useAppStore((state) => state.activeGame);
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const [description, setDescription] = useState("");
   const {
     mods: loadedMods,
@@ -75,41 +76,13 @@ export default function CreatePresetModal({ onClose, onSaved }) {
     }
   }, [step, loadedMods, processMods]);
 
-  // Snapshot: auto-select all currently-enabled mods
-  const handleSnapshot = async () => {
-    setLoadingMods(true);
-    setSnapshotError(null);
-
-    try {
-      const sourceMods =
-        loadedMods && loadedMods.length > 0 ? loadedMods : await loadMods(true);
-
-      if (!Array.isArray(sourceMods) || sourceMods.length === 0) {
-        throw new Error(
-          loadModsError || "No installed mods were found for the current game.",
-        );
-      }
-
-      const enabledMods = sourceMods.filter((mod) => mod.isEnabled);
-      if (enabledMods.length === 0) {
-        throw new Error("No enabled mods found to snapshot.");
-      }
-
-      setAllMods(sourceMods);
-      setSelectedModIds(new Set(enabledMods.map((mod) => mod.id)));
-      if (!name.trim()) {
-        setName("Current Loadout");
-      }
-
-      await hydrateGbData(sourceMods);
-      setStep(3);
-    } catch (error) {
-      console.error("Snapshot error:", error);
-      setSnapshotError(error.message || "Failed to snapshot the current loadout.");
-    } finally {
-      setLoadingMods(false);
+  useEffect(() => {
+    if (loadedMods && loadedMods.length > 0 && !hasAutoSelected) {
+      const enabledIds = loadedMods.filter(m => m.isEnabled).map(m => m.id);
+      setSelectedModIds(new Set(enabledIds));
+      setHasAutoSelected(true);
     }
-  };
+  }, [loadedMods, hasAutoSelected]);
 
   const toggleMod = (modId) => {
     setSelectedModIds(prev => {
@@ -173,16 +146,16 @@ export default function CreatePresetModal({ onClose, onSaved }) {
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary blur-[100px] opacity-10 rounded-full" />
           <div className="relative z-10">
             <div className="mb-1 text-[9px] font-black uppercase tracking-[0.3em] text-text-muted">
-              Step {step} of 3
+              Step {step} of 2
             </div>
             <h2 className="text-xl font-bold text-text-primary tracking-tight">
-              {step === 1 ? "New Loadout" : step === 2 ? "Pick Mods" : "Review"}
+              {step === 1 ? "New Loadout" : "Pick Mods"}
             </h2>
           </div>
           <div className="flex items-center gap-3 relative z-10">
             {/* Step Pills */}
             <div className="flex items-center gap-1.5">
-              {[1, 2, 3].map(s => (
+              {[1, 2].map(s => (
                 <div
                   key={s}
                   className={cn(
@@ -209,36 +182,16 @@ export default function CreatePresetModal({ onClose, onSaved }) {
                 exit={{ opacity: 0, x: -20 }}
                 className="p-8 flex flex-col gap-6"
               >
-                {/* Snapshot CTA */}
-                <button
-                  onClick={handleSnapshot}
-                  disabled={loadingMods}
-                  className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all text-left group"
-                >
-                  {loadingMods ? (
-                    <Loader2 size={20} className="text-primary animate-spin shrink-0" />
-                  ) : (
-                    <Camera size={20} className="text-primary shrink-0" />
-                  )}
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex gap-4">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <Camera size={20} className="text-primary" />
+                  </div>
                   <div>
-                    <p className="text-sm font-bold text-primary uppercase tracking-wide">
-                      Snapshot Current Loadout
-                    </p>
-                    <p className="text-xs text-text-muted mt-0.5 font-medium">
-                      Select all active mods and jump to review
-                    </p>
+                     <h3 className="text-sm font-bold text-primary tracking-tight">Smart Snapshot Active</h3>
+                     <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                       We've pre-selected the <strong>{loadedMods?.filter(m => m.isEnabled).length || 0} mods</strong> you currently have enabled. You can tweak them on the next step before saving.
+                     </p>
                   </div>
-                  <ChevronRight size={16} className="ml-auto text-primary/50 group-hover:text-primary transition-colors" />
-                </button>
-
-                {snapshotError ? (
-                  <div className="rounded-2xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-200/85">
-                    {snapshotError}
-                  </div>
-                ) : null}
-
-                <div className="w-full h-px bg-white/5 flex items-center justify-center">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-text-muted bg-surface px-3">or build manually</span>
                 </div>
 
                 {/* Name */}
@@ -358,46 +311,6 @@ export default function CreatePresetModal({ onClose, onSaved }) {
               </motion.div>
             )}
 
-            {step === 3 && (
-              <motion.div
-                key="step3"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-8 flex flex-col gap-6"
-              >
-                {/* Preview Card */}
-                <div className="relative rounded-2xl overflow-hidden p-6 border border-white/10 bg-white/5 hover:bg-white/10 transition-colors">
-                  <div className="absolute top-0 left-0 w-1 h-full rounded-l-3xl bg-primary" />
-                  <h3 className="mb-2 text-xl font-bold tracking-tight text-text-primary">{name || "Untitled Preset"}</h3>
-                  {description && <p className="text-text-muted text-sm mb-4">{description}</p>}
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs font-black text-white/60 uppercase tracking-wider">
-                      {selectedMods.length} mod{selectedMods.length !== 1 ? "s" : ""}
-                    </span>
-                    <span className="text-xs font-black text-white/60 uppercase tracking-wider">
-                      {new Set(selectedMods.map(m => m.character)).size} characters
-                    </span>
-                    <span className="text-xs font-black text-white/60 uppercase tracking-wider">
-                      {game.id}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mod List summary */}
-                {selectedMods.length > 0 && (
-                  <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto custom-scrollbar">
-                    {selectedMods.map(m => (
-                      <div key={m.id} className="flex items-center gap-2 text-xs text-white/60 font-mono px-2">
-                        <span className="text-white/20">•</span>
-                        <span className="truncate">{m.name}</span>
-                        <span className="text-white/30 shrink-0">({m.character})</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
           </AnimatePresence>
         </div>
 
@@ -411,7 +324,7 @@ export default function CreatePresetModal({ onClose, onSaved }) {
             {step === 1 ? "Cancel" : "Back"}
           </button>
 
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               onClick={() => setStep(s => s + 1)}
               disabled={step === 1 && !name.trim()}

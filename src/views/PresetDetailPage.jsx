@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Plus, Search, Package, X, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Plus, Search, Package, X, Check, Zap, Edit3, Trash2, Loader2, Share2, Copy, ArrowLeft, Download } from "lucide-react";
 import { useLoadGameMods } from '../hooks/useLoadGameMods';
 import { cn } from '../lib/utils';
 import ApplyPresetModal from '../components/modals/ApplyPresetModal';
@@ -39,7 +39,10 @@ export default function PresetDetailPage({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [gbData, setGbData] = useState(() => ({ ...initialGbData }));
-  const { fetchModsBatch } = useFetchCache();
+  const { fetchModsBatch, fetchMod } = useFetchCache();
+  const [downloadingMissing, setDownloadingMissing] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [downloadFeedback, setDownloadFeedback] = useState(null);
 
   // Edit mode state
   const [editName, setEditName] = useState(preset.name);
@@ -49,7 +52,7 @@ export default function PresetDetailPage({
   // Add mods panel state
   const [showAddPanel, setShowAddPanel] = useState(false);
   // Always load the library in the background to detect missing ghost mods instantly
-  const { mods: loadedMods, loading: loadingLibrary } = useLoadGameMods(game.id, true);
+  const { mods: loadedMods, loading: loadingLibrary, loadMods } = useLoadGameMods(game.id, true);
   const [allLibraryMods, setAllLibraryMods] = useState([]);
   const [addSearch, setAddSearch] = useState("");
   const isEditModeRef = useRef(isEditMode);
@@ -225,6 +228,87 @@ export default function PresetDetailPage({
   const characters = [...new Set(displayMods.map(m => m.character))];
   const missingMods = getMissingPresetMods(displayMods, allLibraryMods);
   const missingCount = missingMods.length;
+  const missingWithGbIdCount = missingMods.filter(m => m.gamebananaId).length;
+
+  const handleDownloadMissing = async () => {
+    const missingWithGbId = missingMods.filter(m => m.gamebananaId);
+    if (missingWithGbId.length === 0) return;
+
+    setDownloadingMissing(true);
+    setDownloadFeedback(null);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (let i = 0; i < missingWithGbId.length; i++) {
+        const missingMod = missingWithGbId[i];
+        setDownloadProgress(`Downloading: ${missingMod.name || "Mod"} (${i + 1}/${missingWithGbId.length})`);
+        
+        const result = await fetchMod(missingMod.gamebananaId);
+        if (result.success && result.data && result.data._aFiles?.length > 0) {
+          const file = result.data._aFiles[0];
+          
+          const payload = {
+            importerPath,
+            characterName: missingMod.character || "Misc",
+            gbModId: result.data._idRow,
+            fileUrl: file._sDownloadUrl,
+            fileName: file._sFile,
+            gbFileId: file._idRow,
+            fileAddedAt: file._tsDateAdded,
+            modVersion: result.data._sVersion,
+            category: missingMod.category || "Unknown",
+            gameId: game.id,
+          };
+
+          const installResult = await window.electronMods.installGbMod(payload);
+          if (installResult.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } else {
+          failCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        await loadMods(true);
+      }
+
+      setDownloadFeedback({
+        type: failCount === 0 ? "success" : successCount > 0 ? "warning" : "error",
+        message: failCount === 0 
+          ? `Successfully downloaded ${successCount} missing mod${successCount === 1 ? '' : 's'}.`
+          : `Downloaded ${successCount} mod${successCount === 1 ? '' : 's'}. ${failCount} failed.`,
+      });
+
+      if (failCount === 0) {
+        setTimeout(() => setDownloadFeedback(null), 5000);
+      }
+    } catch (err) {
+      setDownloadFeedback({
+        type: "error",
+        message: "An unexpected error occurred while downloading missing mods."
+      });
+    } finally {
+      setDownloadingMissing(false);
+      setDownloadProgress(null);
+    }
+  };
+
+  const groupedMods = useMemo(() => {
+    const groups = {};
+    for (const mod of displayMods) {
+      const char = mod.character || "Unassigned";
+      if (!groups[char]) groups[char] = [];
+      groups[char].push(mod);
+    }
+    return Object.keys(groups).sort().map(char => ({
+      character: char,
+      mods: groups[char].sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+    }));
+  }, [displayMods]);
 
   return (
     <>
@@ -297,6 +381,19 @@ export default function PresetDetailPage({
               {/* Actions */}
               <div className="flex flex-col gap-3 items-end shrink-0">
                 <div className="flex items-center gap-3">
+                  {!isEditMode && missingWithGbIdCount > 0 && (
+                    <button
+                      onClick={handleDownloadMissing}
+                      disabled={downloadingMissing}
+                      className="group flex items-center gap-2 px-5 py-4 rounded-2xl text-[13px] font-black uppercase tracking-widest transition-all shadow-xl bg-surface/80 border border-white/10 hover:bg-surface hover:border-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {downloadingMissing ? (
+                        <><Loader2 size={16} className="animate-spin" /> {downloadProgress}</>
+                      ) : (
+                        <><Download size={16} className="group-hover:translate-y-0.5 transition-transform" /> Re-download Missing</>
+                      )}
+                    </button>
+                  )}
                   {!isEditMode && (
                     <button
                       onClick={() => setShowApply(true)}
@@ -356,9 +453,33 @@ export default function PresetDetailPage({
               ))}
             </div>
 
-            {/* Body */}
-            <div className="w-full pb-20">
-              {activeTab === "mods" && (
+            {/* Main Body */}
+          <div className="w-full max-w-5xl p-8">
+            <AnimatePresence>
+              {downloadFeedback && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={cn(
+                    "mb-8 p-4 rounded-2xl border flex items-center gap-3 font-bold text-sm",
+                    downloadFeedback.type === "success" && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+                    downloadFeedback.type === "warning" && "bg-yellow-500/10 border-yellow-500/20 text-yellow-400",
+                    downloadFeedback.type === "error" && "bg-red-500/10 border-red-500/20 text-red-400"
+                  )}
+                >
+                  {downloadFeedback.type === "success" && <Check size={18} />}
+                  {downloadFeedback.type === "warning" && <AlertTriangle size={18} />}
+                  {downloadFeedback.type === "error" && <AlertTriangle size={18} />}
+                  {downloadFeedback.message}
+                  {downloadFeedback.type !== "success" && (
+                     <button onClick={() => setDownloadFeedback(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={16}/></button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {activeTab === "mods" && (
                 <div>
                   {(() => {
                     const ghostMods = missingMods;
@@ -408,36 +529,46 @@ export default function PresetDetailPage({
                       )}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {displayMods.map((mod) => (
-                        <div
-                          key={mod.modId}
-                          className="relative flex items-center gap-4 p-4 rounded-[20px] bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all duration-300 group shadow-sm"
-                        >
-                          <div className="w-24 h-16 rounded-xl overflow-hidden bg-background border border-white/5 shrink-0 relative shadow-inner">
-                            {mod.customThumbnail || thumbFromGbMap(gbData, mod.gamebananaId) ? (
-                              <img 
-                                src={mod.customThumbnail ? `file://${mod.customThumbnail}` : thumbFromGbMap(gbData, mod.gamebananaId)} 
-                                alt="" 
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-white/5 italic text-[10px] text-white/10 font-black tracking-tighter">NO IMAGE</div>
-                            )}
-                            <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent pointer-events-none" />
+                    <div className="flex flex-col gap-12">
+                      {groupedMods.map((group) => (
+                        <div key={group.character} className="flex flex-col gap-5">
+                          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-text-muted border-b border-white/5 pb-3 flex items-center gap-3">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary/80 shadow-[0_0_8px_var(--color-primary)]" />
+                            {group.character}
+                            <span className="text-white/20 ml-auto">{group.mods.length} items</span>
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {group.mods.map((mod) => (
+                              <div
+                                key={mod.modId}
+                                className="relative flex items-center gap-4 p-4 rounded-[20px] bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all duration-300 group shadow-sm"
+                              >
+                                <div className="w-24 h-16 rounded-xl overflow-hidden bg-background border border-white/5 shrink-0 relative shadow-inner">
+                                  {mod.customThumbnail || thumbFromGbMap(gbData, mod.gamebananaId) ? (
+                                    <img 
+                                      src={mod.customThumbnail ? `file://${mod.customThumbnail}` : thumbFromGbMap(gbData, mod.gamebananaId)} 
+                                      alt="" 
+                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-white/5 italic text-[10px] text-white/10 font-black tracking-tighter">NO IMAGE</div>
+                                  )}
+                                  <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent pointer-events-none" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-black text-white/90 truncate group-hover:text-primary transition-colors tracking-tight leading-tight">{mod.name}</p>
+                                </div>
+                                {isEditMode && (
+                                  <button
+                                    onClick={() => handleRemoveMod(mod.modId)}
+                                    className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-red-500/10 backdrop-blur-md border border-red-500/30 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-xl z-20"
+                                  >
+                                    <X size={14} strokeWidth={3} />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-white/90 truncate group-hover:text-primary transition-colors tracking-tight leading-tight">{mod.name}</p>
-                            <p className="text-[10px] text-text-secondary uppercase tracking-widest font-black mt-1.5 opacity-60">{mod.character}</p>
-                          </div>
-                          {isEditMode && (
-                            <button
-                              onClick={() => handleRemoveMod(mod.modId)}
-                              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-red-500/10 backdrop-blur-md border border-red-500/30 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-xl z-20"
-                            >
-                              <X size={14} strokeWidth={3} />
-                            </button>
-                          )}
                         </div>
                       ))}
 
