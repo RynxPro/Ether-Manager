@@ -1,7 +1,5 @@
 import {
   useState,
-  useEffect,
-  useMemo,
   useCallback,
   Suspense,
   lazy,
@@ -9,34 +7,15 @@ import {
 import { Search, User, Monitor, Box, EyeOff } from "lucide-react";
 import CharacterCard from '../components/character/CharacterCard';
 import ConfirmDialog from '../components/modals/ConfirmDialog';
-import { useFetchCache } from "../hooks/useFetchCache";
-import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useLibraryCollections } from "../hooks/useLibraryCollections";
+import { useLibraryUpdateSummary } from "../hooks/useLibraryUpdateSummary";
 import { useAppStore } from "../store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Input } from "../components/ui/Input";
-import { getModClassification } from "../lib/modClassification";
 import PageHeader from "../components/layout/PageHeader";
-import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { StatePanel, StatusBanner } from "../components/ui/StatePanel";
 import { Button } from "../components/ui/Button";
-import { VISIBLE_GAMES } from "../gameConfig";
-import {
-  createInstalledFileInfo,
-  getInstalledModUpdateState,
-  getInstalledModsUpdateSignature,
-} from "../lib/modUpdateState";
-import {
-  buildLibraryCollections,
-  filterLibraryCollections,
-} from "../lib/libraryCollections";
-
-function normalizeImporterPath(pathValue) {
-  return String(pathValue || "")
-    .trim()
-    .replace(/[\\/]+$/, "")
-    .toLowerCase();
-}
 
 const CharacterDetail = lazy(() => import('./CharacterDetail'));
 
@@ -46,166 +25,26 @@ const TABS = [
   { id: "misc", label: "Miscellaneous", icon: Box },
 ];
 
-const UPDATE_CACHE_TTL_MS = 2 * 60 * 1000;
-
 export default function LibraryView({ isActive }) {
   const game = useAppStore((state) => state.activeGame);
   const onSelectCharacter = useAppStore((state) => state.setSelectedCharacter);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
   const [disablingAll, setDisablingAll] = useState(false);
-  const [updatesMap, setUpdatesMap] = useState({});
   const [showDisableAllConfirm, setShowDisableAllConfirm] = useState(false);
-  const [sharedImporterGames, setSharedImporterGames] = useState([]);
-  const [apiNotice, setApiNotice] = useState("");
-  const updateCheckCache = useAppStore((state) => state.updateCheckCache);
-  const setUpdateCheckCache = useAppStore((state) => state.setUpdateCheckCache);
 
-  // Use fetch cache hook for update checks
-  const { fetchModsBatch } = useFetchCache();
-
-  // Standardized Mod Loading
-  const { mods, loadMods } = useLoadGameMods(game.id, isActive !== false);
-  const updateSignature = useMemo(
-    () => getInstalledModsUpdateSignature(mods),
-    [mods],
-  );
-  const isOnline = useNetworkStatus();
-
-  useEffect(() => {
-    const checkUpdates = async () => {
-      // Library is always mounted but often hidden; do not compete with Browse/Presets on startup.
-      if (!isActive) return;
-      if (!isOnline || !mods || mods.length === 0) {
-        setUpdatesMap({});
-        return;
-      }
-
-      const modsWithId = mods.filter((m) => m.gamebananaId);
-      const gbIds = [...new Set(modsWithId.map((m) => m.gamebananaId))];
-      if (gbIds.length === 0) return;
-
-      const cachedEntry = updateCheckCache[game.id];
-      if (
-        cachedEntry?.signature === updateSignature &&
-        Date.now() - Number(cachedEntry.checkedAt || 0) < UPDATE_CACHE_TTL_MS
-      ) {
-        setApiNotice("");
-        setUpdatesMap(cachedEntry.updatesMap || {});
-        return;
-      }
-
-      try {
-        const result = await fetchModsBatch(gbIds, {
-          priority: "low",
-          concurrency: 2,
-        });
-        if (!result.success) {
-          if (result.code === "RATE_LIMITED") {
-            const retryInSeconds = Math.max(
-              1,
-              Math.ceil((Number(result.retryAfterMs) || 5000) / 1000),
-            );
-            setApiNotice(
-              `GameBanana update checks are temporarily paused due to rate limits. Retrying in about ${retryInSeconds}s.`,
-            );
-          }
-          return;
-        }
-
-        setApiNotice("");
-        if (result.success && result.data) {
-          const newUpdatesMap = {};
-
-          const latestModsById = {};
-          result.data.forEach((gbMod) => {
-            if (gbMod?._idRow) {
-              latestModsById[String(gbMod._idRow)] = gbMod;
-            }
-          });
-
-          // Check each mod
-          mods.forEach((mod) => {
-            const gbId = mod.gamebananaId ? String(mod.gamebananaId) : null;
-            const gbMod = gbId ? latestModsById[gbId] : null;
-            if (gbId && gbMod) {
-              const installedFileInfo = createInstalledFileInfo(mod);
-
-              if (getInstalledModUpdateState(gbMod, installedFileInfo).hasUpdate) {
-                const classification = getModClassification(mod);
-                newUpdatesMap[classification.label] = true;
-
-                if (classification.bucket === "ui") newUpdatesMap["ui"] = true;
-                else if (classification.bucket === "misc") {
-                  newUpdatesMap["misc"] = true;
-                } else {
-                  newUpdatesMap["characters"] = true;
-                }
-              }
-            }
-          });
-          setUpdatesMap(newUpdatesMap);
-          setUpdateCheckCache(game.id, {
-            signature: updateSignature,
-            checkedAt: Date.now(),
-            updatesMap: newUpdatesMap,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to check character updates:", err);
-      }
-    };
-
-    checkUpdates();
-  }, [
-    isActive,
-    fetchModsBatch,
+  const { mods, loadMods, displayItems, counts, totalEnabledMods, sharedImporterGames: sharedImporters } =
+    useLibraryCollections({
+      gameId: game.id,
+      isActive: isActive !== false,
+      activeTab,
+      searchQuery,
+    });
+  const { updatesMap, apiNotice, totalUpdateGroups } = useLibraryUpdateSummary({
+    gameId: game.id,
     mods,
-    isOnline,
-    game.id,
-    updateCheckCache,
-    setUpdateCheckCache,
-    updateSignature,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadSharedImporterGames = async () => {
-      if (!window.electronConfig?.getConfig) {
-        setSharedImporterGames([]);
-        return;
-      }
-
-      try {
-        const config = await window.electronConfig.getConfig();
-        if (cancelled) return;
-
-        const currentPath = normalizeImporterPath(config[game.id]);
-        if (!currentPath) {
-          setSharedImporterGames([]);
-          return;
-        }
-
-        const sharedGames = VISIBLE_GAMES.filter(
-          (candidate) =>
-            candidate.id !== game.id &&
-            normalizeImporterPath(config[candidate.id]) === currentPath,
-        );
-
-        setSharedImporterGames(sharedGames);
-      } catch {
-        if (!cancelled) {
-          setSharedImporterGames([]);
-        }
-      }
-    };
-
-    loadSharedImporterGames();
-    return () => {
-      cancelled = true;
-    };
-  }, [game.id]);
+    isActive,
+  });
 
   const handleDisableAllGame = useCallback(() => {
     const enabledMods = mods.filter((m) => m.isEnabled);
@@ -246,35 +85,6 @@ export default function LibraryView({ isActive }) {
     }
   }, [mods, game.id, loadMods]);
 
-  const totalEnabledMods = useMemo(
-    () => mods.filter((m) => m.isEnabled).length,
-    [mods],
-  );
-  const totalUpdateGroups = useMemo(
-    () => Object.keys(updatesMap).length,
-    [updatesMap],
-  );
-
-  // Group and Filter logic
-  const { displayItems, counts } = useMemo(() => {
-    const collections = buildLibraryCollections(mods, game.id);
-    let items = [];
-    if (activeTab === "characters") {
-      items = collections.characters;
-    } else if (activeTab === "ui") {
-      items = collections.ui;
-    } else {
-      items = collections.misc;
-    }
-
-    const filteredItems = filterLibraryCollections(items, searchQuery);
-
-    return {
-      displayItems: filteredItems,
-      counts: collections.counts,
-    };
-  }, [mods, game.id, activeTab, searchQuery]);
-
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -289,9 +99,9 @@ export default function LibraryView({ isActive }) {
 
       <section className="ui-panel mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4">
-          {sharedImporterGames.length > 0 && (
+          {sharedImporters.length > 0 && (
             <StatusBanner tone="warning">
-              This library shares its mods path with {sharedImporterGames.map((sharedGame) => sharedGame.name).join(", ")}.
+              This library shares its mods path with {sharedImporters.map((sharedGame) => sharedGame.name).join(", ")}.
               Untagged legacy mods may be hidden or scoped away until they are re-tagged for a specific game.
             </StatusBanner>
           )}
