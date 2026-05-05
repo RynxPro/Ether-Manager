@@ -1,7 +1,12 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { useLoadGameMods } from "./useLoadGameMods";
-import { matchesPresetMod } from "../lib/presetMatching";
+import {
+  buildPresetDiff,
+  createPresetSnapshotFromLibrary,
+  matchesPresetMod,
+} from "../lib/presetMatching";
+import { getModDisplayCharacter } from "../lib/modClassification";
 
 /**
  * Phase 3: Active Loadout Hook
@@ -23,38 +28,47 @@ export function useActiveLoadout() {
   const [activePreset, setActivePresetData] = useState(null);
   const [loadingPreset, setLoadingPreset] = useState(false);
 
+  const loadActivePreset = useCallback(async (presetId, presetGameId) => {
+    setLoadingPreset(true);
+    try {
+      const presets = await window.electronMods.getPresets(presetGameId);
+      const found = (presets || []).find((p) => p.id === presetId);
+      if (found) {
+        setActivePresetData(found);
+      } else {
+        clearActivePreset();
+        setActivePresetData(null);
+      }
+    } catch {
+      setActivePresetData(null);
+    } finally {
+      setLoadingPreset(false);
+    }
+  }, [clearActivePreset]);
+
   // Load the full preset object from disk when activePresetId changes
   useEffect(() => {
     if (!activePresetId || !activePresetGameId) {
-      setActivePresetData(null);
       return;
     }
-    setLoadingPreset(true);
-    window.electronMods.getPresets(activePresetGameId)
-      .then((presets) => {
-        const found = (presets || []).find((p) => p.id === activePresetId);
-        if (found) {
-          setActivePresetData(found);
-        } else {
-          // Preset was deleted — auto-clear
-          clearActivePreset();
-          setActivePresetData(null);
-        }
-      })
-      .catch(() => {
-        setActivePresetData(null);
-      })
-      .finally(() => {
+    let cancelled = false;
+    void loadActivePreset(activePresetId, activePresetGameId).catch(() => {
+      if (!cancelled) {
         setLoadingPreset(false);
-      });
-  }, [activePresetId, activePresetGameId, clearActivePreset]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePresetId, activePresetGameId, loadActivePreset]);
 
   /**
    * Deviation detection.
    * Returns "none" | "synced" | "modified"
    */
   const status = useMemo(() => {
-    if (!activePreset || !activePresetId) return "none";
+    if (!activePresetId || !activePresetGameId || !activePreset) return "none";
     if (!libraryMods || libraryMods.length === 0) return "none";
 
     const presetMods = activePreset.mods || [];
@@ -75,14 +89,13 @@ export function useActiveLoadout() {
     }
 
     return "synced";
-  }, [activePreset, activePresetId, libraryMods]);
+  }, [activePreset, activePresetGameId, activePresetId, libraryMods]);
 
   /**
    * Re-applies the active preset (reverts changes).
    */
   const revertToPreset = useCallback(async (importerPath, applyScope = "scoped") => {
     if (!activePreset) return { success: false };
-    const { buildPresetDiff } = await import("../lib/presetMatching");
     const diff = buildPresetDiff(activePreset.mods, libraryMods, applyScope);
     const enableList = diff.willEnable.map((m) => m.originalFolderName);
     const disableList = diff.willDisable.map((m) => m.originalFolderName);
@@ -103,18 +116,13 @@ export function useActiveLoadout() {
    */
   const saveCurrentAsPreset = useCallback(async () => {
     if (!activePreset) return { success: false };
-    const enabledMods = libraryMods.filter((m) => m.isEnabled);
     const newPreset = {
       ...activePreset,
-      mods: enabledMods.map((m) => ({
-        modId: m.id,
-        originalFolderName: m.originalFolderName,
-        character: m.character,
-        category: m.category,
-        name: m.name,
-        gamebananaId: m.gamebananaId || null,
-        customThumbnail: m.customThumbnail || null,
-      })),
+      mods: createPresetSnapshotFromLibrary(
+        libraryMods,
+        getModDisplayCharacter,
+        { enabledOnly: true },
+      ),
       updatedAt: new Date().toISOString(),
     };
     const result = await window.electronMods.savePreset(newPreset);
@@ -128,8 +136,8 @@ export function useActiveLoadout() {
   return {
     activePresetId,
     activePresetName,
-    activePreset,
-    loadingPreset,
+    activePreset: activePresetId && activePresetGameId ? activePreset : null,
+    loadingPreset: activePresetId && activePresetGameId ? loadingPreset : false,
     status, // "none" | "synced" | "modified"
     clearActivePreset,
     revertToPreset,

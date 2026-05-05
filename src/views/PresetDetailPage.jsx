@@ -8,7 +8,11 @@ import { useAppStore } from '../store/useAppStore';
 import { getModDisplayCharacter } from '../lib/modClassification';
 import {
   createPresetModFromLibraryMod,
+  getAvailableLibraryModsForPreset,
   getMissingPresetMods,
+  isLibraryModRepresentedInPreset,
+  removeMissingPresetMods,
+  removePresetModEntry,
   reconcilePresetModsWithLibrary,
 } from "../lib/presetMatching";
 import {
@@ -179,13 +183,12 @@ export default function PresetDetailPage({
     }
   };
 
-  const handleRemoveMod = (modId) => {
-    setEditMods(prev => prev.filter(m => m.modId !== modId));
+  const handleRemoveMod = (presetModToRemove) => {
+    setEditMods((prev) => removePresetModEntry(prev, presetModToRemove));
   };
 
   const handleAddMod = (mod) => {
-    const already = editMods.find(m => m.modId === mod.id);
-    if (already) return;
+    if (isLibraryModRepresentedInPreset(mod, editMods)) return;
     setEditMods((prev) => [
       ...prev,
       createPresetModFromLibraryMod(mod, getModDisplayCharacter),
@@ -218,10 +221,10 @@ export default function PresetDetailPage({
   };
 
   // Library mods not yet in preset
-  const availableLibraryMods = allLibraryMods.filter(
-    m => !editMods.find(em => em.modId === m.id)
-  ).filter(
-    m => !addSearch || m.name.toLowerCase().includes(addSearch.toLowerCase()) || m.character.toLowerCase().includes(addSearch.toLowerCase())
+  const availableLibraryMods = getAvailableLibraryModsForPreset(
+    allLibraryMods,
+    editMods,
+    addSearch,
   );
 
   const displayMods = isEditMode ? editMods : preset.mods;
@@ -299,7 +302,7 @@ export default function PresetDetailPage({
       if (failCount === 0) {
         setTimeout(() => setDownloadFeedback(null), 5000);
       }
-    } catch (err) {
+    } catch {
       setDownloadFeedback({
         type: "error",
         message: "An unexpected error occurred while downloading missing mods."
@@ -510,7 +513,10 @@ export default function PresetDetailPage({
                           </div>
                           <button 
                             onClick={async () => {
-                              const cleaned = preset.mods.filter(pm => !ghostMods.find(g => g.modId === pm.modId));
+                              const cleaned = removeMissingPresetMods(
+                                preset.mods,
+                                allLibraryMods,
+                              );
                               const updated = { ...preset, mods: cleaned, updatedAt: new Date().toISOString() };
                               setSaving(true);
                               try {
@@ -591,7 +597,7 @@ export default function PresetDetailPage({
                                   {/* Edit mode remove button */}
                                   {isEditMode && (
                                     <button
-                                      onClick={() => handleRemoveMod(mod.modId)}
+                                      onClick={() => handleRemoveMod(mod)}
                                       className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/70 backdrop-blur-md border border-red-500/40 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-xl z-20"
                                     >
                                       <X size={12} strokeWidth={3} />

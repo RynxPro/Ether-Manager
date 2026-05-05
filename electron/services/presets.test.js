@@ -45,6 +45,7 @@ test("savePreset/getPresets/deletePreset round-trips through config storage", ()
           category: null,
           name: "Mod A",
           gamebananaId: null,
+          gbFileId: null,
           customThumbnail: null,
         },
       ],

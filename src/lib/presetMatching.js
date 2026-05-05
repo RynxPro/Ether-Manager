@@ -30,6 +30,15 @@ function buildLibraryModKeys(libraryMod) {
   );
 }
 
+function setsIntersect(a, b) {
+  for (const value of a) {
+    if (b.has(value)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function matchesPresetMod(libraryMod, presetMod) {
   const presetKeys = buildPresetModKeys(presetMod);
   if (presetKeys.size === 0) {
@@ -48,6 +57,21 @@ export function matchesPresetMod(libraryMod, presetMod) {
 
 export function findMatchingLibraryMod(libraryMods, presetMod) {
   return (libraryMods || []).find((libraryMod) =>
+    matchesPresetMod(libraryMod, presetMod),
+  );
+}
+
+export function matchesPresetEntry(leftPresetMod, rightPresetMod) {
+  const leftKeys = buildPresetModKeys(leftPresetMod);
+  const rightKeys = buildPresetModKeys(rightPresetMod);
+  if (leftKeys.size === 0 || rightKeys.size === 0) {
+    return false;
+  }
+  return setsIntersect(leftKeys, rightKeys);
+}
+
+export function isLibraryModRepresentedInPreset(libraryMod, presetMods) {
+  return (presetMods || []).some((presetMod) =>
     matchesPresetMod(libraryMod, presetMod),
   );
 }
@@ -71,6 +95,18 @@ export function createPresetModFromLibraryMod(libraryMod, getDisplayCharacter) {
   };
 }
 
+export function createPresetSnapshotFromLibrary(
+  libraryMods,
+  getDisplayCharacter,
+  { enabledOnly = true } = {},
+) {
+  return (libraryMods || [])
+    .filter((libraryMod) => (enabledOnly ? libraryMod.isEnabled : true))
+    .map((libraryMod) =>
+      createPresetModFromLibraryMod(libraryMod, getDisplayCharacter),
+    );
+}
+
 export function reconcilePresetModsWithLibrary(
   presetMods,
   libraryMods,
@@ -92,6 +128,7 @@ export function reconcilePresetModsWithLibrary(
       category: libraryMod.category || presetMod.category || null,
       character: getDisplayCharacter(libraryMod),
       gamebananaId: libraryMod.gamebananaId || presetMod.gamebananaId || null,
+      gbFileId: libraryMod.gbFileId || presetMod.gbFileId || null,
       customThumbnail:
         libraryMod.customThumbnail || presetMod.customThumbnail || null,
     };
@@ -107,6 +144,50 @@ export function reconcilePresetModsWithLibrary(
     changed,
     mods: reconciled,
   };
+}
+
+export function removePresetModEntry(presetMods, presetModToRemove) {
+  let removed = false;
+  const nextMods = [];
+
+  for (const presetMod of presetMods || []) {
+    if (!removed && matchesPresetEntry(presetMod, presetModToRemove)) {
+      removed = true;
+      continue;
+    }
+    nextMods.push(presetMod);
+  }
+
+  return nextMods;
+}
+
+export function removeMissingPresetMods(presetMods, libraryMods) {
+  return (presetMods || []).filter((presetMod) =>
+    findMatchingLibraryMod(libraryMods, presetMod),
+  );
+}
+
+export function getAvailableLibraryModsForPreset(
+  libraryMods,
+  presetMods,
+  search = "",
+) {
+  const normalizedSearch = String(search || "").trim().toLowerCase();
+
+  return (libraryMods || [])
+    .filter(
+      (libraryMod) => !isLibraryModRepresentedInPreset(libraryMod, presetMods),
+    )
+    .filter((libraryMod) => {
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      return (
+        libraryMod.name?.toLowerCase().includes(normalizedSearch) ||
+        libraryMod.character?.toLowerCase().includes(normalizedSearch)
+      );
+    });
 }
 
 export function buildPresetDiff(presetMods, libraryMods, scope = "scoped") {

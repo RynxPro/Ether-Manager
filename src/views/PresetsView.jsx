@@ -1,15 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  Zap,
   Plus,
-  Upload,
   Package,
-  ChevronRight,
-  Layers3,
   AlertCircle,
+  ChevronRight,
 } from "lucide-react";
-import CreatePresetModal from '../components/modals/CreatePresetModal';
 import { Button } from "../components/ui/Button";
 import { useAppStore } from "../store/useAppStore";
 import { useApiStatus } from "../store/useApiStore";
@@ -41,7 +37,6 @@ export default function PresetsView({ isActive = false }) {
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importerPath, setImporterPath] = useState(null);
-  const [showCreate, setShowCreate] = useState(false);
   const pushPage = useAppStore(state => state.pushPage);
   const [gbData, setGbData] = useState({});
   const loadRequestIdRef = useRef(0);
@@ -125,11 +120,6 @@ export default function PresetsView({ isActive = false }) {
     void loadPresets(requestId);
   }, [configVersion, game.id, isActive, loadPresets]);
 
-  // Reset modal state when switching games
-  useEffect(() => {
-    setShowCreate(false);
-  }, [game.id]);
-
   const handlePresetSaved = (preset) => {
     setPresets((prev) => {
       const idx = prev.findIndex((p) => p.id === preset.id);
@@ -146,6 +136,17 @@ export default function PresetsView({ isActive = false }) {
     setPresets((prev) => prev.filter((p) => p.id !== presetId));
   };
 
+  const openCreatePreset = useCallback(() => {
+    if (!importerPath) return;
+    pushPage({
+      id: `create-preset-${game.id}`,
+      component: "CreatePreset",
+      props: {
+        onSaved: handlePresetSaved,
+      },
+    });
+  }, [game.id, importerPath, pushPage]);
+
 
 
   return (
@@ -155,8 +156,9 @@ export default function PresetsView({ isActive = false }) {
         actions={
           <Button
             variant="primary"
-            onClick={() => setShowCreate(true)}
+            onClick={openCreatePreset}
             icon={Plus}
+            disabled={!importerPath}
           >
             New Preset
           </Button>
@@ -206,7 +208,7 @@ export default function PresetsView({ isActive = false }) {
           itemClassName="aspect-4/3"
         />
       ) : presets.length === 0 ? (
-        <EmptyState onCreateClick={() => setShowCreate(true)} />
+        <EmptyState onCreateClick={openCreatePreset} canCreate={Boolean(importerPath)} />
       ) : (
         <motion.div
           className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5 pb-8"
@@ -236,21 +238,6 @@ export default function PresetsView({ isActive = false }) {
           ))}
         </motion.div>
       )}
-
-      {/* Modals */}
-      <AnimatePresence>
-        {showCreate && importerPath && (
-          <CreatePresetModal
-            importerPath={importerPath}
-            onClose={() => setShowCreate(false)}
-            onSaved={(preset) => {
-              handlePresetSaved(preset);
-              setShowCreate(false);
-            }}
-          />
-        )}
-
-      </AnimatePresence>
 
       {/* No importer path warning */}
       {!loading && !importerPath && (
@@ -374,14 +361,18 @@ function SummaryPill({ label, value, tone = "neutral" }) {
   );
 }
 
-function EmptyState({ onCreateClick }) {
+function EmptyState({ onCreateClick, canCreate }) {
   return (
     <StatePanel
       icon={Package}
       title="No Presets Yet"
-      message="Create a preset to save a set of mods."
+      message={
+        canCreate
+          ? "Create a preset to save a set of mods."
+          : "Set your mods folder first, then create your first preset."
+      }
       action={
-        <Button onClick={onCreateClick} icon={Plus}>
+        <Button onClick={onCreateClick} icon={Plus} disabled={!canCreate}>
           Create Preset
         </Button>
       }
