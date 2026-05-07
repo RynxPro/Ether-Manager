@@ -34,6 +34,7 @@ Browse surface components are split into:
 Request helpers live in:
 
 - `src/hooks/useFetchCache.js`
+- `src/hooks/useBrowseListing.js`
 - `electron/services/gamebanana.js`
 
 ## Tabs
@@ -130,12 +131,18 @@ Browse is still the largest orchestration surface in the renderer.
 The next worthwhile split is not more visual components. It is moving the
 remaining request/state coordination into dedicated hooks, for example:
 
-- `useBrowseListing`
 - `useBrowseSavedCatalog`
 - `useBrowseFeaturedHero`
 
-That would reduce the amount of fetch lifecycle code still living directly in
-`BrowseView.jsx`.
+`useBrowseListing` now owns the non-saved GameBanana listing lifecycle:
+
+- browse tab request timing
+- category/character/search/sort mapping
+- listing fetch cancellation/replacement
+- main grid loading/error state
+
+The next likely split is still saved-mode hydration, then featured-hero
+orchestration.
 
 ## Invariants
 

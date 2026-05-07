@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "../hooks/useDebounce";
 import { useFetchCache } from "../hooks/useFetchCache";
 import { useLoadGameMods } from "../hooks/useLoadGameMods";
+import { useBrowseListing } from "../hooks/useBrowseListing";
 import { useAppStore } from "../store/useAppStore";
 import { useApiStatus } from "../store/useApiStore";
 import PageHeader from "../components/layout/PageHeader";
@@ -26,11 +27,7 @@ import {
   createGbInstallPayload,
   runGbInstallJob,
 } from "../lib/installFlow";
-import {
-  buildBrowseIdentityKey,
-  getBrowseCategoryTarget,
-  getBrowseViewModel,
-} from "../lib/browseState";
+import { getBrowseViewModel } from "../lib/browseState";
 import BrowseControls from "../components/browse/BrowseControls";
 import BrowseFeaturedHero from "../components/browse/BrowseFeaturedHero";
 import SavedCreatorsStrip from "../components/browse/SavedCreatorsStrip";
@@ -107,13 +104,9 @@ export default function BrowseView({ isActive = false }) {
 
   const gridTopRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all");
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [sort, setSort] = useState("");
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [mods, setMods] = useState([]);
   const installedModsMap = useAppStore(state => state.installedModsMap);
   const installedModsInfo = useMemo(
     () => installedModsMap[game.id] ?? {},
@@ -142,45 +135,39 @@ export default function BrowseView({ isActive = false }) {
   const [featuredMods, setFeaturedMods] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   /** Gate hero API until the main browse row has finished for this game (avoids Subfeed + TopSubs + N×Profile burst on switch). */
-  const [browseGridReadyForFeatured, setBrowseGridReadyForFeatured] =
-    useState(false);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const heroIntervalRef = useRef(null);
-  /** Identity of the browse query excluding page — stale-while-revalidate for same query */
-  const browseIdentityRef = useRef(null);
-  const browseFetchIdRef = useRef(0);
-  const prevBrowseTabRef = useRef(null);
-
-  const browseIdentityKey = useMemo(
-    () =>
-      buildBrowseIdentityKey({
-        gbGameId: game.gbGameId,
-        activeTab,
-        submittedSearchQuery,
-        characterFilter,
-        featuredOnly,
-        nsfwMode,
-        sort,
-      }),
-    [
-      game.gbGameId,
-      activeTab,
-      submittedSearchQuery,
-      characterFilter,
-      featuredOnly,
-      nsfwMode,
-      sort,
-    ],
-  );
 
   const {
     fetchMod,
     fetchModsSummaries,
-    browseMods,
     fetchFeaturedMods,
     fetchMemberProfile,
     searchModSuggestions,
   } = useFetchCache();
+  const {
+    mods,
+    setMods,
+    total,
+    setTotal,
+    loading,
+    setLoading,
+    error,
+    setError,
+    browseGridReadyForFeatured,
+    fetchMods,
+    perPage: perPage,
+  } = useBrowseListing({
+    game,
+    isActive,
+    activeTab,
+    page,
+    sort,
+    featuredOnly,
+    nsfwMode,
+    characterFilter,
+    submittedSearchQuery,
+  });
 
   // Auto-advance the featured banner every 10 seconds.
   const resetHeroInterval = useCallback(() => {
@@ -249,30 +236,10 @@ export default function BrowseView({ isActive = false }) {
   const isOnline = useNetworkStatus();
 
   useEffect(() => {
-    setBrowseGridReadyForFeatured(false);
     setFeaturedMods([]);
     setCurrentHeroIndex(0);
     setLoadingFeatured(false);
   }, [game.gbGameId]);
-
-  useEffect(() => {
-    setMods([]);
-    setTotal(0);
-  }, [game.gbGameId]);
-
-  useEffect(() => {
-    const prev = prevBrowseTabRef.current;
-    prevBrowseTabRef.current = activeTab;
-    if (prev === null || prev === activeTab) return;
-    setMods([]);
-    setTotal(0);
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === "saved" && game.gbGameId) {
-      setBrowseGridReadyForFeatured(true);
-    }
-  }, [activeTab, game.gbGameId]);
 
   useEffect(() => {
     if (searchQuery.trim() === "" && submittedSearchQuery !== "") {
@@ -447,100 +414,6 @@ export default function BrowseView({ isActive = false }) {
     game.id,
     true,
   );
-
-
-  // Fetch mods from GameBanana when params change (API Tabs ONLY)
-  const fetchMods = useCallback(async () => {
-    if (!isActive) {
-      setLoading(false);
-      return;
-    }
-
-    if (activeTab === "saved") return;
-
-    if (!isOnline) {
-      setLoading(false);
-      return;
-    }
-
-    if (!game.gbGameId) {
-      setError("GameBanana integration is not yet available for this game.");
-      return;
-    }
-
-    browseIdentityRef.current = browseIdentityKey;
-
-    const fetchId = ++browseFetchIdRef.current;
-    setLoading(true);
-    setError(null);
-
-    const categoryTarget = getBrowseCategoryTarget(
-      activeTab,
-      characterFilter,
-    );
-
-    try {
-      const result = await browseMods({
-        gbGameId: game.gbGameId,
-        page,
-        perPage: PER_PAGE,
-        sort,
-        context: categoryTarget,
-        search: submittedSearchQuery,
-        featuredOnly,
-        characterSkins: activeTab === "characters",
-        hideNsfw: nsfwMode === "hide",
-        // Skip extra ProfilePage batch when Index returns all-zero downloads — main list loads much faster.
-        hydrateZeroDownloadCounts: false,
-      });
-      if (fetchId !== browseFetchIdRef.current) return;
-      if (result.success) {
-        setMods(result.records);
-        setTotal(result.total);
-      } else {
-        setError(
-          formatGbApiError(result, "Failed to load mods from GameBanana."),
-        );
-      }
-    } catch (err) {
-      if (fetchId !== browseFetchIdRef.current) return;
-      setError(formatGbApiError(err, "Network error."));
-    } finally {
-      if (fetchId === browseFetchIdRef.current) {
-        setLoading(false);
-        setBrowseGridReadyForFeatured(true);
-      }
-    }
-  }, [
-    browseMods,
-    isOnline,
-    isActive,
-    game.gbGameId,
-    page,
-    sort,
-    featuredOnly,
-    nsfwMode,
-    characterFilter,
-    activeTab,
-    submittedSearchQuery,
-    browseIdentityKey,
-  ]);
-
-  // Trigger API fetch for non-saved tabs
-  useEffect(() => {
-    if (!isActive) {
-      browseFetchIdRef.current += 1;
-      setLoading(false);
-      return;
-    }
-
-    if (activeTab !== "saved") {
-      fetchMods();
-    } else {
-      setError(null);
-    }
-  }, [activeTab, fetchMods, isActive]);
-
   useEffect(() => {
     if (!isActive || activeTab !== "saved") return;
 
@@ -661,9 +534,15 @@ export default function BrowseView({ isActive = false }) {
     activeTab,
     bookmarkSignature,
     currentBookmarkIds,
+    fetchMod,
     fetchModsSummaries,
     game.id,
     isActive,
+    perPage,
+    setError,
+    setLoading,
+    setMods,
+    setTotal,
     visibleBookmarkIds,
   ]);
 
@@ -671,8 +550,8 @@ export default function BrowseView({ isActive = false }) {
   useEffect(() => {
     if (activeTab === "saved" && isActive) {
       const current = savedModsCatalog[game.id] || [];
-      const startIndex = (page - 1) * PER_PAGE;
-      const endIndex = startIndex + PER_PAGE;
+      const startIndex = (page - 1) * perPage;
+      const endIndex = startIndex + perPage;
       const activeIds = currentBookmarkIds.slice(startIndex, endIndex);
       
       const nextMods = activeIds.map((id) => 
@@ -681,7 +560,7 @@ export default function BrowseView({ isActive = false }) {
       setMods(nextMods);
       setTotal(currentBookmarkIds.length);
     }
-  }, [activeTab, page, game.id, currentBookmarkIds, savedModsCatalog, isActive]);
+  }, [activeTab, page, game.id, currentBookmarkIds, savedModsCatalog, isActive, perPage, setMods, setTotal]);
 
   // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
   useEffect(() => {
@@ -754,7 +633,7 @@ export default function BrowseView({ isActive = false }) {
       : savedMods;
 
     setTotal(filtered.length);
-    setMods(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
+    setMods(filtered.slice((page - 1) * perPage, page * perPage));
   }, [
     activeTab,
     savedModsCatalog,
@@ -762,6 +641,9 @@ export default function BrowseView({ isActive = false }) {
     submittedSearchQuery,
     page,
     loading,
+    perPage,
+    setMods,
+    setTotal,
   ]);
 
   const handleInstall = useCallback(
@@ -860,10 +742,10 @@ export default function BrowseView({ isActive = false }) {
         setError("Failed to fetch mod details.");
       }
     },
-    [fetchMod, pushPage, game, installedModsInfo, handleInstall, currentBookmarkIdSet, handleToggleBookmark, handleCreatorClick],
+    [fetchMod, pushPage, game, installedModsInfo, handleInstall, currentBookmarkIdSet, handleToggleBookmark, handleCreatorClick, setError],
   );
 
-  const totalPages = Math.ceil(total / PER_PAGE);
+  const totalPages = Math.ceil(total / perPage);
 
   // Scroll the actual scroll container (AppViewShell) to the top whenever the page changes
   useEffect(() => {
