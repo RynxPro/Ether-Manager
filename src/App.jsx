@@ -130,21 +130,21 @@ function App() {
     <div className="h-screen w-screen flex flex-row bg-[#09090b] text-text-primary relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-8 z-[100] titlebar-drag pointer-events-none" />
 
+      {/* Global Ambient Glow Overlay */}
+      <div
+        className="fixed top-0 left-0 w-full h-[40vh] pointer-events-none z-50 mix-blend-screen"
+        style={{
+          background: `radial-gradient(ellipse at 50% 0%, var(--color-primary) 0%, transparent 60%)`,
+          opacity: 0.06,
+        }}
+      />
+
       <Sidebar onShowHelp={handleShowHelp} />
 
       <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 overflow-hidden">
         <TopBar />
 
         <main className="flex-1 relative overflow-hidden bg-background rounded-tl-[32px] border-t border-l border-white/[0.05] shadow-[-10px_-10px_30px_rgba(0,0,0,0.3)]">
-          {/* Background radial gradient corresponding to game color */}
-          <div
-            className="absolute inset-0 pointer-events-none z-0"
-            style={{
-              background: `radial-gradient(circle at 50% -20%, var(--color-primary) 0%, transparent 60%)`,
-              opacity: 0.1,
-            }}
-          />
-
           {/* Dynamic Texture/Depth Layer */}
           <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03] mix-blend-overlay">
             <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
