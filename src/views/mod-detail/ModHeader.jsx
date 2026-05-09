@@ -110,7 +110,7 @@ export default function ModHeader({
                       mod._aSubmitter._sAvatarUrl
                     }
                     alt="Creator"
-                    className="w-full h-full object-cover will-change-transform transform-gpu backface-hidden antialiased"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <User size={14} className="text-white/30" />

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from '../../lib/utils';
 
-export default function ImageLightbox({ images, currentIndex, onClose, onIndexChange }) {
+export default function ImageLightbox({ images, currentIndex, onClose, onIndexChange, customControls }) {
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e) => {
@@ -45,13 +45,18 @@ export default function ImageLightbox({ images, currentIndex, onClose, onIndexCh
         className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-sm"
         onClick={onClose}
       >
-        {/* Close Button */}
-        <button
-          className="absolute top-6 right-6 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-50"
-          onClick={onClose}
-        >
-          <X size={24} />
-        </button>
+        {/* Top Controls Bar */}
+        <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-50 pointer-events-none">
+          <div className="flex items-center gap-2 pointer-events-auto">
+            {customControls}
+          </div>
+          <button
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors pointer-events-auto"
+            onClick={onClose}
+          >
+            <X size={24} />
+          </button>
+        </div>
 
         {/* Previous Button */}
         {images.length > 1 && (
@@ -73,7 +78,7 @@ export default function ImageLightbox({ images, currentIndex, onClose, onIndexCh
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
               transition={{ duration: 0.2 }}
-              className="max-w-full max-h-[80vh] object-contain drop-shadow-2xl rounded-lg will-change-transform transform-gpu backface-hidden antialiased"
+              className="max-w-full max-h-[80vh] object-contain drop-shadow-2xl rounded-lg"
               alt={`Gallery Image ${currentIndex + 1}`}
             />
           </AnimatePresence>

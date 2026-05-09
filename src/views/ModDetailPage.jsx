@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ArrowLeft, X } from "lucide-react";
+import { ImageIcon, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 import { getAllCharacterNames } from "../lib/portraits";
@@ -298,6 +298,28 @@ export default function ModDetailPage({
           currentIndex={currentImgIndex}
           onClose={() => setShowLightbox(false)}
           onIndexChange={setCurrentImgIndex}
+          customControls={
+            isLibraryContext && mod.localMod ? (
+              <>
+                {mod.localMod.customThumbnail && (
+                  <button
+                    onClick={() => handleSetThumbnailUrl(null)}
+                    title="Clear custom thumbnail and use default"
+                    className="py-2 px-4 rounded-full bg-red-500/80 text-white text-xs font-bold hover:bg-red-600 transition-all border border-red-500/30 flex items-center gap-2 shadow-lg backdrop-blur-md"
+                  >
+                    <Trash2 size={14} /> Clear Cover
+                  </button>
+                )}
+                <button
+                  onClick={handleSetThumbnail}
+                  title="Use this image as the thumbnail in your library"
+                  className="py-2 px-4 rounded-full bg-black/60 text-white text-xs font-bold hover:bg-primary hover:text-black transition-all border border-white/10 flex items-center gap-2 shadow-lg backdrop-blur-md"
+                >
+                  <ImageIcon size={14} /> Set as Thumbnail
+                </button>
+              </>
+            ) : null
+          }
         />
       )}
 

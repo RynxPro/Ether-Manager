@@ -198,7 +198,7 @@ export default function CreatorProfilePage({
                 <img
                   src={avatarUrl}
                   alt={displayProfile._sName}
-                  className="h-full w-full object-cover absolute inset-0 will-change-transform transform-gpu backface-hidden antialiased"
+                  className="h-full w-full object-cover absolute inset-0"
                 />
               ) : (
                 <User size={64} className="text-white/20" />

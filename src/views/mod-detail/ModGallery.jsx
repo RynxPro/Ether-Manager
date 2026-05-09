@@ -70,7 +70,7 @@ export default function ModGallery({
                         src={src}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 will-change-transform transform-gpu backface-hidden antialiased"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
                     </div>
@@ -137,27 +137,7 @@ export default function ModGallery({
               </>
             )}
 
-            {/* Custom Cover Controls (Top Right) */}
-            {isLibraryContext && mod.localMod && (
-              <div className="absolute top-6 right-6 z-20 flex gap-2">
-                {mod.localMod.customThumbnail && (
-                  <button
-                    onClick={() => handleSetThumbnailUrl(null)}
-                    title="Clear custom thumbnail and use default"
-                    className="py-2 px-4 rounded-full bg-red-500/80 text-white text-xs font-bold hover:bg-red-600 transition-all border border-red-500/30 flex items-center gap-2 shadow-lg backdrop-blur-md"
-                  >
-                    <Trash2 size={14} /> Clear
-                  </button>
-                )}
-                <button
-                  onClick={handleSetThumbnail}
-                  title="Use this image as the thumbnail in your library"
-                  className="py-2 px-4 rounded-full bg-black/60 text-white text-xs font-bold hover:bg-primary hover:text-black transition-all border border-white/10 flex items-center gap-2 shadow-lg backdrop-blur-md"
-                >
-                  <ImageIcon size={14} /> Set as Thumbnail
-                </button>
-              </div>
-            )}
+
           </>
         ) : (
           <div className="w-full h-full relative flex flex-col items-center justify-center bg-black/20 text-white/20 p-8">
