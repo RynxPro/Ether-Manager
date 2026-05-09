@@ -45,18 +45,16 @@ export default function ImageLightbox({ images, currentIndex, onClose, onIndexCh
         className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-sm"
         onClick={onClose}
       >
-        {/* Top Controls Bar */}
-        <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-50 pointer-events-none">
-          <div className="flex items-center gap-2 pointer-events-auto">
-            {customControls}
-          </div>
-          <button
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors pointer-events-auto"
-            onClick={onClose}
-          >
-            <X size={24} />
-          </button>
-        </div>
+        {/* Close Button */}
+        <button
+          className="absolute top-8 right-8 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-50 no-drag"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+        >
+          <X size={24} />
+        </button>
 
         {/* Previous Button */}
         {images.length > 1 && (
@@ -106,6 +104,13 @@ export default function ImageLightbox({ images, currentIndex, onClose, onIndexCh
             </div>
           )}
         </div>
+
+        {/* Custom Controls (Bottom Right) */}
+        {customControls && (
+          <div className="absolute bottom-6 right-6 z-50 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            {customControls}
+          </div>
+        )}
 
         {/* Next Button */}
         {images.length > 1 && (
