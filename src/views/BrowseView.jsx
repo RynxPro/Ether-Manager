@@ -15,7 +15,7 @@ import { useLoadGameMods } from "../hooks/useLoadGameMods";
 import { useBrowseListing } from "../hooks/useBrowseListing";
 import { useAppStore } from "../store/useAppStore";
 import { useApiStatus } from "../store/useApiStore";
-import PageHeader from "../components/layout/PageHeader";
+
 import {
   createUnavailableBookmarkPlaceholder,
   normalizeBookmarkConfig,
@@ -846,7 +846,7 @@ export default function BrowseView({ isActive = false }) {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      <PageHeader title={title} />
+      <div className="mt-4" />
       <BrowseControls
         tabs={TABS}
         activeTab={activeTab}

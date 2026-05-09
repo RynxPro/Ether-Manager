@@ -151,9 +151,16 @@ export default function PresetsView({ isActive = false }) {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      <PageHeader
-        title="Presets"
-        actions={
+      <section className="ui-panel mb-5 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <SummaryPill label="Presets" value={presets.length} />
+            <SummaryPill label="Saved Mods" value={totalModsAcrossPresets} />
+            <SummaryPill
+              label="Characters"
+              value={totalCharactersAcrossPresets}
+            />
+          </div>
           <Button
             variant="primary"
             onClick={openCreatePreset}
@@ -162,8 +169,8 @@ export default function PresetsView({ isActive = false }) {
           >
             New Preset
           </Button>
-        }
-      />
+        </div>
+      </section>
 
 
 
@@ -182,22 +189,10 @@ export default function PresetsView({ isActive = false }) {
         </div>
       )}
 
-      {!loading && (
-        <section className="ui-panel mb-5 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <SummaryPill label="Presets" value={presets.length} />
-            <SummaryPill label="Saved Mods" value={totalModsAcrossPresets} />
-            <SummaryPill
-              label="Characters"
-              value={totalCharactersAcrossPresets}
-            />
-            <SummaryPill
-              label="Status"
-              value={importerPath ? "Ready" : "Needs Mods Path"}
-              tone={importerPath ? "primary" : "warning"}
-            />
-          </div>
-        </section>
+      {!loading && presets.length === 0 && (
+        <StatusBanner tone="info" className="mb-5">
+          You don't have any presets for this game yet. Create one to save your current loadout.
+        </StatusBanner>
       )}
 
       {/* Content */}

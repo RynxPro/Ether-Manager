@@ -18,11 +18,7 @@ export default function SupportView() {
   };
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 overflow-hidden">
-      <PageHeader
-        title="Support Aether"
-        icon={<Heart className="text-pink-500 fill-pink-500/20" size={24} />}
-      />
+    <div className="flex flex-col h-full animate-in fade-in duration-300 overflow-hidden pt-12">
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
         <div className="max-w-4xl mx-auto space-y-12">

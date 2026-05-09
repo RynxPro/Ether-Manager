@@ -58,17 +58,6 @@ export default function CharacterDetail({
     >
       {!hideHeader && (
         <section className="mb-6 z-10 relative">
-          <div className="flex flex-wrap items-center gap-2 px-2 pb-4 text-[11px] font-black uppercase tracking-[0.2em]">
-            <button
-              onClick={onBack}
-              className="ui-focus-ring inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-text-muted transition-colors hover:text-white hover:bg-white/5"
-            >
-              <ArrowLeft size={12} />
-              {game.name}
-            </button>
-            <span className="text-white/20">/</span>
-            <span className="text-white">{character.name}</span>
-          </div>
 
           <div className="relative w-full overflow-hidden rounded-3xl border border-white/10 bg-[#0a0a0a] shadow-[0_0_80px_rgba(0,0,0,0.5)]">
             {/* Character Portrait Background Fade */}

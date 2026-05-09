@@ -47,7 +47,7 @@ export default function PageStackRenderer() {
               zIndex: zIndexOffset,
               display: isVisible ? 'block' : 'none'
             }}
-            className="absolute inset-0 bg-background shadow-[-20px_0_40px_rgba(0,0,0,0.5)] page-stack-container will-change-transform transform-gpu backface-hidden antialiased rounded-2xl overflow-hidden"
+            className="absolute inset-0 bg-background shadow-[-20px_0_40px_rgba(0,0,0,0.5)] page-stack-container will-change-transform transform-gpu backface-hidden antialiased rounded-tl-[32px] overflow-hidden"
             initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: "100%" }}
