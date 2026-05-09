@@ -67,6 +67,7 @@ export default function ModDetailPage({
   isUpdating = false,
   isLibraryContext = false,
   onThumbnailChange,
+  onAssign,
 }) {
   const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
@@ -284,6 +285,14 @@ export default function ModDetailPage({
                 setShowReinstallConfirm={setShowReinstallConfirm}
                 selectedFile={selectedFile}
                 setSelectedFile={setSelectedFile}
+                onAssign={async (modToAssign, newChar) => {
+                  if (onAssign) {
+                    const success = await onAssign(modToAssign, newChar);
+                    if (success) {
+                      popPage();
+                    }
+                  }
+                }}
               />
 
               <ModStats mod={mod} />

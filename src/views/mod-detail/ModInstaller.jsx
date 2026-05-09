@@ -23,6 +23,7 @@ export default function ModInstaller({
   setShowReinstallConfirm,
   selectedFile,
   setSelectedFile,
+  onAssign,
 }) {
   return (
     <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden">
@@ -99,6 +100,31 @@ export default function ModInstaller({
                   )
                 : null;
               const selectedFileIsInstalled = Boolean(selectedInstalledData);
+
+              const currentAssignedCharacter =
+                installedFileInfo?.character ||
+                mod.localMod?.character ||
+                mod.character;
+
+              const isReassigning =
+                currentAssignedCharacter &&
+                effectiveSelectedCharacter &&
+                effectiveSelectedCharacter !== "Unassigned" &&
+                currentAssignedCharacter !== effectiveSelectedCharacter;
+
+              if (isReassigning && onAssign && (selectedFileIsInstalled || isLibraryContext)) {
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAssign(mod.localMod || mod, effectiveSelectedCharacter);
+                    }}
+                    className="flex-1 relative overflow-hidden flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base uppercase tracking-wider shadow-lg bg-primary text-black hover:brightness-110 active:scale-[0.98]"
+                  >
+                    Move to {effectiveSelectedCharacter}
+                  </button>
+                );
+              }
 
               if (selectedFileIsInstalled) {
                 /* ── Selected file already installed ── */

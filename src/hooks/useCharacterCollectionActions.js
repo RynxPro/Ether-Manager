@@ -216,8 +216,10 @@ export function useCharacterCollectionActions({
 
       if (result.success) {
         await reloadAllMods(true);
+        return true;
       } else {
         alert(result.error || "Failed to assign mod.");
+        return false;
       }
     },
     [game.id, reloadAllMods],

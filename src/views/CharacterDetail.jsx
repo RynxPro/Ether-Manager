@@ -138,7 +138,8 @@ export default function CharacterDetail({
               isUpdating: mod.isUpdating,
               isLibraryContext: true,
               onInstall: handleInstallUpdate,
-              onThumbnailChange: () => reloadAllMods(true)
+              onThumbnailChange: () => reloadAllMods(true),
+              onAssign: handleAssign
             }
           });
         }}
