@@ -224,22 +224,6 @@ export default function ModDetailPage({
 
   return (
     <motion.div className="w-full h-full bg-background flex flex-col relative overflow-hidden">
-      <div className="absolute top-6 left-6 z-50 flex items-center gap-2">
-        <button
-          onClick={popPage}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-lg group"
-        >
-          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-bold tracking-wider uppercase text-[11px]">Back</span>
-        </button>
-        <button
-          onClick={clearPages}
-          className="flex items-center justify-center w-9 h-9 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 hover:text-white/50 text-white backdrop-blur-md transition-all shadow-lg"
-          title="Return to Browse"
-        >
-          <X size={16} />
-        </button>
-      </div>
 
       <div className="flex-1 w-full overflow-y-auto custom-scrollbar flex flex-col">
         <ModGallery

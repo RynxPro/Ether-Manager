@@ -17,7 +17,7 @@ export default function ModGallery({
   setCustomThumbUrl,
 }) {
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-6 lg:px-12 pt-20">
+    <div className="w-full max-w-[1400px] mx-auto px-6 lg:px-12 pt-8">
       <div className="relative w-full h-[50vh] min-h-[400px] max-h-[600px] rounded-[2rem] overflow-hidden bg-black/20 shadow-2xl border border-white/5">
         {images.length > 0 ? (
           <>

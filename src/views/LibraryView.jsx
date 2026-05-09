@@ -27,7 +27,14 @@ const TABS = [
 
 export default function LibraryView({ isActive }) {
   const game = useAppStore((state) => state.activeGame);
-  const onSelectCharacter = useAppStore((state) => state.setSelectedCharacter);
+  const pushPage = useAppStore((state) => state.pushPage);
+  const onSelectCharacter = useCallback((item) => {
+    pushPage({
+      id: `char-detail-${item.name}`,
+      component: 'CharacterDetail',
+      props: { character: item }
+    });
+  }, [pushPage]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("characters");
   const [disablingAll, setDisablingAll] = useState(false);

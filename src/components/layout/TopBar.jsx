@@ -6,23 +6,15 @@ export default function TopBar() {
   const activeView = useAppStore((state) => state.activeView);
   const pageStack = useAppStore((state) => state.pageStack);
   const popPage = useAppStore((state) => state.popPage);
-  const selectedCharacter = useAppStore((state) => state.selectedCharacter);
-  const setSelectedCharacter = useAppStore((state) => state.setSelectedCharacter);
-
   const getTitle = () => {
     // 1. Check deep page stack first
     if (pageStack.length > 0) {
       const topPage = pageStack[pageStack.length - 1];
       // Try to get name from props, or fall back to ID or Component name
-      return topPage.props?.mod?._sName || topPage.props?.preset?.name || topPage.id || topPage.component;
+      return topPage.props?.character?.name || topPage.props?.mod?._sName || topPage.props?.preset?.name || topPage.id || topPage.component;
     }
 
-    // 2. Check sub-views
-    if (activeView === 'mods' && selectedCharacter) {
-      return selectedCharacter.name;
-    }
-
-    // 3. Main Views
+    // 2. Main Views
     switch (activeView) {
       case 'mods': return 'Library';
       case 'browse': return 'Browse Mods';
@@ -32,15 +24,7 @@ export default function TopBar() {
     }
   };
 
-  const handleBack = () => {
-    if (pageStack.length > 0) {
-      popPage();
-    } else if (selectedCharacter) {
-      setSelectedCharacter(null);
-    }
-  };
-
-  const canGoBack = pageStack.length > 0 || (activeView === 'mods' && selectedCharacter);
+  const canGoBack = pageStack.length > 0;
 
   return (
     <header className="titlebar-drag h-14 bg-[#09090b] flex items-center px-6 gap-4 shrink-0 relative z-50 select-none">

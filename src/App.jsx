@@ -15,18 +15,13 @@ import DevPerformanceMonitor from "./components/dev/DevPerformanceMonitor";
 import PageStackRenderer from "./components/PageStackRenderer";
 import TopBar from "./components/layout/TopBar";
 
-const CharacterDetail = lazy(() => import("./views/CharacterDetail"));
 const BrowseView = lazy(() => import("./views/BrowseView"));
 const PresetsView = lazy(() => import("./views/PresetsView"));
 const SupportView = lazy(() => import("./views/SupportView"));
 
 function App() {
   const activeGameId = useAppStore((state) => state.activeGameId);
-  const selectedCharacter = useAppStore((state) => state.selectedCharacter);
   const activeView = useAppStore((state) => state.activeView);
-  const setSelectedCharacter = useAppStore(
-    (state) => state.setSelectedCharacter,
-  );
   const updateDownloadProgress = useAppStore(
     (state) => state.updateDownloadProgress,
   );
@@ -200,33 +195,12 @@ function App() {
             </AppViewShell>
 
             <AppViewShell
-              isActive={activeView === "mods" && !selectedCharacter}
+              isActive={activeView === "mods"}
             >
               <LibraryView
-                isActive={activeView === "mods" && !selectedCharacter}
+                isActive={activeView === "mods"}
               />
             </AppViewShell>
-
-            {/* MOD DETAIL VIEWPORT (conditionally rendered to save memory when inactive) */}
-            <AnimatePresence>
-              {activeView === "mods" && selectedCharacter && (
-                <AppViewShell isActive={true} zIndex={30}>
-                  <motion.div
-                    key="mod-detail"
-                    initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -15, scale: 1.02 }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full w-full"
-                  >
-                    <CharacterDetail
-                      character={selectedCharacter}
-                      onBack={() => setSelectedCharacter(null)}
-                    />
-                  </motion.div>
-                </AppViewShell>
-              )}
-            </AnimatePresence>
 
             {/* GLOBAL PAGE STACK FOR DEEP NAVIGATION */}
             <PageStackRenderer />

@@ -12,7 +12,6 @@ import { useCharacterDetailController } from "../hooks/useCharacterDetailControl
 
 export default function CharacterDetail({
   character,
-  onBack,
   hideHeader = false,
   searchQuery = "",
 }) {
@@ -52,7 +51,7 @@ export default function CharacterDetail({
   return (
     <div
       className={cn(
-        "flex flex-col h-full",
+        "flex flex-col h-full w-full overflow-y-auto overflow-x-hidden scroller-hidden px-6 py-8 sm:px-8 xl:px-10",
         !hideHeader && "animate-in fade-in duration-700",
       )}
     >

@@ -8,12 +8,15 @@ const SettingsPage      = lazy(() => import('../views/SettingsPage'));
 const PresetDetailPage  = lazy(() => import('../views/PresetDetailPage'));
 const CreatePresetPage  = lazy(() => import('../views/CreatePresetPage'));
 
+const CharacterDetail   = lazy(() => import('../views/CharacterDetail'));
+
 const PAGE_COMPONENTS = {
   ModDetail: ModDetailPage,
   CreatorProfile: CreatorProfilePage,
   Settings: SettingsPage,
   PresetDetail: PresetDetailPage,
   CreatePreset: CreatePresetPage,
+  CharacterDetail: CharacterDetail,
 };
 
 // Minimal skeleton shown while the lazy chunk is loading (first time only)

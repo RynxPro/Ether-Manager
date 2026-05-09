@@ -329,27 +329,11 @@ export default function PresetDetailPage({
   return (
     <>
       <motion.div className="w-full h-full bg-background flex flex-col relative overflow-hidden">
-        {/* Navigation Buttons */}
-        <div className="absolute top-6 left-6 z-50 flex items-center gap-2">
-          <button
-            onClick={popPage}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-lg group"
-          >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-bold tracking-wider uppercase text-[11px]">Back</span>
-          </button>
-          <button
-            onClick={clearPages}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-black/50 border border-white/10 hover:bg-black/80 hover:text-white/50 text-white backdrop-blur-md transition-all shadow-lg"
-            title="Return to Browse"
-          >
-            <X size={16} />
-          </button>
-        </div>
+
 
         <div className="flex-1 w-full overflow-y-auto custom-scrollbar flex flex-col items-center">
           {/* Header Area */}
-          <div className="relative w-full shrink-0 border-b border-border bg-[#050505] overflow-hidden p-8 pt-24 pb-12 flex justify-center">
+          <div className="relative w-full shrink-0 border-b border-border bg-[#050505] overflow-hidden p-8 pt-12 pb-12 flex justify-center">
             <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent opacity-50" />
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary blur-[120px] opacity-10 pointer-events-none rounded-full" />
 
