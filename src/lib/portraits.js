@@ -1,17 +1,17 @@
-// Keep portrait metadata synchronous, but defer the asset URL import until needed.
+// Keep portrait metadata synchronous and instantly resolve asset URLs.
 const zzzPortraits = import.meta.glob(
   "../assets/character-portraits/*.{png,jpg,jpeg,webp}",
-  { import: "default" },
+  { import: "default", eager: true },
 );
 
 const wwPortraits = import.meta.glob(
   "../assets/ww-characters/*.{png,jpg,jpeg,webp}",
-  { import: "default" },
+  { import: "default", eager: true },
 );
 
 const genshinPortraits = import.meta.glob(
   "../assets/Genshin Splash Art/*.{png,jpg,jpeg,webp}",
-  { import: "default" },
+  { import: "default", eager: true },
 );
 
 const portraits = {
@@ -85,8 +85,7 @@ const processPortraits = (
 
     portraits[gameId][entryName] = {
       displayName: cleanName,
-      loader: modules[path],
-      url: null,
+      url: modules[path],
     };
   }
 };
@@ -137,12 +136,4 @@ export function getCharacterPortrait(characterName, gameId) {
   return findCharacterPortraitEntry(characterName, gameId)?.url || null;
 }
 
-export async function loadCharacterPortrait(characterName, gameId) {
-  const entry = findCharacterPortraitEntry(characterName, gameId);
-  if (!entry) return null;
-  if (entry.url) return entry.url;
 
-  const url = await entry.loader();
-  entry.url = url;
-  return url;
-}

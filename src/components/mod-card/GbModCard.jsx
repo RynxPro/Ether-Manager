@@ -42,6 +42,7 @@ const BrowseModCard = function BrowseModCard({
   onCreatorClick,
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgRetryCount, setImgRetryCount] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [localBookmarked, setLocalBookmarked] = useState(isBookmarked);
 
@@ -121,11 +122,16 @@ const BrowseModCard = function BrowseModCard({
               <div className="absolute inset-0 bg-white/5 animate-pulse z-0" />
             )}
             <img
-              src={mod.thumbnailUrl}
+              src={`${mod.thumbnailUrl}${imgRetryCount > 0 ? (mod.thumbnailUrl.includes('?') ? '&' : '?') + 'retry=' + imgRetryCount : ''}`}
               alt={mod._sName}
               loading="lazy"
               decoding="async"
               onLoad={() => setImgLoaded(true)}
+              onError={() => {
+                if (imgRetryCount < 3) {
+                  setTimeout(() => setImgRetryCount(prev => prev + 1), 1000 * (imgRetryCount + 1));
+                }
+              }}
               className={cn(
                 "absolute inset-0 w-full h-full object-cover transition-[transform,opacity] duration-300 z-0 group-hover:scale-105",
                 imgLoaded ? "opacity-100" : "opacity-0",

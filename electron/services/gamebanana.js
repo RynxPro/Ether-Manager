@@ -48,7 +48,7 @@ const CHARACTER_SKINS_ROOT_CATS = {
 };
 const logger = createLogger("gamebanana");
 const DEFAULT_TIMEOUT_MS = 12000;
-const DEFAULT_RETRY_COUNT = 1;
+const DEFAULT_RETRY_COUNT = 3;
 const DEFAULT_MAX_CONCURRENT_REQUESTS = 6;
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 5000;
 const MAX_RATE_LIMIT_COOLDOWN_MS = 60000;
@@ -655,12 +655,23 @@ function shouldRetryRequest(error, status) {
   if (status >= 500) {
     return true;
   }
+  
+  // In modern Node.js fetch(), network errors are often buried in error.cause
+  const code = error?.code || error?.cause?.code;
+  const name = error?.name || error?.cause?.name;
+  const message = error?.message || error?.cause?.message || "";
+
   return (
-    error?.name === "AbortError" ||
-    error?.name === "SyntaxError" ||
-    error?.code === "ETIMEDOUT" ||
-    error?.code === "ECONNRESET" ||
-    error?.code === "ENOTFOUND"
+    name === "AbortError" ||
+    name === "SyntaxError" ||
+    code === "ETIMEDOUT" ||
+    code === "ECONNRESET" ||
+    code === "ENOTFOUND" ||
+    code === "EHOSTUNREACH" ||
+    code === "ECONNREFUSED" ||
+    code === "UND_ERR_SOCKET" ||
+    message.includes("fetch failed") ||
+    message.includes("network")
   );
 }
 
