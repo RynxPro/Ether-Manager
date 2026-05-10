@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function TopBar() {
   const activeView = useAppStore((state) => state.activeView);
   const pageStack = useAppStore((state) => state.pageStack);
-  const popPage = useAppStore((state) => state.popPage);
   const getTitle = () => {
     // 1. Check deep page stack first
     if (pageStack.length > 0) {
@@ -23,8 +22,6 @@ export default function TopBar() {
       default: return 'Aether Manager';
     }
   };
-
-  const canGoBack = pageStack.length > 0;
 
   return (
     <header className="titlebar-drag h-14 bg-[#09090b] flex items-center px-6 gap-4 shrink-0 relative z-50 select-none">

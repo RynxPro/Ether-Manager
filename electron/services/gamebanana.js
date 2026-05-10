@@ -283,7 +283,7 @@ function makeCacheKey(url) {
   return url;
 }
 
-async function readFromCache(cacheKey, bucket) {
+async function readFromCache(cacheKey) {
   // In-memory cache only (survives session)
   const cached = requestState.cache.get(cacheKey);
   if (!cached) return null;
@@ -295,7 +295,7 @@ async function readFromCache(cacheKey, bucket) {
   return cached.value;
 }
 
-async function writeToCache(cacheKey, value, ttlMs, bucket) {
+async function writeToCache(cacheKey, value, ttlMs) {
   if (!Number.isFinite(ttlMs) || ttlMs <= 0) return;
   requestState.cache.set(cacheKey, {
     value,
@@ -997,7 +997,6 @@ export async function fetchFromGB(url, options = {}) {
           await writeToCache(cacheKey, data, policy.ttlMs, policy.bucket);
           return data;
         } catch (error) {
-          lastError = error;
           if (error instanceof RateLimitError) {
             throw error;
           }
@@ -1116,7 +1115,7 @@ export async function fetchGbModsBatch(ids, options = {}) {
 
   // Per-item fetch with automatic retry on timeout/failure
   async function fetchModWithRetry(id, maxRetries = 2) {
-    let lastError = null;
+
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -1141,7 +1140,7 @@ export async function fetchGbModsBatch(ids, options = {}) {
         };
         return normalizeGbModForCache(rawData);
       } catch (error) {
-        lastError = error;
+
 
         // Don't retry on rate limits or circuit breaker
         if (

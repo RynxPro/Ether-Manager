@@ -15,7 +15,6 @@ function normalizeImporterPath(pathValue) {
 }
 
 export default function SettingsPage({ games }) {
-  const popPage = useAppStore(state => state.popPage);
   const [config, setConfig] = useState({});
   const [activeTab, setActiveTab] = useState(games[0]?.id || "content");
   
@@ -181,7 +180,8 @@ export default function SettingsPage({ games }) {
                         desc: "All mods display normally with no filtering.",
                         color: "green",
                       },
-                    ].map(({ mode, icon: Icon, label, desc, color }) => {
+                    // eslint-disable-next-line no-unused-vars
+                    ].map(({ mode, icon: IconComponent, label, desc, color }) => {
                       const isActive = nsfwMode === mode;
                       return (
                         <button
@@ -209,7 +209,7 @@ export default function SettingsPage({ games }) {
                                   : "border-green-500/30 bg-green-500/20 text-green-400"
                               : "border-white/10 bg-white/5 text-text-muted"
                           )}>
-                            <Icon size={20} />
+                            <IconComponent size={20} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={cn(

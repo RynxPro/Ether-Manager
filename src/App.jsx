@@ -28,8 +28,6 @@ function App() {
   const setNsfwMode = useAppStore((state) => state.setNsfwMode);
   const setActiveGameId = useAppStore((state) => state.setActiveGameId);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isBooting, setIsBooting] = useState(false);
-  const [bootStatus, setBootStatus] = useState("");
   const isOnline = useNetworkStatus();
 
   // Global IPC Listeners

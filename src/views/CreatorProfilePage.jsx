@@ -38,7 +38,8 @@ const containerVariants = {
   },
 };
 
-function StatPill({ icon: Icon, label, value, accent }) {
+// eslint-disable-next-line no-unused-vars
+function StatPill({ icon: IconComponent, label, value, accent }) {
   return (
     <div className={cn(
       "flex flex-col items-center justify-center p-4 rounded-2xl border bg-surface/90",
@@ -46,7 +47,7 @@ function StatPill({ icon: Icon, label, value, accent }) {
         ? "border-primary/25 bg-primary/10 text-primary"
         : "border-white/5 shadow-sm"
     )}>
-      <Icon size={20} className={cn("mb-2", accent ? "text-primary" : "text-text-muted")} />
+      <IconComponent size={20} className={cn("mb-2", accent ? "text-primary" : "text-text-muted")} />
       <span className="text-xl font-black tabular-nums tracking-tight">{value}</span>
       <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">{label}</span>
     </div>
@@ -71,9 +72,7 @@ export default function CreatorProfilePage({
   isCreatorBookmarked,
   onToggleCreatorBookmark,
 }) {
-  const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
-  const clearPages = useAppStore(state => state.clearPages);
   const [page, setPage] = useState(1);
   const { fetchMemberProfile, browseMods, fetchMod } = useFetchCache();
 

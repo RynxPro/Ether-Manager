@@ -57,7 +57,7 @@ export default function DevPerformanceMonitor() {
   const [fps, setFps] = useState(0);
   
   const frameCount = useRef(0);
-  const lastFpsUpdate = useRef(performance.now());
+  const lastFpsUpdate = useRef(0);
 
   const updateStats = useCallback(() => {
     // 1. Memory Stats
@@ -80,6 +80,7 @@ export default function DevPerformanceMonitor() {
   }, []);
 
   useEffect(() => {
+    lastFpsUpdate.current = performance.now();
     let rafId;
     const loop = () => {
       frameCount.current++;

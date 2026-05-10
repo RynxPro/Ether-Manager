@@ -32,7 +32,6 @@ export default function PresetDetailPage({
 }) {
   const game = useAppStore((state) => state.activeGame);
   const popPage = useAppStore(state => state.popPage);
-  const clearPages = useAppStore(state => state.clearPages);
   const notifyPresetChanged = onUpdated || onSaved;
   
   const [preset, setPreset] = useState(initialPreset);

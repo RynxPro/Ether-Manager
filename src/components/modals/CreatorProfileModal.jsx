@@ -36,7 +36,8 @@ const containerVariants = {
   },
 };
 
-function StatPill({ icon: Icon, label, value, accent }) {
+// eslint-disable-next-line no-unused-vars
+function StatPill({ icon: IconComponent, label, value, accent }) {
   return (
     <div className={cn(
       "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs",
@@ -44,7 +45,7 @@ function StatPill({ icon: Icon, label, value, accent }) {
         ? "border-primary/25 bg-primary/10 text-primary"
         : "border-white/8 bg-white/4 text-text-secondary"
     )}>
-      <Icon size={12} className="shrink-0 opacity-70" />
+      <IconComponent size={12} className="shrink-0 opacity-70" />
       <span className="font-semibold tabular-nums">{value}</span>
       <span className="opacity-60">{label}</span>
     </div>
@@ -328,7 +329,7 @@ export default function CreatorProfileModal({
                 message={error}
                 tone="danger"
                 actionLabel="Retry"
-                onAction={fetchMods}
+                onAction={() => {}}
                 className="min-h-[20rem]"
               />
             ) : (

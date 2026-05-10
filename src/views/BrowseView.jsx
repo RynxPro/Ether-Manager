@@ -797,7 +797,6 @@ export default function BrowseView({ isActive = false }) {
     showFeaturedToggle,
     hasActiveRefinements,
     activeSearchLabel,
-    title,
     searchPlaceholder,
   } = useMemo(
     () =>

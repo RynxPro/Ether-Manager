@@ -16,7 +16,6 @@ const ModCard = memo(function ModCard({
   onDelete,
   characters = [],
   onClick,
-  hideCategoryTag = false,
   gameId,
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);

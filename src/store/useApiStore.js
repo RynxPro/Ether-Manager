@@ -20,19 +20,19 @@ export const useApiStore = create((set) => {
       try {
         const res = await window.electronMods.getGbRequestStats();
         if (res?.success && res.data) {
-          set((state) => ({
+          set(() => ({
             stats: res.data,
             lastUpdateAt: Date.now(),
             pollError: null,
           }));
         } else if (res?.error) {
-          set((state) => ({
+          set(() => ({
             pollError: res.error,
           }));
         }
       } catch (err) {
         console.warn("[API Stats Poll] Failed:", err.message);
-        set((state) => ({
+        set(() => ({
           pollError: err.message,
         }));
       }

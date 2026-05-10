@@ -10,7 +10,6 @@ export default function ModGallery({
   isLibraryContext,
   mod,
   handleSetThumbnailUrl,
-  handleSetThumbnail,
   isAddingThumbUrl,
   setIsAddingThumbUrl,
   customThumbUrl,

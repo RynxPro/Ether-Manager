@@ -30,7 +30,6 @@ const generateId = () =>
 export default function CreatePresetPage({ onSaved }) {
   const game = useAppStore((state) => state.activeGame);
   const popPage = useAppStore((state) => state.popPage);
-  const clearPages = useAppStore((state) => state.clearPages);
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");

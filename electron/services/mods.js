@@ -622,7 +622,7 @@ export async function installGbMod(
               logger.info(`Recycling existing folder for same mod ID during update: ${targetName}`);
               try {
                 await trashItem(finalTargetPath);
-              } catch (err) {
+              } catch {
                 fs.rmSync(finalTargetPath, { recursive: true, force: true });
               }
               recycled = true;

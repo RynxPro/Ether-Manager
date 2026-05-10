@@ -59,7 +59,6 @@ function inferCharacterFromMod(mod, characters) {
 export default function ModDetailPage({
   mod,
   game,
-  onClose,
   onInstall,
   isBookmarked = false,
   onToggleBookmark,
@@ -71,14 +70,12 @@ export default function ModDetailPage({
 }) {
   const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
-  const clearPages = useAppStore(state => state.clearPages);
   
   const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
   const [selectedCharacter, setSelectedCharacter] = useState(
     preSelectedCharacter || "",
   );
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
-  const [imgLoaded, setImgLoaded] = useState(false);
   const [error, setError] = useState(null);
   const [revealedDetail, setRevealedDetail] = useState(false);
   const [isAddingThumbUrl, setIsAddingThumbUrl] = useState(false);
@@ -108,7 +105,7 @@ export default function ModDetailPage({
   const blurHero = isNsfw && nsfwMode === "blur" && !revealedDetail;
 
   useEffect(() => {
-    setImgLoaded(false);
+    // Optionally reset state on image change
   }, [currentImgIndex]);
 
   const characters = useMemo(
@@ -236,7 +233,6 @@ export default function ModDetailPage({
           isLibraryContext={isLibraryContext}
           mod={mod}
           handleSetThumbnailUrl={handleSetThumbnailUrl}
-          handleSetThumbnail={handleSetThumbnail}
           isAddingThumbUrl={isAddingThumbUrl}
           setIsAddingThumbUrl={setIsAddingThumbUrl}
           customThumbUrl={customThumbUrl}
