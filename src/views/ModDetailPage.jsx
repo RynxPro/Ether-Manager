@@ -57,7 +57,7 @@ function inferCharacterFromMod(mod, characters) {
 }
 
 export default function ModDetailPage({
-  mod,
+  mod: initialMod,
   game,
   onInstall,
   isBookmarked = false,
@@ -70,8 +70,29 @@ export default function ModDetailPage({
 }) {
   const popPage = useAppStore(state => state.popPage);
   const pushPage = useAppStore(state => state.pushPage);
-  
-  const [selectedFile, setSelectedFile] = useState(mod._aFiles?.[0] || null);
+  const { fetchMod } = useFetchCache();
+
+  const [mod, setMod] = useState(initialMod);
+  const [isLoadingFull, setIsLoadingFull] = useState(!initialMod._sText && !initialMod.isImported && !!initialMod._idRow);
+  const [selectedFile, setSelectedFile] = useState(initialMod._aFiles?.[0] || null);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!initialMod._sText && !initialMod.isImported && initialMod._idRow) {
+      fetchMod(initialMod._idRow).then((res) => {
+        if (!mounted) return;
+        if (res?.success && res.data) {
+          setMod(res.data);
+          setSelectedFile(res.data._aFiles?.[0] || null);
+        }
+        setIsLoadingFull(false);
+      });
+    } else {
+      setIsLoadingFull(false);
+    }
+    return () => { mounted = false; };
+  }, [initialMod, fetchMod]);
+
   const [selectedCharacter, setSelectedCharacter] = useState(
     preSelectedCharacter || "",
   );
@@ -84,7 +105,6 @@ export default function ModDetailPage({
   const [localBookmarked, setLocalBookmarked] = useState(isBookmarked);
   const [showReinstallConfirm, setShowReinstallConfirm] = useState(false);
   const [reinstallError, setReinstallError] = useState(null);
-  const { fetchMod } = useFetchCache();
 
   useEffect(() => {
     setLocalBookmarked(isBookmarked);
@@ -281,6 +301,7 @@ export default function ModDetailPage({
                 setShowReinstallConfirm={setShowReinstallConfirm}
                 selectedFile={selectedFile}
                 setSelectedFile={setSelectedFile}
+                isLoadingFull={isLoadingFull}
                 onAssign={async (modToAssign, newChar) => {
                   if (onAssign) {
                     const success = await onAssign(modToAssign, newChar);

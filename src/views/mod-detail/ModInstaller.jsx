@@ -24,6 +24,7 @@ export default function ModInstaller({
   selectedFile,
   setSelectedFile,
   onAssign,
+  isLoadingFull,
 }) {
   return (
     <div className="bg-surface border border-border rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden">
@@ -91,6 +92,14 @@ export default function ModInstaller({
                 </div>
               </div>
             ) : (() => {
+              if (isLoadingFull) {
+                return (
+                  <button disabled className="flex-1 relative flex items-center justify-center gap-2 py-4 rounded-xl font-black text-base uppercase tracking-wider bg-white/5 text-white/30 cursor-not-allowed">
+                     <RefreshCw size={20} className="animate-spin" /> Loading...
+                  </button>
+                );
+              }
+
               // Check if the *currently selected* file is already installed
               const selectedInstalledData = selectedFile
                 ? installedFileInfo?.installedFiles?.find(

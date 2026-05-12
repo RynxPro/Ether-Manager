@@ -2,7 +2,8 @@ import { Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "../store/useAppStore";
 
-const ModDetailPage     = lazy(() => import('../views/ModDetailPage'));
+import ModDetailPage from '../views/ModDetailPage';
+
 const CreatorProfilePage = lazy(() => import('../views/CreatorProfilePage'));
 const SettingsPage      = lazy(() => import('../views/SettingsPage'));
 const PresetDetailPage  = lazy(() => import('../views/PresetDetailPage'));
@@ -54,7 +55,7 @@ export default function PageStackRenderer() {
             initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            transition={{ type: "spring", damping: 30, stiffness: 400 }}
           >
             <Suspense fallback={<PageSkeleton />}>
               <Component {...page.props} />

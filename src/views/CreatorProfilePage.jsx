@@ -111,51 +111,32 @@ export default function CreatorProfilePage({
     initialData: { records: [], total: 0 },
   });
 
-  const handleModClick = async (mod) => {
-    try {
-      // Fetch full mod details before pushing the detail page
-      const result = await fetchMod(mod._idRow);
-      const fullMod = (result?.success && result.data) ? result.data : mod;
-      pushPage({
-        id: `mod-${fullMod._idRow}`,
-        component: 'ModDetail',
-        props: {
-          mod: fullMod,
-          game,
-          isBookmarked: (bookmarkIds || []).includes(fullMod._idRow),
-          onToggleBookmark: () => onToggleBookmark?.(fullMod),
-          onInstall,
-          onCreatorClick: (clickedCreator) => {
-            if (clickedCreator._idRow === creator._idRow) return;
-            pushPage({
-              id: `creator-${clickedCreator._idRow}`,
-              component: 'CreatorProfile',
-              props: {
-                creator: clickedCreator,
-                game,
-                bookmarkIds,
-                onToggleBookmark,
-                onInstall,
-              }
-            });
-          }
+  const handleModClick = (mod) => {
+    pushPage({
+      id: `mod-${mod._idRow}`,
+      component: 'ModDetail',
+      props: {
+        mod: mod, // Pass the partial mod immediately
+        game,
+        isBookmarked: (bookmarkIds || []).includes(mod._idRow),
+        onToggleBookmark: () => onToggleBookmark?.(mod),
+        onInstall,
+        onCreatorClick: (clickedCreator) => {
+          if (clickedCreator._idRow === creator._idRow) return;
+          pushPage({
+            id: `creator-${clickedCreator._idRow}`,
+            component: 'CreatorProfile',
+            props: {
+              creator: clickedCreator,
+              game,
+              bookmarkIds,
+              onToggleBookmark,
+              onInstall,
+            }
+          });
         }
-      });
-    } catch (err) {
-      console.error("Failed to load mod details:", err);
-      // Fallback: push with the summary mod data we already have
-      pushPage({
-        id: `mod-${mod._idRow}`,
-        component: 'ModDetail',
-        props: {
-          mod,
-          game,
-          isBookmarked: (bookmarkIds || []).includes(mod._idRow),
-          onToggleBookmark: () => onToggleBookmark?.(mod),
-          onInstall,
-        }
-      });
-    }
+      }
+    });
   };
 
   const mods = modsResult?.records || [];

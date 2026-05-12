@@ -1,11 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  AlertCircle,
-} from "lucide-react";
-import GbModCard from '../components/mod-card/GbModCard';
+import { Search, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import GbModCard from "../components/mod-card/GbModCard";
 
 import { getAllCharacterNames } from "../lib/portraits";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,10 +18,7 @@ import {
 import { StateGridSkeleton, StatePanel } from "../components/ui/StatePanel";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { getInstalledModUpdateState } from "../lib/modUpdateState";
-import {
-  createGbInstallPayload,
-  runGbInstallJob,
-} from "../lib/installFlow";
+import { createGbInstallPayload, runGbInstallJob } from "../lib/installFlow";
 import { getBrowseViewModel } from "../lib/browseState";
 import BrowseControls from "../components/browse/BrowseControls";
 import BrowseFeaturedHero from "../components/browse/BrowseFeaturedHero";
@@ -34,7 +26,7 @@ import SavedCreatorsStrip from "../components/browse/SavedCreatorsStrip";
 
 function RateLimitBanner() {
   const apiStatus = useApiStatus();
-  
+
   if (!apiStatus.isCoolingDown) return null;
 
   return (
@@ -101,18 +93,17 @@ export default function BrowseView({ isActive = false }) {
   const completeDownload = useAppStore((state) => state.completeDownload);
   const nsfwMode = useAppStore((state) => state.nsfwMode);
 
-
   const gridTopRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all");
   const [sort, setSort] = useState("");
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const installedModsMap = useAppStore(state => state.installedModsMap);
+  const installedModsMap = useAppStore((state) => state.installedModsMap);
   const installedModsInfo = useMemo(
     () => installedModsMap[game.id] ?? {},
     [installedModsMap, game.id],
   );
-  const pushPage = useAppStore(state => state.pushPage);
+  const pushPage = useAppStore((state) => state.pushPage);
   const [importerPath, setImporterPath] = useState(null);
   const [characterFilter, setCharacterFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -410,10 +401,7 @@ export default function BrowseView({ isActive = false }) {
     [game.id],
   );
 
-  const { loadMods: refreshInstalledModsInfo } = useLoadGameMods(
-    game.id,
-    true,
-  );
+  const { loadMods: refreshInstalledModsInfo } = useLoadGameMods(game.id, true);
   useEffect(() => {
     if (!isActive || activeTab !== "saved") return;
 
@@ -464,36 +452,43 @@ export default function BrowseView({ isActive = false }) {
     // Provide initial placeholders immediately
     setSavedModsCatalog((prev) => {
       const existingCatalog = prev[game.id] || [];
-      const seeded = mergeBookmarkSummaries(currentBookmarkIds, existingCatalog, []);
+      const seeded = mergeBookmarkSummaries(
+        currentBookmarkIds,
+        existingCatalog,
+        [],
+      );
       return { ...prev, [game.id]: seeded };
     });
 
     // Stream the active page mods into the UI as they arrive
     let activeFinishedCount = 0;
-    
+
     // We fetch them individually but throttle them through the cache
     Promise.all(
       activePageIds.map((id) =>
-        fetchMod(id, { priority: "high" }).then((result) => {
-          if (cancelled) return;
-          if (result.success && result.data) {
-            setSavedModsCatalog((prev) => {
-              const current = prev[game.id] || [];
-              const idx = current.findIndex((entry) => entry._idRow === id);
-              if (idx < 0) return prev;
-              const next = [...current];
-              next[idx] = result.data;
-              return { ...prev, [game.id]: next };
-            });
-          }
-        }).finally(() => {
-          activeFinishedCount++;
-          if (activeFinishedCount >= activePageIds.length && !cancelled) {
-            setLoading(false);
-          }
-        })
-      )
-    ).then(async () => {
+        fetchMod(id, { priority: "high" })
+          .then((result) => {
+            if (cancelled) return;
+            if (result.success && result.data) {
+              setSavedModsCatalog((prev) => {
+                const current = prev[game.id] || [];
+                const idx = current.findIndex((entry) => entry._idRow === id);
+                if (idx < 0) return prev;
+                const next = [...current];
+                next[idx] = result.data;
+                return { ...prev, [game.id]: next };
+              });
+            }
+          })
+          .finally(() => {
+            activeFinishedCount++;
+            if (activeFinishedCount >= activePageIds.length && !cancelled) {
+              setLoading(false);
+            }
+          }),
+      ),
+    )
+      .then(async () => {
         if (cancelled) return;
 
         if (deferredIds.length === 0) return;
@@ -553,18 +548,34 @@ export default function BrowseView({ isActive = false }) {
       const startIndex = (page - 1) * perPage;
       const endIndex = startIndex + perPage;
       const activeIds = currentBookmarkIds.slice(startIndex, endIndex);
-      
-      const nextMods = activeIds.map((id) => 
-        current.find(m => m._idRow === id) || createUnavailableBookmarkPlaceholder(id)
+
+      const nextMods = activeIds.map(
+        (id) =>
+          current.find((m) => m._idRow === id) ||
+          createUnavailableBookmarkPlaceholder(id),
       );
       setMods(nextMods);
       setTotal(currentBookmarkIds.length);
     }
-  }, [activeTab, page, game.id, currentBookmarkIds, savedModsCatalog, isActive, perPage, setMods, setTotal]);
+  }, [
+    activeTab,
+    page,
+    game.id,
+    currentBookmarkIds,
+    savedModsCatalog,
+    isActive,
+    perPage,
+    setMods,
+    setTotal,
+  ]);
 
   // Hydrate bookmarked creators with fresh v11 profile data when on Saved tab
   useEffect(() => {
-    if (!isActive || activeTab !== "saved" || currentBookmarkedCreators.length === 0) {
+    if (
+      !isActive ||
+      activeTab !== "saved" ||
+      currentBookmarkedCreators.length === 0
+    ) {
       return;
     }
 
@@ -577,7 +588,11 @@ export default function BrowseView({ isActive = false }) {
     void (async () => {
       const allResults = [];
 
-      for (let index = 0; index < unhydratedCreators.length; index += CREATOR_HYDRATION_BATCH_SIZE) {
+      for (
+        let index = 0;
+        index < unhydratedCreators.length;
+        index += CREATOR_HYDRATION_BATCH_SIZE
+      ) {
         if (cancelled) return;
 
         const chunk = unhydratedCreators.slice(
@@ -699,50 +714,60 @@ export default function BrowseView({ isActive = false }) {
     ],
   );
 
-  const handleCreatorClick = useCallback((submitter) => {
-    pushPage({
-      id: `creator-${submitter._idRow}`,
-      component: 'CreatorProfile',
-      props: {
-        creator: submitter,
-        game,
-        bookmarkIds: currentBookmarkIds,
-        onToggleBookmark: handleToggleBookmark,
-        onInstall: handleInstall,
-        isCreatorBookmarked: currentBookmarkedCreators.some(
-          (c) => c._idRow === submitter._idRow,
-        ),
-        onToggleCreatorBookmark: handleToggleCreatorBookmark,
-      }
-    });
-  }, [pushPage, game, currentBookmarkIds, handleToggleBookmark, handleInstall, currentBookmarkedCreators, handleToggleCreatorBookmark]);
+  const handleCreatorClick = useCallback(
+    (submitter) => {
+      pushPage({
+        id: `creator-${submitter._idRow}`,
+        component: "CreatorProfile",
+        props: {
+          creator: submitter,
+          game,
+          bookmarkIds: currentBookmarkIds,
+          onToggleBookmark: handleToggleBookmark,
+          onInstall: handleInstall,
+          isCreatorBookmarked: currentBookmarkedCreators.some(
+            (c) => c._idRow === submitter._idRow,
+          ),
+          onToggleCreatorBookmark: handleToggleCreatorBookmark,
+        },
+      });
+    },
+    [
+      pushPage,
+      game,
+      currentBookmarkIds,
+      handleToggleBookmark,
+      handleInstall,
+      currentBookmarkedCreators,
+      handleToggleCreatorBookmark,
+    ],
+  );
 
   const handleCardInstallClick = useCallback(
-    async (mod) => {
-      try {
-        const result = await fetchMod(mod._idRow);
-        if (result.success && result.data) {
-          pushPage({
-            id: `mod-${result.data._idRow}`,
-            component: 'ModDetail',
-            props: {
-              mod: result.data,
-              game,
-              installedFileInfo: installedModsInfo[result.data._idRow],
-              onInstall: handleInstall,
-              isBookmarked: currentBookmarkIdSet.has(result.data._idRow),
-              onToggleBookmark: () => handleToggleBookmark(result.data),
-              onCreatorClick: handleCreatorClick,
-            }
-          });
-        } else {
-          setError("Failed to fetch mod details.");
-        }
-      } catch {
-        setError("Failed to fetch mod details.");
-      }
+    (mod) => {
+      pushPage({
+        id: `mod-${mod._idRow}`,
+        component: "ModDetail",
+        props: {
+          mod: mod, // Pass the partial mod immediately
+          game,
+          installedFileInfo: installedModsInfo[mod._idRow],
+          onInstall: handleInstall,
+          isBookmarked: currentBookmarkIdSet.has(mod._idRow),
+          onToggleBookmark: () => handleToggleBookmark(mod),
+          onCreatorClick: handleCreatorClick,
+        },
+      });
     },
-    [fetchMod, pushPage, game, installedModsInfo, handleInstall, currentBookmarkIdSet, handleToggleBookmark, handleCreatorClick, setError],
+    [
+      pushPage,
+      game,
+      installedModsInfo,
+      handleInstall,
+      currentBookmarkIdSet,
+      handleToggleBookmark,
+      handleCreatorClick,
+    ],
   );
 
   const totalPages = Math.ceil(total / perPage);
@@ -863,9 +888,7 @@ export default function BrowseView({ isActive = false }) {
           setShowSuggestions(e.target.value.trim().length >= 2);
           setActiveSuggestionIdx(-1);
         }}
-        onSearchFocus={() =>
-          suggestions.length > 0 && setShowSuggestions(true)
-        }
+        onSearchFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
         onSearchKeyDown={(e) => {
           if (!showSuggestions || suggestions.length === 0) return;
           if (e.key === "ArrowDown") {
@@ -1048,7 +1071,6 @@ export default function BrowseView({ isActive = false }) {
           </>
         )}
       </div>
-
     </div>
   );
 }
