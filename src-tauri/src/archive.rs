@@ -205,4 +205,39 @@ mod tests {
 
         fs::remove_dir_all(&work_dir).unwrap();
     }
+
+    /// Diagnostic repro for a user-reported hang: installing a real GameBanana `.rar` mod
+    /// left the UI stuck on "Installing…" forever, though files did land on disk. RAR
+    /// extraction was never covered by a real-world fixture before (only zip/7z were).
+    /// Wrapped in a timeout so a real hang fails fast here instead of blocking the test run.
+    #[tokio::test]
+    async fn extracts_a_real_downloaded_rar_file_without_hanging() {
+        let work_dir = temp_dir("real-rar");
+        let archive_path = work_dir.join("whitemonster.rar");
+
+        let bytes = reqwest::get("https://gamebanana.com/dl/1761700")
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+        fs::write(&archive_path, &bytes).unwrap();
+
+        let dest_dir = work_dir.join("extracted");
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            tokio::task::spawn_blocking(move || extract_archive(&archive_path, &dest_dir)),
+        )
+        .await;
+
+        match result {
+            Err(_) => panic!("extract_archive hung past the 30s timeout on a real .rar file"),
+            Ok(join_result) => {
+                let extract_result = join_result.unwrap();
+                extract_result.unwrap();
+            }
+        }
+
+        fs::remove_dir_all(&work_dir).unwrap();
+    }
 }

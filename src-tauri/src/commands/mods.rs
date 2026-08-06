@@ -22,7 +22,7 @@ pub fn list_mod_counts(state: State<AppState>) -> Result<HashMap<String, i64>, S
     db.count_mods_by_character().map_err(|e| e.to_string())
 }
 
-fn slugify_display_name(name: &str) -> String {
+pub(crate) fn slugify_display_name(name: &str) -> String {
     let slug: String = name
         .to_lowercase()
         .chars()
@@ -38,7 +38,7 @@ fn slugify_display_name(name: &str) -> String {
 
 /// Appends a numeric suffix if `base_name` already exists under `slot_dir`, so two mods
 /// with the same display name don't collide on disk.
-fn unique_variant_dir(slot_dir: &Path, base_name: &str) -> PathBuf {
+pub(crate) fn unique_variant_dir(slot_dir: &Path, base_name: &str) -> PathBuf {
     let mut candidate = slot_dir.join(base_name);
     let mut n = 1;
     while candidate.exists() {
@@ -91,6 +91,9 @@ pub fn add_mod(
         display_name,
         folder_path: dest_dir.to_string_lossy().to_string(),
         thumbnail_path,
+        gamebanana_mod_id: None,
+        gamebanana_file_id: None,
+        gamebanana_md5: None,
     })
     .map_err(|e| e.to_string())
 }

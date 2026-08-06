@@ -7,6 +7,7 @@ pub struct Character {
     pub id: String,
     pub name: String,
     pub portrait: Option<String>,
+    pub gamebanana_category_id: Option<i64>,
 }
 
 const CHARACTERS_JSON: &str = include_str!("../data/zzz_characters.json");
@@ -34,5 +35,19 @@ mod tests {
         assert!(characters
             .iter()
             .any(|c| c.id == "promeia" && c.portrait.is_none()));
+    }
+
+    #[test]
+    fn every_character_has_a_gamebanana_category_id() {
+        let characters = all_characters();
+        let missing: Vec<&str> = characters
+            .iter()
+            .filter(|c| c.gamebanana_category_id.is_none())
+            .map(|c| c.name.as_str())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "characters missing a gamebanana_category_id: {missing:?}"
+        );
     }
 }

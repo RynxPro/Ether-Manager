@@ -1,7 +1,9 @@
+mod bookmarks_repo;
 mod mods_repo;
 mod schema;
 mod settings_repo;
 
+pub use bookmarks_repo::{Bookmark, NewBookmark};
 pub use mods_repo::{Mod, NewMod, Slot};
 
 use rusqlite::Connection;

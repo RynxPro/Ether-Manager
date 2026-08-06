@@ -57,6 +57,9 @@ pub struct NewMod {
     pub display_name: String,
     pub folder_path: String,
     pub thumbnail_path: Option<String>,
+    pub gamebanana_mod_id: Option<i64>,
+    pub gamebanana_file_id: Option<i64>,
+    pub gamebanana_md5: Option<String>,
 }
 
 fn now() -> i64 {
@@ -91,14 +94,17 @@ impl Db {
     pub fn insert_mod(&self, new: NewMod) -> rusqlite::Result<Mod> {
         let ts = now();
         self.conn.execute(
-            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_path, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?6)",
+            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_path, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?9)",
             params![
                 new.character_id,
                 new.slot.as_str(),
                 new.display_name,
                 new.folder_path,
                 new.thumbnail_path,
+                new.gamebanana_mod_id,
+                new.gamebanana_file_id,
+                new.gamebanana_md5,
                 ts,
             ],
         )?;
@@ -186,6 +192,9 @@ mod tests {
             display_name: "Test Outfit".to_string(),
             folder_path: "Mods/Characters/Belle/Outfit/TestOutfit".to_string(),
             thumbnail_path: None,
+            gamebanana_mod_id: None,
+            gamebanana_file_id: None,
+            gamebanana_md5: None,
         }
     }
 
@@ -200,6 +209,23 @@ mod tests {
         assert_eq!(fetched.display_name, "Test Outfit");
         assert!(!fetched.enabled);
         assert!(fetched.gamebanana_mod_id.is_none());
+    }
+
+    #[test]
+    fn insert_mod_persists_gamebanana_fields_when_provided() {
+        let db = Db::open_in_memory().unwrap();
+        let mut new_mod = new_test_mod("belle");
+        new_mod.gamebanana_mod_id = Some(608561);
+        new_mod.gamebanana_file_id = Some(1481954);
+        new_mod.gamebanana_md5 = Some("e3edc9a0bfdccedc6f2b28be4b28ac6e".to_string());
+
+        let inserted = db.insert_mod(new_mod).unwrap();
+        assert_eq!(inserted.gamebanana_mod_id, Some(608561));
+        assert_eq!(inserted.gamebanana_file_id, Some(1481954));
+        assert_eq!(
+            inserted.gamebanana_md5,
+            Some("e3edc9a0bfdccedc6f2b28be4b28ac6e".to_string())
+        );
     }
 
     #[test]
@@ -271,7 +297,10 @@ mod tests {
             .unwrap();
 
         let result = db.get_mod(inserted.id);
-        assert!(result.is_err(), "unparseable slot must error, not silently default");
+        assert!(
+            result.is_err(),
+            "unparseable slot must error, not silently default"
+        );
     }
 
     #[test]

@@ -2,301 +2,361 @@
   {
     "id": "von-lycaon",
     "name": "Von Lycaon",
-    "portrait": "/characters/von-lycaon.webp"
+    "portrait": "/characters/von-lycaon.webp",
+    "gamebanana_category_id": 30309
   },
   {
     "id": "wise",
     "name": "Wise",
-    "portrait": "/characters/wise.webp"
+    "portrait": "/characters/wise.webp",
+    "gamebanana_category_id": 30316
   },
   {
     "id": "belle",
     "name": "Belle",
-    "portrait": "/characters/belle.webp"
+    "portrait": "/characters/belle.webp",
+    "gamebanana_category_id": 30334
   },
   {
     "id": "alexandrina-sebastiane",
     "name": "Alexandrina Sebastiane",
-    "portrait": "/characters/alexandrina-sebastiane.webp"
+    "portrait": "/characters/alexandrina-sebastiane.webp",
+    "gamebanana_category_id": 30335
   },
   {
     "id": "anby-demara",
     "name": "Anby Demara",
-    "portrait": "/characters/anby-demara.webp"
+    "portrait": "/characters/anby-demara.webp",
+    "gamebanana_category_id": 30336
   },
   {
     "id": "anton-ivanov",
     "name": "Anton Ivanov",
-    "portrait": "/characters/anton-ivanov.webp"
+    "portrait": "/characters/anton-ivanov.webp",
+    "gamebanana_category_id": 30337
   },
   {
     "id": "ben-bigger",
     "name": "Ben Bigger",
-    "portrait": "/characters/ben-bigger.webp"
+    "portrait": "/characters/ben-bigger.webp",
+    "gamebanana_category_id": 30338
   },
   {
     "id": "billy-kid",
     "name": "Billy Kid",
-    "portrait": "/characters/billy-kid.webp"
+    "portrait": "/characters/billy-kid.webp",
+    "gamebanana_category_id": 30339
   },
   {
     "id": "corin-wickes",
     "name": "Corin Wickes",
-    "portrait": "/characters/corin-wickes.webp"
+    "portrait": "/characters/corin-wickes.webp",
+    "gamebanana_category_id": 30340
   },
   {
     "id": "ellen-joe",
     "name": "Ellen Joe",
-    "portrait": "/characters/ellen-joe.webp"
+    "portrait": "/characters/ellen-joe.webp",
+    "gamebanana_category_id": 30341
   },
   {
     "id": "grace-howard",
     "name": "Grace Howard",
-    "portrait": "/characters/grace-howard.webp"
+    "portrait": "/characters/grace-howard.webp",
+    "gamebanana_category_id": 30342
   },
   {
     "id": "koleda-belobog",
     "name": "Koleda Belobog",
-    "portrait": "/characters/koleda-belobog.webp"
+    "portrait": "/characters/koleda-belobog.webp",
+    "gamebanana_category_id": 30343
   },
   {
     "id": "luciana-de-montefio",
     "name": "Luciana de Montefio",
-    "portrait": "/characters/luciana-de-montefio.webp"
+    "portrait": "/characters/luciana-de-montefio.webp",
+    "gamebanana_category_id": 30344
   },
   {
     "id": "nekomiya-mana",
     "name": "Nekomiya Mana",
-    "portrait": "/characters/nekomiya-mana.webp"
+    "portrait": "/characters/nekomiya-mana.webp",
+    "gamebanana_category_id": 30345
   },
   {
     "id": "nicole-demara",
     "name": "Nicole Demara",
-    "portrait": "/characters/nicole-demara.webp"
+    "portrait": "/characters/nicole-demara.webp",
+    "gamebanana_category_id": 30346
   },
   {
     "id": "piper-wheel",
     "name": "Piper Wheel",
-    "portrait": "/characters/piper-wheel.webp"
+    "portrait": "/characters/piper-wheel.webp",
+    "gamebanana_category_id": 30347
   },
   {
     "id": "soldier-11",
     "name": "Soldier 11",
-    "portrait": "/characters/soldier-11.webp"
+    "portrait": "/characters/soldier-11.webp",
+    "gamebanana_category_id": 30348
   },
   {
     "id": "soukaku",
     "name": "Soukaku",
-    "portrait": "/characters/soukaku.webp"
+    "portrait": "/characters/soukaku.webp",
+    "gamebanana_category_id": 30349
   },
   {
     "id": "zhu-yuan",
     "name": "Zhu Yuan",
-    "portrait": "/characters/zhu-yuan.webp"
+    "portrait": "/characters/zhu-yuan.webp",
+    "gamebanana_category_id": 30350
   },
   {
     "id": "seth-lowell",
     "name": "Seth Lowell",
-    "portrait": "/characters/seth-lowell.webp"
+    "portrait": "/characters/seth-lowell.webp",
+    "gamebanana_category_id": 30577
   },
   {
     "id": "qingyi",
     "name": "Qingyi",
-    "portrait": "/characters/qingyi.webp"
+    "portrait": "/characters/qingyi.webp",
+    "gamebanana_category_id": 30578
   },
   {
     "id": "hoshimi-miyabi",
     "name": "Hoshimi Miyabi",
-    "portrait": "/characters/hoshimi-miyabi.webp"
+    "portrait": "/characters/hoshimi-miyabi.webp",
+    "gamebanana_category_id": 30579
   },
   {
     "id": "jane-doe",
     "name": "Jane Doe",
-    "portrait": "/characters/jane-doe.webp"
+    "portrait": "/characters/jane-doe.webp",
+    "gamebanana_category_id": 30580
   },
   {
     "id": "caesar-king",
     "name": "Caesar King",
-    "portrait": "/characters/caesar-king.webp"
+    "portrait": "/characters/caesar-king.webp",
+    "gamebanana_category_id": 32164
   },
   {
     "id": "burnice-white",
     "name": "Burnice White",
-    "portrait": "/characters/burnice-white.webp"
+    "portrait": "/characters/burnice-white.webp",
+    "gamebanana_category_id": 32531
   },
   {
     "id": "yanagi-tsukishiro",
     "name": "Yanagi Tsukishiro",
-    "portrait": "/characters/yanagi-tsukishiro.webp"
+    "portrait": "/characters/yanagi-tsukishiro.webp",
+    "gamebanana_category_id": 33018
   },
   {
     "id": "lighter",
     "name": "Lighter",
-    "portrait": "/characters/lighter.webp"
+    "portrait": "/characters/lighter.webp",
+    "gamebanana_category_id": 33590
   },
   {
     "id": "asaba-harumasa",
     "name": "Asaba Harumasa",
-    "portrait": "/characters/asaba-harumasa.webp"
+    "portrait": "/characters/asaba-harumasa.webp",
+    "gamebanana_category_id": 34036
   },
   {
     "id": "astra-yao",
     "name": "Astra Yao",
-    "portrait": "/characters/astra-yao.webp"
+    "portrait": "/characters/astra-yao.webp",
+    "gamebanana_category_id": 34740
   },
   {
     "id": "evelyn-chevalier",
     "name": "Evelyn Chevalier",
-    "portrait": "/characters/evelyn-chevalier.webp"
+    "portrait": "/characters/evelyn-chevalier.webp",
+    "gamebanana_category_id": 35123
   },
   {
     "id": "pulchra-fellini",
     "name": "Pulchra Fellini",
-    "portrait": "/characters/pulchra-fellini.webp"
+    "portrait": "/characters/pulchra-fellini.webp",
+    "gamebanana_category_id": 35673
   },
   {
     "id": "soldier-0-anby",
     "name": "Soldier 0 Anby",
-    "portrait": "/characters/soldier-0-anby.webp"
+    "portrait": "/characters/soldier-0-anby.webp",
+    "gamebanana_category_id": 35835
   },
   {
     "id": "trigger",
     "name": "Trigger",
-    "portrait": "/characters/trigger.webp"
+    "portrait": "/characters/trigger.webp",
+    "gamebanana_category_id": 36133
   },
   {
     "id": "vivian-banshee",
     "name": "Vivian Banshee",
-    "portrait": "/characters/vivian-banshee.webp"
+    "portrait": "/characters/vivian-banshee.webp",
+    "gamebanana_category_id": 36560
   },
   {
     "id": "hugo-vlad",
     "name": "Hugo Vlad",
-    "portrait": "/characters/hugo-vlad.webp"
+    "portrait": "/characters/hugo-vlad.webp",
+    "gamebanana_category_id": 36836
   },
   {
     "id": "yixuan",
     "name": "Yixuan",
-    "portrait": "/characters/yixuan.webp"
+    "portrait": "/characters/yixuan.webp",
+    "gamebanana_category_id": 37289
   },
   {
     "id": "pan-yinhu",
     "name": "Pan Yinhu",
-    "portrait": "/characters/pan-yinhu.webp"
+    "portrait": "/characters/pan-yinhu.webp",
+    "gamebanana_category_id": 37308
   },
   {
     "id": "ju-fufu",
     "name": "Ju Fufu",
-    "portrait": "/characters/ju-fufu.webp"
+    "portrait": "/characters/ju-fufu.webp",
+    "gamebanana_category_id": 37309
   },
   {
     "id": "yuzuha-ukinami",
     "name": "Yuzuha Ukinami",
-    "portrait": "/characters/yuzuha-ukinami.webp"
+    "portrait": "/characters/yuzuha-ukinami.webp",
+    "gamebanana_category_id": 38177
   },
   {
     "id": "alice-thymefield",
     "name": "Alice Thymefield",
-    "portrait": "/characters/alice-thymefield.webp"
+    "portrait": "/characters/alice-thymefield.webp",
+    "gamebanana_category_id": 38196
   },
   {
     "id": "seed",
     "name": "Seed",
-    "portrait": "/characters/seed.webp"
+    "portrait": "/characters/seed.webp",
+    "gamebanana_category_id": 39338
   },
   {
     "id": "orphie-magnusson",
     "name": "Orphie Magnusson",
-    "portrait": "/characters/orphie-magnusson.webp"
+    "portrait": "/characters/orphie-magnusson.webp",
+    "gamebanana_category_id": 39946
   },
   {
     "id": "komano-manato",
     "name": "Komano Manato",
-    "portrait": "/characters/komano-manato.webp"
+    "portrait": "/characters/komano-manato.webp",
+    "gamebanana_category_id": 40360
   },
   {
     "id": "lucia-elowen",
     "name": "Lucia Elowen",
-    "portrait": "/characters/lucia-elowen.webp"
+    "portrait": "/characters/lucia-elowen.webp",
+    "gamebanana_category_id": 40361
   },
   {
     "id": "yidhari-murphy",
     "name": "Yidhari Murphy",
-    "portrait": "/characters/yidhari-murphy.webp"
+    "portrait": "/characters/yidhari-murphy.webp",
+    "gamebanana_category_id": 40880
   },
   {
     "id": "dialyn",
     "name": "Dialyn",
-    "portrait": "/characters/dialyn.webp"
+    "portrait": "/characters/dialyn.webp",
+    "gamebanana_category_id": 41303
   },
   {
     "id": "banyue",
     "name": "Banyue",
-    "portrait": "/characters/banyue.webp"
+    "portrait": "/characters/banyue.webp",
+    "gamebanana_category_id": 41775
   },
   {
     "id": "ye-shunguang",
     "name": "Ye Shunguang",
-    "portrait": "/characters/ye-shunguang.webp"
+    "portrait": "/characters/ye-shunguang.webp",
+    "gamebanana_category_id": 42116
   },
   {
     "id": "zhao",
     "name": "Zhao",
-    "portrait": "/characters/zhao.webp"
+    "portrait": "/characters/zhao.webp",
+    "gamebanana_category_id": 42118
   },
   {
     "id": "sunna",
     "name": "Sunna",
-    "portrait": "/characters/sunna.webp"
+    "portrait": "/characters/sunna.webp",
+    "gamebanana_category_id": 43003
   },
   {
     "id": "aria",
     "name": "Aria",
-    "portrait": "/characters/aria.webp"
+    "portrait": "/characters/aria.webp",
+    "gamebanana_category_id": 43004
   },
   {
     "id": "nangong-yu",
     "name": "Nangong Yu",
-    "portrait": "/characters/nangong-yu.webp"
+    "portrait": "/characters/nangong-yu.webp",
+    "gamebanana_category_id": 43311
   },
   {
     "id": "cissia",
     "name": "Cissia",
-    "portrait": "/characters/cissia.webp"
+    "portrait": "/characters/cissia.webp",
+    "gamebanana_category_id": 44398
   },
   {
     "id": "promeia",
     "name": "Promeia",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 45448
   },
   {
     "id": "starlight-billy",
     "name": "Starlight Billy",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 46113
   },
   {
     "id": "norma-hollowell",
     "name": "Norma Hollowell",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 46552
   },
   {
     "id": "velina-airgid",
     "name": "Velina Airgid",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 46553
   },
   {
     "id": "pyrois",
     "name": "Pyrois",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 46646
   },
   {
     "id": "remielle-dan",
     "name": "Remielle Dan",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 47714
   },
   {
     "id": "sigrid-de-lazur",
     "name": "Sigrid de L'Azur",
-    "portrait": null
+    "portrait": null,
+    "gamebanana_category_id": 47715
   }
 ]

@@ -20,4 +20,11 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+    gamebanana_mod_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    thumbnail_url TEXT,
+    added_at INTEGER NOT NULL
+);
 ";
