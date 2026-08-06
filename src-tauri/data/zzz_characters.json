@@ -1,0 +1,302 @@
+[
+  {
+    "id": "von-lycaon",
+    "name": "Von Lycaon",
+    "portrait": "/characters/von-lycaon.webp"
+  },
+  {
+    "id": "wise",
+    "name": "Wise",
+    "portrait": "/characters/wise.webp"
+  },
+  {
+    "id": "belle",
+    "name": "Belle",
+    "portrait": "/characters/belle.webp"
+  },
+  {
+    "id": "alexandrina-sebastiane",
+    "name": "Alexandrina Sebastiane",
+    "portrait": "/characters/alexandrina-sebastiane.webp"
+  },
+  {
+    "id": "anby-demara",
+    "name": "Anby Demara",
+    "portrait": "/characters/anby-demara.webp"
+  },
+  {
+    "id": "anton-ivanov",
+    "name": "Anton Ivanov",
+    "portrait": "/characters/anton-ivanov.webp"
+  },
+  {
+    "id": "ben-bigger",
+    "name": "Ben Bigger",
+    "portrait": "/characters/ben-bigger.webp"
+  },
+  {
+    "id": "billy-kid",
+    "name": "Billy Kid",
+    "portrait": "/characters/billy-kid.webp"
+  },
+  {
+    "id": "corin-wickes",
+    "name": "Corin Wickes",
+    "portrait": "/characters/corin-wickes.webp"
+  },
+  {
+    "id": "ellen-joe",
+    "name": "Ellen Joe",
+    "portrait": "/characters/ellen-joe.webp"
+  },
+  {
+    "id": "grace-howard",
+    "name": "Grace Howard",
+    "portrait": "/characters/grace-howard.webp"
+  },
+  {
+    "id": "koleda-belobog",
+    "name": "Koleda Belobog",
+    "portrait": "/characters/koleda-belobog.webp"
+  },
+  {
+    "id": "luciana-de-montefio",
+    "name": "Luciana de Montefio",
+    "portrait": "/characters/luciana-de-montefio.webp"
+  },
+  {
+    "id": "nekomiya-mana",
+    "name": "Nekomiya Mana",
+    "portrait": "/characters/nekomiya-mana.webp"
+  },
+  {
+    "id": "nicole-demara",
+    "name": "Nicole Demara",
+    "portrait": "/characters/nicole-demara.webp"
+  },
+  {
+    "id": "piper-wheel",
+    "name": "Piper Wheel",
+    "portrait": "/characters/piper-wheel.webp"
+  },
+  {
+    "id": "soldier-11",
+    "name": "Soldier 11",
+    "portrait": "/characters/soldier-11.webp"
+  },
+  {
+    "id": "soukaku",
+    "name": "Soukaku",
+    "portrait": "/characters/soukaku.webp"
+  },
+  {
+    "id": "zhu-yuan",
+    "name": "Zhu Yuan",
+    "portrait": "/characters/zhu-yuan.webp"
+  },
+  {
+    "id": "seth-lowell",
+    "name": "Seth Lowell",
+    "portrait": "/characters/seth-lowell.webp"
+  },
+  {
+    "id": "qingyi",
+    "name": "Qingyi",
+    "portrait": "/characters/qingyi.webp"
+  },
+  {
+    "id": "hoshimi-miyabi",
+    "name": "Hoshimi Miyabi",
+    "portrait": "/characters/hoshimi-miyabi.webp"
+  },
+  {
+    "id": "jane-doe",
+    "name": "Jane Doe",
+    "portrait": "/characters/jane-doe.webp"
+  },
+  {
+    "id": "caesar-king",
+    "name": "Caesar King",
+    "portrait": "/characters/caesar-king.webp"
+  },
+  {
+    "id": "burnice-white",
+    "name": "Burnice White",
+    "portrait": "/characters/burnice-white.webp"
+  },
+  {
+    "id": "yanagi-tsukishiro",
+    "name": "Yanagi Tsukishiro",
+    "portrait": "/characters/yanagi-tsukishiro.webp"
+  },
+  {
+    "id": "lighter",
+    "name": "Lighter",
+    "portrait": "/characters/lighter.webp"
+  },
+  {
+    "id": "asaba-harumasa",
+    "name": "Asaba Harumasa",
+    "portrait": "/characters/asaba-harumasa.webp"
+  },
+  {
+    "id": "astra-yao",
+    "name": "Astra Yao",
+    "portrait": "/characters/astra-yao.webp"
+  },
+  {
+    "id": "evelyn-chevalier",
+    "name": "Evelyn Chevalier",
+    "portrait": "/characters/evelyn-chevalier.webp"
+  },
+  {
+    "id": "pulchra-fellini",
+    "name": "Pulchra Fellini",
+    "portrait": "/characters/pulchra-fellini.webp"
+  },
+  {
+    "id": "soldier-0-anby",
+    "name": "Soldier 0 Anby",
+    "portrait": "/characters/soldier-0-anby.webp"
+  },
+  {
+    "id": "trigger",
+    "name": "Trigger",
+    "portrait": "/characters/trigger.webp"
+  },
+  {
+    "id": "vivian-banshee",
+    "name": "Vivian Banshee",
+    "portrait": "/characters/vivian-banshee.webp"
+  },
+  {
+    "id": "hugo-vlad",
+    "name": "Hugo Vlad",
+    "portrait": "/characters/hugo-vlad.webp"
+  },
+  {
+    "id": "yixuan",
+    "name": "Yixuan",
+    "portrait": "/characters/yixuan.webp"
+  },
+  {
+    "id": "pan-yinhu",
+    "name": "Pan Yinhu",
+    "portrait": "/characters/pan-yinhu.webp"
+  },
+  {
+    "id": "ju-fufu",
+    "name": "Ju Fufu",
+    "portrait": "/characters/ju-fufu.webp"
+  },
+  {
+    "id": "yuzuha-ukinami",
+    "name": "Yuzuha Ukinami",
+    "portrait": "/characters/yuzuha-ukinami.webp"
+  },
+  {
+    "id": "alice-thymefield",
+    "name": "Alice Thymefield",
+    "portrait": "/characters/alice-thymefield.webp"
+  },
+  {
+    "id": "seed",
+    "name": "Seed",
+    "portrait": "/characters/seed.webp"
+  },
+  {
+    "id": "orphie-magnusson",
+    "name": "Orphie Magnusson",
+    "portrait": "/characters/orphie-magnusson.webp"
+  },
+  {
+    "id": "komano-manato",
+    "name": "Komano Manato",
+    "portrait": "/characters/komano-manato.webp"
+  },
+  {
+    "id": "lucia-elowen",
+    "name": "Lucia Elowen",
+    "portrait": "/characters/lucia-elowen.webp"
+  },
+  {
+    "id": "yidhari-murphy",
+    "name": "Yidhari Murphy",
+    "portrait": "/characters/yidhari-murphy.webp"
+  },
+  {
+    "id": "dialyn",
+    "name": "Dialyn",
+    "portrait": "/characters/dialyn.webp"
+  },
+  {
+    "id": "banyue",
+    "name": "Banyue",
+    "portrait": "/characters/banyue.webp"
+  },
+  {
+    "id": "ye-shunguang",
+    "name": "Ye Shunguang",
+    "portrait": "/characters/ye-shunguang.webp"
+  },
+  {
+    "id": "zhao",
+    "name": "Zhao",
+    "portrait": "/characters/zhao.webp"
+  },
+  {
+    "id": "sunna",
+    "name": "Sunna",
+    "portrait": "/characters/sunna.webp"
+  },
+  {
+    "id": "aria",
+    "name": "Aria",
+    "portrait": "/characters/aria.webp"
+  },
+  {
+    "id": "nangong-yu",
+    "name": "Nangong Yu",
+    "portrait": "/characters/nangong-yu.webp"
+  },
+  {
+    "id": "cissia",
+    "name": "Cissia",
+    "portrait": "/characters/cissia.webp"
+  },
+  {
+    "id": "promeia",
+    "name": "Promeia",
+    "portrait": null
+  },
+  {
+    "id": "starlight-billy",
+    "name": "Starlight Billy",
+    "portrait": null
+  },
+  {
+    "id": "norma-hollowell",
+    "name": "Norma Hollowell",
+    "portrait": null
+  },
+  {
+    "id": "velina-airgid",
+    "name": "Velina Airgid",
+    "portrait": null
+  },
+  {
+    "id": "pyrois",
+    "name": "Pyrois",
+    "portrait": null
+  },
+  {
+    "id": "remielle-dan",
+    "name": "Remielle Dan",
+    "portrait": null
+  },
+  {
+    "id": "sigrid-de-lazur",
+    "name": "Sigrid de L'Azur",
+    "portrait": null
+  }
+]
