@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatBytes, InstallProgressBar } from "@/components/InstallProgressBar";
+import { InstallProgressBar } from "@/components/InstallProgressBar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGamebananaModDetail } from "@/features/browse/hooks";
+import { formatBytes } from "@/lib/format";
 import { useInstallProgress } from "@/lib/useInstallProgress";
 import { cancelGamebananaInstall, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { useUpdateInstalledMod } from "./hooks";

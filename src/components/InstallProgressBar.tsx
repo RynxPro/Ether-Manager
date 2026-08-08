@@ -1,16 +1,10 @@
+import { formatBytes } from "@/lib/format";
 import type { InstallProgress } from "@/lib/tauri-commands";
 
 interface InstallProgressBarProps {
   progress: InstallProgress | null;
   speedBytesPerSec: number | null;
   percent: number | null;
-}
-
-/** Exported so `UpdateModDialog` can format GameBanana file sizes with the same rounding
- * instead of re-declaring its own near-identical formatter. */
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** Shared by the install and update dialogs — both drive this from `useInstallProgress`. */
