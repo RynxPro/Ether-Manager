@@ -1,5 +1,5 @@
-import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { InstallProgressBar } from "@/components/InstallProgressBar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,14 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCharacters } from "@/features/library/hooks";
-import {
-  cancelGamebananaInstall,
-  SLOTS,
-  type GbFile,
-  type GbMod,
-  type InstallProgress,
-  type Slot,
-} from "@/lib/tauri-commands";
+import { useInstallProgress } from "@/lib/useInstallProgress";
+import { cancelGamebananaInstall, SLOTS, type GbFile, type GbMod, type Slot } from "@/lib/tauri-commands";
 import { useInstallFromGamebanana } from "./hooks";
 
 interface InstallConfirmDialogProps {
@@ -46,11 +40,6 @@ function guessSlot(tags: string[]): Slot {
   return "Other";
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export function InstallConfirmDialog({
   mod,
   file,
@@ -65,37 +54,7 @@ export function InstallConfirmDialog({
   const [slot, setSlot] = useState<Slot>(guessSlot(mod.tags));
   const [displayName, setDisplayName] = useState(mod.name);
   const install = useInstallFromGamebanana(characterId);
-
-  const [progress, setProgress] = useState<InstallProgress | null>(null);
-  const [speedBytesPerSec, setSpeedBytesPerSec] = useState<number | null>(null);
-  const lastSample = useRef<{ time: number; downloaded: number } | null>(null);
-
-  useEffect(() => {
-    if (!install.isPending) {
-      setProgress(null);
-      setSpeedBytesPerSec(null);
-      lastSample.current = null;
-      return;
-    }
-
-    const unlistenPromise = listen<InstallProgress>("gamebanana-install-progress", (event) => {
-      const now = performance.now();
-      const previous = lastSample.current;
-      if (previous) {
-        const elapsedSec = (now - previous.time) / 1000;
-        const bytesSinceLast = event.payload.downloaded - previous.downloaded;
-        if (elapsedSec > 0) {
-          setSpeedBytesPerSec(bytesSinceLast / elapsedSec);
-        }
-      }
-      lastSample.current = { time: now, downloaded: event.payload.downloaded };
-      setProgress(event.payload);
-    });
-
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten());
-    };
-  }, [install.isPending]);
+  const { progress, speedBytesPerSec, percent } = useInstallProgress(install.isPending);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -115,11 +74,6 @@ export function InstallConfirmDialog({
   function handleCancel() {
     cancelGamebananaInstall();
   }
-
-  const percent =
-    progress?.total && progress.total > 0
-      ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100))
-      : null;
 
   return (
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
@@ -187,27 +141,11 @@ export function InstallConfirmDialog({
             </div>
 
             {install.isPending && (
-              <div className="space-y-1.5">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={
-                      percent === null
-                        ? "h-full w-1/3 animate-pulse rounded-full bg-primary"
-                        : "h-full rounded-full bg-primary transition-all"
-                    }
-                    style={percent === null ? undefined : { width: `${percent}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {progress
-                    ? `${formatBytes(progress.downloaded)}${
-                        progress.total ? ` / ${formatBytes(progress.total)}` : ""
-                      }${percent !== null ? ` (${percent}%)` : ""}${
-                        speedBytesPerSec ? ` — ${formatBytes(speedBytesPerSec)}/s` : ""
-                      }`
-                    : "Starting download…"}
-                </p>
-              </div>
+              <InstallProgressBar
+                progress={progress}
+                speedBytesPerSec={speedBytesPerSec}
+                percent={percent}
+              />
             )}
 
             {install.isError && <p className="text-sm text-destructive">{String(install.error)}</p>}

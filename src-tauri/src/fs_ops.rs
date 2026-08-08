@@ -15,6 +15,15 @@ pub enum FsOpsError {
     Db(rusqlite::Error),
     NotFound(i64),
     InvalidPath(String),
+    /// `replace_mod_folder` failed to swap in the new contents AND the automatic rollback of
+    /// the original contents also failed. The mod's real files are not lost — they're still
+    /// intact at `backup_dir` — but they're no longer at the path the rest of the app expects,
+    /// so this is surfaced distinctly rather than folded into `Io` and silently discarded.
+    SwapAndRollbackFailed {
+        backup_dir: PathBuf,
+        swap_error: std::io::Error,
+        rollback_error: std::io::Error,
+    },
 }
 
 impl fmt::Display for FsOpsError {
@@ -24,6 +33,15 @@ impl fmt::Display for FsOpsError {
             FsOpsError::Db(e) => write!(f, "database error: {e}"),
             FsOpsError::NotFound(id) => write!(f, "mod {id} not found"),
             FsOpsError::InvalidPath(p) => write!(f, "invalid mod folder path: {p}"),
+            FsOpsError::SwapAndRollbackFailed {
+                backup_dir,
+                swap_error,
+                rollback_error,
+            } => write!(
+                f,
+                "failed to update the mod folder ({swap_error}), and the automatic rollback also failed ({rollback_error}) — your original files are safe at {}, but you'll need to move them back manually",
+                backup_dir.display()
+            ),
         }
     }
 }
@@ -155,6 +173,52 @@ pub fn delete_mod_files(m: &Mod) -> std::io::Result<()> {
     Ok(())
 }
 
+static BACKUP_DIR_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Atomically-as-possible swaps `current_dir`'s contents for `staging_dir`'s — used by
+/// `update_installed_mod` to replace an already-installed mod's files in place without
+/// disturbing its identity (folder name, including any `DISABLED_` prefix, is untouched).
+/// `staging_dir` must be a sibling of `current_dir` (same volume) so both renames are cheap
+/// atomic filesystem operations rather than a slow, non-atomic cross-volume copy — never pass
+/// a path under `%TEMP%` here unless it happens to share a volume with the mods folder.
+///
+/// On success, `current_dir` holds what used to be `staging_dir`'s contents and `staging_dir`
+/// no longer exists (renamed away). On failure partway through, the original contents are
+/// rolled back into `current_dir` before the error is returned — the mod's folder is never
+/// left missing or half-swapped, unless the rollback itself also fails, which is reported
+/// distinctly via `FsOpsError::SwapAndRollbackFailed` rather than silently discarded.
+pub fn replace_mod_folder(current_dir: &Path, staging_dir: &Path) -> Result<(), FsOpsError> {
+    let leaf = leaf_name(current_dir)?;
+    let parent = current_dir
+        .parent()
+        .ok_or_else(|| FsOpsError::InvalidPath(current_dir.display().to_string()))?;
+    // Suffixed with a process-lifetime counter (not just `leaf`) so two concurrent calls
+    // targeting the same `current_dir` — e.g. a double-click before the UI disables the
+    // trigger — can't collide on the same backup path.
+    let unique = BACKUP_DIR_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let backup_dir = parent.join(format!(".ether-backup-{unique}-{leaf}"));
+
+    fs::rename(current_dir, &backup_dir)?;
+
+    if let Err(swap_error) = fs::rename(staging_dir, current_dir) {
+        // Roll back before surfacing the error — a failed swap must never leave the mod's
+        // folder missing. But the rollback itself can fail too (transient lock, AV scan,
+        // permissions), and that must not be silently swallowed: the mod's real files would
+        // still be safe at `backup_dir`, just not where anything else expects them.
+        if let Err(rollback_error) = fs::rename(&backup_dir, current_dir) {
+            return Err(FsOpsError::SwapAndRollbackFailed {
+                backup_dir,
+                swap_error,
+                rollback_error,
+            });
+        }
+        return Err(FsOpsError::Io(swap_error));
+    }
+
+    let _ = fs::remove_dir_all(&backup_dir);
+    Ok(())
+}
+
 /// Recursively copies `src`'s contents into `dst`, creating `dst` if needed. Used by
 /// `add_mod` when the user picks an already-extracted folder rather than an archive.
 pub fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -185,6 +249,19 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("ether-manager-fs-ops-test-{label}-{n}"));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// `replace_mod_folder`'s backup dir name now includes a uniqueness counter (fixed to
+    /// prevent concurrent-call collisions), so tests check for the prefix rather than an
+    /// exact name.
+    fn has_any_backup_dir(root: &Path) -> bool {
+        fs::read_dir(root).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".ether-backup-")
+        })
     }
 
     fn insert_mod_with_folder(db: &Db, character_id: &str, slot: Slot, folder: &Path) -> Mod {
@@ -323,6 +400,97 @@ mod tests {
         assert!(character_slot_dir(&root, "belle", Slot::Outfit).is_ok());
 
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn replace_mod_folder_swaps_contents_and_leaves_no_backup_or_staging_dirs() {
+        let root = temp_dir("replace-happy");
+        let current_dir = root.join("MyMod");
+        fs::create_dir_all(&current_dir).unwrap();
+        fs::write(current_dir.join("old.txt"), "old").unwrap();
+
+        let staging_dir = root.join("MyMod-staging");
+        fs::create_dir_all(&staging_dir).unwrap();
+        fs::write(staging_dir.join("new.txt"), "new").unwrap();
+
+        replace_mod_folder(&current_dir, &staging_dir).unwrap();
+
+        assert!(current_dir.join("new.txt").exists());
+        assert!(!current_dir.join("old.txt").exists());
+        assert!(
+            !staging_dir.exists(),
+            "staging dir must be consumed by the swap"
+        );
+        assert!(
+            !has_any_backup_dir(&root),
+            "backup dir must be cleaned up on success"
+        );
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn replace_mod_folder_preserves_a_disabled_prefixed_leaf_name() {
+        let root = temp_dir("replace-disabled-prefix");
+        let current_dir = root.join("DISABLED_MyMod");
+        fs::create_dir_all(&current_dir).unwrap();
+
+        let staging_dir = root.join("MyMod-staging");
+        fs::create_dir_all(&staging_dir).unwrap();
+        fs::write(staging_dir.join("new.txt"), "new").unwrap();
+
+        replace_mod_folder(&current_dir, &staging_dir).unwrap();
+
+        assert!(current_dir.join("new.txt").exists());
+        assert_eq!(leaf_name(&current_dir).unwrap(), "DISABLED_MyMod");
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn replace_mod_folder_restores_original_contents_when_the_swap_fails() {
+        let root = temp_dir("replace-rollback");
+        let current_dir = root.join("MyMod");
+        fs::create_dir_all(&current_dir).unwrap();
+        fs::write(current_dir.join("old.txt"), "old").unwrap();
+
+        let nonexistent_staging = root.join("does-not-exist");
+
+        let result = replace_mod_folder(&current_dir, &nonexistent_staging);
+
+        assert!(result.is_err());
+        assert!(current_dir.is_dir(), "original folder must be restored");
+        assert!(
+            current_dir.join("old.txt").exists(),
+            "original contents must be intact after a failed swap"
+        );
+        assert!(
+            !has_any_backup_dir(&root),
+            "backup dir must not be left behind after a successful rollback"
+        );
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn swap_and_rollback_failed_error_names_the_backup_location() {
+        let backup_dir = PathBuf::from("/tmp/example/.ether-backup-3-MyMod");
+        let err = FsOpsError::SwapAndRollbackFailed {
+            backup_dir: backup_dir.clone(),
+            swap_error: std::io::Error::new(std::io::ErrorKind::NotFound, "swap failed"),
+            rollback_error: std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "rollback failed",
+            ),
+        };
+        let message = err.to_string();
+
+        assert!(
+            message.contains(&backup_dir.display().to_string()),
+            "message must name where the user's real files ended up: {message}"
+        );
+        assert!(message.contains("swap failed"));
+        assert!(message.contains("rollback failed"));
     }
 
     #[test]

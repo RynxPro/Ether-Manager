@@ -12,8 +12,10 @@ use crate::gamebanana::{GameBananaClient, GbFile, GbModDetail, GbSearchResult};
 use crate::{archive, fs_ops, AppState};
 
 /// How often progress events are emitted at most, so a fast connection delivering many small
-/// chunks doesn't flood the IPC channel with an event per chunk.
-const PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(150);
+/// chunks doesn't flood the IPC channel with an event per chunk. Shared with
+/// `commands::updates::update_installed_mod`, which reuses this same throttle and the
+/// `InstallProgress` event payload below rather than duplicating either.
+pub(crate) const PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(150);
 
 #[derive(Clone, Serialize)]
 pub struct InstallProgress {
@@ -121,8 +123,10 @@ async fn download_and_extract_gamebanana_file(
     let dest_dir = unique_variant_dir(&slot_dir, &base_name);
 
     let temp_download_path = std::env::temp_dir().join(format!(
-        "ether-manager-gb-download-{}-{}",
-        gamebanana_file_id, file.file_name
+        "ether-manager-gb-download-{}-{}-{}",
+        gamebanana_file_id,
+        crate::commands::unique_temp_id(),
+        file.file_name
     ));
 
     let result = async {

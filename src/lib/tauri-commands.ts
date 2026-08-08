@@ -270,3 +270,11 @@ export function checkAllModUpdates(force: boolean): Promise<UpdateCheck[]> {
 export function listUpdateChecks(): Promise<UpdateCheck[]> {
   return invoke("list_update_checks");
 }
+
+/** Downloads `gamebananaFileId` and swaps it into the mod's existing folder in place —
+ * `folder_path`, `enabled` state, `display_name`, `character_id`, and `slot` are all left
+ * untouched. Reuses the same `gamebanana-install-progress` event and
+ * `cancelGamebananaInstall` as `installFromGamebanana`. */
+export function updateInstalledMod(modId: number, gamebananaFileId: number): Promise<Mod> {
+  return invoke("update_installed_mod", { modId, gamebananaFileId });
+}

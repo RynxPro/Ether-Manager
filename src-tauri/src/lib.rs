@@ -56,6 +56,7 @@ pub fn run() {
             commands::updates::check_mod_update,
             commands::updates::check_all_mod_updates,
             commands::updates::list_update_checks,
+            commands::updates::update_installed_mod,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

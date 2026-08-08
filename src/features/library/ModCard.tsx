@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { Mod, UpdateCheck } from "@/lib/tauri-commands";
+import { UpdateModDialog } from "./UpdateModDialog";
 
 interface ModCardProps {
   mod: Mod;
@@ -49,18 +50,12 @@ export function ModCard({
         <p className="text-xs text-muted-foreground">{mod.enabled ? "Enabled" : "Disabled"}</p>
       </div>
 
-      {hasUpdate && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          aria-disabled="true"
-          aria-label="Update — updating installed mods is coming soon"
-          title="Updating installed mods is coming soon"
-          className="pointer-events-none opacity-50"
-        >
-          Update
-        </Button>
+      {hasUpdate && updateCheck && (
+        <UpdateModDialog
+          key={`${updateCheck.mod_id}:${updateCheck.suggested_file_id ?? "none"}`}
+          mod={mod}
+          updateCheck={updateCheck}
+        />
       )}
 
       <Switch

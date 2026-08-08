@@ -11,6 +11,7 @@ import {
   pickModsFolder,
   setModsFolder,
   toggleMod,
+  updateInstalledMod,
   type AddModInput,
 } from "@/lib/tauri-commands";
 
@@ -107,6 +108,19 @@ export function useCheckAllUpdates() {
     mutationFn: (force: boolean) => checkAllModUpdates(force),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
+    },
+  });
+}
+
+export function useUpdateInstalledMod(characterId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ modId, gamebananaFileId }: { modId: number; gamebananaFileId: number }) =>
+      updateInstalledMod(modId, gamebananaFileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mods", characterId] });
+      queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
+      queryClient.invalidateQueries({ queryKey: ["modCounts"] });
     },
   });
 }
