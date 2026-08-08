@@ -171,6 +171,10 @@ pub struct GbFile {
     pub file_name: String,
     #[serde(rename(deserialize = "_nFilesize"))]
     pub file_size: i64,
+    /// Unix timestamp this specific file was added — used by update detection to pick the
+    /// newest file when a mod has several (see `updates::compare_installed_file`).
+    #[serde(rename(deserialize = "_tsDateAdded"))]
+    pub date_added: i64,
     #[serde(rename(deserialize = "_nDownloadCount"))]
     pub download_count: i64,
     #[serde(rename(deserialize = "_sDownloadUrl"))]
@@ -441,6 +445,46 @@ impl GameBananaClient {
         Ok(detail)
     }
 
+    /// Fetches just a mod's file list — one lightweight request, unlike `get_mod_detail`
+    /// (which costs two: `@gbprofile` plus a separate text-fields call). Used by update
+    /// detection, which needs to check many mods and has no use for the description body.
+    /// Confirmed live: `Mod/:id?_csvProperties=_aFiles` returns `{"_aFiles": [...]}` directly,
+    /// not the `_aMetadata`/`_aRecords` envelope `parse_list_response` handles.
+    pub async fn get_mod_files(&self, mod_id: i64) -> Result<Vec<GbFile>, GameBananaError> {
+        #[derive(Debug, Deserialize)]
+        struct FilesOnly {
+            #[serde(rename(deserialize = "_aFiles"), default)]
+            files: Vec<GbFile>,
+        }
+
+        let url = format!("{BASE_URL}/Mod/{mod_id}?_csvProperties=_aFiles");
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        // Checked first, deliberately: `FilesOnly::files` is `default`-annotated so a mod with
+        // genuinely zero files parses cleanly, but that same leniency means an API error body
+        // (`{"_sErrorCode": ..., ...}`, e.g. a deleted/nonexistent mod id) would otherwise
+        // silently deserialize as an empty file list instead of surfacing as an error.
+        if let Ok(err) = serde_json::from_str::<RawApiError>(&body) {
+            return Err(GameBananaError::Api {
+                code: err.code,
+                body,
+            });
+        }
+
+        let parsed: FilesOnly = serde_json::from_str(&body)
+            .map_err(|_| GameBananaError::UnexpectedResponse(body.chars().take(500).collect()))?;
+
+        Ok(parsed.files)
+    }
+
     /// Downloads `url` to `dest_path`, streaming to disk rather than buffering the whole
     /// file in memory — mod archives can be tens of megabytes.
     /// `on_progress` is called after every chunk with `(bytes_downloaded_so_far, total_size)`
@@ -617,6 +661,48 @@ mod tests {
         assert_eq!(detail.id, SAMPLE_MOD_ID);
         assert!(!detail.files.is_empty());
         assert!(detail.files.iter().all(|f| !f.md5_checksum.is_empty()));
+    }
+
+    /// `get_mod_files` must return the same files (by id/md5) as `get_mod_detail`'s `files`
+    /// field, since update detection uses it as a lighter-weight substitute for the same data.
+    #[tokio::test]
+    async fn get_mod_files_matches_get_mod_detail_files() {
+        let client = GameBananaClient::new();
+
+        let files = client.get_mod_files(SAMPLE_MOD_ID).await.unwrap();
+        assert!(!files.is_empty());
+        assert!(files.iter().all(|f| !f.md5_checksum.is_empty()));
+        assert!(files.iter().all(|f| f.date_added > 0));
+
+        let detail = client.get_mod_detail(SAMPLE_MOD_ID).await.unwrap();
+        let mut files_ids: Vec<i64> = files.iter().map(|f| f.id).collect();
+        let mut detail_ids: Vec<i64> = detail.files.iter().map(|f| f.id).collect();
+        files_ids.sort_unstable();
+        detail_ids.sort_unstable();
+        assert_eq!(files_ids, detail_ids);
+    }
+
+    /// Regression test: `FilesOnly::files` is `default`-annotated (so a mod with genuinely
+    /// zero files parses cleanly), which initially let a GameBanana API error body
+    /// (`{"_sErrorCode": "NO_SUCH_RECORD", ...}`) silently deserialize as an empty file list
+    /// instead of erroring — caught live via `commands::updates` tests against a nonexistent
+    /// mod id, not by inspection.
+    #[tokio::test]
+    async fn get_mod_files_errors_instead_of_returning_empty_for_a_nonexistent_mod() {
+        let client = GameBananaClient::new();
+        let result = client.get_mod_files(999_999_999).await;
+        // GameBanana has been observed returning this as either a 200 with an error body
+        // (`Api`, the steady-state behavior as of this writing) or a real HTTP error status
+        // (`Http`, via `error_for_status()`) — both are legitimate "this mod doesn't exist"
+        // signals, and either is an acceptable fix for the empty-list-swallows-errors bug this
+        // test guards against. Only a silent `Ok(vec![])` would be a regression.
+        assert!(
+            matches!(
+                result,
+                Err(GameBananaError::Api { .. }) | Err(GameBananaError::Http(_))
+            ),
+            "expected an Api or Http error, got {result:?}"
+        );
     }
 
     #[tokio::test]

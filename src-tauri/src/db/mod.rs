@@ -2,9 +2,11 @@ mod bookmarks_repo;
 mod mods_repo;
 mod schema;
 mod settings_repo;
+mod update_checks_repo;
 
 pub use bookmarks_repo::{Bookmark, NewBookmark};
 pub use mods_repo::{Mod, NewMod, Slot};
+pub use update_checks_repo::UpdateCheck;
 
 use rusqlite::Connection;
 use std::path::Path;

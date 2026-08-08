@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addMod,
+  checkAllModUpdates,
   deleteMod,
   getModsFolder,
   listCharacters,
   listModCounts,
   listModsForCharacter,
+  listUpdateChecks,
   pickModsFolder,
   setModsFolder,
   toggleMod,
@@ -85,5 +87,26 @@ export function useSetModsFolder() {
 export function usePickModsFolder() {
   return useMutation({
     mutationFn: () => pickModsFolder(),
+  });
+}
+
+/** Cache read only — never triggers a network check itself. Data only ever changes via
+ * `useCheckAllUpdates`'s own invalidation, so there's nothing to gain from refetching this on
+ * every mount (e.g. navigating between characters). */
+export function useUpdateChecks() {
+  return useQuery({
+    queryKey: ["updateChecks"],
+    queryFn: listUpdateChecks,
+    staleTime: Infinity,
+  });
+}
+
+export function useCheckAllUpdates() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (force: boolean) => checkAllModUpdates(force),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
+    },
   });
 }

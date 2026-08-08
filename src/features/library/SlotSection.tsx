@@ -1,4 +1,4 @@
-import type { Mod, Slot } from "@/lib/tauri-commands";
+import type { Mod, Slot, UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
 import { useDeleteMod, useToggleMod } from "./hooks";
@@ -7,9 +7,10 @@ interface SlotSectionProps {
   characterId: string;
   slot: Slot;
   mods: Mod[];
+  updateChecksByModId: Map<number, UpdateCheck>;
 }
 
-export function SlotSection({ characterId, slot, mods }: SlotSectionProps) {
+export function SlotSection({ characterId, slot, mods, updateChecksByModId }: SlotSectionProps) {
   const toggleMod = useToggleMod(characterId);
   const deleteMod = useDeleteMod(characterId);
 
@@ -32,6 +33,7 @@ export function SlotSection({ characterId, slot, mods }: SlotSectionProps) {
             <ModCard
               key={mod.id}
               mod={mod}
+              updateCheck={updateChecksByModId.get(mod.id)}
               isToggling={toggleMod.isPending}
               isDeleting={deleteMod.isPending}
               onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}

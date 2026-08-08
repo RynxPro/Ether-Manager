@@ -1,17 +1,28 @@
 import { Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import type { Mod } from "@/lib/tauri-commands";
+import type { Mod, UpdateCheck } from "@/lib/tauri-commands";
 
 interface ModCardProps {
   mod: Mod;
+  updateCheck?: UpdateCheck;
   onToggle: (enabled: boolean) => void;
   onDelete: () => void;
   isToggling: boolean;
   isDeleting: boolean;
 }
 
-export function ModCard({ mod, onToggle, onDelete, isToggling, isDeleting }: ModCardProps) {
+export function ModCard({
+  mod,
+  updateCheck,
+  onToggle,
+  onDelete,
+  isToggling,
+  isDeleting,
+}: ModCardProps) {
+  const hasUpdate = updateCheck?.status === "UpdateAvailable";
+
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card/60 p-3 transition-colors hover:bg-card">
       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -29,9 +40,28 @@ export function ModCard({ mod, onToggle, onDelete, isToggling, isDeleting }: Mod
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">{mod.display_name}</p>
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            {mod.display_name}
+          </p>
+          {hasUpdate && <Badge variant="secondary">Update available</Badge>}
+        </div>
         <p className="text-xs text-muted-foreground">{mod.enabled ? "Enabled" : "Disabled"}</p>
       </div>
+
+      {hasUpdate && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-disabled="true"
+          aria-label="Update — updating installed mods is coming soon"
+          title="Updating installed mods is coming soon"
+          className="pointer-events-none opacity-50"
+        >
+          Update
+        </Button>
+      )}
 
       <Switch
         checked={mod.enabled}

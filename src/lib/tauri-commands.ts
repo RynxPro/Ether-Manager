@@ -127,6 +127,7 @@ export interface GbFile {
   id: number;
   file_name: string;
   file_size: number;
+  date_added: number;
   download_count: number;
   download_url: string;
   md5_checksum: string;
@@ -229,4 +230,43 @@ export function cancelGamebananaInstall(): Promise<void> {
 export interface InstallProgress {
   downloaded: number;
   total: number | null;
+}
+
+export type UpdateStatus = "UpToDate" | "UpdateAvailable" | "Unavailable";
+export type UpdateReason = "FileReplaced" | "FileChanged";
+
+/** A cached update-check result for one installed mod (see `checkModUpdate`/`listUpdateChecks`). */
+export interface UpdateCheck {
+  mod_id: number;
+  character_id: string;
+  status: UpdateStatus;
+  reason: UpdateReason | null;
+  suggested_file_id: number | null;
+  suggested_file_name: string | null;
+  is_ambiguous: boolean;
+  error: string | null;
+  checked_at: number;
+}
+
+/** Payload of the `update-check-progress` event emitted during `checkAllModUpdates`. */
+export interface UpdateCheckProgress {
+  done: number;
+  total: number;
+}
+
+/** Re-checks one mod against GameBanana right now and returns the refreshed cached result. */
+export function checkModUpdate(modId: number): Promise<UpdateCheck> {
+  return invoke("check_mod_update", { modId });
+}
+
+/** Checks every GameBanana-installed mod. `force: false` skips mods checked within the last
+ * hour (used for the automatic launch check); `force: true` always re-checks everything (used
+ * by the manual "Check for updates" button). */
+export function checkAllModUpdates(force: boolean): Promise<UpdateCheck[]> {
+  return invoke("check_all_mod_updates", { force });
+}
+
+/** Cache read only — never touches the network. */
+export function listUpdateChecks(): Promise<UpdateCheck[]> {
+  return invoke("list_update_checks");
 }

@@ -1,9 +1,9 @@
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SLOTS, type Character } from "@/lib/tauri-commands";
+import { SLOTS, type Character, type UpdateCheck } from "@/lib/tauri-commands";
 import { SlotSection } from "./SlotSection";
-import { useModsForCharacter } from "./hooks";
+import { useModsForCharacter, useUpdateChecks } from "./hooks";
 
 interface CharacterDetailProps {
   character: Character;
@@ -12,6 +12,10 @@ interface CharacterDetailProps {
 
 export function CharacterDetail({ character, onBack }: CharacterDetailProps) {
   const { data: mods, isLoading } = useModsForCharacter(character.id);
+  const { data: updateChecks } = useUpdateChecks();
+  const updateChecksByModId = new Map<number, UpdateCheck>(
+    (updateChecks ?? []).map((check) => [check.mod_id, check]),
+  );
 
   return (
     <div className="space-y-6">
@@ -44,6 +48,7 @@ export function CharacterDetail({ character, onBack }: CharacterDetailProps) {
               characterId={character.id}
               slot={slot}
               mods={(mods ?? []).filter((mod) => mod.slot === slot)}
+              updateChecksByModId={updateChecksByModId}
             />
           ))}
         </div>

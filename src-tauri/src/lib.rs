@@ -4,6 +4,7 @@ mod commands;
 mod db;
 mod fs_ops;
 mod gamebanana;
+mod updates;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -52,6 +53,9 @@ pub fn run() {
             commands::gamebanana::remove_bookmark,
             commands::gamebanana::install_from_gamebanana,
             commands::gamebanana::cancel_gamebanana_install,
+            commands::updates::check_mod_update,
+            commands::updates::check_all_mod_updates,
+            commands::updates::list_update_checks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

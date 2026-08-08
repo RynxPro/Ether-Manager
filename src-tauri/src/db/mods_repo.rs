@@ -135,9 +135,37 @@ impl Db {
         Ok(())
     }
 
+    /// Also drops any cached update-check row for this mod — there is no `ON DELETE CASCADE`
+    /// (foreign keys aren't enabled on this connection), so this must be done explicitly or a
+    /// deleted mod's stale check row would silently outlive it.
     pub fn delete_mod(&self, id: i64) -> rusqlite::Result<()> {
+        self.delete_update_check(id)?;
         self.conn
             .execute("DELETE FROM mods WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    /// Mods installed from GameBanana — the set update detection needs to check. Locally
+    /// added mods (`gamebanana_mod_id` is `None`) are never included.
+    pub fn list_gamebanana_mods(&self) -> rusqlite::Result<Vec<Mod>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT * FROM mods WHERE gamebanana_mod_id IS NOT NULL ORDER BY id")?;
+        let rows = stmt.query_map([], row_to_mod)?;
+        rows.collect()
+    }
+
+    /// Records that an install/update now tracks a different GameBanana file for this row.
+    pub fn set_gamebanana_file(
+        &self,
+        id: i64,
+        gamebanana_file_id: i64,
+        gamebanana_md5: &str,
+    ) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE mods SET gamebanana_file_id = ?1, gamebanana_md5 = ?2, updated_at = ?3 WHERE id = ?4",
+            params![gamebanana_file_id, gamebanana_md5, now(), id],
+        )?;
         Ok(())
     }
 
@@ -310,5 +338,38 @@ mod tests {
 
         db.delete_mod(inserted.id).unwrap();
         assert!(db.get_mod(inserted.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn list_gamebanana_mods_excludes_locally_added_mods() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_mod(new_test_mod("belle")).unwrap();
+
+        let mut gb_mod = new_test_mod("belle");
+        gb_mod.gamebanana_mod_id = Some(608561);
+        gb_mod.gamebanana_file_id = Some(1481954);
+        gb_mod.gamebanana_md5 = Some("old-md5".to_string());
+        let inserted_gb = db.insert_mod(gb_mod).unwrap();
+
+        let gb_mods = db.list_gamebanana_mods().unwrap();
+        assert_eq!(gb_mods.len(), 1);
+        assert_eq!(gb_mods[0].id, inserted_gb.id);
+    }
+
+    #[test]
+    fn set_gamebanana_file_updates_tracked_file_and_md5() {
+        let db = Db::open_in_memory().unwrap();
+        let mut new_mod = new_test_mod("belle");
+        new_mod.gamebanana_mod_id = Some(608561);
+        new_mod.gamebanana_file_id = Some(1481954);
+        new_mod.gamebanana_md5 = Some("old-md5".to_string());
+        let inserted = db.insert_mod(new_mod).unwrap();
+
+        db.set_gamebanana_file(inserted.id, 1775946, "new-md5")
+            .unwrap();
+
+        let fetched = db.get_mod(inserted.id).unwrap().unwrap();
+        assert_eq!(fetched.gamebanana_file_id, Some(1775946));
+        assert_eq!(fetched.gamebanana_md5, Some("new-md5".to_string()));
     }
 }

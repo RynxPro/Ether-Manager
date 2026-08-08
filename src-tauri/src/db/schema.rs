@@ -27,4 +27,15 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     thumbnail_url TEXT,
     added_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS mod_update_checks (
+    mod_id INTEGER PRIMARY KEY,
+    status TEXT NOT NULL,
+    reason TEXT,
+    suggested_file_id INTEGER,
+    suggested_file_name TEXT,
+    is_ambiguous INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    checked_at INTEGER NOT NULL
+);
 ";
