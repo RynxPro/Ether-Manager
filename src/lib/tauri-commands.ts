@@ -157,6 +157,8 @@ export interface GbModDetail {
   date_modified: number;
   is_nsfw: boolean;
   preview_media: GbPreviewMedia;
+  /** Showcase video URLs (YouTube) — separate from `preview_media`'s static screenshots. */
+  embedded_media: string[];
   download_count: number;
   view_count: number;
   like_count: number;

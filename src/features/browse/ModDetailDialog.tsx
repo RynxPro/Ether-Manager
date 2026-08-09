@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils";
 import type { GbFile, GbMod } from "@/lib/tauri-commands";
 import { useGamebananaModDetail } from "./hooks";
@@ -20,8 +21,16 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** GameBanana's `_aEmbeddedMedia` is a list of raw video page URLs (YouTube, confirmed live),
+ * not ready-to-embed ones — this extracts the video id and builds the `/embed/` form. */
+function youtubeEmbedUrl(url: string): string | null {
+  const match = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/.exec(url);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+}
+
 export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialogProps) {
   const { data: detail, isLoading } = useGamebananaModDetail(mod?.id ?? null);
+  const { data: visibility } = useMatureContentVisibility();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
 
@@ -32,8 +41,10 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
     ? DOMPurify.sanitize(detail.description_html)
     : "";
   // The `mod` list record is authoritative — confirmed live that `@gbprofile` never sends
-  // the content-rating fields at all, so `detail.is_mature` always defaults to `false`.
-  const isMature = mod?.is_mature ?? false;
+  // the content-rating fields at all, so `detail.is_mature` always defaults to `false`. Also
+  // gated on the visibility setting, same as BrowseGrid/FeaturedBanner — fixes a bug where this
+  // dialog blurred mature mods unconditionally, ignoring a "Show" preference entirely.
+  const isMature = (visibility ?? "Blur") === "Blur" && (mod?.is_mature ?? false);
 
   return (
     <Dialog
@@ -97,6 +108,35 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {detail.embedded_media.length > 0 && (
+                <div className="space-y-2">
+                  {detail.embedded_media.map((url) => {
+                    const embedUrl = youtubeEmbedUrl(url);
+                    return embedUrl ? (
+                      <iframe
+                        key={url}
+                        src={embedUrl}
+                        title={`${detail.name} showcase video`}
+                        className="aspect-video w-full rounded-lg"
+                        allow="encrypted-media; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary underline"
+                      >
+                        Watch showcase video
+                      </a>
+                    );
+                  })}
                 </div>
               )}
 

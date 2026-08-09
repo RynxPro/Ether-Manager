@@ -139,6 +139,18 @@ fn default_initial_visibility() -> String {
     "show".to_string()
 }
 
+/// `#[serde(default)]` alone only covers a *missing* key — GameBanana sends
+/// `"_aEmbeddedMedia": null` explicitly on mods with no showcase video (confirmed live), which
+/// still fails to deserialize into a bare `Vec<String>` (`null` isn't a sequence). This treats
+/// both "missing" and "present but null" as empty.
+fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::deserialize(deserializer)?.unwrap_or_default())
+}
+
 /// Sort order for the browse (`Mod/Index`) path only — confirmed live against the real API;
 /// arbitrary/other alias strings (e.g. `Generic_Popular`, `Generic_Featured`) return an
 /// `UNKNOWN_SORT` API error, so this enum is deliberately closed to only the values checked.
@@ -260,6 +272,14 @@ pub struct GbModDetail {
     pub is_nsfw: bool,
     #[serde(rename(deserialize = "_aPreviewMedia"), default)]
     pub preview_media: GbPreviewMedia,
+    /// Showcase video URLs (YouTube, confirmed live) — separate from `preview_media`'s static
+    /// screenshots. GameBanana sends `null` (not an absent key) when a mod has none.
+    #[serde(
+        rename(deserialize = "_aEmbeddedMedia"),
+        default,
+        deserialize_with = "deserialize_null_default"
+    )]
+    pub embedded_media: Vec<String>,
     #[serde(rename(deserialize = "_nDownloadCount"))]
     pub download_count: i64,
     #[serde(rename(deserialize = "_nViewCount"))]
@@ -810,6 +830,24 @@ mod tests {
         assert_eq!(detail.id, SAMPLE_MOD_ID);
         assert!(!detail.files.is_empty());
         assert!(detail.files.iter().all(|f| !f.md5_checksum.is_empty()));
+    }
+
+    /// GameBanana sends `"_aEmbeddedMedia": null` (not an absent key) on mods with no showcase
+    /// video — confirmed live on `SAMPLE_MOD_ID`. Pins that the null case deserializes to an
+    /// empty vec rather than erroring, and that a mod confirmed live to have a real YouTube
+    /// showcase embed (2026-08-09) actually parses one.
+    #[tokio::test]
+    async fn get_mod_detail_embedded_media_handles_null_and_a_real_video() {
+        const MOD_WITH_VIDEO_ID: i64 = 611207; // "Yixuan - Summer's Tale"
+
+        let client = GameBananaClient::new();
+
+        let without_video = client.get_mod_detail(SAMPLE_MOD_ID).await.unwrap();
+        assert!(without_video.embedded_media.is_empty());
+
+        let with_video = client.get_mod_detail(MOD_WITH_VIDEO_ID).await.unwrap();
+        assert!(!with_video.embedded_media.is_empty());
+        assert!(with_video.embedded_media[0].contains("youtube.com"));
     }
 
     /// `get_mod_files` must return the same files (by id/md5) as `get_mod_detail`'s `files`
