@@ -417,9 +417,9 @@ mod tests {
     fn insert_fixture_mod(db: &Db, gamebanana_file_id: i64, gamebanana_md5: Option<&str>) -> i64 {
         db.insert_mod(NewMod {
             character_id: "belle".to_string(),
-            slot: Slot::Outfit,
+            slot: Slot::CharacterSkin,
             display_name: "Compact Damage Numbers".to_string(),
-            folder_path: "Characters/belle/Outfit/CompactDamageNumbers".to_string(),
+            folder_path: "Characters/belle/Character Skin/CompactDamageNumbers".to_string(),
             thumbnail_path: None,
             gamebanana_mod_id: Some(SAMPLE_MOD_ID),
             gamebanana_file_id: Some(gamebanana_file_id),
@@ -507,9 +507,9 @@ mod tests {
         let mod_id = db
             .insert_mod(NewMod {
                 character_id: "belle".to_string(),
-                slot: Slot::Outfit,
+                slot: Slot::CharacterSkin,
                 display_name: "No File Id Yet".to_string(),
-                folder_path: "Characters/belle/Outfit/NoFileIdYet".to_string(),
+                folder_path: "Characters/belle/Character Skin/NoFileIdYet".to_string(),
                 thumbnail_path: None,
                 gamebanana_mod_id: Some(SAMPLE_MOD_ID),
                 gamebanana_file_id: None,
@@ -549,7 +549,7 @@ mod tests {
         let current_dir = mods_root
             .join("Characters")
             .join("belle")
-            .join("Outfit")
+            .join("Character Skin")
             .join("CompactDamageNumbers");
         std::fs::create_dir_all(&current_dir).unwrap();
         std::fs::write(current_dir.join("placeholder.txt"), "old content").unwrap();
@@ -602,7 +602,7 @@ mod tests {
         let current_dir = mods_root
             .join("Characters")
             .join("belle")
-            .join("Outfit")
+            .join("Character Skin")
             .join("DISABLED_CompactDamageNumbers");
         std::fs::create_dir_all(&current_dir).unwrap();
 

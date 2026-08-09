@@ -1,12 +1,32 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export type Slot = "Outfit" | "Weapon" | "Hair" | "Other";
+/** `CharacterSkin` is scoped to a real character. `Ui`/`Misc` are scoped to the two
+ * library-wide pseudo-characters ("ui"/"misc") instead — see `UI_CHARACTER_ID`/
+ * `MISC_CHARACTER_ID`. There's deliberately no per-character UI slot: GameBanana doesn't
+ * distinguish a character-specific UI mod from a general one either, so a UI mod always goes in
+ * the global `Ui` bucket regardless of which character (if any) it's themed after. Matches the
+ * Rust `Slot` enum's default serde representation exactly. */
+export type Slot = "CharacterSkin" | "Ui" | "Misc";
 
 /** Sort order for the browse path only — GameBanana's free-text search endpoint ignores sort
  * entirely (confirmed live), so this has no effect while a text query is active. */
 export type ModSort = "LatestUpdated" | "Newest" | "MostLiked" | "MostViewed" | "MostDownloaded";
 
-export const SLOTS: Slot[] = ["Outfit", "Weapon", "Hair", "Other"];
+/** Human-readable label for each `Slot` value — the enum values themselves are plain PascalCase
+ * identifiers (matching Rust), not meant to be displayed directly. */
+export const SLOT_LABELS: Record<Slot, string> = {
+  CharacterSkin: "Character Skin",
+  Ui: "UI",
+  Misc: "Misc",
+};
+
+/** `character_id` values for the two library-wide categories that aren't tied to any real
+ * character — matches `characters::UI_PSEUDO_CHARACTER_ID`/`MISC_PSEUDO_CHARACTER_ID` on the
+ * Rust side. Both are included in `listCharacters()`'s response, appended after the real 60
+ * (kept there for Browse's category filter and the install flow's target picker — Library's own
+ * grid filters them back out since they're rendered as page-level sections instead of cards). */
+export const UI_CHARACTER_ID = "ui";
+export const MISC_CHARACTER_ID = "misc";
 
 export interface Character {
   id: string;

@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SLOTS, type Character, type UpdateCheck } from "@/lib/tauri-commands";
+import type { Character, UpdateCheck } from "@/lib/tauri-commands";
 import { SlotSection } from "./SlotSection";
 import { useModsForCharacter, useUpdateChecks } from "./hooks";
 
@@ -10,6 +10,9 @@ interface CharacterDetailProps {
   onBack: () => void;
 }
 
+/** Every real character has exactly one slot — Character Skin. There's no per-character UI
+ * slot; UI mods (character-themed or not) live in the global UI section on the Library page
+ * instead (see Library.tsx). */
 export function CharacterDetail({ character, onBack }: CharacterDetailProps) {
   const { data: mods, isLoading } = useModsForCharacter(character.id);
   const { data: updateChecks } = useUpdateChecks();
@@ -41,17 +44,12 @@ export function CharacterDetail({ character, onBack }: CharacterDetailProps) {
           <Skeleton className="h-24 w-full" />
         </div>
       ) : (
-        <div className="space-y-8">
-          {SLOTS.map((slot) => (
-            <SlotSection
-              key={slot}
-              characterId={character.id}
-              slot={slot}
-              mods={(mods ?? []).filter((mod) => mod.slot === slot)}
-              updateChecksByModId={updateChecksByModId}
-            />
-          ))}
-        </div>
+        <SlotSection
+          characterId={character.id}
+          slot="CharacterSkin"
+          mods={(mods ?? []).filter((mod) => mod.slot === "CharacterSkin")}
+          updateChecksByModId={updateChecksByModId}
+        />
       )}
     </div>
   );

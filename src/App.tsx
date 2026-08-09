@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
-import { CharacterGrid } from "@/features/library/CharacterGrid";
+import { Library } from "@/features/library/Library";
 import { useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
@@ -95,7 +95,7 @@ function App() {
             onBack={() => setSelectedCharacter(null)}
           />
         ) : (
-          <CharacterGrid onSelect={setSelectedCharacter} />
+          <Library onSelectCharacter={setSelectedCharacter} />
         )}
       </div>
     </main>

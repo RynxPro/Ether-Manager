@@ -6,30 +6,38 @@ use serde::{Deserialize, Serialize};
 
 use super::Db;
 
+/// `CharacterSkin` is scoped to a real character (`character_id` is one of the 60 rows from
+/// `characters::all_characters()`). `Ui`/`Misc` are scoped to the two pseudo-characters
+/// `"ui"`/`"misc"` instead (see `characters::UI_PSEUDO_CHARACTER_ID`/`MISC_PSEUDO_CHARACTER_ID`)
+/// — global categories with no character association. There's deliberately no per-character
+/// "UI" slot: GameBanana doesn't distinguish a character-specific UI mod from a general one at
+/// the category level either (its "UI" root category has no per-character subcategories, unlike
+/// "Character Skins"), so a structural split here would just be a decision the user has to make
+/// with no data to back it up. A UI mod that happens to be for one character goes in the global
+/// `Ui` bucket like any other — its name can say so if it matters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Slot {
-    Outfit,
-    Weapon,
-    Hair,
-    Other,
+    CharacterSkin,
+    Ui,
+    Misc,
 }
 
 impl Slot {
+    /// Used as both the DB TEXT value and the on-disk folder name (spaces are valid in folder
+    /// names on every platform this app targets) — same dual-purpose pattern as before.
     pub(crate) fn as_str(self) -> &'static str {
         match self {
-            Slot::Outfit => "Outfit",
-            Slot::Weapon => "Weapon",
-            Slot::Hair => "Hair",
-            Slot::Other => "Other",
+            Slot::CharacterSkin => "Character Skin",
+            Slot::Ui => "UI",
+            Slot::Misc => "Misc",
         }
     }
 
     fn from_str(value: &str) -> Option<Self> {
         match value {
-            "Outfit" => Some(Slot::Outfit),
-            "Weapon" => Some(Slot::Weapon),
-            "Hair" => Some(Slot::Hair),
-            "Other" => Some(Slot::Other),
+            "Character Skin" => Some(Slot::CharacterSkin),
+            "UI" => Some(Slot::Ui),
+            "Misc" => Some(Slot::Misc),
             _ => None,
         }
     }
@@ -216,9 +224,9 @@ mod tests {
     fn new_test_mod(character_id: &str) -> NewMod {
         NewMod {
             character_id: character_id.to_string(),
-            slot: Slot::Outfit,
+            slot: Slot::CharacterSkin,
             display_name: "Test Outfit".to_string(),
-            folder_path: "Mods/Characters/Belle/Outfit/TestOutfit".to_string(),
+            folder_path: "Mods/Characters/Belle/Character Skin/TestOutfit".to_string(),
             thumbnail_path: None,
             gamebanana_mod_id: None,
             gamebanana_file_id: None,
@@ -233,7 +241,7 @@ mod tests {
 
         let fetched = db.get_mod(inserted.id).unwrap().unwrap();
         assert_eq!(fetched.character_id, "belle");
-        assert_eq!(fetched.slot, Slot::Outfit);
+        assert_eq!(fetched.slot, Slot::CharacterSkin);
         assert_eq!(fetched.display_name, "Test Outfit");
         assert!(!fetched.enabled);
         assert!(fetched.gamebanana_mod_id.is_none());
@@ -299,14 +307,14 @@ mod tests {
 
         db.update_folder_path(
             inserted.id,
-            "Mods/Characters/Belle/Outfit/DISABLED_TestOutfit",
+            "Mods/Characters/Belle/Character Skin/DISABLED_TestOutfit",
         )
         .unwrap();
 
         let fetched = db.get_mod(inserted.id).unwrap().unwrap();
         assert_eq!(
             fetched.folder_path,
-            "Mods/Characters/Belle/Outfit/DISABLED_TestOutfit"
+            "Mods/Characters/Belle/Character Skin/DISABLED_TestOutfit"
         );
     }
 

@@ -10,24 +10,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { SLOTS, type Slot } from "@/lib/tauri-commands";
+import type { Slot } from "@/lib/tauri-commands";
 import { useAddMod } from "./hooks";
 
 interface AddModDialogProps {
   characterId: string;
-  defaultSlot: Slot;
+  /** Fixed, not user-chosen — each caller already represents exactly one slot (a character's
+   * one Character Skin section, or the global UI/Misc sections), so there's nothing to pick. */
+  slot: Slot;
 }
 
-export function AddModDialog({ characterId, defaultSlot }: AddModDialogProps) {
+export function AddModDialog({ characterId, slot }: AddModDialogProps) {
   const [open, setOpen] = useState(false);
-  const [slot, setSlot] = useState<Slot>(defaultSlot);
   const [displayName, setDisplayName] = useState("");
   const [sourcePath, setSourcePath] = useState("");
   const addMod = useAddMod(characterId);
@@ -35,7 +29,6 @@ export function AddModDialog({ characterId, defaultSlot }: AddModDialogProps) {
   function resetAndClose() {
     setDisplayName("");
     setSourcePath("");
-    setSlot(defaultSlot);
     setOpen(false);
   }
 
@@ -70,22 +63,6 @@ export function AddModDialog({ characterId, defaultSlot }: AddModDialogProps) {
                 placeholder="Neon Dream Outfit"
                 required
               />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="mod-slot">Slot</Label>
-              <Select value={slot} onValueChange={(value) => setSlot(value as Slot)}>
-                <SelectTrigger id="mod-slot">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SLOTS.map((slotOption) => (
-                    <SelectItem key={slotOption} value={slotOption}>
-                      {slotOption}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="grid gap-2">

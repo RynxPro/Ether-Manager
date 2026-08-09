@@ -265,7 +265,7 @@ mod tests {
                 gamebanana_mod_id: SAMPLE_MOD_ID,
                 gamebanana_file_id: SAMPLE_FILE_ID,
                 character_id: "belle",
-                slot: Slot::Outfit,
+                slot: Slot::CharacterSkin,
                 display_name: "Compact Damage Numbers Test Install",
             },
             |_, _| false,
@@ -273,7 +273,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(dest_dir.starts_with(mods_root.join("Characters").join("belle").join("Outfit")));
+        assert!(dest_dir.starts_with(mods_root.join("Characters").join("belle").join("Character Skin")));
         assert!(dest_dir.exists());
         assert!(
             dest_dir.read_dir().unwrap().next().is_some(),

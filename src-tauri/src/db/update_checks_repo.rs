@@ -127,9 +127,9 @@ mod tests {
     fn insert_test_mod(db: &Db, character_id: &str) -> i64 {
         db.insert_mod(NewMod {
             character_id: character_id.to_string(),
-            slot: Slot::Outfit,
+            slot: Slot::CharacterSkin,
             display_name: "Test Outfit".to_string(),
-            folder_path: "Mods/Characters/Belle/Outfit/TestOutfit".to_string(),
+            folder_path: "Mods/Characters/Belle/Character Skin/TestOutfit".to_string(),
             thumbnail_path: None,
             gamebanana_mod_id: Some(608561),
             gamebanana_file_id: Some(1481954),

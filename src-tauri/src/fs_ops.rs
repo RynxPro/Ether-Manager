@@ -282,10 +282,10 @@ mod tests {
     #[test]
     fn ensure_character_slot_dir_creates_nested_path() {
         let root = temp_dir("create-dir");
-        let dir = ensure_character_slot_dir(&root, "belle", Slot::Outfit).unwrap();
+        let dir = ensure_character_slot_dir(&root, "belle", Slot::CharacterSkin).unwrap();
 
         assert!(dir.is_dir());
-        assert_eq!(dir, root.join("Characters").join("belle").join("Outfit"));
+        assert_eq!(dir, root.join("Characters").join("belle").join("Character Skin"));
 
         fs::remove_dir_all(&root).unwrap();
     }
@@ -294,9 +294,9 @@ mod tests {
     fn disabling_prefixes_leaf_folder_only() {
         let root = temp_dir("disable");
         let db = Db::open_in_memory().unwrap();
-        let slot_dir = root.join("Characters").join("belle").join("Outfit");
+        let slot_dir = root.join("Characters").join("belle").join("Character Skin");
         let mod_dir = slot_dir.join("pinkdress");
-        let m = insert_mod_with_folder(&db, "belle", Slot::Outfit, &mod_dir);
+        let m = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &mod_dir);
 
         set_mod_enabled(&db, m.id, false).unwrap();
 
@@ -315,9 +315,9 @@ mod tests {
     fn enabling_strips_prefix_from_leaf_folder_only() {
         let root = temp_dir("enable");
         let db = Db::open_in_memory().unwrap();
-        let slot_dir = root.join("Characters").join("belle").join("Outfit");
+        let slot_dir = root.join("Characters").join("belle").join("Character Skin");
         let mod_dir = slot_dir.join("DISABLED_pinkdress");
-        let m = insert_mod_with_folder(&db, "belle", Slot::Outfit, &mod_dir);
+        let m = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &mod_dir);
 
         set_mod_enabled(&db, m.id, true).unwrap();
 
@@ -336,12 +336,12 @@ mod tests {
     fn enabling_second_mod_in_slot_disables_the_first() {
         let root = temp_dir("one-per-slot");
         let db = Db::open_in_memory().unwrap();
-        let slot_dir = root.join("Characters").join("belle").join("Outfit");
+        let slot_dir = root.join("Characters").join("belle").join("Character Skin");
 
         let first_dir = slot_dir.join("neondream");
-        let first = insert_mod_with_folder(&db, "belle", Slot::Outfit, &first_dir);
+        let first = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &first_dir);
         let second_dir = slot_dir.join("schooluniform");
-        let second = insert_mod_with_folder(&db, "belle", Slot::Outfit, &second_dir);
+        let second = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &second_dir);
 
         set_mod_enabled(&db, first.id, true).unwrap();
         assert!(db.get_mod(first.id).unwrap().unwrap().enabled);
@@ -361,28 +361,54 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
     }
 
+    /// A real character only ever has one slot (`CharacterSkin`) now, so "different slots not
+    /// interfering" means different `(character_id, slot)` pairs generally — covered here via
+    /// two different characters, and separately via a character vs. a global pseudo-category
+    /// in `enabling_a_character_mod_and_a_ui_mod_does_not_affect_each_other`.
     #[test]
-    fn enabling_mods_in_different_slots_does_not_affect_each_other() {
+    fn enabling_mods_for_different_characters_does_not_affect_each_other() {
         let root = temp_dir("different-slots");
         let db = Db::open_in_memory().unwrap();
-        let outfit_dir = root
+        let belle_dir = root
             .join("Characters")
             .join("belle")
-            .join("Outfit")
+            .join("Character Skin")
             .join("neondream");
-        let weapon_dir = root
+        let anby_dir = root
+            .join("Characters")
+            .join("anby-demara")
+            .join("Character Skin")
+            .join("goldcatalyst");
+        let belle = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &belle_dir);
+        let anby = insert_mod_with_folder(&db, "anby-demara", Slot::CharacterSkin, &anby_dir);
+
+        set_mod_enabled(&db, belle.id, true).unwrap();
+        set_mod_enabled(&db, anby.id, true).unwrap();
+
+        assert!(db.get_mod(belle.id).unwrap().unwrap().enabled);
+        assert!(db.get_mod(anby.id).unwrap().unwrap().enabled);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn enabling_a_character_mod_and_a_ui_mod_does_not_affect_each_other() {
+        let root = temp_dir("character-vs-ui-slot");
+        let db = Db::open_in_memory().unwrap();
+        let skin_dir = root
             .join("Characters")
             .join("belle")
-            .join("Weapon")
-            .join("goldcatalyst");
-        let outfit = insert_mod_with_folder(&db, "belle", Slot::Outfit, &outfit_dir);
-        let weapon = insert_mod_with_folder(&db, "belle", Slot::Weapon, &weapon_dir);
+            .join("Character Skin")
+            .join("neondream");
+        let ui_dir = root.join("Characters").join("ui").join("UI").join("hudtweak");
+        let skin = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &skin_dir);
+        let ui = insert_mod_with_folder(&db, "ui", Slot::Ui, &ui_dir);
 
-        set_mod_enabled(&db, outfit.id, true).unwrap();
-        set_mod_enabled(&db, weapon.id, true).unwrap();
+        set_mod_enabled(&db, skin.id, true).unwrap();
+        set_mod_enabled(&db, ui.id, true).unwrap();
 
-        assert!(db.get_mod(outfit.id).unwrap().unwrap().enabled);
-        assert!(db.get_mod(weapon.id).unwrap().unwrap().enabled);
+        assert!(db.get_mod(skin.id).unwrap().unwrap().enabled);
+        assert!(db.get_mod(ui.id).unwrap().unwrap().enabled);
 
         fs::remove_dir_all(&root).unwrap();
     }
@@ -391,13 +417,13 @@ mod tests {
     fn character_slot_dir_rejects_path_traversal_attempts() {
         let root = temp_dir("path-traversal");
 
-        assert!(character_slot_dir(&root, "../../../Windows", Slot::Outfit).is_err());
-        assert!(character_slot_dir(&root, "..", Slot::Outfit).is_err());
-        assert!(character_slot_dir(&root, "belle/../../escape", Slot::Outfit).is_err());
-        assert!(character_slot_dir(&root, "belle\\..\\..\\escape", Slot::Outfit).is_err());
-        assert!(character_slot_dir(&root, "", Slot::Outfit).is_err());
+        assert!(character_slot_dir(&root, "../../../Windows", Slot::CharacterSkin).is_err());
+        assert!(character_slot_dir(&root, "..", Slot::CharacterSkin).is_err());
+        assert!(character_slot_dir(&root, "belle/../../escape", Slot::CharacterSkin).is_err());
+        assert!(character_slot_dir(&root, "belle\\..\\..\\escape", Slot::CharacterSkin).is_err());
+        assert!(character_slot_dir(&root, "", Slot::CharacterSkin).is_err());
 
-        assert!(character_slot_dir(&root, "belle", Slot::Outfit).is_ok());
+        assert!(character_slot_dir(&root, "belle", Slot::CharacterSkin).is_ok());
 
         fs::remove_dir_all(&root).unwrap();
     }
@@ -500,11 +526,11 @@ mod tests {
         let mod_dir = root
             .join("Characters")
             .join("belle")
-            .join("Outfit")
+            .join("Character Skin")
             .join("pinkdress");
         fs::create_dir_all(&mod_dir).unwrap();
         fs::write(mod_dir.join("mod.ini"), "test").unwrap();
-        let m = insert_mod_with_folder(&db, "belle", Slot::Outfit, &mod_dir);
+        let m = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &mod_dir);
 
         delete_mod_files(&m).unwrap();
 

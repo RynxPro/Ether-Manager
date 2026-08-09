@@ -1,4 +1,4 @@
-import type { Mod, Slot, UpdateCheck } from "@/lib/tauri-commands";
+import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
 import { useDeleteMod, useToggleMod } from "./hooks";
@@ -18,9 +18,9 @@ export function SlotSection({ characterId, slot, mods, updateChecksByModId }: Sl
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {slot}
+          {SLOT_LABELS[slot]}
         </h3>
-        <AddModDialog characterId={characterId} defaultSlot={slot} />
+        <AddModDialog characterId={characterId} slot={slot} />
       </div>
 
       {mods.length === 0 ? (
