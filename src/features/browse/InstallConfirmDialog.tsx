@@ -28,13 +28,16 @@ import {
   UI_CHARACTER_ID,
   type Character,
   type GbFile,
-  type GbMod,
+  type GbModDetail,
   type Slot,
 } from "@/lib/tauri-commands";
 import { useInstallFromGamebanana } from "./hooks";
 
 interface InstallConfirmDialogProps {
-  mod: GbMod;
+  /** Always a real, freshly fetched detail — never the placeholder `GbMod` Bookmarks uses to
+   * open `ModDetailDialog`, so `detail.category` is reliable regardless of where this dialog
+   * was opened from (Browse or Bookmarks). */
+  detail: GbModDetail;
   file: GbFile;
   onOpenChange: (open: boolean) => void;
   onInstalled: () => void;
@@ -49,17 +52,19 @@ function slotForTarget(characterId: string): Slot {
   return "CharacterSkin";
 }
 
-/** GameBanana's own root category tells us UI/Misc mods directly (confirmed live: `"UI"` and
- * `"Other/Misc"` respectively) — no keyword guessing needed for those two, unlike the character
- * match below (which stays a soft guess, since `sub_category` is inconsistently populated). */
-function guessInstallTarget(mod: GbMod, realCharacters: Character[]): string {
-  if (mod.root_category.name === "UI") return UI_CHARACTER_ID;
-  if (mod.root_category.name === "Other/Misc") return MISC_CHARACTER_ID;
-  return realCharacters.find((character) => character.name === mod.sub_category?.name)?.id ?? "";
+/** `detail.category` is GameBanana's most specific category for this mod — confirmed live it's
+ * literally `"UI"`/`"Other/Misc"` for mods with no further subcategory, and a character's own
+ * name for mods filed under "Character Skins" (which always has one). One check covers all
+ * three cases, from data that's always live-fetched regardless of whether this dialog was
+ * opened from Browse or Bookmarks. */
+function guessInstallTarget(detail: GbModDetail, realCharacters: Character[]): string {
+  if (detail.category.name === "UI") return UI_CHARACTER_ID;
+  if (detail.category.name === "Other/Misc") return MISC_CHARACTER_ID;
+  return realCharacters.find((character) => character.name === detail.category.name)?.id ?? "";
 }
 
 export function InstallConfirmDialog({
-  mod,
+  detail,
   file,
   onOpenChange,
   onInstalled,
@@ -68,10 +73,10 @@ export function InstallConfirmDialog({
   const realCharacters = (characters ?? []).filter(
     (character) => character.id !== UI_CHARACTER_ID && character.id !== MISC_CHARACTER_ID,
   );
-  const guessedCharacterId = guessInstallTarget(mod, realCharacters);
+  const guessedCharacterId = guessInstallTarget(detail, realCharacters);
 
   const [characterId, setCharacterId] = useState(guessedCharacterId);
-  const [displayName, setDisplayName] = useState(mod.name);
+  const [displayName, setDisplayName] = useState(detail.name);
   const install = useInstallFromGamebanana(characterId);
   const { progress, speedBytesPerSec, percent } = useInstallProgress(install.isPending);
 
@@ -80,7 +85,7 @@ export function InstallConfirmDialog({
     if (!characterId) return;
     install.mutate(
       {
-        gamebananaModId: mod.id,
+        gamebananaModId: detail.id,
         gamebananaFileId: file.id,
         characterId,
         slot: slotForTarget(characterId),
@@ -99,7 +104,7 @@ export function InstallConfirmDialog({
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Install {mod.name}</DialogTitle>
+            <DialogTitle>Install {detail.name}</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">

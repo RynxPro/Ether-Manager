@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 
+/** Matches `fs_ops::MOD_FOLDER_MISSING_PREFIX` on the Rust side — every error string toggling
+ * or updating a mod whose folder was deleted/moved outside the app starts with this exact
+ * phrase, so the UI can recognize it and offer "Remove from library" instead of just showing
+ * the raw message. Keep in sync if the Rust constant ever changes. */
+export const MOD_FOLDER_MISSING_PREFIX = "mod folder is missing";
+
 /** `CharacterSkin` is scoped to a real character. `Ui`/`Misc` are scoped to the two
  * library-wide pseudo-characters ("ui"/"misc") instead — see `UI_CHARACTER_ID`/
  * `MISC_CHARACTER_ID`. There's deliberately no per-character UI slot: GameBanana doesn't

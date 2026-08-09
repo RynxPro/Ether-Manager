@@ -7,13 +7,16 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils";
-import type { GbFile, GbMod } from "@/lib/tauri-commands";
+import type { GbFile, GbMod, GbModDetail } from "@/lib/tauri-commands";
 import { useGamebananaModDetail } from "./hooks";
 
 interface ModDetailDialogProps {
   mod: GbMod | null;
   onOpenChange: (open: boolean) => void;
-  onInstall: (file: GbFile) => void;
+  /** Passes the freshly fetched `detail` alongside `file` — unlike the outer `mod` prop (which
+   * can be a placeholder when opened from Bookmarks, missing category/tag data), `detail` is
+   * always a real live fetch, so the install flow's target-guessing reads from this instead. */
+  onInstall: (file: GbFile, detail: GbModDetail) => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -174,7 +177,7 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
                             {formatFileSize(file.file_size)}
                           </p>
                         </div>
-                        <Button type="button" size="sm" onClick={() => onInstall(file)}>
+                        <Button type="button" size="sm" onClick={() => onInstall(file, detail)}>
                           Install
                         </Button>
                       </li>

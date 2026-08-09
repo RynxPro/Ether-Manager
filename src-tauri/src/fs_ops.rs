@@ -9,12 +9,24 @@ use crate::db::{Db, Mod, Slot};
 /// Never applied to parent character/slot folders.
 const DISABLED_PREFIX: &str = "DISABLED_";
 
+/// The exact, stable prefix `FsOpsError::ModFolderMissing`'s `Display` starts with — the
+/// frontend matches on this substring (not the full message, which includes a path) to decide
+/// whether to offer the "Remove from library" recovery action, so keep this in sync with
+/// `src/lib/tauri-commands.ts`'s equivalent constant if it ever changes.
+pub const MOD_FOLDER_MISSING_PREFIX: &str = "mod folder is missing";
+
 #[derive(Debug)]
 pub enum FsOpsError {
     Io(std::io::Error),
     Db(rusqlite::Error),
     NotFound(i64),
     InvalidPath(String),
+    /// The DB says this mod exists at `folder_path`, but nothing is there — most likely the
+    /// user deleted or moved it outside the app. Distinct from `Io` (which would otherwise
+    /// surface as a raw, confusing OS "cannot find the path" error from the *rename* call that
+    /// follows) so the frontend can recognize this specific, recoverable case and offer to just
+    /// remove the now-orphaned DB row instead.
+    ModFolderMissing(PathBuf),
     /// `replace_mod_folder` failed to swap in the new contents AND the automatic rollback of
     /// the original contents also failed. The mod's real files are not lost — they're still
     /// intact at `backup_dir` — but they're no longer at the path the rest of the app expects,
@@ -33,6 +45,11 @@ impl fmt::Display for FsOpsError {
             FsOpsError::Db(e) => write!(f, "database error: {e}"),
             FsOpsError::NotFound(id) => write!(f, "mod {id} not found"),
             FsOpsError::InvalidPath(p) => write!(f, "invalid mod folder path: {p}"),
+            FsOpsError::ModFolderMissing(path) => write!(
+                f,
+                "{MOD_FOLDER_MISSING_PREFIX} (was it deleted or moved outside the app?): {}",
+                path.display()
+            ),
             FsOpsError::SwapAndRollbackFailed {
                 backup_dir,
                 swap_error,
@@ -64,7 +81,12 @@ fn is_disabled_name(name: &str) -> bool {
     name.starts_with(DISABLED_PREFIX)
 }
 
-fn to_disabled_name(name: &str) -> String {
+/// Exposed so a freshly extracted mod's folder can be created already `DISABLED_`-prefixed —
+/// `insert_mod` always starts a new row `enabled = false` (see `mods_repo`), and without this
+/// the on-disk folder would be created with a clean name (i.e. actually *active* to XXMI) while
+/// the DB and UI both say disabled, a real mismatch until the user happened to toggle it off and
+/// back on.
+pub(crate) fn to_disabled_name(name: &str) -> String {
     if is_disabled_name(name) {
         name.to_string()
     } else {
@@ -132,6 +154,9 @@ pub fn ensure_character_slot_dir(
 
 fn set_single_enabled(db: &Db, m: &Mod, enabled: bool) -> Result<(), FsOpsError> {
     let old_path = PathBuf::from(&m.folder_path);
+    if !old_path.exists() {
+        return Err(FsOpsError::ModFolderMissing(old_path));
+    }
     let old_leaf = leaf_name(&old_path)?;
     let new_leaf = if enabled {
         to_enabled_name(old_leaf)
@@ -151,6 +176,16 @@ pub fn set_mod_enabled(db: &Db, mod_id: i64, enabled: bool) -> Result<(), FsOpsE
     let target = db.get_mod(mod_id)?.ok_or(FsOpsError::NotFound(mod_id))?;
 
     if enabled {
+        // Confirm the target can actually be enabled *before* disabling any sibling — otherwise
+        // a target with a missing folder would fail here having already disabled a perfectly
+        // working sibling as a side effect, leaving the slot with nothing enabled at all
+        // (worse than before the call) instead of leaving everything untouched.
+        if !PathBuf::from(&target.folder_path).exists() {
+            return Err(FsOpsError::ModFolderMissing(PathBuf::from(
+                &target.folder_path,
+            )));
+        }
+
         let siblings = db.list_mods_for_character(&target.character_id)?;
         for sibling in siblings
             .into_iter()
@@ -188,6 +223,9 @@ static BACKUP_DIR_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::Ato
 /// left missing or half-swapped, unless the rollback itself also fails, which is reported
 /// distinctly via `FsOpsError::SwapAndRollbackFailed` rather than silently discarded.
 pub fn replace_mod_folder(current_dir: &Path, staging_dir: &Path) -> Result<(), FsOpsError> {
+    if !current_dir.exists() {
+        return Err(FsOpsError::ModFolderMissing(current_dir.to_path_buf()));
+    }
     let leaf = leaf_name(current_dir)?;
     let parent = current_dir
         .parent()
@@ -242,6 +280,16 @@ mod tests {
     use crate::db::{NewMod, Slot};
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    #[test]
+    fn to_disabled_name_prefixes_a_clean_name_and_is_idempotent() {
+        assert_eq!(to_disabled_name("pinkdress"), "DISABLED_pinkdress");
+        assert_eq!(
+            to_disabled_name("DISABLED_pinkdress"),
+            "DISABLED_pinkdress",
+            "must not double-prefix an already-disabled name"
+        );
+    }
+
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn temp_dir(label: &str) -> PathBuf {
@@ -286,6 +334,56 @@ mod tests {
 
         assert!(dir.is_dir());
         assert_eq!(dir, root.join("Characters").join("belle").join("Character Skin"));
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A mod deleted or moved outside the app must fail toggling with a specific, recognizable
+    /// error (so the frontend can offer "Remove from library") — not a raw OS "cannot find the
+    /// path" error from the rename call that would otherwise be the first thing to fail.
+    #[test]
+    fn toggling_a_mod_whose_folder_is_gone_returns_mod_folder_missing() {
+        let root = temp_dir("missing-folder-toggle");
+        let db = Db::open_in_memory().unwrap();
+        let slot_dir = root.join("Characters").join("belle").join("Character Skin");
+        let mod_dir = slot_dir.join("pinkdress");
+        let m = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &mod_dir);
+
+        fs::remove_dir_all(&mod_dir).unwrap();
+
+        let err = set_mod_enabled(&db, m.id, true).unwrap_err();
+        assert!(matches!(err, FsOpsError::ModFolderMissing(_)));
+        assert!(err.to_string().starts_with(MOD_FOLDER_MISSING_PREFIX));
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Caught live while QA-testing the fix above: enabling a mod whose folder is missing must
+    /// fail before touching any sibling — otherwise a doomed enable call would still disable a
+    /// perfectly working sibling as a side effect, leaving the slot worse off than before the
+    /// call (nothing enabled) instead of leaving it untouched.
+    #[test]
+    fn enabling_a_mod_with_a_missing_folder_does_not_disable_a_working_sibling() {
+        let root = temp_dir("missing-folder-enable-sibling");
+        let db = Db::open_in_memory().unwrap();
+        let slot_dir = root.join("Characters").join("belle").join("Character Skin");
+
+        let working_dir = slot_dir.join("neondream");
+        let working = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &working_dir);
+        set_mod_enabled(&db, working.id, true).unwrap();
+
+        let missing_dir = slot_dir.join("schooluniform");
+        let missing = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &missing_dir);
+        fs::remove_dir_all(&missing_dir).unwrap();
+
+        let err = set_mod_enabled(&db, missing.id, true).unwrap_err();
+        assert!(matches!(err, FsOpsError::ModFolderMissing(_)));
+
+        let working_after = db.get_mod(working.id).unwrap().unwrap();
+        assert!(
+            working_after.enabled,
+            "the working sibling must stay enabled when the doomed enable call fails"
+        );
 
         fs::remove_dir_all(&root).unwrap();
     }
@@ -424,6 +522,23 @@ mod tests {
         assert!(character_slot_dir(&root, "", Slot::CharacterSkin).is_err());
 
         assert!(character_slot_dir(&root, "belle", Slot::CharacterSkin).is_ok());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn replace_mod_folder_on_a_missing_current_dir_returns_mod_folder_missing() {
+        let root = temp_dir("replace-missing-current");
+        let current_dir = root.join("MyMod"); // never created
+        let staging_dir = root.join("MyMod-staging");
+        fs::create_dir_all(&staging_dir).unwrap();
+
+        let err = replace_mod_folder(&current_dir, &staging_dir).unwrap_err();
+        assert!(matches!(err, FsOpsError::ModFolderMissing(_)));
+        assert!(
+            staging_dir.exists(),
+            "must fail before touching staging_dir, not partway through"
+        );
 
         fs::remove_dir_all(&root).unwrap();
     }

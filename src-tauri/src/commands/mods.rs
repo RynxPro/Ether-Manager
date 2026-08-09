@@ -75,7 +75,10 @@ pub fn add_mod(
     let slot_dir = fs_ops::ensure_character_slot_dir(&mods_root, &character_id, slot)
         .map_err(|e| e.to_string())?;
 
-    let base_name = slugify_display_name(&display_name);
+    // A newly inserted mod always starts disabled (see insert_mod) — extract straight into a
+    // DISABLED_-prefixed folder so the disk matches that from the start, instead of a clean
+    // name that XXMI would actually treat as active despite the app showing it as off.
+    let base_name = fs_ops::to_disabled_name(&slugify_display_name(&display_name));
     let dest_dir = unique_variant_dir(&slot_dir, &base_name);
 
     let source = PathBuf::from(&source_path);
@@ -130,6 +133,17 @@ mod tests {
     fn slugify_display_name_falls_back_when_nothing_alphanumeric_survives() {
         assert_eq!(slugify_display_name("!!!"), "mod");
         assert_eq!(slugify_display_name(""), "mod");
+    }
+
+    /// `add_mod` builds its destination folder name via
+    /// `fs_ops::to_disabled_name(&slugify_display_name(...))` — pinning that composition here
+    /// since `add_mod` itself takes a Tauri `State` and isn't unit-testable directly.
+    #[test]
+    fn add_mods_folder_naming_produces_an_already_disabled_name() {
+        assert_eq!(
+            fs_ops::to_disabled_name(&slugify_display_name("Pink Dress V2!")),
+            "DISABLED_pink_dress_v2"
+        );
     }
 
     #[test]

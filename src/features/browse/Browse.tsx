@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDebounce } from "@/lib/useDebounce";
-import type { GbFile, GbMod, ModSort } from "@/lib/tauri-commands";
+import type { GbFile, GbMod, GbModDetail, ModSort } from "@/lib/tauri-commands";
 import { BrowseGrid } from "./BrowseGrid";
 import { FeaturedBanner } from "./FeaturedBanner";
 import { InstallConfirmDialog } from "./InstallConfirmDialog";
@@ -16,6 +16,7 @@ export function Browse() {
   const [sort, setSort] = useState<ModSort>("LatestUpdated");
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
   const [installFile, setInstallFile] = useState<GbFile | null>(null);
+  const [installDetail, setInstallDetail] = useState<GbModDetail | null>(null);
 
   return (
     <div className="space-y-6">
@@ -49,19 +50,26 @@ export function Browse() {
         onOpenChange={(open) => {
           if (!open) setSelectedMod(null);
         }}
-        onInstall={setInstallFile}
+        onInstall={(file, detail) => {
+          setInstallFile(file);
+          setInstallDetail(detail);
+        }}
       />
 
-      {selectedMod && installFile && (
+      {installFile && installDetail && (
         <InstallConfirmDialog
-          key={`${selectedMod.id}-${installFile.id}`}
-          mod={selectedMod}
+          key={`${installDetail.id}-${installFile.id}`}
+          detail={installDetail}
           file={installFile}
           onOpenChange={(open) => {
-            if (!open) setInstallFile(null);
+            if (!open) {
+              setInstallFile(null);
+              setInstallDetail(null);
+            }
           }}
           onInstalled={() => {
             setInstallFile(null);
+            setInstallDetail(null);
             setSelectedMod(null);
           }}
         />

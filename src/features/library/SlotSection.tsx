@@ -29,17 +29,32 @@ export function SlotSection({ characterId, slot, mods, updateChecksByModId }: Sl
         </p>
       ) : (
         <div className="space-y-2">
-          {mods.map((mod) => (
-            <ModCard
-              key={mod.id}
-              mod={mod}
-              updateCheck={updateChecksByModId.get(mod.id)}
-              isToggling={toggleMod.isPending}
-              isDeleting={deleteMod.isPending}
-              onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
-              onDelete={() => deleteMod.mutate(mod.id)}
-            />
-          ))}
+          {mods.map((mod) => {
+            // toggleMod/deleteMod are shared across every card in this section — a single
+            // useMutation's pending/error/variables state reflects only the most recent call,
+            // so match it against this card's own mod id before treating it as "this card's".
+            const isThisModToggling = toggleMod.isPending && toggleMod.variables?.modId === mod.id;
+            const isThisModDeleting = deleteMod.isPending && deleteMod.variables === mod.id;
+            const error =
+              toggleMod.isError && toggleMod.variables?.modId === mod.id
+                ? String(toggleMod.error)
+                : deleteMod.isError && deleteMod.variables === mod.id
+                  ? String(deleteMod.error)
+                  : undefined;
+
+            return (
+              <ModCard
+                key={mod.id}
+                mod={mod}
+                updateCheck={updateChecksByModId.get(mod.id)}
+                isToggling={isThisModToggling}
+                isDeleting={isThisModDeleting}
+                error={error}
+                onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
+                onDelete={() => deleteMod.mutate(mod.id)}
+              />
+            );
+          })}
         </div>
       )}
     </section>

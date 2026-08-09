@@ -4,15 +4,15 @@ import { Button } from "@/components/ui/button";
 import { InstallConfirmDialog } from "./InstallConfirmDialog";
 import { ModDetailDialog } from "./ModDetailDialog";
 import { useBookmarks, useRemoveBookmark } from "./hooks";
-import type { Bookmark, GbFile, GbMod } from "@/lib/tauri-commands";
+import type { Bookmark, GbFile, GbMod, GbModDetail } from "@/lib/tauri-commands";
 
-/** `ModDetailDialog`/`InstallConfirmDialog` expect a full `GbMod` (list-record shape), but a
- * bookmark only ever stores id/name/thumbnail — GameBanana's single-mod endpoint has no way to
- * supply the rest (tags, subcategory, live counts) by id alone (confirmed live: `_aTags` and
- * `_aSubCategory` are rejected as `UNKNOWN_PROPERTY` on `Mod/:id`). The fields that fill in here
- * are placeholders only used for the install flow's best-effort, always-user-editable slot/
- * character guess — never displayed or applied silently, same as when a real mod's tags are
- * empty (common; see project notes on GameBanana tag reliability).
+/** `ModDetailDialog` expects a full `GbMod` (list-record shape), but a bookmark only ever
+ * stores id/name/thumbnail — GameBanana's single-mod endpoint has no way to supply the rest
+ * (tags, subcategory, live counts) by id alone (confirmed live: `_aTags` and `_aSubCategory`
+ * are rejected as `UNKNOWN_PROPERTY` on `Mod/:id`). This placeholder only needs to be good
+ * enough for `ModDetailDialog` to fetch the real detail and render — the install flow itself
+ * reads from that live-fetched `GbModDetail` instead (see `onInstall` below), not from this
+ * placeholder, so its category-guessing isn't affected by any of this being empty.
  * `is_mature` is forced `false` deliberately: bookmarking is an active, already-informed choice,
  * so re-blurring something the user already chose to save adds nothing. */
 function bookmarkToPlaceholderGbMod(bookmark: Bookmark): GbMod {
@@ -42,6 +42,7 @@ export function BookmarksView() {
   const removeBookmark = useRemoveBookmark();
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
   const [installFile, setInstallFile] = useState<GbFile | null>(null);
+  const [installDetail, setInstallDetail] = useState<GbModDetail | null>(null);
 
   if (isLoading) {
     return (
@@ -111,19 +112,26 @@ export function BookmarksView() {
         onOpenChange={(open) => {
           if (!open) setSelectedMod(null);
         }}
-        onInstall={setInstallFile}
+        onInstall={(file, detail) => {
+          setInstallFile(file);
+          setInstallDetail(detail);
+        }}
       />
 
-      {selectedMod && installFile && (
+      {installFile && installDetail && (
         <InstallConfirmDialog
-          key={`${selectedMod.id}-${installFile.id}`}
-          mod={selectedMod}
+          key={`${installDetail.id}-${installFile.id}`}
+          detail={installDetail}
           file={installFile}
           onOpenChange={(open) => {
-            if (!open) setInstallFile(null);
+            if (!open) {
+              setInstallFile(null);
+              setInstallDetail(null);
+            }
           }}
           onInstalled={() => {
             setInstallFile(null);
+            setInstallDetail(null);
             setSelectedMod(null);
           }}
         />

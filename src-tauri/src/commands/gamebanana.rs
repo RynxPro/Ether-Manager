@@ -131,7 +131,10 @@ async fn download_and_extract_gamebanana_file(
 
     let slot_dir = fs_ops::ensure_character_slot_dir(mods_root, character_id, slot)
         .map_err(|e| e.to_string())?;
-    let base_name = slugify_display_name(display_name);
+    // A newly inserted mod always starts disabled (see insert_mod) — extract straight into a
+    // DISABLED_-prefixed folder so the disk matches that from the start, instead of a clean
+    // name that XXMI would actually treat as active despite the app showing it as off.
+    let base_name = fs_ops::to_disabled_name(&slugify_display_name(display_name));
     let dest_dir = unique_variant_dir(&slot_dir, &base_name);
 
     let temp_download_path = std::env::temp_dir().join(format!(
@@ -278,6 +281,16 @@ mod tests {
         assert!(
             dest_dir.read_dir().unwrap().next().is_some(),
             "extracted mod folder must not be empty"
+        );
+        assert!(
+            dest_dir
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("DISABLED_"),
+            "a fresh install's folder must already be DISABLED_-prefixed on disk, matching the \
+             disabled row insert_mod is about to create — otherwise XXMI would treat it as \
+             active despite the app showing it as off"
         );
         assert_eq!(file.id, SAMPLE_FILE_ID);
         assert!(!file.md5_checksum.is_empty());
