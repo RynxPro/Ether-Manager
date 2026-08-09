@@ -28,6 +28,12 @@ export function Browse() {
       />
 
       <ModDetailDialog
+        // Keyed by mod id so React remounts (and resets local state — `revealed`,
+        // `activeImageIndex`) on every mod change, regardless of which path closed the
+        // previous dialog. `onInstalled` below closes it via `setSelectedMod(null)` directly
+        // rather than through Radix's `onOpenChange`, so relying on the dialog's own
+        // close-handler reset alone let a mature-content reveal leak across mods.
+        key={selectedMod?.id ?? "none"}
         mod={selectedMod}
         onOpenChange={(open) => {
           if (!open) setSelectedMod(null);

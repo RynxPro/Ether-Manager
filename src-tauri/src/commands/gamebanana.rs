@@ -30,11 +30,22 @@ pub async fn search_gamebanana_mods(
     category_id: Option<i64>,
     page: u32,
 ) -> Result<GbSearchResult, String> {
-    state
+    let visibility_pref = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_mature_content_visibility()
+            .map_err(|e| e.to_string())?
+    };
+
+    let result = state
         .gamebanana
         .search_mods(query.as_deref(), category_id, page)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    Ok(crate::content_rating::apply_visibility(
+        result,
+        visibility_pref,
+    ))
 }
 
 #[tauri::command]

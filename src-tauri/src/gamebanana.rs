@@ -130,6 +130,15 @@ pub struct GbCategoryRef {
     pub profile_url: String,
 }
 
+/// GameBanana omits `_sInitialVisibility` entirely on endpoints that have no opinion on
+/// content rating (confirmed live: `Mod/:id?_csvProperties=@gbprofile` never sends it). An
+/// absent field must fail *open* (treated as `"show"`) rather than blanket-flagging every
+/// record mature — an unrecognized non-`"show"` *value*, by contrast, fails closed. See
+/// `content_rating::is_mature`.
+fn default_initial_visibility() -> String {
+    "show".to_string()
+}
+
 /// A mod as it appears in search/browse list results (`Mod/Index`, `Util/Search/Results`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GbMod {
@@ -161,6 +170,17 @@ pub struct GbMod {
     pub view_count: i64,
     #[serde(rename(deserialize = "_nPostCount"))]
     pub post_count: i64,
+    #[serde(rename(deserialize = "_bHasContentRatings"), default)]
+    pub has_content_ratings: bool,
+    #[serde(
+        rename(deserialize = "_sInitialVisibility"),
+        default = "default_initial_visibility"
+    )]
+    pub initial_visibility: String,
+    /// Computed at parse time by `content_rating::is_mature`, never deserialized directly —
+    /// see `parse_mod_records`, the single place every `GbMod` is annotated.
+    #[serde(default, skip_deserializing)]
+    pub is_mature: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,6 +253,20 @@ pub struct GbModDetail {
     pub description_html: String,
     #[serde(rename(deserialize = "_aFiles"), default)]
     pub files: Vec<GbFile>,
+    /// Confirmed live: `@gbprofile` never sends this — always defaults to `false`. Kept for
+    /// schema symmetry with `GbMod`, but the frontend must not treat it as authoritative; the
+    /// `GbMod` list record the detail dialog already receives as a prop is the real source.
+    #[serde(rename(deserialize = "_bHasContentRatings"), default)]
+    pub has_content_ratings: bool,
+    /// Confirmed live: `@gbprofile` never sends this — always defaults to `"show"`. Same
+    /// caveat as `has_content_ratings` above.
+    #[serde(
+        rename(deserialize = "_sInitialVisibility"),
+        default = "default_initial_visibility"
+    )]
+    pub initial_visibility: String,
+    #[serde(default, skip_deserializing)]
+    pub is_mature: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -271,6 +305,11 @@ pub struct GbSearchResult {
     pub record_count: i64,
     /// `true` once every matching record has been returned across all pages fetched so far.
     pub is_complete: bool,
+    /// How many records this page's `records` omits due to the mature-content preference
+    /// being `Hide`. Always `0` under `Show`/`Blur`. Filtering happens after GameBanana's own
+    /// server-side pagination, so this does *not* mean `record_count`/`is_complete` account
+    /// for it — see `content_rating::apply_visibility`.
+    pub hidden_count: i64,
 }
 
 /// Parses a list-endpoint response body, distinguishing a GameBanana API error from a
@@ -286,6 +325,21 @@ fn parse_list_response(body: &str) -> Result<RawListResponse, GameBananaError> {
             GameBananaError::UnexpectedResponse(body.chars().take(500).collect())
         }
     })
+}
+
+/// The single place a raw `serde_json::Value` becomes a `GbMod` — used by both
+/// `search_by_text` and `browse_by_category` so `is_mature` can never be forgotten on one
+/// path but not the other. Records that fail to deserialize are silently dropped, matching
+/// the pre-existing behavior of both call sites.
+fn parse_mod_records(values: Vec<serde_json::Value>) -> Vec<GbMod> {
+    values
+        .into_iter()
+        .filter_map(|v| serde_json::from_value::<GbMod>(v).ok())
+        .map(|mut m| {
+            m.is_mature = crate::content_rating::is_mature(&m.initial_visibility);
+            m
+        })
+        .collect()
 }
 
 pub struct GameBananaClient {
@@ -349,16 +403,17 @@ impl GameBananaClient {
             .await?;
         let raw = parse_list_response(&body)?;
 
-        let records: Vec<GbMod> = raw
+        let mod_values: Vec<serde_json::Value> = raw
             .records
             .into_iter()
             .filter(|v| v.get("_sModelName").and_then(|m| m.as_str()) == Some("Mod"))
-            .filter_map(|v| serde_json::from_value(v).ok())
             .collect();
+        let records = parse_mod_records(mod_values);
 
         Ok(GbSearchResult {
             record_count: records.len() as i64,
             is_complete: raw.metadata.is_complete,
+            hidden_count: 0,
             records,
         })
     }
@@ -387,17 +442,13 @@ impl GameBananaClient {
             .text()
             .await?;
         let raw = parse_list_response(&body)?;
-
-        let records: Vec<GbMod> = raw
-            .records
-            .into_iter()
-            .filter_map(|v| serde_json::from_value(v).ok())
-            .collect();
+        let records = parse_mod_records(raw.records);
 
         Ok(GbSearchResult {
             records,
             record_count: raw.metadata.record_count,
             is_complete: raw.metadata.is_complete,
+            hidden_count: 0,
         })
     }
 
@@ -442,6 +493,7 @@ impl GameBananaClient {
             detail.description = text_fields.description;
         }
 
+        detail.is_mature = crate::content_rating::is_mature(&detail.initial_visibility);
         Ok(detail)
     }
 
@@ -612,6 +664,9 @@ mod tests {
             like_count: 0,
             view_count: 0,
             post_count: 0,
+            has_content_ratings: false,
+            initial_visibility: "show".to_string(),
+            is_mature: false,
         };
 
         let json = serde_json::to_string(&m).unwrap();
@@ -651,6 +706,47 @@ mod tests {
             "expected at least one record with a non-empty preview_media.images, got 0 of {}",
             result.records.len()
         );
+    }
+
+    /// Every record from both search paths must have a non-empty `initial_visibility` and an
+    /// `is_mature` that agrees with `content_rating::is_mature` — this is the invariant
+    /// `parse_mod_records` exists to guarantee (see its doc comment).
+    #[tokio::test]
+    async fn search_records_have_is_mature_agreeing_with_initial_visibility() {
+        let client = GameBananaClient::new();
+
+        let browse = client.search_mods(None, None, 1).await.unwrap();
+        assert!(!browse.records.is_empty());
+        for m in &browse.records {
+            assert!(!m.initial_visibility.is_empty());
+            assert_eq!(
+                m.is_mature,
+                crate::content_rating::is_mature(&m.initial_visibility)
+            );
+        }
+
+        let search = client.search_mods(Some("Belle"), None, 1).await.unwrap();
+        assert!(!search.records.is_empty());
+        for m in &search.records {
+            assert!(!m.initial_visibility.is_empty());
+            assert_eq!(
+                m.is_mature,
+                crate::content_rating::is_mature(&m.initial_visibility)
+            );
+        }
+    }
+
+    /// `Mod/:id?_csvProperties=@gbprofile` was confirmed live (2026-08-08) to never send
+    /// `_bHasContentRatings`/`_sInitialVisibility` at all — this pins that absence fails open
+    /// (`initial_visibility` defaults to `"show"`, `is_mature` defaults to `false`) rather than
+    /// blanket-flagging every mod detail page as mature.
+    #[tokio::test]
+    async fn get_mod_detail_defaults_content_rating_fields_when_the_endpoint_omits_them() {
+        let client = GameBananaClient::new();
+        let detail = client.get_mod_detail(SAMPLE_MOD_ID).await.unwrap();
+
+        assert_eq!(detail.initial_visibility, "show");
+        assert!(!detail.is_mature);
     }
 
     #[tokio::test]

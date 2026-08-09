@@ -5,6 +5,7 @@ import { CharacterDetail } from "@/features/library/CharacterDetail";
 import { CharacterGrid } from "@/features/library/CharacterGrid";
 import { useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
+import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import type { Character } from "@/lib/tauri-commands";
 
 type View = "library" | "browse";
@@ -37,6 +38,8 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <SettingsDialog />
+
             <div className="flex flex-col items-end gap-1">
               <Button
                 type="button"

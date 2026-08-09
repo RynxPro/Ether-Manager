@@ -1,9 +1,11 @@
 import DOMPurify from "dompurify";
 import { useState } from "react";
+import { MatureContentShield } from "@/components/MatureContentShield";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { GbFile, GbMod } from "@/lib/tauri-commands";
 import { useGamebananaModDetail } from "./hooks";
 
@@ -21,6 +23,7 @@ function formatFileSize(bytes: number): string {
 export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialogProps) {
   const { data: detail, isLoading } = useGamebananaModDetail(mod?.id ?? null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
 
   const open = mod !== null;
   const images = detail?.preview_media.images ?? [];
@@ -28,6 +31,9 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
   const sanitizedDescription = detail?.description_html
     ? DOMPurify.sanitize(detail.description_html)
     : "";
+  // The `mod` list record is authoritative — confirmed live that `@gbprofile` never sends
+  // the content-rating fields at all, so `detail.is_mature` always defaults to `false`.
+  const isMature = mod?.is_mature ?? false;
 
   return (
     <Dialog
@@ -35,6 +41,7 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
       onOpenChange={(next) => {
         if (!next) {
           setActiveImageIndex(0);
+          setRevealed(false);
           onOpenChange(false);
         }
       }}
@@ -55,11 +62,18 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
             <div className="max-h-[70vh] space-y-4 overflow-y-auto py-2">
               {activeImage && (
                 <div className="space-y-2">
-                  <img
-                    src={`${activeImage.base_url}/${activeImage.file}`}
-                    alt={detail.name}
-                    className="aspect-video w-full rounded-lg object-cover"
-                  />
+                  <MatureContentShield
+                    isBlurred={isMature}
+                    revealed={revealed}
+                    onReveal={() => setRevealed(true)}
+                    className="aspect-video w-full rounded-lg"
+                  >
+                    <img
+                      src={`${activeImage.base_url}/${activeImage.file}`}
+                      alt={detail.name}
+                      className="aspect-video w-full rounded-lg object-cover"
+                    />
+                  </MatureContentShield>
                   {images.length > 1 && (
                     <div className="flex gap-2 overflow-x-auto">
                       {images.map((image, index) => (
@@ -74,7 +88,10 @@ export function ModDetailDialog({ mod, onOpenChange, onInstall }: ModDetailDialo
                           <img
                             src={`${image.base_url}/${image.file_220 ?? image.file}`}
                             alt=""
-                            className="h-full w-full object-cover"
+                            className={cn(
+                              "h-full w-full object-cover transition-all",
+                              isMature && !revealed && "scale-110 blur-md",
+                            )}
                           />
                         </button>
                       ))}

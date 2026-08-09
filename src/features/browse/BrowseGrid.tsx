@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMatureContentVisibility } from "@/features/settings/hooks";
 import type { GbMod } from "@/lib/tauri-commands";
 import { GameBananaModCard } from "./GameBananaModCard";
 import { useAddBookmark, useBookmarks, useRemoveBookmark, useSearchGamebananaMods } from "./hooks";
@@ -24,6 +25,7 @@ export function BrowseGrid({ query, categoryId, onSelectMod }: BrowseGridProps) 
     page,
   );
   const { data: bookmarks } = useBookmarks();
+  const { data: visibility } = useMatureContentVisibility();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
 
@@ -60,9 +62,16 @@ export function BrowseGrid({ query, categoryId, onSelectMod }: BrowseGridProps) 
   }
 
   const records = data?.records ?? [];
+  const hiddenCount = data?.hidden_count ?? 0;
 
   if (records.length === 0) {
-    return <p className="text-sm text-muted-foreground">No mods found.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        {hiddenCount > 0
+          ? `All ${hiddenCount} mods on this page are hidden by your mature-content setting.`
+          : "No mods found."}
+      </p>
+    );
   }
 
   return (
@@ -73,11 +82,21 @@ export function BrowseGrid({ query, categoryId, onSelectMod }: BrowseGridProps) 
             key={mod.id}
             mod={mod}
             isBookmarked={bookmarkedIds.has(mod.id)}
+            // Fail closed while the preference is still loading or its query errored —
+            // `visibility` is `undefined` in both cases, which must never mean "treat as
+            // Show" given DEFAULT is Blur everywhere else in this app.
+            isBlurred={(visibility ?? "Blur") === "Blur" && mod.is_mature}
             onSelect={() => onSelectMod(mod)}
             onToggleBookmark={() => handleToggleBookmark(mod)}
           />
         ))}
       </div>
+
+      {hiddenCount > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {hiddenCount} mod{hiddenCount === 1 ? "" : "s"} hidden by your mature-content setting.
+        </p>
+      )}
 
       <div className="flex items-center justify-between">
         <Button

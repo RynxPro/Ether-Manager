@@ -121,6 +121,10 @@ export interface GbMod {
   like_count: number;
   view_count: number;
   post_count: number;
+  has_content_ratings: boolean;
+  initial_visibility: string;
+  /** Computed backend-side from `initial_visibility` — see `content_rating::is_mature`. */
+  is_mature: boolean;
 }
 
 export interface GbFile {
@@ -157,12 +161,21 @@ export interface GbModDetail {
   description: string;
   description_html: string;
   files: GbFile[];
+  /** Always `false`/`"show"` in practice — `@gbprofile` never sends these fields (confirmed
+   * live). Not authoritative; prefer the `GbMod` list record already passed to the detail
+   * dialog as a prop. */
+  has_content_ratings: boolean;
+  initial_visibility: string;
+  is_mature: boolean;
 }
 
 export interface GbSearchResult {
   records: GbMod[];
   record_count: number;
   is_complete: boolean;
+  /** How many records this page omitted because they're mature and the preference is
+   * `"Hide"`. Always `0` under `"Show"`/`"Blur"`. */
+  hidden_count: number;
 }
 
 export interface Bookmark {
@@ -277,4 +290,16 @@ export function listUpdateChecks(): Promise<UpdateCheck[]> {
  * `cancelGamebananaInstall` as `installFromGamebanana`. */
 export function updateInstalledMod(modId: number, gamebananaFileId: number): Promise<Mod> {
   return invoke("update_installed_mod", { modId, gamebananaFileId });
+}
+
+export type MatureVisibility = "Show" | "Blur" | "Hide";
+
+/** No stored preference (fresh install, or any pre-Milestone-4 database) resolves to `"Blur"`
+ * — see `content_rating::MatureVisibility::DEFAULT` for why. */
+export function getMatureContentVisibility(): Promise<MatureVisibility> {
+  return invoke("get_mature_content_visibility");
+}
+
+export function setMatureContentVisibility(value: MatureVisibility): Promise<void> {
+  return invoke("set_mature_content_visibility", { value });
 }
