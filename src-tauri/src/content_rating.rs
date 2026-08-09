@@ -224,7 +224,10 @@ mod tests {
     #[tokio::test]
     async fn apply_visibility_against_a_real_fetched_page() {
         let client = crate::gamebanana::GameBananaClient::new();
-        let result = client.search_mods(None, None, 1).await.unwrap();
+        let result = client
+            .search_mods(None, None, crate::gamebanana::ModSort::default(), 1)
+            .await
+            .unwrap();
         assert!(!result.records.is_empty());
         let mature_count = result.records.iter().filter(|m| m.is_mature).count();
 

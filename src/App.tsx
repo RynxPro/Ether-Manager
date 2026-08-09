@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
 import { CharacterGrid } from "@/features/library/CharacterGrid";
@@ -8,7 +9,7 @@ import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import type { Character } from "@/lib/tauri-commands";
 
-type View = "library" | "browse";
+type View = "library" | "browse" | "bookmarks";
 
 function App() {
   const { data: modsFolder, isLoading } = useModsFolder();
@@ -72,12 +73,22 @@ function App() {
               >
                 Browse
               </Button>
+              <Button
+                type="button"
+                variant={view === "bookmarks" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setView("bookmarks")}
+              >
+                Bookmarks
+              </Button>
             </div>
           </div>
         </header>
 
         {view === "browse" ? (
           <Browse />
+        ) : view === "bookmarks" ? (
+          <BookmarksView />
         ) : selectedCharacter ? (
           <CharacterDetail
             character={selectedCharacter}

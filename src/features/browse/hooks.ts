@@ -7,16 +7,18 @@ import {
   removeBookmark,
   searchGamebananaMods,
   type InstallFromGamebananaInput,
+  type ModSort,
 } from "@/lib/tauri-commands";
 
 export function useSearchGamebananaMods(
   query: string | null,
   categoryId: number | null,
+  sort: ModSort,
   page: number,
 ) {
   return useQuery({
-    queryKey: ["gbSearch", query, categoryId, page],
-    queryFn: () => searchGamebananaMods(query, categoryId, page),
+    queryKey: ["gbSearch", query, categoryId, sort, page],
+    queryFn: () => searchGamebananaMods(query, categoryId, sort, page),
   });
 }
 

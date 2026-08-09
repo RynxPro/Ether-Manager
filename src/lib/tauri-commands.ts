@@ -2,6 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type Slot = "Outfit" | "Weapon" | "Hair" | "Other";
 
+/** Sort order for the browse path only — GameBanana's free-text search endpoint ignores sort
+ * entirely (confirmed live), so this has no effect while a text query is active. */
+export type ModSort = "LatestUpdated" | "Newest" | "MostLiked" | "MostViewed" | "MostDownloaded";
+
 export const SLOTS: Slot[] = ["Outfit", "Weapon", "Hair", "Other"];
 
 export interface Character {
@@ -193,13 +197,15 @@ export interface InstallFromGamebananaInput {
   displayName: string;
 }
 
-/** Browses ZZZ mods. With `query`, free-text searches; otherwise browses `categoryId` (or all ZZZ mods if null). */
+/** Browses ZZZ mods. With `query`, free-text searches (ignores `sort`); otherwise browses
+ * `categoryId` (or all ZZZ mods if null) ordered by `sort`. */
 export function searchGamebananaMods(
   query: string | null,
   categoryId: number | null,
+  sort: ModSort,
   page: number,
 ): Promise<GbSearchResult> {
-  return invoke("search_gamebanana_mods", { query, categoryId, page });
+  return invoke("search_gamebanana_mods", { query, categoryId, sort, page });
 }
 
 export function getGamebananaModDetail(modId: number): Promise<GbModDetail> {

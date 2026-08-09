@@ -1,29 +1,40 @@
 import { useState } from "react";
-import type { GbFile, GbMod } from "@/lib/tauri-commands";
+import { useDebounce } from "@/lib/useDebounce";
+import type { GbFile, GbMod, ModSort } from "@/lib/tauri-commands";
 import { BrowseGrid } from "./BrowseGrid";
+import { FeaturedBanner } from "./FeaturedBanner";
 import { InstallConfirmDialog } from "./InstallConfirmDialog";
 import { ModDetailDialog } from "./ModDetailDialog";
 import { SearchBar } from "./SearchBar";
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function Browse() {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [sort, setSort] = useState<ModSort>("LatestUpdated");
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
   const [installFile, setInstallFile] = useState<GbFile | null>(null);
 
   return (
     <div className="space-y-6">
+      <FeaturedBanner onSelectMod={setSelectedMod} />
+
       <SearchBar
         query={query}
         onQueryChange={setQuery}
         categoryId={categoryId}
         onCategoryChange={setCategoryId}
+        sort={sort}
+        onSortChange={setSort}
       />
 
       <BrowseGrid
-        key={`${query.trim()}-${categoryId ?? "all"}`}
-        query={query}
+        key={`${debouncedQuery.trim()}-${categoryId ?? "all"}-${sort}`}
+        query={debouncedQuery}
         categoryId={categoryId}
+        sort={sort}
         onSelectMod={setSelectedMod}
       />
 

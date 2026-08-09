@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
-import type { GbMod } from "@/lib/tauri-commands";
+import type { GbMod, ModSort } from "@/lib/tauri-commands";
 import { GameBananaModCard } from "./GameBananaModCard";
 import { useAddBookmark, useBookmarks, useRemoveBookmark, useSearchGamebananaMods } from "./hooks";
 
 interface BrowseGridProps {
   query: string;
   categoryId: number | null;
+  sort: ModSort;
   onSelectMod: (mod: GbMod) => void;
 }
 
@@ -17,11 +18,12 @@ function thumbnailUrlFor(mod: GbMod): string | null {
   return image ? `${image.base_url}/${image.file}` : null;
 }
 
-export function BrowseGrid({ query, categoryId, onSelectMod }: BrowseGridProps) {
+export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridProps) {
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error } = useSearchGamebananaMods(
     query.trim() || null,
     categoryId,
+    sort,
     page,
   );
   const { data: bookmarks } = useBookmarks();

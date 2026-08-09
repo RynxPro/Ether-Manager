@@ -139,6 +139,31 @@ fn default_initial_visibility() -> String {
     "show".to_string()
 }
 
+/// Sort order for the browse (`Mod/Index`) path only — confirmed live against the real API;
+/// arbitrary/other alias strings (e.g. `Generic_Popular`, `Generic_Featured`) return an
+/// `UNKNOWN_SORT` API error, so this enum is deliberately closed to only the values checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ModSort {
+    #[default]
+    LatestUpdated,
+    Newest,
+    MostLiked,
+    MostViewed,
+    MostDownloaded,
+}
+
+impl ModSort {
+    fn as_query_value(self) -> &'static str {
+        match self {
+            ModSort::LatestUpdated => "Generic_LatestModified",
+            ModSort::Newest => "Generic_Newest",
+            ModSort::MostLiked => "Generic_MostLiked",
+            ModSort::MostViewed => "Generic_MostViewed",
+            ModSort::MostDownloaded => "Generic_MostDownloaded",
+        }
+    }
+}
+
 /// A mod as it appears in search/browse list results (`Mod/Index`, `Util/Search/Results`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GbMod {
@@ -253,17 +278,15 @@ pub struct GbModDetail {
     pub description_html: String,
     #[serde(rename(deserialize = "_aFiles"), default)]
     pub files: Vec<GbFile>,
-    /// Confirmed live: `@gbprofile` never sends this — always defaults to `false`. Kept for
-    /// schema symmetry with `GbMod`, but the frontend must not treat it as authoritative; the
-    /// `GbMod` list record the detail dialog already receives as a prop is the real source.
-    #[serde(rename(deserialize = "_bHasContentRatings"), default)]
+    /// Confirmed live: `Mod/:id` rejects `_bHasContentRatings`/`_sInitialVisibility` outright
+    /// (`UNKNOWN_PROPERTY`) — those two fields only exist on list/search records (`GbMod`).
+    /// Kept here for schema symmetry only; always `false`. `is_mature` below is the real,
+    /// accurate signal for this type — it comes from `_bIsNsfw` (`is_nsfw`), which the
+    /// single-mod endpoint does support.
+    #[serde(default)]
     pub has_content_ratings: bool,
-    /// Confirmed live: `@gbprofile` never sends this — always defaults to `"show"`. Same
-    /// caveat as `has_content_ratings` above.
-    #[serde(
-        rename(deserialize = "_sInitialVisibility"),
-        default = "default_initial_visibility"
-    )]
+    /// See `has_content_ratings` — kept for schema symmetry only, always `"show"`.
+    #[serde(default = "default_initial_visibility")]
     pub initial_visibility: String,
     #[serde(default, skip_deserializing)]
     pub is_mature: bool,
@@ -367,19 +390,22 @@ impl GameBananaClient {
 
     /// Searches for ZZZ mods. With `query`, hits GameBanana's free-text search endpoint
     /// (`Util/Search/Results`) and filters client-side to `Mod`-type records, since that
-    /// endpoint mixes submission types and doesn't support a category filter. Without a
-    /// query, browses `Mod/Index` filtered to ZZZ (and `category_id`, if given) — this is
-    /// the endpoint that actually respects `_aFilters[Generic_Category]`; the more obvious
-    /// `Game/:id/Subfeed` browse endpoint was confirmed live to silently ignore that filter.
+    /// endpoint mixes submission types and doesn't support a category filter (or `sort` —
+    /// `_sSort` is silently ignored there, confirmed live, so `sort` only affects the no-query
+    /// path below). Without a query, browses `Mod/Index` filtered to ZZZ (and `category_id`, if
+    /// given) — this is the endpoint that actually respects `_aFilters[Generic_Category]`; the
+    /// more obvious `Game/:id/Subfeed` browse endpoint was confirmed live to silently ignore
+    /// that filter.
     pub async fn search_mods(
         &self,
         query: Option<&str>,
         category_id: Option<i64>,
+        sort: ModSort,
         page: u32,
     ) -> Result<GbSearchResult, GameBananaError> {
         match query.map(str::trim).filter(|q| !q.is_empty()) {
             Some(q) => self.search_by_text(q, page).await,
-            None => self.browse_by_category(category_id, page).await,
+            None => self.browse_by_category(category_id, sort, page).await,
         }
     }
 
@@ -421,12 +447,14 @@ impl GameBananaClient {
     async fn browse_by_category(
         &self,
         category_id: Option<i64>,
+        sort: ModSort,
         page: u32,
     ) -> Result<GbSearchResult, GameBananaError> {
         // GameBanana defaults Mod/Index to 5 records per page (confirmed live); request a
         // larger, browse-friendly page size explicitly instead.
         let mut url = format!(
-            "{BASE_URL}/Mod/Index?_nPage={page}&_nPerpage={MOD_INDEX_PAGE_SIZE}&_sSort=Generic_LatestModified&_aFilters%5BGeneric_Game%5D={ZZZ_GAME_ID}"
+            "{BASE_URL}/Mod/Index?_nPage={page}&_nPerpage={MOD_INDEX_PAGE_SIZE}&_sSort={}&_aFilters%5BGeneric_Game%5D={ZZZ_GAME_ID}",
+            sort.as_query_value()
         );
         if let Some(id) = category_id {
             url.push_str(&format!("&_aFilters%5BGeneric_Category%5D={id}"));
@@ -493,7 +521,10 @@ impl GameBananaClient {
             detail.description = text_fields.description;
         }
 
-        detail.is_mature = crate::content_rating::is_mature(&detail.initial_visibility);
+        // Unlike list/search records, `Mod/:id` has no `_bHasContentRatings`/
+        // `_sInitialVisibility` to run through `content_rating::is_mature` — but it does send
+        // `_bIsNsfw` (`is_nsfw`, deserialized above), which is the accurate signal here.
+        detail.is_mature = detail.is_nsfw;
         Ok(detail)
     }
 
@@ -609,7 +640,7 @@ mod tests {
     async fn browse_by_category_returns_only_matching_zzz_mods() {
         let client = GameBananaClient::new();
         let result = client
-            .search_mods(None, Some(BELLE_CATEGORY_ID), 1)
+            .search_mods(None, Some(BELLE_CATEGORY_ID), ModSort::default(), 1)
             .await
             .unwrap();
 
@@ -622,7 +653,7 @@ mod tests {
     #[tokio::test]
     async fn browse_by_category_returns_more_than_gamebananas_default_page_size() {
         let client = GameBananaClient::new();
-        let result = client.search_mods(None, None, 1).await.unwrap();
+        let result = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
 
         assert!(
             result.records.len() > 5,
@@ -679,7 +710,7 @@ mod tests {
     #[tokio::test]
     async fn text_search_filters_to_mod_type_records_only() {
         let client = GameBananaClient::new();
-        let result = client.search_mods(Some("Belle"), None, 1).await.unwrap();
+        let result = client.search_mods(Some("Belle"), None, ModSort::default(), 1).await.unwrap();
 
         assert!(!result.records.is_empty());
         // Every returned record must be a real, installable Mod — the raw search endpoint
@@ -691,7 +722,7 @@ mod tests {
     async fn browse_by_category_records_include_preview_images() {
         let client = GameBananaClient::new();
         let result = client
-            .search_mods(None, Some(BELLE_CATEGORY_ID), 1)
+            .search_mods(None, Some(BELLE_CATEGORY_ID), ModSort::default(), 1)
             .await
             .unwrap();
 
@@ -715,7 +746,7 @@ mod tests {
     async fn search_records_have_is_mature_agreeing_with_initial_visibility() {
         let client = GameBananaClient::new();
 
-        let browse = client.search_mods(None, None, 1).await.unwrap();
+        let browse = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
         assert!(!browse.records.is_empty());
         for m in &browse.records {
             assert!(!m.initial_visibility.is_empty());
@@ -725,7 +756,7 @@ mod tests {
             );
         }
 
-        let search = client.search_mods(Some("Belle"), None, 1).await.unwrap();
+        let search = client.search_mods(Some("Belle"), None, ModSort::default(), 1).await.unwrap();
         assert!(!search.records.is_empty());
         for m in &search.records {
             assert!(!m.initial_visibility.is_empty());
@@ -736,17 +767,39 @@ mod tests {
         }
     }
 
-    /// `Mod/:id?_csvProperties=@gbprofile` was confirmed live (2026-08-08) to never send
-    /// `_bHasContentRatings`/`_sInitialVisibility` at all — this pins that absence fails open
-    /// (`initial_visibility` defaults to `"show"`, `is_mature` defaults to `false`) rather than
-    /// blanket-flagging every mod detail page as mature.
+    /// `Mod/:id?_csvProperties=@gbprofile` was confirmed live (2026-08-08) to reject
+    /// `_bHasContentRatings`/`_sInitialVisibility` outright (`UNKNOWN_PROPERTY`) — those two
+    /// fields only exist on list/search records. This pins that they still fail open to safe
+    /// defaults on `GbModDetail` (`initial_visibility` = `"show"`, `has_content_ratings` =
+    /// `false`) even though nothing populates them anymore.
     #[tokio::test]
-    async fn get_mod_detail_defaults_content_rating_fields_when_the_endpoint_omits_them() {
+    async fn get_mod_detail_defaults_unavailable_content_rating_fields() {
         let client = GameBananaClient::new();
         let detail = client.get_mod_detail(SAMPLE_MOD_ID).await.unwrap();
 
         assert_eq!(detail.initial_visibility, "show");
-        assert!(!detail.is_mature);
+        assert!(!detail.has_content_ratings);
+    }
+
+    /// `is_mature` on `GbModDetail` comes from `_bIsNsfw`, which (unlike the content-rating
+    /// fields above) the single-mod endpoint does support — confirmed live 2026-08-09. Finds a
+    /// mod the live browse feed already flags mature and checks `get_mod_detail` agrees, rather
+    /// than hardcoding a specific mod id that could stop being mature later.
+    #[tokio::test]
+    async fn get_mod_detail_is_mature_agrees_with_is_nsfw() {
+        let client = GameBananaClient::new();
+
+        let browse = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
+        let mature_record = browse
+            .records
+            .iter()
+            .find(|m| m.is_mature)
+            .expect("expected at least one mature record on the live ZZZ browse feed");
+
+        let detail = client.get_mod_detail(mature_record.id).await.unwrap();
+        assert!(detail.is_nsfw);
+        assert!(detail.is_mature);
+        assert_eq!(detail.is_mature, detail.is_nsfw);
     }
 
     #[tokio::test]

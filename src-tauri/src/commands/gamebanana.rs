@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::mods::{slugify_display_name, unique_variant_dir};
 use crate::db::{Bookmark, Mod, NewBookmark, NewMod, Slot};
-use crate::gamebanana::{GameBananaClient, GbFile, GbModDetail, GbSearchResult};
+use crate::gamebanana::{GameBananaClient, GbFile, GbModDetail, GbSearchResult, ModSort};
 use crate::{archive, fs_ops, AppState};
 
 /// How often progress events are emitted at most, so a fast connection delivering many small
@@ -28,6 +28,7 @@ pub async fn search_gamebanana_mods(
     state: State<'_, AppState>,
     query: Option<String>,
     category_id: Option<i64>,
+    sort: ModSort,
     page: u32,
 ) -> Result<GbSearchResult, String> {
     let visibility_pref = {
@@ -38,7 +39,7 @@ pub async fn search_gamebanana_mods(
 
     let result = state
         .gamebanana
-        .search_mods(query.as_deref(), category_id, page)
+        .search_mods(query.as_deref(), category_id, sort, page)
         .await
         .map_err(|e| e.to_string())?;
 

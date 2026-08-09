@@ -7,14 +7,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { ModSort } from "@/lib/tauri-commands";
 
 const ALL_CHARACTERS_VALUE = "all";
+
+const SORT_OPTIONS: { value: ModSort; label: string }[] = [
+  { value: "LatestUpdated", label: "Latest Updated" },
+  { value: "Newest", label: "Newest" },
+  { value: "MostLiked", label: "Most Liked" },
+  { value: "MostViewed", label: "Most Viewed" },
+  { value: "MostDownloaded", label: "Most Downloaded" },
+];
 
 interface SearchBarProps {
   query: string;
   onQueryChange: (query: string) => void;
   categoryId: number | null;
   onCategoryChange: (categoryId: number | null) => void;
+  sort: ModSort;
+  onSortChange: (sort: ModSort) => void;
 }
 
 export function SearchBar({
@@ -22,7 +33,10 @@ export function SearchBar({
   onQueryChange,
   categoryId,
   onCategoryChange,
+  sort,
+  onSortChange,
 }: SearchBarProps) {
+  const isTextSearchActive = query.trim().length > 0;
   const { data: characters } = useCharacters();
   const filterableCharacters = (characters ?? []).filter(
     (character) => character.gamebanana_category_id !== null,
@@ -61,6 +75,27 @@ export function SearchBar({
           ))}
         </SelectContent>
       </Select>
+      <div className="flex flex-col gap-1">
+        <Select
+          value={sort}
+          onValueChange={(value) => onSortChange(value as ModSort)}
+          disabled={isTextSearchActive}
+        >
+          <SelectTrigger className="sm:w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isTextSearchActive && (
+          <p className="text-xs text-muted-foreground">Sort isn't available while searching.</p>
+        )}
+      </div>
     </div>
   );
 }
