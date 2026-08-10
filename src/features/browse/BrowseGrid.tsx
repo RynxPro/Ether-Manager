@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
+import { POSTER_GRID } from "@/lib/layout";
 import type { GbMod, ModSort } from "@/lib/tauri-commands";
 import { GameBananaModCard } from "./GameBananaModCard";
 import { useAddBookmark, useBookmarks, useRemoveBookmark, useSearchGamebananaMods } from "./hooks";
@@ -47,7 +48,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      <div className={POSTER_GRID}>
         {Array.from({ length: 12 }).map((_, index) => (
           <Skeleton key={index} className="aspect-[3/4] rounded-xl" />
         ))}
@@ -78,7 +79,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      <div className={POSTER_GRID}>
         {records.map((mod) => (
           <GameBananaModCard
             key={mod.id}

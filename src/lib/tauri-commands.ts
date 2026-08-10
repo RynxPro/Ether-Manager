@@ -68,7 +68,15 @@ export function listCharacters(): Promise<Character[]> {
   return invoke("list_characters");
 }
 
-export function listModCounts(): Promise<Record<string, number>> {
+/** Per-character tallies for the Library grid. `enabled` is a subset of `total`; with v1's
+ * one-enabled-mod-per-slot rule it's 0 or 1 for a real character. Characters with no mods at
+ * all are simply absent from the map — callers treat a miss as zeroes. */
+export interface ModCounts {
+  total: number;
+  enabled: number;
+}
+
+export function listModCounts(): Promise<Record<string, ModCounts>> {
   return invoke("list_mod_counts");
 }
 

@@ -59,6 +59,14 @@ pub struct Mod {
     pub updated_at: i64,
 }
 
+/// Per-character mod tallies for the Library grid. `enabled` is a subset of `total`, and with
+/// v1's one-enabled-mod-per-slot rule it is 0 or 1 for a real character.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModCounts {
+    pub total: i64,
+    pub enabled: i64,
+}
+
 pub struct NewMod {
     pub character_id: String,
     pub slot: Slot,
@@ -179,14 +187,19 @@ impl Db {
 
     /// Returns how many mods exist per character, for the Library grid to show which
     /// characters have mods installed without fetching every character's full mod list.
-    pub fn count_mods_by_character(&self) -> rusqlite::Result<HashMap<String, i64>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT character_id, COUNT(*) FROM mods GROUP BY character_id")?;
+    /// Both counts in one pass — the Library grid shows "N mods · M on" per character, and
+    /// fetching every character's mods just to count the enabled ones would be 60 queries for
+    /// two numbers.
+    pub fn count_mods_by_character(&self) -> rusqlite::Result<HashMap<String, ModCounts>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT character_id, COUNT(*), COALESCE(SUM(enabled), 0) \
+             FROM mods GROUP BY character_id",
+        )?;
         let rows = stmt.query_map([], |row| {
             let character_id: String = row.get(0)?;
-            let count: i64 = row.get(1)?;
-            Ok((character_id, count))
+            let total: i64 = row.get(1)?;
+            let enabled: i64 = row.get(2)?;
+            Ok((character_id, ModCounts { total, enabled }))
         })?;
         rows.collect()
     }
@@ -232,6 +245,29 @@ mod tests {
             gamebanana_file_id: None,
             gamebanana_md5: None,
         }
+    }
+
+    #[test]
+    fn count_mods_by_character_reports_total_and_enabled() {
+        let db = Db::open_in_memory().unwrap();
+        let a = db.insert_mod(new_test_mod("belle")).unwrap();
+        db.insert_mod(new_test_mod("belle")).unwrap();
+        db.insert_mod(new_test_mod("anby-demara")).unwrap();
+        db.set_enabled(a.id, true).unwrap();
+
+        let counts = db.count_mods_by_character().unwrap();
+
+        assert_eq!(counts["belle"], ModCounts { total: 2, enabled: 1 });
+        // A character with mods but none enabled must report 0, not be absent.
+        assert_eq!(
+            counts["anby-demara"],
+            ModCounts {
+                total: 1,
+                enabled: 0
+            }
+        );
+        // A character with no mods at all has no row — the UI treats a miss as zeroes.
+        assert!(!counts.contains_key("ellen-joe"));
     }
 
     #[test]

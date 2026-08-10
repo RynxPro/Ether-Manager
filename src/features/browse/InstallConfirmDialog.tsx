@@ -35,7 +35,7 @@ import { useInstallFromGamebanana } from "./hooks";
 
 interface InstallConfirmDialogProps {
   /** Always a real, freshly fetched detail — never the placeholder `GbMod` Bookmarks uses to
-   * open `ModDetailDialog`, so `detail.category` is reliable regardless of where this dialog
+   * open `ModDetailPage`, so `detail.category` is reliable regardless of where this dialog
    * was opened from (Browse or Bookmarks). */
   detail: GbModDetail;
   file: GbFile;

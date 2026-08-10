@@ -20,6 +20,8 @@ export function Library({ onSelectCharacter }: LibraryProps) {
 
   return (
     <div className="space-y-8">
+      <h2 className="text-2xl font-semibold text-foreground">Library</h2>
+
       <CharacterGrid onSelect={onSelectCharacter} />
       <SlotSection
         characterId={UI_CHARACTER_ID}
