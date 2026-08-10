@@ -45,6 +45,7 @@ pub fn run() {
             commands::characters::list_characters,
             commands::mods::list_mods_for_character,
             commands::mods::list_mod_counts,
+            commands::mods::list_all_mods,
             commands::mods::add_mod,
             commands::mods::toggle_mod,
             commands::mods::delete_mod,

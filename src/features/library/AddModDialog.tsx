@@ -24,7 +24,7 @@ export function AddModDialog({ characterId, slot }: AddModDialogProps) {
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [sourcePath, setSourcePath] = useState("");
-  const addMod = useAddMod(characterId);
+  const addMod = useAddMod();
 
   function resetAndClose() {
     setDisplayName("");

@@ -17,6 +17,12 @@ pub fn list_mods_for_character(
 }
 
 #[tauri::command]
+pub fn list_all_mods(state: State<AppState>) -> Result<Vec<Mod>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_all_mods().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn list_mod_counts(state: State<AppState>) -> Result<HashMap<String, ModCounts>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.count_mods_by_character().map_err(|e| e.to_string())

@@ -84,6 +84,13 @@ export function listModsForCharacter(characterId: string): Promise<Mod[]> {
   return invoke("list_mods_for_character", { characterId });
 }
 
+/** Every installed mod across every character — backs Library's search, which filters
+ * client-side so it can match on character name (roster JSON, not in the DB) as well as mod
+ * name, with no per-keystroke round trip. */
+export function listAllMods(): Promise<Mod[]> {
+  return invoke("list_all_mods");
+}
+
 export function addMod(input: AddModInput): Promise<Mod> {
   return invoke("add_mod", {
     characterId: input.characterId,

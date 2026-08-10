@@ -4,6 +4,7 @@ import {
   checkAllModUpdates,
   deleteMod,
   getModsFolder,
+  listAllMods,
   listCharacters,
   listModCounts,
   listModsForCharacter,
@@ -37,34 +38,50 @@ export function useModsForCharacter(characterId: string | null) {
   });
 }
 
-export function useAddMod(characterId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: AddModInput) => addMod(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mods", characterId] });
-    },
+/** Every installed mod, for Library's search. */
+export function useAllMods() {
+  return useQuery({
+    queryKey: ["allMods"],
+    queryFn: listAllMods,
   });
 }
 
-export function useToggleMod(characterId: string) {
+/** Adding, toggling or deleting a mod changes three cached things at once: the character's own
+ * mod list, the flat all-mods list behind search, and the per-character counts the Library grid
+ * renders. Invalidating `["mods"]` as a prefix covers every character's list — which matters
+ * because search results span characters, so the mutation can't know which single list to
+ * refresh. Only mounted queries actually refetch. */
+function useModMutationInvalidation() {
   const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ["mods"] });
+    queryClient.invalidateQueries({ queryKey: ["allMods"] });
+    queryClient.invalidateQueries({ queryKey: ["modCounts"] });
+  };
+}
+
+export function useAddMod() {
+  const invalidate = useModMutationInvalidation();
+  return useMutation({
+    mutationFn: (input: AddModInput) => addMod(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useToggleMod() {
+  const invalidate = useModMutationInvalidation();
   return useMutation({
     mutationFn: ({ modId, enabled }: { modId: number; enabled: boolean }) =>
       toggleMod(modId, enabled),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mods", characterId] });
-    },
+    onSuccess: invalidate,
   });
 }
 
-export function useDeleteMod(characterId: string) {
-  const queryClient = useQueryClient();
+export function useDeleteMod() {
+  const invalidate = useModMutationInvalidation();
   return useMutation({
     mutationFn: (modId: number) => deleteMod(modId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mods", characterId] });
-    },
+    onSuccess: invalidate,
   });
 }
 

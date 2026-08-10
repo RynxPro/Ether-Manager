@@ -11,8 +11,8 @@ interface SlotSectionProps {
 }
 
 export function SlotSection({ characterId, slot, mods, updateChecksByModId }: SlotSectionProps) {
-  const toggleMod = useToggleMod(characterId);
-  const deleteMod = useDeleteMod(characterId);
+  const toggleMod = useToggleMod();
+  const deleteMod = useDeleteMod();
 
   return (
     <section className="space-y-3">

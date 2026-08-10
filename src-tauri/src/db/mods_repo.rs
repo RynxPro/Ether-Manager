@@ -143,6 +143,18 @@ impl Db {
         rows.collect()
     }
 
+    /// Every installed mod, for Library's search. Filtering happens client-side rather than in
+    /// SQL because a match must also consider the mod's *character name*, which lives in the
+    /// bundled roster JSON and not in this table — and because at the few hundred rows a real
+    /// library reaches, one cached read beats a query per keystroke.
+    pub fn list_all_mods(&self) -> rusqlite::Result<Vec<Mod>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT * FROM mods ORDER BY character_id, slot, display_name")?;
+        let rows = stmt.query_map([], row_to_mod)?;
+        rows.collect()
+    }
+
     pub fn set_enabled(&self, id: i64, enabled: bool) -> rusqlite::Result<()> {
         self.conn.execute(
             "UPDATE mods SET enabled = ?1, updated_at = ?2 WHERE id = ?3",
@@ -245,6 +257,28 @@ mod tests {
             gamebanana_file_id: None,
             gamebanana_md5: None,
         }
+    }
+
+    #[test]
+    fn list_all_mods_returns_every_character() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_mod(new_test_mod("belle")).unwrap();
+        db.insert_mod(new_test_mod("belle")).unwrap();
+        db.insert_mod(new_test_mod("anby-demara")).unwrap();
+
+        let all = db.list_all_mods().unwrap();
+
+        assert_eq!(all.len(), 3);
+        // Grouped by character so search results stay stable between reads.
+        assert_eq!(all[0].character_id, "anby-demara");
+        assert_eq!(all[1].character_id, "belle");
+        assert_eq!(all[2].character_id, "belle");
+    }
+
+    #[test]
+    fn list_all_mods_is_empty_on_a_fresh_library() {
+        let db = Db::open_in_memory().unwrap();
+        assert!(db.list_all_mods().unwrap().is_empty());
     }
 
     #[test]

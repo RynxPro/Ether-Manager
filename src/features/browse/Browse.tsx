@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useDebounce } from "@/lib/useDebounce";
+import { useSearchHotkey } from "@/lib/useSearchHotkey";
 import type { GbMod, ModSort } from "@/lib/tauri-commands";
 import { BrowseGrid } from "./BrowseGrid";
 import { FeaturedBanner } from "./FeaturedBanner";
@@ -15,6 +16,7 @@ interface BrowseProps {
 
 export function Browse({ onSelectMod }: BrowseProps) {
   const [query, setQuery] = useState("");
+  const searchRef = useSearchHotkey(() => setQuery(""));
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [sort, setSort] = useState<ModSort>("LatestUpdated");
@@ -26,6 +28,7 @@ export function Browse({ onSelectMod }: BrowseProps) {
       <FeaturedBanner onSelectMod={onSelectMod} />
 
       <SearchBar
+        inputRef={searchRef}
         query={query}
         onQueryChange={setQuery}
         categoryId={categoryId}

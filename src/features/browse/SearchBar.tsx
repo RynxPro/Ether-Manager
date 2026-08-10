@@ -26,6 +26,8 @@ interface SearchBarProps {
   onCategoryChange: (categoryId: number | null) => void;
   sort: ModSort;
   onSortChange: (sort: ModSort) => void;
+  /** Lets Browse point the page-wide Ctrl+F hotkey at this input. */
+  inputRef?: React.Ref<HTMLInputElement>;
 }
 
 export function SearchBar({
@@ -35,6 +37,7 @@ export function SearchBar({
   onCategoryChange,
   sort,
   onSortChange,
+  inputRef,
 }: SearchBarProps) {
   const isTextSearchActive = query.trim().length > 0;
   const { data: characters } = useCharacters();
@@ -57,9 +60,12 @@ export function SearchBar({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <Input
+        ref={inputRef}
+        type="search"
         value={query}
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="Search GameBanana mods…"
+        aria-label="Search GameBanana mods"
         className="sm:max-w-xs"
       />
       <Select value={selectedCharacterId} onValueChange={handleCharacterChange}>

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Bookmark, Compass, LayoutGrid, Settings as SettingsIcon } from "lucide-react";
+import { Bookmark, Compass, Layers, LayoutGrid, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
 import { ModDetailRoute } from "@/features/browse/ModDetailRoute";
+import { AllMods } from "@/features/library/AllMods";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
 import { Library } from "@/features/library/Library";
 import { useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
@@ -11,10 +12,11 @@ import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import type { Character, GbMod } from "@/lib/tauri-commands";
 
-type View = "library" | "browse" | "bookmarks" | "settings";
+type View = "library" | "allmods" | "browse" | "bookmarks" | "settings";
 
 const NAV_ITEMS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
   { id: "library", label: "Library", icon: LayoutGrid },
+  { id: "allmods", label: "All mods", icon: Layers },
   { id: "browse", label: "Browse", icon: Compass },
   { id: "bookmarks", label: "Bookmarks", icon: Bookmark },
   { id: "settings", label: "Settings", icon: SettingsIcon },
@@ -114,6 +116,17 @@ function App() {
             )
           ) : view === "settings" ? (
             <SettingsPage />
+          ) : view === "allmods" ? (
+            // Drilling into a character from All mods lands on the character page, same as
+            // from the roster — so this branch falls through to the shared detail below.
+            selectedCharacter ? (
+              <CharacterDetail
+                character={selectedCharacter}
+                onBack={() => setSelectedCharacter(null)}
+              />
+            ) : (
+              <AllMods onSelectCharacter={setSelectedCharacter} />
+            )
           ) : selectedCharacter ? (
             <CharacterDetail
               character={selectedCharacter}
