@@ -25,6 +25,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        // Remembers window size, position and maximized state between launches — the
+        // `tauri.conf.json` width/height become first-run defaults rather than a reset on every
+        // start. Desktop apps are expected to reopen where you left them.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
