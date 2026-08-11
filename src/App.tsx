@@ -56,21 +56,31 @@ function App() {
     <div className="flex h-screen overflow-hidden bg-background">
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar p-4">
         <div className="px-2 pt-2 pb-6">
-          <h1 className="text-lg font-semibold text-foreground">Ether Manager</h1>
-          <p className="text-xs text-muted-foreground">Zenless Zone Zero mods</p>
+          <h1 className="font-heading text-lg font-bold uppercase tracking-[0.08em] text-primary">
+            Ether Manager
+          </h1>
+          <p className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground/70">
+            Zenless Zone Zero mods
+          </p>
         </div>
 
-        <nav className="flex flex-col gap-1" aria-label="Main">
+        <nav className="flex flex-col gap-0.5" aria-label="Main">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = view === item.id;
+            // The active destination takes the full accent rather than a grey fill — in a
+            // near-black shell a subtle tint reads as "slightly different", not "you are here".
             return (
               <Button
                 key={item.id}
                 type="button"
-                variant={isActive ? "secondary" : "ghost"}
+                variant="ghost"
                 aria-current={isActive ? "page" : undefined}
-                className="justify-start gap-2"
+                className={`justify-start gap-2 font-heading text-sm uppercase tracking-[0.08em] ${
+                  isActive
+                    ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                    : "text-sidebar-foreground hover:text-foreground"
+                }`}
                 onClick={() => goTo(item.id)}
               >
                 <Icon className="h-4 w-4" />

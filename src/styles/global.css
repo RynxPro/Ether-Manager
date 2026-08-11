@@ -9,40 +9,49 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-:root {
+/* "New Eridu" — hazard yellow on near-black, borrowing ZZZ's own industrial signage
+ * palette. This is a single committed look, not a light/dark pair: both selectors point
+ * at the same tokens so the app cannot end up half-themed if `.dark` is ever applied.
+ *
+ * The accent is deliberately scarce. It marks only two things — the card under the
+ * cursor, and anything needing action — so it never becomes a background colour. */
+:root,
+.dark {
   color-scheme: dark;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #0a0a0c;
+  --foreground: #f0f0f2;
+  --card: #101014;
+  --card-foreground: #f0f0f2;
+  --popover: #101014;
+  --popover-foreground: #f0f0f2;
+  --primary: #ffd400;
+  --primary-foreground: #0a0a0c;
+  --secondary: #16161b;
+  --secondary-foreground: #f0f0f2;
+  --muted: #16161b;
+  --muted-foreground: #8a8a94;
+  --accent: #23232a;
+  --accent-foreground: #f0f0f2;
+  --destructive: #e5484d;
+  --border: #23232a;
+  --input: #26262d;
+  --ring: #ffd400;
+  --chart-1: #ffd400;
+  --chart-2: #b39400;
+  --chart-3: #6f6f79;
+  --chart-4: #3d3d45;
+  --chart-5: #23232a;
+  /* Square by design — Eridu's edges are cut, not rounded. Cards take a clipped corner
+   * instead of a radius, so every derived --radius-* below resolves to 0 as well. */
+  --radius: 0rem;
+  --sidebar: #08080a;
+  --sidebar-foreground: #7c7c86;
+  --sidebar-primary: #ffd400;
+  --sidebar-primary-foreground: #0a0a0c;
+  --sidebar-accent: #16161b;
+  --sidebar-accent-foreground: #f0f0f2;
+  --sidebar-border: #1c1c21;
+  --sidebar-ring: #ffd400;
 }
 
 body {
@@ -50,7 +59,11 @@ body {
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
+  /* Bahnschrift is the condensed industrial face Eridu's signage look is built on. It ships
+   * with Windows, and this app is Windows-only (ZZZ modding is), so it always resolves —
+   * Arial Narrow is a shape-compatible fallback rather than a realistic one. Body text stays
+   * on bundled Geist so the running copy never depends on a system font. */
+  --font-heading: Bahnschrift, 'Arial Narrow', sans-serif;
   --font-sans: 'Geist Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -92,40 +105,6 @@ body {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -135,5 +114,13 @@ body {
   }
   html {
     @apply font-sans;
+  }
+  /* Every page-level heading in Eridu is condensed uppercase signage — stated once here
+   * rather than repeated across the seven screens that each render one, so a screen added
+   * later inherits it instead of quietly shipping the body font. Section-level headings
+   * (h3+) deliberately stay on the body face so the contrast means something. */
+  h1,
+  h2 {
+    @apply font-heading uppercase tracking-[0.08em];
   }
 }

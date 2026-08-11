@@ -40,49 +40,74 @@ export function CharacterCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative flex aspect-[3/4] w-full flex-col justify-end overflow-hidden rounded-xl border border-border text-left transition-all hover:border-primary/60 hover:shadow-lg ${
-        hasMods ? "" : "opacity-60 grayscale hover:opacity-90 hover:grayscale-0"
-      }`}
+      // The cut corner is Eridu's signature and cannot come from a border-radius, so it is a
+      // clip-path rather than a utility class. Yellow marks the hovered card and anything with
+      // an update — nothing else, which is what keeps it findable.
+      style={{
+        clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
+      }}
+      className={`group relative flex w-full flex-col overflow-hidden border-2 bg-card text-left transition-all hover:-translate-y-[3px] hover:border-primary ${
+        hasUpdate ? "border-primary" : "border-border"
+      } ${hasMods ? "" : "opacity-40 hover:opacity-100"}`}
     >
-      {character.portrait ? (
-        <img
-          src={character.portrait}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+      <span className="relative block aspect-[3/4] w-full overflow-hidden">
+        {character.portrait ? (
+          <img
+            src={character.portrait}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-top"
+          />
+        ) : (
+          // 7 of the 60 characters ship without a portrait — a permanent state, not a load
+          // failure, so this initial is the designed representation rather than a placeholder.
+          // It sits on the secondary surface, not the muted one, so a character that owns mods
+          // still reads as present rather than blending into the dimmed empty cards.
+          <span className="absolute inset-0 flex items-center justify-center bg-secondary font-heading text-3xl font-semibold text-muted-foreground/50">
+            {character.name.charAt(0)}
+          </span>
+        )}
+
+        {/* Scanlines plus a foot gradient — the CRT texture is what stops the grid reading as a
+            plain poster wall. It deepens on hover so the hovered card gains contrast, not just
+            a border. */}
+        <span
+          className="pointer-events-none absolute inset-0 opacity-50 transition-opacity group-hover:opacity-100"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(to bottom, rgba(0,0,0,.2) 0 1px, transparent 1px 3px), linear-gradient(to top, rgba(10,10,12,.88) 0 20%, transparent 58%)",
+          }}
         />
-      ) : (
-        // 7 of the 60 characters ship without a portrait — a permanent state, not a load
-        // failure, so this initial is the designed representation rather than a placeholder.
-        <div className="absolute inset-0 flex items-center justify-center bg-muted text-2xl font-semibold text-muted-foreground">
-          {character.name.charAt(0)}
-        </div>
-      )}
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+        {hasUpdate && (
+          <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+            Update
+          </span>
+        )}
+      </span>
 
-      {hasUpdate && (
-        <span className="absolute right-2 top-2 z-10 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-          Update
+      <span
+        className={`relative block border-t-2 bg-background px-2.5 pb-3 pt-1.5 ${
+          hasUpdate ? "border-t-primary" : "border-t-border"
+        } group-hover:border-t-primary`}
+      >
+        <span className="block truncate font-heading text-sm font-semibold uppercase tracking-wide text-foreground">
+          {character.name}
         </span>
-      )}
-
-      <div className="relative z-10 space-y-0.5 p-3">
-        <p className="truncate text-sm font-semibold text-white drop-shadow">{character.name}</p>
-        <div className="flex items-baseline justify-between gap-2">
-          <p
-            className={`min-w-0 flex-1 truncate text-xs ${
-              hasEnabled ? "text-white/70" : "italic text-white/50"
+        <span className="flex items-baseline justify-between gap-2">
+          <span
+            className={`min-w-0 flex-1 truncate text-[11px] ${
+              hasEnabled ? "text-muted-foreground" : "italic text-muted-foreground/60"
             }`}
           >
             {secondLine}
-          </p>
+          </span>
           {hasMods && (
-            <p className="shrink-0 text-xs tabular-nums text-white/50">
+            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/60">
               {counts.total}·{counts.enabled}
-            </p>
+            </span>
           )}
-        </div>
-      </div>
+        </span>
+      </span>
     </button>
   );
 }
