@@ -7,7 +7,7 @@ import {
   type ModCounts,
 } from "@/lib/tauri-commands";
 import { CharacterCard } from "./CharacterCard";
-import { useCharacters, useModCounts } from "./hooks";
+import { useAllMods, useCharacters, useModCounts, useUpdateChecks } from "./hooks";
 
 interface CharacterGridProps {
   onSelect: (character: Character) => void;
@@ -21,6 +21,11 @@ const NO_MODS: ModCounts = { total: 0, enabled: 0 };
 export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
   const { data: characters, isLoading: isLoadingCharacters } = useCharacters();
   const { data: modCounts } = useModCounts();
+  // Both of these are already in cache when the Library renders — `allMods` backs the search
+  // above the grid, and update checks are a cache-only read — so the card's extra detail costs
+  // no additional round trip.
+  const { data: allMods } = useAllMods();
+  const { data: updateChecks } = useUpdateChecks();
 
   if (isLoadingCharacters) {
     return (
@@ -51,6 +56,22 @@ export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
     .map((character) => ({ character, counts: modCounts?.[character.id] ?? NO_MODS }))
     .sort((a, b) => Number(b.counts.total > 0) - Number(a.counts.total > 0));
 
+  // v1 enables one mod per slot and every real character has a single slot, so the first
+  // enabled mod found is the character's current look. If multi-enable ever lands, this picks
+  // one arbitrarily and the card will need a real answer rather than a silent first-wins.
+  const enabledModNames = new Map<string, string>();
+  for (const mod of allMods ?? []) {
+    if (mod.enabled && !enabledModNames.has(mod.character_id)) {
+      enabledModNames.set(mod.character_id, mod.display_name);
+    }
+  }
+
+  const charactersWithUpdate = new Set(
+    (updateChecks ?? [])
+      .filter((check) => check.status === "UpdateAvailable")
+      .map((check) => check.character_id),
+  );
+
   if (sorted.length === 0) {
     return <p className="text-sm text-muted-foreground">No character matches “{query.trim()}”.</p>;
   }
@@ -62,6 +83,8 @@ export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
           key={character.id}
           character={character}
           counts={counts}
+          enabledModName={enabledModNames.get(character.id) ?? null}
+          hasUpdate={charactersWithUpdate.has(character.id)}
           onSelect={() => onSelect(character)}
         />
       ))}

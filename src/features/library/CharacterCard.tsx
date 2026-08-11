@@ -3,15 +3,38 @@ import type { Character, ModCounts } from "@/lib/tauri-commands";
 interface CharacterCardProps {
   character: Character;
   counts: ModCounts;
+  /** Display name of the mod currently enabled for this character, or null when none is.
+   * This is the only per-character value that actually varies once a library is built out,
+   * which is why it gets the card's second line. */
+  enabledModName: string | null;
+  /** True when any mod filed under this character has an update waiting — including one that
+   * is currently disabled, since enabling it later would still bring the stale version. */
+  hasUpdate: boolean;
   onSelect: () => void;
 }
 
-/** Deliberately shows counts, not the enabled mod's name: at 60 cards, variable-length
- * GameBanana titles would wreck the grid's scannability, and you click into the character to
- * change anything anyway. The count answers the only glanceable question — is this character
- * running something right now? */
-export function CharacterCard({ character, counts, onSelect }: CharacterCardProps) {
+/** Shows the enabled mod's name rather than "is anything on?", because in a real library almost
+ * every character has something enabled — so the yes/no answer is identical on nearly every card
+ * and tells you nothing. The counts stay, right-aligned beside the look so the name can use the
+ * full width and the numbers still form a scannable column. */
+export function CharacterCard({
+  character,
+  counts,
+  enabledModName,
+  hasUpdate,
+  onSelect,
+}: CharacterCardProps) {
   const hasMods = counts.total > 0;
+  const hasEnabled = counts.enabled > 0;
+
+  let secondLine: string;
+  if (!hasMods) {
+    secondLine = "No mods";
+  } else if (enabledModName) {
+    secondLine = enabledModName;
+  } else {
+    secondLine = "Nothing enabled";
+  }
 
   return (
     <button
@@ -37,21 +60,28 @@ export function CharacterCard({ character, counts, onSelect }: CharacterCardProp
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
 
+      {hasUpdate && (
+        <span className="absolute right-2 top-2 z-10 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+          Update
+        </span>
+      )}
+
       <div className="relative z-10 space-y-0.5 p-3">
         <p className="truncate text-sm font-semibold text-white drop-shadow">{character.name}</p>
-        {hasMods ? (
-          <p className="text-xs text-white/70">
-            {counts.total} {counts.total === 1 ? "mod" : "mods"}
-            {" · "}
-            {counts.enabled > 0 ? (
-              <span className="font-medium text-white">{counts.enabled} on</span>
-            ) : (
-              <span>none on</span>
-            )}
+        <div className="flex items-baseline justify-between gap-2">
+          <p
+            className={`min-w-0 flex-1 truncate text-xs ${
+              hasEnabled ? "text-white/70" : "italic text-white/50"
+            }`}
+          >
+            {secondLine}
           </p>
-        ) : (
-          <p className="text-xs text-white/60">No mods</p>
-        )}
+          {hasMods && (
+            <p className="shrink-0 text-xs tabular-nums text-white/50">
+              {counts.total}·{counts.enabled}
+            </p>
+          )}
+        </div>
       </div>
     </button>
   );
