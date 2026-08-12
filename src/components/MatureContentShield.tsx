@@ -26,8 +26,13 @@ type MatureContentShieldProps = {
 
 /** Blurs `children` behind a real, keyboard-reachable reveal button until clicked. Reveal is
  * deliberately click-only (not hover) and never persisted — see Milestone 4 plan Decision 9.
- * `scale-110` is required, not decorative: a CSS blur samples transparent pixels past the
- * element's edge, which leaves a visible unblurred rim without the extra scale. */
+ * `scale-105` is required, not decorative: a CSS blur samples transparent pixels past the
+ * element's edge, which leaves a visible unblurred rim without the extra scale.
+ *
+ * The blur is deliberately light. Most of the ZZZ catalogue on GameBanana is mature-flagged, so
+ * a heavy blur turned Browse into a wall of identical grey tiles that could not be told apart
+ * or navigated. At this strength the composition and colour of a mod still read — enough to
+ * decide whether it is worth revealing — while the detail does not. */
 export function MatureContentShield({
   isBlurred,
   children,
@@ -50,7 +55,12 @@ export function MatureContentShield({
 
   return (
     <div className={cn("relative overflow-hidden", className)}>
-      <div className={cn("h-full w-full transition-all", active && "scale-110 blur-xl")}>
+      <div
+        className={cn(
+          "h-full w-full transition-all",
+          active && "scale-105 blur-sm brightness-[.85]",
+        )}
+      >
         {children}
       </div>
       {active && (
@@ -69,10 +79,12 @@ export function MatureContentShield({
               event.stopPropagation();
             }
           }}
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 bg-black/50 text-white"
+          // A light scrim only. Anything heavier would undo the point of the lighter blur and
+          // put the wall of grey tiles back.
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1.5 bg-black/25 px-2 text-white [text-shadow:0_1px_6px_rgba(0,0,0,.9)]"
         >
           <EyeOff className="h-5 w-5" />
-          <span className="text-center text-xs font-medium">
+          <span className="text-center font-heading text-[11px] uppercase leading-tight tracking-[0.08em]">
             Mature content — click to reveal
           </span>
         </button>

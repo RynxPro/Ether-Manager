@@ -70,6 +70,15 @@ export function GameBananaModCard({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
       </div>
 
+      {/* Sits on the card rather than inside the shield, so it survives the reveal — once the
+          blur is gone this is the only thing still marking the mod as mature. z-30 matches the
+          bookmark button, above the shield's own z-20 overlay. */}
+      {mod.is_mature && (
+        <span className="pointer-events-none absolute top-2 left-2 z-30 border border-white/20 bg-background/80 px-1.5 py-px font-heading text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          18+
+        </span>
+      )}
+
       <Button
         type="button"
         variant={isBookmarked ? "default" : "secondary"}
