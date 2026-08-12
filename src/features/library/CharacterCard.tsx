@@ -48,7 +48,7 @@ export function CharacterCard({
       }}
       className={`group relative flex w-full flex-col overflow-hidden border-2 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary ${
         hasUpdate ? "border-primary" : "border-border"
-      } ${hasMods ? "" : "opacity-40 hover:opacity-100"}`}
+      }`}
     >
       <span className="relative block aspect-[3/4] w-full overflow-hidden">
         {character.portrait ? (
@@ -67,16 +67,10 @@ export function CharacterCard({
           </span>
         )}
 
-        {/* Scanlines plus a foot gradient — the CRT texture is what stops the grid reading as a
-            plain poster wall. It deepens on hover so the hovered card gains contrast, not just
-            a border. */}
-        <span
-          className="pointer-events-none absolute inset-0 opacity-50 transition-opacity group-hover:opacity-100"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(to bottom, rgba(0,0,0,.2) 0 1px, transparent 1px 3px), linear-gradient(to top, rgba(10,10,12,.88) 0 20%, transparent 58%)",
-          }}
-        />
+        {/* No scanlines or foot gradient, and no dimming for characters without mods. Both were
+            costing more than they bought: sixty pieces of character art are the whole point of
+            this grid, and a texture over them plus 40% opacity on nearly every card left it
+            looking washed out. "No mods" is already stated in words on the card. */}
 
         {hasUpdate && (
           <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
