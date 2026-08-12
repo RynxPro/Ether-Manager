@@ -8,21 +8,33 @@ interface SlotSectionProps {
   slot: Slot;
   mods: Mod[];
   updateChecksByModId: Map<number, UpdateCheck>;
+  /** The UI and Misc tabs need the slot named and their own Add mod button, because they sit
+   * side by side under one page title. A character page has exactly one slot, so naming it
+   * labels nothing — its banner carries the name and the button instead. */
+  showHeader?: boolean;
 }
 
-export function SlotSection({ characterId, slot, mods, updateChecksByModId }: SlotSectionProps) {
+export function SlotSection({
+  characterId,
+  slot,
+  mods,
+  updateChecksByModId,
+  showHeader = true,
+}: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
   const checkUpdate = useCheckModUpdate();
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {SLOT_LABELS[slot]}
-        </h3>
-        <AddModDialog characterId={characterId} slot={slot} />
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            {SLOT_LABELS[slot]}
+          </h3>
+          <AddModDialog characterId={characterId} slot={slot} />
+        </div>
+      )}
 
       {mods.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">

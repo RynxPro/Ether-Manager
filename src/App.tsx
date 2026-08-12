@@ -151,6 +151,7 @@ function App() {
               <CharacterDetail
                 character={selectedCharacter}
                 onBack={() => setSelectedCharacter(null)}
+                onBrowse={() => goTo("browse")}
               />
             ) : (
               <AllMods onSelectCharacter={setSelectedCharacter} />
@@ -159,6 +160,7 @@ function App() {
             <CharacterDetail
               character={selectedCharacter}
               onBack={() => setSelectedCharacter(null)}
+              onBrowse={() => goTo("browse")}
             />
           ) : (
             <Library onSelectCharacter={setSelectedCharacter} />

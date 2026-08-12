@@ -18,9 +18,16 @@ interface AddModDialogProps {
   /** Fixed, not user-chosen — each caller already represents exactly one slot (a character's
    * one Character Skin section, or the global UI/Misc sections), so there's nothing to pick. */
   slot: Slot;
+  /** How prominent the trigger is. Outline suits the UI/Misc sections, where it sits beside a
+   * section heading; the character banner makes it the page's primary action instead. */
+  triggerVariant?: "default" | "outline";
 }
 
-export function AddModDialog({ characterId, slot }: AddModDialogProps) {
+export function AddModDialog({
+  characterId,
+  slot,
+  triggerVariant = "outline",
+}: AddModDialogProps) {
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [sourcePath, setSourcePath] = useState("");
@@ -43,7 +50,7 @@ export function AddModDialog({ characterId, slot }: AddModDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button type="button" variant={triggerVariant} size="sm">
           Add mod
         </Button>
       </DialogTrigger>
