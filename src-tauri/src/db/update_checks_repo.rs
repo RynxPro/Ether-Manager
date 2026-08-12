@@ -130,7 +130,7 @@ mod tests {
             slot: Slot::CharacterSkin,
             display_name: "Test Outfit".to_string(),
             folder_path: "Mods/Characters/Belle/Character Skin/TestOutfit".to_string(),
-            thumbnail_path: None,
+            thumbnail_url: None,
             gamebanana_mod_id: Some(608561),
             gamebanana_file_id: Some(1481954),
             gamebanana_md5: Some("old-md5".to_string()),

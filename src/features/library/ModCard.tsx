@@ -56,9 +56,9 @@ export function ModCard({
           portrait frame would crop most of every image away. These cards never share a grid with
           character cards, so the shape can differ while the styling stays identical. */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary">
-        {mod.thumbnail_path ? (
+        {mod.thumbnail_url ? (
           <img
-            src={mod.thumbnail_path}
+            src={mod.thumbnail_url}
             alt=""
             className={`absolute inset-0 h-full w-full object-cover transition-[filter] ${
               mod.enabled
@@ -67,8 +67,9 @@ export function ModCard({
             }`}
           />
         ) : (
-          // No mod carries a preview yet — the installer never stores one. This is the designed
-          // resting state rather than a load failure, so it gets an icon and a label.
+          // Permanent for hand-added mods, which have no remote listing to take a picture from,
+          // and the resting state for any GameBanana mod whose submission has no preview image.
+          // A designed state, not a load failure, so it gets an icon and a label.
           <div
             className={`absolute inset-0 flex flex-col items-center justify-center gap-1 font-heading text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 ${
               mod.enabled ? "" : "opacity-55 group-hover/card:opacity-100"

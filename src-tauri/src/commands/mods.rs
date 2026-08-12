@@ -68,7 +68,7 @@ pub fn add_mod(
     slot: Slot,
     display_name: String,
     source_path: String,
-    thumbnail_path: Option<String>,
+    thumbnail_url: Option<String>,
 ) -> Result<Mod, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
@@ -99,7 +99,7 @@ pub fn add_mod(
         slot,
         display_name,
         folder_path: dest_dir.to_string_lossy().to_string(),
-        thumbnail_path,
+        thumbnail_url,
         gamebanana_mod_id: None,
         gamebanana_file_id: None,
         gamebanana_md5: None,

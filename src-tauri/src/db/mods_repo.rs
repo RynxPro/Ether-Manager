@@ -51,7 +51,7 @@ pub struct Mod {
     pub display_name: String,
     pub folder_path: String,
     pub enabled: bool,
-    pub thumbnail_path: Option<String>,
+    pub thumbnail_url: Option<String>,
     pub gamebanana_mod_id: Option<i64>,
     pub gamebanana_file_id: Option<i64>,
     pub gamebanana_md5: Option<String>,
@@ -72,7 +72,7 @@ pub struct NewMod {
     pub slot: Slot,
     pub display_name: String,
     pub folder_path: String,
-    pub thumbnail_path: Option<String>,
+    pub thumbnail_url: Option<String>,
     pub gamebanana_mod_id: Option<i64>,
     pub gamebanana_file_id: Option<i64>,
     pub gamebanana_md5: Option<String>,
@@ -97,7 +97,7 @@ fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
         display_name: row.get("display_name")?,
         folder_path: row.get("folder_path")?,
         enabled: row.get::<_, i64>("enabled")? != 0,
-        thumbnail_path: row.get("thumbnail_path")?,
+        thumbnail_url: row.get("thumbnail_url")?,
         gamebanana_mod_id: row.get("gamebanana_mod_id")?,
         gamebanana_file_id: row.get("gamebanana_file_id")?,
         gamebanana_md5: row.get("gamebanana_md5")?,
@@ -110,14 +110,14 @@ impl Db {
     pub fn insert_mod(&self, new: NewMod) -> rusqlite::Result<Mod> {
         let ts = now();
         self.conn.execute(
-            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_path, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, created_at, updated_at)
+            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?9)",
             params![
                 new.character_id,
                 new.slot.as_str(),
                 new.display_name,
                 new.folder_path,
-                new.thumbnail_path,
+                new.thumbnail_url,
                 new.gamebanana_mod_id,
                 new.gamebanana_file_id,
                 new.gamebanana_md5,
@@ -159,6 +159,17 @@ impl Db {
         self.conn.execute(
             "UPDATE mods SET enabled = ?1, updated_at = ?2 WHERE id = ?3",
             params![enabled as i64, now(), id],
+        )?;
+        Ok(())
+    }
+
+    /// Deliberately does not touch `updated_at`: filling in a preview is bookkeeping about the
+    /// mod's remote listing, not a change to the installed files, and letting it bump the
+    /// timestamp would make a backfill look like every mod was just modified.
+    pub fn set_thumbnail_url(&self, id: i64, url: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE mods SET thumbnail_url = ?1 WHERE id = ?2",
+            params![url, id],
         )?;
         Ok(())
     }
@@ -252,7 +263,7 @@ mod tests {
             slot: Slot::CharacterSkin,
             display_name: "Test Outfit".to_string(),
             folder_path: "Mods/Characters/Belle/Character Skin/TestOutfit".to_string(),
-            thumbnail_path: None,
+            thumbnail_url: None,
             gamebanana_mod_id: None,
             gamebanana_file_id: None,
             gamebanana_md5: None,

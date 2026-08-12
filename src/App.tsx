@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Compass, Layers, LayoutGrid, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
@@ -10,7 +11,7 @@ import { Library } from "@/features/library/Library";
 import { useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
-import type { Character, GbMod } from "@/lib/tauri-commands";
+import { backfillModThumbnails, type Character, type GbMod } from "@/lib/tauri-commands";
 
 type View = "library" | "allmods" | "browse" | "bookmarks" | "settings";
 
@@ -31,6 +32,23 @@ function App() {
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
   const checkAllUpdates = useCheckAllUpdates();
+  const queryClient = useQueryClient();
+
+  // Mods installed before the installer stored preview URLs have none, and nothing else would
+  // ever give them one. The command only touches rows that are actually missing a preview, so
+  // it costs nothing on the launches after it has done its work.
+  useEffect(() => {
+    backfillModThumbnails()
+      .then((filled) => {
+        if (filled > 0) {
+          queryClient.invalidateQueries({ queryKey: ["mods"] });
+          queryClient.invalidateQueries({ queryKey: ["allMods"] });
+        }
+      })
+      .catch(() => {
+        // Worst case the cards keep showing "No preview" — never worth interrupting anyone over.
+      });
+  }, [queryClient]);
 
   function goTo(next: View) {
     setView(next);

@@ -60,6 +60,7 @@ pub fn run() {
             commands::gamebanana::add_bookmark,
             commands::gamebanana::remove_bookmark,
             commands::gamebanana::install_from_gamebanana,
+            commands::gamebanana::backfill_mod_thumbnails,
             commands::gamebanana::cancel_gamebanana_install,
             commands::updates::check_mod_update,
             commands::updates::check_all_mod_updates,

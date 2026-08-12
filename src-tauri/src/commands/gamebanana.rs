@@ -222,18 +222,65 @@ pub async fn install_from_gamebanana(
     }
     let (dest_dir, file) = install_result?;
 
+    // One extra request against a mod we just pulled megabytes from: the preview image only
+    // appears on the detail endpoint, not on the file list the download used. A mod with no
+    // preview — or a hiccup fetching it — must never fail an install that already succeeded,
+    // so this degrades to None and the card shows its "no preview" state.
+    let thumbnail_url = state
+        .gamebanana
+        .get_mod_detail(gamebanana_mod_id)
+        .await
+        .ok()
+        .and_then(|detail| detail.preview_media.thumbnail_url());
+
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.insert_mod(NewMod {
         character_id,
         slot,
         display_name,
         folder_path: dest_dir.to_string_lossy().to_string(),
-        thumbnail_path: None,
+        thumbnail_url,
         gamebanana_mod_id: Some(gamebanana_mod_id),
         gamebanana_file_id: Some(gamebanana_file_id),
         gamebanana_md5: Some(file.md5_checksum),
     })
     .map_err(|e| e.to_string())
+}
+
+/// Fills in preview URLs for mods installed before the installer started storing them.
+/// Costs one detail request per mod that is actually missing one and has a GameBanana id to
+/// look it up with, so it settles to zero requests once every eligible mod has a preview and
+/// is safe to run on every launch. Hand-added mods have no remote listing and are skipped
+/// permanently. Returns how many rows were filled.
+///
+/// A mod that fails to fetch is skipped rather than aborting the run — one dead listing must
+/// not stop the rest of the library from getting its previews.
+#[tauri::command]
+pub async fn backfill_mod_thumbnails(state: State<'_, AppState>) -> Result<usize, String> {
+    // Collect first, then release the lock: the DB guard cannot be held across an await.
+    let pending: Vec<(i64, i64)> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.list_all_mods()
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter(|m| m.thumbnail_url.is_none())
+            .filter_map(|m| m.gamebanana_mod_id.map(|gb_id| (m.id, gb_id)))
+            .collect()
+    };
+
+    let mut filled = 0;
+    for (mod_id, gb_mod_id) in pending {
+        let Ok(detail) = state.gamebanana.get_mod_detail(gb_mod_id).await else {
+            continue;
+        };
+        let Some(url) = detail.preview_media.thumbnail_url() else {
+            continue;
+        };
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.set_thumbnail_url(mod_id, &url).map_err(|e| e.to_string())?;
+        filled += 1;
+    }
+    Ok(filled)
 }
 
 /// Signals the in-flight `install_from_gamebanana` call (if any) to abort. A no-op if no

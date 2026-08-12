@@ -100,6 +100,22 @@ pub struct GbPreviewMedia {
     pub images: Vec<GbPreviewImage>,
 }
 
+impl GbPreviewMedia {
+    /// Absolute URL of the first preview image, for storing against an installed mod.
+    /// `file_530` is the largest pre-rendered size GameBanana offers and comfortably covers a
+    /// mod card a few hundred pixels wide; the smaller thumb and then the full-size original
+    /// are fallbacks, since not every submission has every size rendered.
+    pub fn thumbnail_url(&self) -> Option<String> {
+        let image = self.images.first()?;
+        let file = image
+            .file_530
+            .as_deref()
+            .or(image.file_220.as_deref())
+            .unwrap_or(&image.file);
+        Some(format!("{}/{}", image.base_url, file))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GbSubmitter {
     #[serde(rename(deserialize = "_idRow"))]

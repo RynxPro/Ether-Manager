@@ -48,7 +48,7 @@ export interface Mod {
   display_name: string;
   folder_path: string;
   enabled: boolean;
-  thumbnail_path: string | null;
+  thumbnail_url: string | null;
   gamebanana_mod_id: number | null;
   gamebanana_file_id: number | null;
   gamebanana_md5: string | null;
@@ -61,7 +61,7 @@ export interface AddModInput {
   slot: Slot;
   displayName: string;
   sourcePath: string;
-  thumbnailPath?: string | null;
+  thumbnailUrl?: string | null;
 }
 
 export function listCharacters(): Promise<Character[]> {
@@ -97,7 +97,7 @@ export function addMod(input: AddModInput): Promise<Mod> {
     slot: input.slot,
     displayName: input.displayName,
     sourcePath: input.sourcePath,
-    thumbnailPath: input.thumbnailPath ?? null,
+    thumbnailUrl: input.thumbnailUrl ?? null,
   });
 }
 
@@ -281,6 +281,13 @@ export function installFromGamebanana(input: InstallFromGamebananaInput): Promis
     slot: input.slot,
     displayName: input.displayName,
   });
+}
+
+/** Fills in preview URLs for mods installed before the installer stored them. Idempotent and
+ * free once every eligible mod has one, so it is safe to run on every launch. Resolves to the
+ * number of mods filled. */
+export function backfillModThumbnails(): Promise<number> {
+  return invoke("backfill_mod_thumbnails");
 }
 
 /** Signals the in-flight install (if any) to abort. Emitted progress stops shortly after. */

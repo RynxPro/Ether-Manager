@@ -32,7 +32,26 @@ impl Db {
 
     fn init_schema(&self) -> rusqlite::Result<()> {
         self.conn.execute_batch(schema::SCHEMA_SQL)?;
+        self.migrate_thumbnail_column()?;
         self.migrate_legacy_slot_values()
+    }
+
+    /// `thumbnail_path` became `thumbnail_url`: mod previews are remote GameBanana images, not
+    /// local files, and the old name described something the app never stored. `CREATE TABLE IF
+    /// NOT EXISTS` leaves an existing table alone, so a database created before this rename
+    /// still carries the old column and would fail every `row_to_mod` read without this.
+    /// Idempotent — the rename only runs while the old name is still present.
+    fn migrate_thumbnail_column(&self) -> rusqlite::Result<()> {
+        let has_old_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('mods') WHERE name = 'thumbnail_path'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_old_column > 0 {
+            self.conn
+                .execute_batch("ALTER TABLE mods RENAME COLUMN thumbnail_path TO thumbnail_url;")?;
+        }
+        Ok(())
     }
 
     /// One-time data migration covering both rounds of the `Slot` enum rename: the original
@@ -71,6 +90,64 @@ mod tests {
             )
             .unwrap();
         db.conn.last_insert_rowid()
+    }
+
+    fn column_names(db: &Db) -> Vec<String> {
+        let mut stmt = db
+            .conn
+            .prepare("SELECT name FROM pragma_table_info('mods')")
+            .unwrap();
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0)).unwrap();
+        rows.map(Result::unwrap).collect()
+    }
+
+    /// Guards the upgrade path for databases created before the rename: they still carry
+    /// `thumbnail_path`, and `CREATE TABLE IF NOT EXISTS` will not fix that, so without the
+    /// migration every mod read would fail on a missing column.
+    #[test]
+    fn migrates_thumbnail_path_to_thumbnail_url_preserving_values_and_is_idempotent() {
+        let db = Db::open_in_memory().unwrap();
+        // Put the table back into its pre-rename shape, with a value to lose if the migration
+        // ever gets rewritten as a drop-and-recreate.
+        db.conn
+            .execute_batch("ALTER TABLE mods RENAME COLUMN thumbnail_url TO thumbnail_path;")
+            .unwrap();
+        let id = insert_raw_legacy_row(&db, "belle", "Character Skin");
+        db.conn
+            .execute(
+                "UPDATE mods SET thumbnail_path = ?1 WHERE id = ?2",
+                params!["https://images.gamebanana.com/img/ss/mods/530-90_abc.jpg", id],
+            )
+            .unwrap();
+
+        db.migrate_thumbnail_column().unwrap();
+        db.migrate_thumbnail_column().unwrap();
+
+        let columns = column_names(&db);
+        assert!(
+            columns.iter().any(|c| c == "thumbnail_url"),
+            "expected a thumbnail_url column, got {columns:?}"
+        );
+        assert!(
+            !columns.iter().any(|c| c == "thumbnail_path"),
+            "the old column must be gone, got {columns:?}"
+        );
+        assert_eq!(
+            db.get_mod(id).unwrap().unwrap().thumbnail_url.as_deref(),
+            Some("https://images.gamebanana.com/img/ss/mods/530-90_abc.jpg"),
+            "renaming the column must carry its values across, not reset them"
+        );
+    }
+
+    /// A database already on the new shape must come through untouched — the guard is what
+    /// makes this safe to run on every startup.
+    #[test]
+    fn thumbnail_migration_is_a_no_op_on_a_fresh_database() {
+        let db = Db::open_in_memory().unwrap();
+        db.migrate_thumbnail_column().unwrap();
+        let columns = column_names(&db);
+        assert!(columns.iter().any(|c| c == "thumbnail_url"));
+        assert!(!columns.iter().any(|c| c == "thumbnail_path"));
     }
 
     #[test]

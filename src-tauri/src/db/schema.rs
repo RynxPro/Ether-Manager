@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS mods (
     display_name TEXT NOT NULL,
     folder_path TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 0,
-    thumbnail_path TEXT,
+    thumbnail_url TEXT,
     gamebanana_mod_id INTEGER,
     gamebanana_file_id INTEGER,
     gamebanana_md5 TEXT,

@@ -319,7 +319,7 @@ mod tests {
             slot,
             display_name: "Test Mod".to_string(),
             folder_path: folder.to_string_lossy().to_string(),
-            thumbnail_path: None,
+            thumbnail_url: None,
             gamebanana_mod_id: None,
             gamebanana_file_id: None,
             gamebanana_md5: None,
