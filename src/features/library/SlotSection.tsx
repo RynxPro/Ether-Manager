@@ -1,7 +1,7 @@
 import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
-import { useDeleteMod, useToggleMod } from "./hooks";
+import { useCheckModUpdate, useDeleteMod, useToggleMod } from "./hooks";
 
 interface SlotSectionProps {
   characterId: string;
@@ -13,6 +13,7 @@ interface SlotSectionProps {
 export function SlotSection({ characterId, slot, mods, updateChecksByModId }: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
+  const checkUpdate = useCheckModUpdate();
 
   return (
     <section className="space-y-3">
@@ -28,13 +29,14 @@ export function SlotSection({ characterId, slot, mods, updateChecksByModId }: Sl
           No mods installed for this slot yet.
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {mods.map((mod) => {
             // toggleMod/deleteMod are shared across every card in this section — a single
             // useMutation's pending/error/variables state reflects only the most recent call,
             // so match it against this card's own mod id before treating it as "this card's".
             const isThisModToggling = toggleMod.isPending && toggleMod.variables?.modId === mod.id;
             const isThisModDeleting = deleteMod.isPending && deleteMod.variables === mod.id;
+            const isThisModChecking = checkUpdate.isPending && checkUpdate.variables === mod.id;
             const error =
               toggleMod.isError && toggleMod.variables?.modId === mod.id
                 ? String(toggleMod.error)
@@ -49,9 +51,11 @@ export function SlotSection({ characterId, slot, mods, updateChecksByModId }: Sl
                 updateCheck={updateChecksByModId.get(mod.id)}
                 isToggling={isThisModToggling}
                 isDeleting={isThisModDeleting}
+                isCheckingUpdate={isThisModChecking}
                 error={error}
                 onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
                 onDelete={() => deleteMod.mutate(mod.id)}
+                onCheckUpdate={() => checkUpdate.mutate(mod.id)}
               />
             );
           })}

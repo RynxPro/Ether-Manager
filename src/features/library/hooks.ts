@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addMod,
   checkAllModUpdates,
+  checkModUpdate,
   deleteMod,
   getModsFolder,
   listAllMods,
@@ -123,6 +124,19 @@ export function useCheckAllUpdates() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (force: boolean) => checkAllModUpdates(force),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
+    },
+  });
+}
+
+/** Re-checks one mod on demand, for the button on its card. The sidebar's "Check for updates"
+ * sweeps the whole library; this is for when you only care about the mod in front of you. Both
+ * write to the same cache, so either one refreshes every badge on screen. */
+export function useCheckModUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (modId: number) => checkModUpdate(modId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
     },

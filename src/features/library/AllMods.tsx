@@ -4,7 +4,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
 import { SLOT_LABELS, type Character, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { ModCard } from "./ModCard";
-import { useAllMods, useCharacters, useDeleteMod, useToggleMod, useUpdateChecks } from "./hooks";
+import {
+  useAllMods,
+  useCharacters,
+  useCheckModUpdate,
+  useDeleteMod,
+  useToggleMod,
+  useUpdateChecks,
+} from "./hooks";
 
 interface AllModsProps {
   onSelectCharacter: (character: Character) => void;
@@ -57,6 +64,7 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
   const { data: updateChecks } = useUpdateChecks();
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
+  const checkUpdate = useCheckModUpdate();
 
   const characterList = characters ?? [];
   const nameById = new Map(characterList.map((character) => [character.id, character.name]));
@@ -119,7 +127,7 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
           )}
         </p>
       ) : (
-        <div className="max-w-3xl space-y-6">
+        <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
             {needle
               ? `${matches.length} ${matches.length === 1 ? "mod" : "mods"} matching “${query.trim()}”`
@@ -142,7 +150,7 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
                 </h3>
               )}
 
-              <div className="space-y-2">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {group.mods.map((mod) => {
                   // The toggle/delete mutations are shared across every card here, so their
                   // pending/error state reflects only the most recent call — match it against
@@ -150,6 +158,8 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
                   const isThisModToggling =
                     toggleMod.isPending && toggleMod.variables?.modId === mod.id;
                   const isThisModDeleting = deleteMod.isPending && deleteMod.variables === mod.id;
+                  const isThisModChecking =
+                    checkUpdate.isPending && checkUpdate.variables === mod.id;
                   const error =
                     toggleMod.isError && toggleMod.variables?.modId === mod.id
                       ? String(toggleMod.error)
@@ -164,9 +174,11 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
                       updateCheck={updateChecksByModId.get(mod.id)}
                       isToggling={isThisModToggling}
                       isDeleting={isThisModDeleting}
+                      isCheckingUpdate={isThisModChecking}
                       error={error}
                       onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
                       onDelete={() => deleteMod.mutate(mod.id)}
+                      onCheckUpdate={() => checkUpdate.mutate(mod.id)}
                     />
                   );
                 })}
