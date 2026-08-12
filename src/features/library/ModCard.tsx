@@ -80,13 +80,11 @@ export function ModCard({
           </div>
         )}
 
-        <span
-          className="pointer-events-none absolute inset-0 opacity-50 transition-opacity group-hover/card:opacity-100"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(to bottom, rgba(0,0,0,.2) 0 1px, transparent 1px 3px), linear-gradient(to top, rgba(10,10,12,.88) 0 20%, transparent 58%)",
-          }}
-        />
+        {/* No scanlines or foot gradient here, unlike the character cards. Those sit under a
+            single clean portrait and have a name printed over the art; a mod preview is a busy
+            screenshot, often with its own text baked in, and nothing is overlaid on it — the
+            name lives in the strip below. Texture on top of that only makes it harder to read
+            what the mod actually looks like, which is the one job this image has. */}
 
         {hasUpdate && (
           <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
