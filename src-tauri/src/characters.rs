@@ -7,6 +7,12 @@ pub struct Character {
     pub id: String,
     pub name: String,
     pub portrait: Option<String>,
+    /// A purpose-made 16:9 banner for the character page header, where one has been sourced.
+    /// Distinct from `portrait`: these are wide, composed with the figure to one side and a
+    /// transparent background, so they need no cropping. Defaulted rather than required —
+    /// most of the roster has none, and those fall back to the portrait.
+    #[serde(default)]
+    pub banner: Option<String>,
     pub gamebanana_category_id: Option<i64>,
 }
 
@@ -45,12 +51,14 @@ pub fn pseudo_categories() -> Vec<Character> {
             id: UI_PSEUDO_CHARACTER_ID.to_string(),
             name: "UI".to_string(),
             portrait: None,
+            banner: None,
             gamebanana_category_id: Some(UI_GAMEBANANA_CATEGORY_ID),
         },
         Character {
             id: MISC_PSEUDO_CHARACTER_ID.to_string(),
             name: "Misc".to_string(),
             portrait: None,
+            banner: None,
             gamebanana_category_id: Some(MISC_GAMEBANANA_CATEGORY_ID),
         },
     ]

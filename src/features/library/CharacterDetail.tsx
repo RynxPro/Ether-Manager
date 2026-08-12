@@ -35,10 +35,56 @@ export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetail
 
   return (
     <div className="space-y-6">
-      {/* Full-bleed against the main region's padding, so the art reaches the window edges
-          rather than floating in a 24px gutter. */}
-      <div className="relative -mx-6 -mt-6 h-[300px] overflow-hidden border-b-2 border-primary bg-card">
-        {character.portrait ? (
+      {/* The breadcrumb sits above the band, on the page's own background, so the band below
+          is a closed frame rather than an open area the art trails out of. */}
+      <div className="-mt-2 mb-4 flex items-center gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onBack}
+          aria-label="Back to library"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <span className="font-heading text-[10px] uppercase tracking-[0.14em] text-primary">
+          Library / Character
+        </span>
+      </div>
+
+      {/* Bordered top and bottom. The art is clipped by the frame, so wherever it ends it ends
+          against a yellow line instead of stopping in open space — which is what made it look
+          like it was floating. Full-bleed horizontally so it reaches the window edges. */}
+      <div className="relative -mx-6 h-[300px] overflow-hidden border-y-2 border-primary bg-card">
+        {/* The name again, oversized and barely visible, filling the empty left side. First
+            word only — a full name at this size just runs off before it reads as anything.
+            Rendered before the art so it paints underneath it without needing a z-index. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-1.5 left-3.5 whitespace-nowrap font-heading text-[150px] uppercase leading-none tracking-[0.02em]"
+          style={{ color: "rgba(255,255,255,.03)" }}
+        >
+          {character.name.split(" ")[0]}
+        </span>
+
+        {character.banner ? (
+          // Purpose-made banner art: 16:9, figure to one side, transparent background. It is
+          // sized to the band's height and pinned right, so it is placed rather than cropped —
+          // no blurred wash and no feathered mask, because the art already has empty space
+          // where the text goes.
+          <img
+            src={character.banner}
+            alt=""
+            aria-hidden
+            // Scaled and offset so the figure spans the band exactly, touching both borders.
+            // The figure occupies y 120-958 of the 1920x1080 canvas — 838px of real content
+            // with dead black above and below. At 387px tall those 838px scale to the band's
+            // 300px, and pulling the image up 43px puts the top of the figure on the top
+            // border and the bottom of it on the bottom one.
+            className="absolute right-0 top-[-43px] h-[387px] w-auto max-w-none"
+          />
+        ) : character.portrait ? (
           <>
             {/* The same portrait, blurred hard, fills the width behind the figure. Without it
                 the left two thirds are flat black and the banner reads as empty. */}
@@ -54,7 +100,11 @@ export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetail
               src={character.portrait}
               alt=""
               aria-hidden
-              className="absolute inset-y-0 right-0 h-full w-[54%] object-cover object-[50%_18%]"
+              // Fixed width, not a percentage: cover scales the art up until it fills the box,
+              // so a box that grows with the window magnifies the portrait with it. 460x300
+              // matches the 1000x1303 source at half height, so this crops to the top half at
+              // roughly 1:1 and stays that way at every window size.
+              className="absolute inset-y-0 right-0 h-full w-[460px] object-cover object-top"
               style={{
                 maskImage: "linear-gradient(90deg, transparent, #000 34%)",
                 WebkitMaskImage: "linear-gradient(90deg, transparent, #000 34%)",
@@ -66,7 +116,7 @@ export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetail
           // stretching a placeholder across the whole banner, and fades out on the same edge —
           // a flat panel here would put a hard vertical seam where the portrait feathers.
           <div
-            className="absolute inset-y-0 right-0 flex w-[54%] items-center justify-center bg-secondary font-heading text-[150px] leading-none text-muted-foreground/15"
+            className="absolute inset-y-0 right-0 flex w-[460px] items-center justify-center bg-secondary font-heading text-[150px] leading-none text-muted-foreground/15"
             style={{
               maskImage: "linear-gradient(90deg, transparent, #000 34%)",
               WebkitMaskImage: "linear-gradient(90deg, transparent, #000 34%)",
@@ -76,32 +126,20 @@ export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetail
           </div>
         )}
 
-        {/* Darkens the left side so the name and buttons stay legible over whatever art. */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, rgba(10,10,12,.92) 0 30%, rgba(10,10,12,.1) 58%, transparent)",
-          }}
-        />
+        {/* Darkens the left side so the name and buttons stay legible over the portrait crop.
+            Banner art already has a clear black field where the text goes, and tinting it would
+            only reintroduce a visible seam against the band. */}
+        {!character.banner && (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(10,10,12,.92) 0 30%, rgba(10,10,12,.1) 58%, transparent)",
+            }}
+          />
+        )}
 
-        <div className="absolute inset-0 flex flex-col justify-between p-5">
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-7 w-7 border-white/20 bg-background/50"
-              onClick={onBack}
-              aria-label="Back to library"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <span className="font-heading text-[10px] uppercase tracking-[0.14em] text-primary">
-              Library / Character
-            </span>
-          </div>
-
+        <div className="absolute inset-0 flex flex-col justify-end p-5">
           <div>
             <h2 className="text-[46px] leading-[0.92] [text-shadow:0_3px_24px_rgba(0,0,0,.95)]">
               {character.name}

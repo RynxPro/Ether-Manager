@@ -38,6 +38,10 @@ export interface Character {
   id: string;
   name: string;
   portrait: string | null;
+  /** Purpose-made 16:9 art for the character page header, where one exists. Wide, figure to
+   * one side, transparent background — so it is placed rather than cropped. Most of the roster
+   * has none and falls back to the portrait. */
+  banner: string | null;
   gamebanana_category_id: number | null;
 }
 
