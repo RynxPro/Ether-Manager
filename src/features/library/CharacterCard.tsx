@@ -46,31 +46,45 @@ export function CharacterCard({
       style={{
         clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
       }}
-      className={`group relative flex w-full flex-col overflow-hidden border-2 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary ${
+      // The surface dims too, not just the art. Portraits are transparent around the figure, so
+      // the card colour shows through behind them, and an empty character should sink into the
+      // grid rather than sit on a lit panel. Reuses `--sidebar`, the app's existing recessed
+      // surface, instead of inventing another dark value.
+      className={`group relative flex w-full flex-col overflow-hidden border-2 text-left transition-all hover:-translate-y-0.5 hover:border-primary ${
         hasUpdate ? "border-primary" : "border-border"
-      }`}
+      } ${hasMods ? "bg-card" : "bg-sidebar hover:bg-card"}`}
     >
       <span className="relative block aspect-[3/4] w-full overflow-hidden">
         {character.portrait ? (
           <img
             src={character.portrait}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover object-top"
+            // Characters with nothing installed grey out, the same way a disabled mod card does,
+            // so the two screens mark "not in play" identically. Greyscale rather than opacity:
+            // fading the art washed the whole grid out, where desaturation keeps it crisp and
+            // still reads as inactive at a glance. Colour returns on hover so the roster stays
+            // browsable.
+            className={`absolute inset-0 h-full w-full object-cover object-top transition-[filter] ${
+              hasMods ? "" : "brightness-75 grayscale group-hover:brightness-100 group-hover:grayscale-0"
+            }`}
           />
         ) : (
           // 7 of the 60 characters ship without a portrait — a permanent state, not a load
           // failure, so this initial is the designed representation rather than a placeholder.
           // It sits on the secondary surface, not the muted one, so a character that owns mods
           // still reads as present rather than blending into the dimmed empty cards.
-          <span className="absolute inset-0 flex items-center justify-center bg-secondary font-heading text-3xl font-semibold text-muted-foreground/50">
+          <span
+            className={`absolute inset-0 flex items-center justify-center bg-secondary font-heading text-3xl font-semibold transition-colors ${
+              hasMods ? "text-muted-foreground/50" : "text-muted-foreground/25 group-hover:text-muted-foreground/50"
+            }`}
+          >
             {character.name.charAt(0)}
           </span>
         )}
 
-        {/* No scanlines or foot gradient, and no dimming for characters without mods. Both were
-            costing more than they bought: sixty pieces of character art are the whole point of
-            this grid, and a texture over them plus 40% opacity on nearly every card left it
-            looking washed out. "No mods" is already stated in words on the card. */}
+        {/* No scanlines or foot gradient here — sixty pieces of character art are the whole
+            point of this grid, and a texture laid over all of them only obscured what the user
+            came to look at. The greyscale above carries the "nothing installed" state instead. */}
 
         {hasUpdate && (
           <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
@@ -80,11 +94,15 @@ export function CharacterCard({
       </span>
 
       <span
-        className={`relative block border-t-2 bg-background px-2.5 pb-3 pt-1.5 ${
+        className={`relative block border-t-2 px-2.5 pb-3 pt-1.5 ${
           hasUpdate ? "border-t-primary" : "border-t-border"
-        } group-hover:border-t-primary`}
+        } ${hasMods ? "bg-background" : "bg-sidebar"} group-hover:border-t-primary`}
       >
-        <span className="block truncate font-heading text-sm font-semibold uppercase tracking-wide text-foreground">
+        <span
+          className={`block truncate font-heading text-sm font-semibold uppercase tracking-wide ${
+            hasMods ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+          }`}
+        >
           {character.name}
         </span>
         <span className="flex items-baseline justify-between gap-2">
