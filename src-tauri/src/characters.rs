@@ -75,9 +75,32 @@ mod tests {
         assert!(characters
             .iter()
             .any(|c| c.id == "belle" && c.portrait.is_some()));
-        assert!(characters
-            .iter()
-            .any(|c| c.id == "promeia" && c.portrait.is_none()));
+    }
+
+    /// Art coverage is deliberately not asserted as a count — it grows as files are sourced,
+    /// and pinning the test to which characters currently lack a portrait or banner means it
+    /// fails every time more art is added, which is the opposite of useful. What must hold is
+    /// that any path present points where the app serves from, under the id it belongs to.
+    #[test]
+    fn art_paths_follow_the_public_layout_and_match_their_character_id() {
+        for character in all_characters() {
+            if let Some(portrait) = &character.portrait {
+                assert_eq!(
+                    portrait,
+                    &format!("/characters/{}.webp", character.id),
+                    "portrait path for {} does not match its id",
+                    character.id
+                );
+            }
+            if let Some(banner) = &character.banner {
+                assert_eq!(
+                    banner,
+                    &format!("/banners/{}.webp", character.id),
+                    "banner path for {} does not match its id",
+                    character.id
+                );
+            }
+        }
     }
 
     #[test]
