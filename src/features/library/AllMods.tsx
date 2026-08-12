@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CARD_GRID } from "@/lib/layout";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
 import { SLOT_LABELS, type Character, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { ModCard } from "./ModCard";
@@ -150,7 +151,7 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
                 </h3>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className={CARD_GRID}>
                 {group.mods.map((mod) => {
                   // The toggle/delete mutations are shared across every card here, so their
                   // pending/error state reflects only the most recent call — match it against

@@ -1,6 +1,7 @@
 import { ArrowLeft, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CARD_GRID } from "@/lib/layout";
 import type { Character, UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { SlotSection } from "./SlotSection";
@@ -170,7 +171,7 @@ export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetail
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className={CARD_GRID}>
           {Array.from({ length: 4 }).map((_, index) => (
             <Skeleton key={index} className="aspect-[16/10] w-full" />
           ))}

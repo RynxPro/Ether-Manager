@@ -1,3 +1,4 @@
+import { CARD_GRID } from "@/lib/layout";
 import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
@@ -41,7 +42,7 @@ export function SlotSection({
           No mods installed for this slot yet.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className={CARD_GRID}>
           {mods.map((mod) => {
             // toggleMod/deleteMod are shared across every card in this section — a single
             // useMutation's pending/error/variables state reflects only the most recent call,
