@@ -46,7 +46,7 @@ export function CharacterCard({
       style={{
         clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
       }}
-      className={`group relative flex w-full flex-col overflow-hidden border-2 bg-card text-left transition-all hover:-translate-y-[3px] hover:border-primary ${
+      className={`group relative flex w-full flex-col overflow-hidden border-2 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary ${
         hasUpdate ? "border-primary" : "border-border"
       } ${hasMods ? "" : "opacity-40 hover:opacity-100"}`}
     >

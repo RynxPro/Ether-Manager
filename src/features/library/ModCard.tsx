@@ -48,7 +48,7 @@ export function ModCard({
       style={{
         clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
       }}
-      className={`group/card flex flex-col border-2 bg-card ${
+      className={`group/card flex flex-col border-2 bg-card transition-all hover:-translate-y-0.5 hover:border-primary ${
         hasUpdate ? "border-primary" : "border-border"
       }`}
     >
@@ -94,7 +94,7 @@ export function ModCard({
       </div>
 
       <div
-        className={`border-t-2 bg-background px-2.5 pb-2 pt-1.5 ${
+        className={`border-t-2 bg-background px-2.5 pb-2 pt-1.5 group-hover/card:border-t-primary ${
           hasUpdate ? "border-t-primary" : "border-t-border"
         }`}
       >
