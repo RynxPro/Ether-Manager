@@ -26,8 +26,12 @@ export function GameBananaModCard({
   const [revealed, setRevealed] = useState(false);
   const showingBlur = isBlurred && !revealed;
   const thumbnail = mod.preview_media.images[0];
+  // `file_220` is 220px on its long edge. That was adequate when these cards were 190px wide;
+  // they are now wider than the image itself, so it was being upscaled and arrived soft. The
+  // 530px rendering covers the card at 2x and still costs a fraction of the original upload,
+  // which on GameBanana is routinely a multi-megabyte screenshot.
   const thumbnailUrl = thumbnail
-    ? `${thumbnail.base_url}/${thumbnail.file_220 ?? thumbnail.file}`
+    ? `${thumbnail.base_url}/${thumbnail.file_530 ?? thumbnail.file_220 ?? thumbnail.file}`
     : null;
 
   return (
@@ -38,7 +42,12 @@ export function GameBananaModCard({
       }}
       className="group relative flex flex-col border-2 border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary"
     >
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-secondary">
+      {/* 4:3, not the roster's 3:4. GameBanana previews are landscape without exception, and a
+          portrait frame was discarding most of every one of them — on the surface where the
+          picture is the entire pitch, because you are judging a mod you have never seen. Still
+          taller than the library card's 16:10, so Browse stays denser and the two surfaces do
+          not collapse into the same shape. */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-secondary">
         {/* A `div[role=button]`, not a real `<button>`: MatureContentShield renders its own
             real `<button>` reveal overlay inside this, and a `<button>` cannot validly nest
             inside another `<button>` — the browser would silently break the DOM apart. While
