@@ -13,8 +13,14 @@ const BASE_URL: &str = "https://gamebanana.com/apiv11";
 pub const ZZZ_GAME_ID: i64 = 19567;
 
 /// GameBanana's `Mod/Index` defaults to 5 records per page (confirmed live) — too few for a
-/// browse grid. 20 keeps requests light while filling several rows at typical window sizes.
-const MOD_INDEX_PAGE_SIZE: u32 = 20;
+/// browse grid.
+///
+/// 30 rather than a rounder number because the browse grid is `auto-fill`: its column count
+/// follows the window, and a page that does not divide by it leaves the last row part-empty.
+/// 20 gave three rows and a stub of two at the width this window is usually dragged to. 30
+/// divides exactly at both five and six columns, which covers roughly 1400px to 2000px, and
+/// it halves the paging.
+const MOD_INDEX_PAGE_SIZE: u32 = 30;
 
 /// API calls (search/detail) are small JSON responses and should always be fast — bounded
 /// tightly so a stalled connection surfaces as a real error instead of hanging the UI.
@@ -217,11 +223,16 @@ pub struct GbMod {
     pub root_category: GbCategoryRef,
     #[serde(rename(deserialize = "_aSubCategory"))]
     pub sub_category: Option<GbCategoryRef>,
-    #[serde(rename(deserialize = "_nLikeCount"))]
+    // GameBanana omits a count field entirely rather than sending zero — confirmed live on
+    // `Mod/Index` page 2, where three of thirty records carry no `_nPostCount` at all. Without
+    // a default that is a hard deserialize failure, and `parse_mod_records` then drops the
+    // whole mod, which is why a page of thirty was arriving as twenty-seven. A missing count
+    // means none, so it must default rather than fail.
+    #[serde(rename(deserialize = "_nLikeCount"), default)]
     pub like_count: i64,
-    #[serde(rename(deserialize = "_nViewCount"))]
+    #[serde(rename(deserialize = "_nViewCount"), default)]
     pub view_count: i64,
-    #[serde(rename(deserialize = "_nPostCount"))]
+    #[serde(rename(deserialize = "_nPostCount"), default)]
     pub post_count: i64,
     #[serde(rename(deserialize = "_bHasContentRatings"), default)]
     pub has_content_ratings: bool,
@@ -296,11 +307,14 @@ pub struct GbModDetail {
         deserialize_with = "deserialize_null_default"
     )]
     pub embedded_media: Vec<String>,
-    #[serde(rename(deserialize = "_nDownloadCount"))]
+    // Same omitted-when-zero behaviour as the list records above. Here the consequence is
+    // worse: an absent count fails the whole detail fetch, so a brand-new mod with no
+    // downloads would refuse to open at all.
+    #[serde(rename(deserialize = "_nDownloadCount"), default)]
     pub download_count: i64,
-    #[serde(rename(deserialize = "_nViewCount"))]
+    #[serde(rename(deserialize = "_nViewCount"), default)]
     pub view_count: i64,
-    #[serde(rename(deserialize = "_nLikeCount"))]
+    #[serde(rename(deserialize = "_nLikeCount"), default)]
     pub like_count: i64,
     #[serde(rename(deserialize = "_aCategory"))]
     pub category: GbCategoryDetail,
@@ -393,7 +407,21 @@ fn parse_list_response(body: &str) -> Result<RawListResponse, GameBananaError> {
 fn parse_mod_records(values: Vec<serde_json::Value>) -> Vec<GbMod> {
     values
         .into_iter()
-        .filter_map(|v| serde_json::from_value::<GbMod>(v).ok())
+        .filter_map(|v| {
+            // Skipping a record the caller cannot parse is the right behaviour — one odd mod
+            // should not empty a whole page — but it used to happen silently, so a page of
+            // thirty quietly became twenty-seven and the only symptom was a short grid. Say
+            // which record went and why, so the next new-or-renamed field is a log line rather
+            // than an investigation.
+            let name = v.get("_sName").and_then(|n| n.as_str()).unwrap_or("?").to_owned();
+            match serde_json::from_value::<GbMod>(v) {
+                Ok(m) => Some(m),
+                Err(e) => {
+                    eprintln!("skipped GameBanana mod record {name:?}: {e}");
+                    None
+                }
+            }
+        })
         .map(|mut m| {
             m.is_mature = crate::content_rating::is_mature(&m.initial_visibility);
             m
