@@ -9,16 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ModSort } from "@/lib/tauri-commands";
+import { SORT_OPTIONS } from "./sortOptions";
 
 const ALL_CHARACTERS_VALUE = "all";
-
-const SORT_OPTIONS: { value: ModSort; label: string }[] = [
-  { value: "LatestUpdated", label: "Latest Updated" },
-  { value: "Newest", label: "Newest" },
-  { value: "MostLiked", label: "Most Liked" },
-  { value: "MostViewed", label: "Most Viewed" },
-  { value: "MostDownloaded", label: "Most Downloaded" },
-];
 
 interface SearchBarProps {
   query: string;
@@ -60,12 +53,11 @@ export function SearchBar({
   };
 
   return (
-    // Pinned to the top of the scroll area: the results below run to hundreds of cards, and
-    // changing a filter meant scrolling back up to reach the controls. Full-bleed against the
-    // page padding so the backing covers the gutters as content passes underneath, and the
-    // negative top offset covers the padding above it.
-    <div className="sticky -top-6 z-20 -mx-6 border-b-2 border-primary bg-background px-6 pt-6 pb-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    // The controls sit inside Browse's header block now, which supplies the framing and the
+    // accent rule that closes it. They no longer pin themselves to the top of the scroll area:
+    // a sticky element cannot escape a bordered parent without tearing it, and the header is
+    // far too tall to pin whole.
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <Field label="Search" className="sm:max-w-sm sm:flex-1">
           {/* Search is the main thing you come to Browse to do, so it reads as the primary
               control rather than the first of three identical boxes: taller, an icon anchoring
@@ -166,7 +158,6 @@ export function SearchBar({
             </SelectContent>
           </Select>
         </Field>
-      </div>
     </div>
   );
 }

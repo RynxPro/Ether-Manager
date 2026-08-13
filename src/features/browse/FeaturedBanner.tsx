@@ -108,7 +108,7 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
     // — here the art pane is narrower, so its shape is closer to a preview's and it crops less
     // at a fraction of the height. The third column is the picker: a fixed rail rather than a
     // fraction, because its cells only ever need to be recognisable, not readable.
-    <div className="grid h-[420px] grid-cols-[1.35fr_1fr_118px] border-2 border-border">
+    <div className="grid h-[420px] grid-cols-[1.35fr_1fr_118px]">
       <div className="relative overflow-hidden bg-secondary">
         {/* Keyed on the mod so switching slides remounts the shield — otherwise revealing one
             mature preview would leave the next one revealed too. */}

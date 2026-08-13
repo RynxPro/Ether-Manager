@@ -23,19 +23,34 @@ export function Browse({ onSelectMod }: BrowseProps) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold text-foreground">Browse</h2>
+      {/* The title, the featured band and the controls are one bordered header rather than three
+          blocks stacked with air between them. They belong together — what is being shown off
+          and how you narrow it — and closing the block with the accent rule makes that rule a
+          real division between the header and the results rather than a stray underline. */}
+      <div className="border-2 border-border border-b-primary">
+        <div className="flex items-baseline gap-3 border-b border-border px-4 py-3">
+          <h2 className="font-heading text-2xl uppercase tracking-[0.06em] text-foreground">
+            Browse
+          </h2>
+          <span className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+            GameBanana · Zenless Zone Zero
+          </span>
+        </div>
 
-      <FeaturedBanner onSelectMod={onSelectMod} />
+        <FeaturedBanner onSelectMod={onSelectMod} />
 
-      <SearchBar
-        inputRef={searchRef}
-        query={query}
-        onQueryChange={setQuery}
-        categoryId={categoryId}
-        onCategoryChange={setCategoryId}
-        sort={sort}
-        onSortChange={setSort}
-      />
+        <div className="border-t border-border px-4 py-3">
+          <SearchBar
+            inputRef={searchRef}
+            query={query}
+            onQueryChange={setQuery}
+            categoryId={categoryId}
+            onCategoryChange={setCategoryId}
+            sort={sort}
+            onSortChange={setSort}
+          />
+        </div>
+      </div>
 
       <BrowseGrid
         key={`${debouncedQuery.trim()}-${categoryId ?? "all"}-${sort}`}
