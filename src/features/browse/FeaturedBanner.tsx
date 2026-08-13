@@ -1,4 +1,5 @@
-import { Bookmark, ChevronLeft, ChevronRight, Eye, ThumbsUp } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Clock, Eye, ThumbsUp } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,27 @@ function thumbnailUrlFor(mod: GbMod): string | null {
 function heroUrlFor(mod: GbMod): string | null {
   const image = mod.preview_media.images[0];
   return image ? `${image.base_url}/${image.file}` : null;
+}
+
+/** The rail cells are around 110px wide, so the smallest pre-rendered size is more than
+ * enough — six original uploads would be megabytes of art nobody looks at closely. */
+function railUrlFor(mod: GbMod): string | null {
+  const image = mod.preview_media.images[0];
+  if (!image) return null;
+  return `${image.base_url}/${image.file_220 ?? image.file}`;
+}
+
+const SECONDS_PER_DAY = 86400;
+
+/** GameBanana sends `date_modified` as unix seconds. An exact date is noise here — how
+ * recently it moved is the only part anyone reads off a featured strip. */
+function updatedLabel(dateModified: number): string {
+  const days = Math.floor((Date.now() / 1000 - dateModified) / SECONDS_PER_DAY);
+  if (days <= 0) return "Today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 /** A fixed "Most Liked" carousel above the search bar — not affected by the search/filter/sort
@@ -74,6 +96,9 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
   const heroUrl = heroUrlFor(mod);
   const isBlurred = (visibility ?? "Blur") === "Blur" && mod.is_mature;
   const isBookmarked = bookmarkedIds.has(mod.id);
+  // The sub-category is the character the mod is for, which is the more useful of the two;
+  // the root category ("Skins", "Other/Misc") is the fallback when it has none.
+  const category = mod.sub_category?.name ?? mod.root_category.name;
   const step = (delta: number) =>
     setIndex((current) => (current + delta + records.length) % records.length);
 
@@ -81,8 +106,9 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
     // Art and text in separate columns rather than text laid over the picture. Overlaying meant
     // the band had to be tall enough to hold both, which is what made a full-bleed hero enormous
     // — here the art pane is narrower, so its shape is closer to a preview's and it crops less
-    // at a fraction of the height.
-    <div className="grid h-[420px] grid-cols-[1.9fr_1fr] border-2 border-border">
+    // at a fraction of the height. The third column is the picker: a fixed rail rather than a
+    // fraction, because its cells only ever need to be recognisable, not readable.
+    <div className="grid h-[420px] grid-cols-[1.35fr_1fr_118px] border-2 border-border">
       <div className="relative overflow-hidden bg-secondary">
         {/* Keyed on the mod so switching slides remounts the shield — otherwise revealing one
             mature preview would leave the next one revealed too. */}
@@ -116,35 +142,64 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
         </button>
       </div>
 
-      <div className="flex flex-col justify-center border-l-2 border-border bg-card p-6">
-        <p className="font-heading text-[10px] uppercase tracking-[0.16em] text-primary">
-          Popular right now
-        </p>
-        {/* h3 is deliberately outside the `h1, h2` base rule, so the heading face is applied
-            here rather than inherited. Clamped because GameBanana names run long. */}
-        <h3 className="mt-2 line-clamp-3 font-heading text-2xl uppercase leading-[1.05] tracking-[0.03em]">
-          {mod.name}
-        </h3>
-        <p className="mt-1.5 truncate text-xs text-muted-foreground">by {mod.submitter.name}</p>
-
-        <div className="mt-4 flex gap-6">
-          <span className="text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5 font-heading text-lg tabular-nums text-foreground">
-              <ThumbsUp className="h-3.5 w-3.5" />
-              {mod.like_count.toLocaleString()}
-            </span>
-            likes
-          </span>
-          <span className="text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5 font-heading text-lg tabular-nums text-foreground">
-              <Eye className="h-3.5 w-3.5" />
-              {mod.view_count.toLocaleString()}
-            </span>
-            views
-          </span>
+      {/* The panel is banded rather than a single centred stack. A block of text floating in
+          the middle of a large box was the whole problem — every band here spans the full
+          width and is bounded by a rule, so the panel reads as built rather than as leftover
+          space that text happens to sit in. */}
+      <div className="flex flex-col overflow-hidden border-l-2 border-border bg-card">
+        {/* The header is a solid accent bar rather than accent text on the card. It gives the
+            panel a hard edge to start from, and it is the one place the accent can be filled
+            without competing with the artwork beside it. */}
+        <div className="flex items-center justify-between bg-primary px-6 py-3 text-primary-foreground">
+          <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em]">
+            Popular right now
+          </p>
+          <p className="font-heading text-[10px] font-semibold tabular-nums tracking-[0.16em]">
+            {String(index + 1).padStart(2, "0")} / {String(records.length).padStart(2, "0")}
+          </p>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        {/* `z-2` makes this a stacking context so the outlined numeral's negative z-index stays
+            inside it — painting above the panel's own background but behind this text. */}
+        <div className="relative z-[2] flex flex-1 flex-col justify-center px-6">
+          {/* The carousel position at display size, drawn as outline only. Kept fully inside
+              the panel — bled off the edge it read as a clipping bug rather than a device.
+              The stroke is neutral, not accent: a saturated yellow at low alpha composites to
+              olive over this surface, and the accent is already spending itself on the header
+              bar and the stat values. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 right-5 -z-10 -translate-y-1/2 font-heading text-[200px] leading-[0.8] tracking-[-0.05em] tabular-nums"
+            style={{ color: "transparent", WebkitTextStroke: "2px rgba(255,255,255,.10)" }}
+          >
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          {/* h3 is deliberately outside the `h1, h2` base rule, so the heading face is applied
+              here rather than inherited. Clamped because GameBanana names run long, and broken
+              because those names are comma-joined runs the line breaker treats as one token. */}
+          <h3 className="line-clamp-3 break-words font-heading text-3xl uppercase leading-[1.05] tracking-[0.02em]">
+            {mod.name}
+          </h3>
+          <div className="mt-3 flex items-center gap-2">
+            {mod.submitter.avatar_url && (
+              <img src={mod.submitter.avatar_url} alt="" className="h-5 w-5 shrink-0 object-cover" />
+            )}
+            <span className="truncate text-xs text-muted-foreground">by {mod.submitter.name}</span>
+          </div>
+          {category && (
+            <span className="mt-4 self-start border border-border px-2 py-0.5 font-heading text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              {category}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
+          <Stat icon={ThumbsUp} value={mod.like_count.toLocaleString()} label="likes" />
+          <Stat icon={Eye} value={mod.view_count.toLocaleString()} label="views" />
+          <Stat icon={Clock} value={updatedLabel(mod.date_modified)} label="updated" />
+        </div>
+
+        <div className="flex flex-wrap gap-2 border-t border-border px-6 py-4">
           <Button type="button" size="sm" onClick={() => onSelectMod(mod)}>
             View mod
           </Button>
@@ -159,24 +214,70 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
             {isBookmarked ? "Bookmarked" : "Bookmark"}
           </Button>
         </div>
+      </div>
 
-        {/* Position markers: how many there are and where you are, without a second row of
-            artwork competing with the one being featured. */}
-        <div className="mt-6 flex gap-1.5">
-          {records.map((record, i) => (
+      {/* The picker. A row of dots said how many there were and where you were; the rail says
+          the same thing and also shows what you would be switching to, which is the only
+          question worth answering on a page made of pictures. Recessed surface so it reads as
+          a control strip attached to the band rather than a third piece of content. */}
+      <div className="flex flex-col gap-1.5 overflow-hidden border-l-2 border-border bg-sidebar p-1.5">
+        {records.map((record, i) => {
+          const railUrl = railUrlFor(record);
+          const isRecordBlurred = (visibility ?? "Blur") === "Blur" && record.is_mature;
+          const isActive = i === index;
+          return (
             <button
               key={record.id}
               type="button"
               onClick={() => setIndex(i)}
               aria-label={`Show ${record.name}`}
-              aria-current={i === index}
-              className={`h-[3px] w-6 transition-colors ${
-                i === index ? "bg-primary" : "bg-border hover:bg-muted-foreground"
+              aria-current={isActive}
+              // `min-h-0` lets the six cells actually divide the band's height — without it a
+              // flex child refuses to shrink below its content and they overflow together.
+              className={`group/rail relative min-h-0 flex-1 overflow-hidden border-2 transition-colors ${
+                isActive ? "border-primary" : "border-transparent hover:border-muted-foreground"
               }`}
-            />
-          ))}
-        </div>
+            >
+              {railUrl ? (
+                <img
+                  src={railUrl}
+                  alt=""
+                  // Everything but the current one is dimmed, so the rail reads as one lit cell
+                  // in a column rather than six previews competing with the hero beside them.
+                  className={`h-full w-full object-cover transition ${
+                    isActive ? "" : "brightness-[.45] group-hover/rail:brightness-90"
+                  } ${isRecordBlurred ? "blur-[5px]" : ""}`}
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center bg-secondary font-heading text-lg text-muted-foreground/40">
+                  {record.name.charAt(0)}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+interface StatProps {
+  icon: LucideIcon;
+  value: string;
+  label: string;
+}
+
+/** One cell of the panel's stats strip. The strip is a divided grid rather than a row of
+ * gapped spans so the cells reach the panel's edges — the point of the band is that it is
+ * bounded, and a gapped row leaves the last value stranded in open space. */
+function Stat({ icon: Icon, value, label }: StatProps) {
+  return (
+    <div className="px-5 py-3 first:pl-6">
+      <span className="flex items-center gap-1.5 font-heading text-lg tabular-nums text-primary">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">{value}</span>
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
     </div>
   );
 }
