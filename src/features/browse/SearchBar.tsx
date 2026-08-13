@@ -22,6 +22,11 @@ interface SearchBarProps {
   onSortChange: (sort: ModSort) => void;
   /** Lets Browse point the page-wide Ctrl+F hotkey at this input. */
   inputRef?: React.Ref<HTMLInputElement>;
+  /** The pinned bar's version: one short row, no labels. The labels earn their place in the
+   * header, where the controls are first met and their values ("All characters") read as data
+   * rather than as filters. In a bar that appears mid-scroll you already know what they are,
+   * and the height they cost is height taken from the results. */
+  compact?: boolean;
 }
 
 export function SearchBar({
@@ -32,7 +37,13 @@ export function SearchBar({
   sort,
   onSortChange,
   inputRef,
+  compact = false,
 }: SearchBarProps) {
+  // `min-h` as well as `h`, because the select trigger sets its own height through
+  // `data-[size=default]:h-8`. That is an attribute selector, so it outranks a plain `h-10`
+  // utility and quietly won — the two dropdowns have been 32px next to a 40px search field.
+  // `min-height` is a different property, so it settles the matter without a specificity fight.
+  const controlHeight = compact ? "h-9 min-h-9" : "h-10 min-h-10";
   const isTextSearchActive = query.trim().length > 0;
   const isCharacterFiltered = categoryId !== null;
   const { data: characters } = useCharacters();
@@ -57,8 +68,12 @@ export function SearchBar({
     // accent rule that closes it. They no longer pin themselves to the top of the scroll area:
     // a sticky element cannot escape a bordered parent without tearing it, and the header is
     // far too tall to pin whole.
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Field label="Search" className="sm:max-w-sm sm:flex-1">
+    <div
+      className={
+        compact ? "flex flex-1 items-center gap-2" : "flex flex-col gap-3 sm:flex-row sm:items-end"
+      }
+    >
+        <Field label="Search" className="sm:max-w-sm sm:flex-1" compact={compact}>
           {/* Search is the main thing you come to Browse to do, so it reads as the primary
               control rather than the first of three identical boxes: taller, an icon anchoring
               the left, and the accent on focus. */}
@@ -72,7 +87,7 @@ export function SearchBar({
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Search GameBanana mods…"
               aria-label="Search GameBanana mods"
-              className="h-10 pr-16 pl-9 focus-visible:border-primary"
+              className={`${controlHeight} pr-16 pl-9 focus-visible:border-primary`}
             />
             {query ? (
               <button
@@ -93,12 +108,12 @@ export function SearchBar({
           </div>
         </Field>
 
-        <Field label="Character" className="sm:w-60">
+        <Field label="Character" className={compact ? "w-52" : "sm:w-60"} compact={compact}>
           <Select value={selectedCharacterId} onValueChange={handleCharacterChange}>
             {/* Border goes accent while a filter is applied — with sixty options it should be
                 obvious at a glance that results are narrowed, without reading the value. */}
             <SelectTrigger
-              className={`h-10 w-full [&>span]:flex [&>span]:items-center [&>span]:gap-2 ${
+              className={`${controlHeight} w-full [&>span]:flex [&>span]:items-center [&>span]:gap-2 ${
                 isCharacterFiltered ? "border-primary text-foreground" : ""
               }`}
             >
@@ -137,7 +152,8 @@ export function SearchBar({
 
         <Field
           label="Sort by"
-          className="sm:w-52"
+          className={compact ? "w-44" : "sm:w-52"}
+          compact={compact}
           hint={isTextSearchActive ? "Not available while searching" : undefined}
         >
           <Select
@@ -145,7 +161,9 @@ export function SearchBar({
             onValueChange={(value) => onSortChange(value as ModSort)}
             disabled={isTextSearchActive}
           >
-            <SelectTrigger className="h-10 w-full [&>span]:flex [&>span]:items-center [&>span]:gap-2">
+            <SelectTrigger
+              className={`${controlHeight} w-full [&>span]:flex [&>span]:items-center [&>span]:gap-2`}
+            >
               <ArrowDownWideNarrow className="h-4 w-4 shrink-0 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
@@ -167,13 +185,25 @@ interface FieldProps {
   children: React.ReactNode;
   className?: string;
   hint?: string;
+  compact?: boolean;
 }
 
 /** A labelled control. The values alone ("All characters", "Latest Updated") read as data
  * rather than as filters, so each gets the small uppercase label the rest of the app uses.
  * The hint slot is always rendered so a control gaining or clearing one cannot shift the
  * row's height. */
-function Field({ label, children, className, hint }: FieldProps) {
+function Field({ label, children, className, hint, compact = false }: FieldProps) {
+  // In the pinned bar the label and the hint slot are dropped and the control carries the label
+  // itself, so the whole bar is one control tall. `title` keeps the naming for a pointer, and
+  // each control already has its own `aria-label`, so nothing is lost to a screen reader.
+  if (compact) {
+    return (
+      <div className={className} title={hint ? `${label} — ${hint}` : label}>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className={`flex flex-col gap-1 ${className ?? ""}`}>
       <span className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground">

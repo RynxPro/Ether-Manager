@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBookmark,
   getGamebananaModDetail,
@@ -19,6 +19,28 @@ export function useSearchGamebananaMods(
   return useQuery({
     queryKey: ["gbSearch", query, categoryId, sort, page],
     queryFn: () => searchGamebananaMods(query, categoryId, sort, page),
+  });
+}
+
+/** Browse's own feed: page after page appended into one list rather than replaced.
+ *
+ * `is_complete` is GameBanana's only end-of-results signal — there is no page total — so it is
+ * what stops the feed. Returning `undefined` from `getNextPageParam` is how react-query is told
+ * there is nothing further, which is also what flips `hasNextPage` off.
+ *
+ * The cache holds every page fetched under one key, so opening a mod and coming back re-renders
+ * everything already loaded instead of dropping the reader at the top of page one. */
+export function useInfiniteGamebananaMods(
+  query: string | null,
+  categoryId: number | null,
+  sort: ModSort,
+) {
+  return useInfiniteQuery({
+    queryKey: ["gbSearchInfinite", query, categoryId, sort],
+    queryFn: ({ pageParam }) => searchGamebananaMods(query, categoryId, sort, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.is_complete ? undefined : allPages.length + 1,
   });
 }
 
