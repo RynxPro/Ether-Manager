@@ -5,6 +5,7 @@ import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
+import { updatedLabel } from "@/lib/time";
 import type { GbMod } from "@/lib/tauri-commands";
 import { useAddBookmark, useBookmarks, useRemoveBookmark, useSearchGamebananaMods } from "./hooks";
 
@@ -34,19 +35,6 @@ function railUrlFor(mod: GbMod): string | null {
   const image = mod.preview_media.images[0];
   if (!image) return null;
   return `${image.base_url}/${image.file_220 ?? image.file}`;
-}
-
-const SECONDS_PER_DAY = 86400;
-
-/** GameBanana sends `date_modified` as unix seconds. An exact date is noise here — how
- * recently it moved is the only part anyone reads off a featured strip. */
-function updatedLabel(dateModified: number): string {
-  const days = Math.floor((Date.now() / 1000 - dateModified) / SECONDS_PER_DAY);
-  if (days <= 0) return "Today";
-  if (days === 1) return "1d ago";
-  if (days < 30) return `${days}d ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
 }
 
 /** A fixed "Most Liked" carousel above the search bar — not affected by the search/filter/sort

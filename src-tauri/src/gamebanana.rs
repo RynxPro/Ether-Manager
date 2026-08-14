@@ -271,6 +271,13 @@ pub struct GbFile {
     pub av_result: Option<String>,
     #[serde(rename(deserialize = "_sDescription"))]
     pub description: Option<String>,
+    /// The uploader's own version label for this file (`"7.7"`). Absent on files that never
+    /// carried one — confirmed live, where five of one mod's fourteen files have no
+    /// `_sVersion` key at all — so it must default rather than fail the whole detail fetch.
+    /// Worth surfacing because a mod's files are often named `v72.zip`, `v73.zip`, and the
+    /// label is the only thing distinguishing one row from the next.
+    #[serde(rename(deserialize = "_sVersion"), default)]
+    pub version: Option<String>,
 }
 
 /// Category reference as it appears on `Mod/:id`'s `_aCategory` — unlike `GbCategoryRef`,

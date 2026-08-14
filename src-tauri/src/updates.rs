@@ -153,6 +153,7 @@ mod tests {
             analysis_result: None,
             av_result: None,
             description: None,
+            version: None,
         }
     }
 

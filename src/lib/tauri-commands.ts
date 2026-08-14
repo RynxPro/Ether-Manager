@@ -187,6 +187,8 @@ export interface GbFile {
   analysis_result: string | null;
   av_result: string | null;
   description: string | null;
+  /** The uploader's own version label (`"7.7"`), `null` on files that never carried one. */
+  version: string | null;
 }
 
 /** Category reference on mod detail — unlike `GbCategoryRef`, carries a numeric id. */
