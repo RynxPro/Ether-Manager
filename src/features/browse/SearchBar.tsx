@@ -1,14 +1,15 @@
-import { ArrowDownWideNarrow, Search as SearchIcon, Users, X } from "lucide-react";
+import { ArrowDownWideNarrow, Layers, Search as SearchIcon, Users, X } from "lucide-react";
 import { useCharacters } from "@/features/library/hooks";
 import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ModSort } from "@/lib/tauri-commands";
+import { MISC_CHARACTER_ID, UI_CHARACTER_ID, type ModSort } from "@/lib/tauri-commands";
 import { SORT_OPTIONS } from "./sortOptions";
 
 const ALL_CHARACTERS_VALUE = "all";
@@ -49,6 +50,16 @@ export function SearchBar({
   const { data: characters } = useCharacters();
   const filterableCharacters = (characters ?? []).filter(
     (character) => character.gamebanana_category_id !== null,
+  );
+  // `listCharacters` returns the roster plus the two library-wide categories in one list, the
+  // same as the install flow's target picker uses. Here they want separating, because one group
+  // is browsed by face and the other is two fixed choices.
+  const isGlobalCategory = (id: string) => id === UI_CHARACTER_ID || id === MISC_CHARACTER_ID;
+  const globalCategories = filterableCharacters.filter((character) =>
+    isGlobalCategory(character.id),
+  );
+  const rosterCharacters = filterableCharacters.filter(
+    (character) => !isGlobalCategory(character.id),
   );
   const selectedCharacterId =
     filterableCharacters.find((character) => character.gamebanana_category_id === categoryId)
@@ -119,16 +130,36 @@ export function SearchBar({
             >
               <SelectValue placeholder="All characters" />
             </SelectTrigger>
-            <SelectContent>
+            {/* `popper` rather than the default `item-aligned`, which centres the panel on the
+                selected row and sets an inline `max-height: 100%` — that inline value beats any
+                class, so with sixty-odd options the list grew as tall as the app and stopped
+                reading as a dropdown at all. Anchored under the trigger, the cap applies and it
+                scrolls within itself. */}
+            <SelectContent position="popper" className="max-h-80">
               <SelectItem value={ALL_CHARACTERS_VALUE}>
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
                   All characters
                 </span>
               </SelectItem>
+
+              {/* UI and Misc are not roster members, and there are only two of them, so they sit
+                  with the other whole-library choice at the top. Ordered in among sixty
+                  characters they were stranded at the bottom of a long scroll. */}
+              {globalCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  <span className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-muted-foreground" />
+                    {category.name}
+                  </span>
+                </SelectItem>
+              ))}
+
+              <SelectSeparator />
+
               {/* The portrait carries the recognition here. Sixty names is a wall of text in a
                   app where people know these characters by face long before spelling. */}
-              {filterableCharacters.map((character) => (
+              {rosterCharacters.map((character) => (
                 <SelectItem key={character.id} value={character.id}>
                   <span className="flex items-center gap-2">
                     {character.portrait ? (
@@ -167,7 +198,9 @@ export function SearchBar({
               <ArrowDownWideNarrow className="h-4 w-4 shrink-0 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            {/* Matched to the character dropdown beside it: two adjacent controls opening in
+                different places — one under the trigger, one over it — reads as a glitch. */}
+            <SelectContent position="popper">
               {SORT_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
