@@ -91,6 +91,22 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
     activeThumb.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [activeImageIndex]);
 
+  // The back button lives in the header, and a long description scrolls that header away for
+  // thousands of pixels — leaving the only way out of the page at the top of a scroll you have
+  // to make in full. A slim bar takes over once the header goes, the same way Browse's controls
+  // do, rather than pinning the header itself.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [isHeaderOnScreen, setIsHeaderOnScreen] = useState(true);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setIsHeaderOnScreen(entry.isIntersecting),
+    );
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
   function step(delta: number) {
     setActiveImageIndex((current) => (current + delta + images.length) % images.length);
   }
@@ -109,7 +125,7 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end gap-4 border-b-2 border-primary pb-3.5">
+      <div ref={headerRef} className="flex items-end gap-4 border-b-2 border-primary pb-3.5">
         <Button type="button" variant="outline" size="icon" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -137,6 +153,32 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
       ) : (
         <div className="flex items-start gap-6">
           <div className="min-w-0 flex-1 space-y-6">
+            {/* Zero-height so it costs no layout, with the bar overflowing out of it, and
+                `-mb-6` to cancel the gap `space-y-6` would otherwise open beneath it.
+                `-top-6` rather than `top-0` because sticky pins to the scrolling element's
+                padding box and the page's scroller carries `p-6`.
+                Only as wide as this column, unlike Browse's full-bleed version: the right
+                column is pinned too, and a bar reaching the window edge would sit across the
+                top of it. */}
+            {!isHeaderOnScreen && (
+              <div className="sticky -top-6 z-30 -mb-6 h-0">
+                <div className="flex animate-in items-center gap-3 border-b-2 border-primary bg-background py-2.5 duration-200 slide-in-from-top-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={onBack}
+                    aria-label="Back"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <p className="min-w-0 truncate font-heading text-sm uppercase tracking-[0.06em]">
+                    {detail?.name ?? mod.name}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {activeImage && (
               <section>
                 <SectionLabel
