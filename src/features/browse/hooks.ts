@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBookmark,
+  getFeaturedMods,
   getGamebananaModDetail,
   installFromGamebanana,
   listBookmarks,
@@ -9,6 +10,17 @@ import {
   type InstallFromGamebananaInput,
   type ModSort,
 } from "@/lib/tauri-commands";
+
+/** The banner's six ranking windows. Costs two GameBanana requests, and the answer only moves
+ * once a day at the fastest, so it is held far longer than a search page — otherwise flipping
+ * between Browse and a mod refetches the same six mods every time. */
+export function useFeaturedMods() {
+  return useQuery({
+    queryKey: ["gbFeatured"],
+    queryFn: getFeaturedMods,
+    staleTime: 30 * 60 * 1000,
+  });
+}
 
 export function useSearchGamebananaMods(
   query: string | null,

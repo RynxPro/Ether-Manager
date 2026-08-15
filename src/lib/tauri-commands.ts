@@ -170,10 +170,25 @@ export interface GbMod {
   like_count: number;
   view_count: number;
   post_count: number;
+  /** `null` means unknown, not zero. GameBanana's list endpoints never send a download count,
+   * so the backend fills this from a separate batched call — if that call fails the number is
+   * simply absent, and the card omits the stat rather than showing a fabricated `0`. */
+  download_count: number | null;
   has_content_ratings: boolean;
   initial_visibility: string;
   /** Computed backend-side from `initial_visibility` — see `content_rating::is_mature`. */
   is_mature: boolean;
+}
+
+/** GameBanana's own ranking windows, in the order the featured banner shows them. These are the
+ * API's bucket names, not this app's — it also ranks a `3month` window, deliberately skipped. */
+export type FeaturedPeriod = "today" | "week" | "month" | "6month" | "year" | "alltime";
+
+/** A mod that topped one ranking window, with the window it won. A period GameBanana has no
+ * entry for is absent rather than padded, so this list can be shorter than six. */
+export interface GbFeaturedMod {
+  period: FeaturedPeriod;
+  record: GbMod;
 }
 
 export interface GbFile {
@@ -259,6 +274,10 @@ export function searchGamebananaMods(
 
 export function getGamebananaModDetail(modId: number): Promise<GbModDetail> {
   return invoke("get_gamebanana_mod_detail", { modId });
+}
+
+export function getFeaturedMods(): Promise<GbFeaturedMod[]> {
+  return invoke("get_featured_mods");
 }
 
 export function listBookmarks(): Promise<Bookmark[]> {

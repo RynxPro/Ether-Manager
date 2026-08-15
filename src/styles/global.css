@@ -105,6 +105,22 @@ body {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* The featured band's slide clock. This is not decoration: `FeaturedBanner` advances the
+ * carousel from this animation's `animationend`, so the bar is the timer rather than a picture
+ * of one — pausing it pauses the band, and the two can never drift apart.
+ *
+ * `scaleX` rather than `width` so it runs on the compositor; the element carries
+ * `origin-left`. Declared here rather than inline because a keyframe rule cannot live in a
+ * style attribute. */
+@keyframes featured-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -7,15 +7,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { updatedLabel } from "@/lib/time";
 import type { GbMod } from "@/lib/tauri-commands";
-import { useAddBookmark, useBookmarks, useRemoveBookmark, useSearchGamebananaMods } from "./hooks";
+import { useAddBookmark, useBookmarks, useFeaturedMods, useRemoveBookmark } from "./hooks";
+import type { FeaturedPeriod } from "@/lib/tauri-commands";
 
 interface FeaturedBannerProps {
   onSelectMod: (mod: GbMod) => void;
 }
 
-/** How many of the Most Liked results the carousel cycles through. Six fills the thumbnail
- * strip at the widths this window is ever dragged to without the strip wrapping. */
-const FEATURED_COUNT = 6;
+/** How long a slide holds before the band moves on. Long enough to read the name, the author
+ * and the three stats without hurrying — a banner that turns over faster than it can be read is
+ * just movement. */
+const SLIDE_DURATION_MS = 7000;
+
+/** Two labels per window, because the two places they appear have very different room. The
+ * header states the claim in full; the rail cell only has to be enough to pick by, sitting in a
+ * ~110px column over artwork. */
+const PERIOD_LABELS: Record<FeaturedPeriod, { headline: string; tag: string }> = {
+  today: { headline: "Top today", tag: "1D" },
+  week: { headline: "Top this week", tag: "1W" },
+  month: { headline: "Top this month", tag: "1M" },
+  "6month": { headline: "Top 6 months", tag: "6M" },
+  year: { headline: "Top this year", tag: "1Y" },
+  alltime: { headline: "Top all time", tag: "ALL" },
+};
 
 function thumbnailUrlFor(mod: GbMod): string | null {
   const image = mod.preview_media.images[0];
@@ -37,24 +51,36 @@ function railUrlFor(mod: GbMod): string | null {
   return `${image.base_url}/${image.file_220 ?? image.file}`;
 }
 
-/** A fixed "Most Liked" carousel above the search bar — not affected by the search/filter/sort
- * controls below it. One large preview at a time, with arrows and a thumbnail strip to jump
- * straight to any of the six. */
+/** A fixed carousel above the search bar — not affected by the search/filter/sort controls
+ * below it. Each slide is the mod that topped one of GameBanana's ranking windows, widening as
+ * you go: today, this week, this month, six months, this year, all time.
+ *
+ * Six slots off a single "most liked" list was the previous version, and the problem with it
+ * was that all-time popularity is nearly static — the same mods sat there for weeks, so the band
+ * stopped being worth looking at. Ranking by window means the first slides turn over daily while
+ * the last ones stay the classics. */
 export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
-  const { data, isLoading } = useSearchGamebananaMods(null, null, "MostLiked", 1);
+  const { data: featured, isLoading } = useFeaturedMods();
   const { data: bookmarks } = useBookmarks();
   const { data: visibility } = useMatureContentVisibility();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
   const [index, setIndex] = useState(0);
+  const [isHeld, setIsHeld] = useState(false);
 
-  const records = (data?.records ?? []).slice(0, FEATURED_COUNT);
+  const slides = featured ?? [];
+  const records = slides.map((slide) => slide.record);
 
   // Results arrive after the first render, and can shrink when the API returns fewer than
   // expected — clamp rather than letting the index point past the end at nothing.
   useEffect(() => {
     if (records.length > 0 && index >= records.length) setIndex(0);
   }, [records.length, index]);
+
+  // No timer lives here: the progress bar below *is* the clock, and its `onAnimationEnd` is what
+  // advances the band. A `setTimeout` running alongside an animated bar is two clocks that drift
+  // apart the moment either is paused — this way pausing the bar pauses the band by definition,
+  // and it resumes from exactly where the bar stopped rather than restarting a hidden countdown.
 
   const bookmarkedIds = new Set((bookmarks ?? []).map((bookmark) => bookmark.gamebanana_mod_id));
 
@@ -80,7 +106,9 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
 
   if (records.length === 0) return null;
 
-  const mod = records[Math.min(index, records.length - 1)];
+  const activeIndex = Math.min(index, records.length - 1);
+  const mod = records[activeIndex];
+  const periodLabel = PERIOD_LABELS[slides[activeIndex].period];
   const heroUrl = heroUrlFor(mod);
   const isBlurred = (visibility ?? "Blur") === "Blur" && mod.is_mature;
   const isBookmarked = bookmarkedIds.has(mod.id);
@@ -96,7 +124,19 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
     // — here the art pane is narrower, so its shape is closer to a preview's and it crops less
     // at a fraction of the height. The third column is the picker: a fixed rail rather than a
     // fraction, because its cells only ever need to be recognisable, not readable.
-    <div className="grid h-[420px] grid-cols-[1.35fr_1fr_118px]">
+    <div
+      // The clock is a second row rather than a wrapper around the band, so the three columns
+      // and the bar stay siblings in one grid.
+      className="grid grid-cols-[1.35fr_1fr_118px] grid-rows-[420px_2px]"
+      // Held while the pointer is over the band, and while anything inside it has keyboard
+      // focus. Without this the slide can change out from under a click — you reach for
+      // "View mod" on the mod you were reading about and open a different one. Focus is
+      // captured too so tabbing to Bookmark does not start a race against the clock.
+      onMouseEnter={() => setIsHeld(true)}
+      onMouseLeave={() => setIsHeld(false)}
+      onFocusCapture={() => setIsHeld(true)}
+      onBlurCapture={() => setIsHeld(false)}
+    >
       <div className="relative overflow-hidden bg-secondary">
         {/* Keyed on the mod so switching slides remounts the shield — otherwise revealing one
             mature preview would leave the next one revealed too. */}
@@ -139,11 +179,14 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
             panel a hard edge to start from, and it is the one place the accent can be filled
             without competing with the artwork beside it. */}
         <div className="flex items-center justify-between bg-primary px-6 py-3 text-primary-foreground">
+          {/* The header now names the slide's claim rather than the band's. It has to: six
+              windows that all just said "popular" would leave the reader with no idea why the
+              same mod is not on every slide. */}
           <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em]">
-            Popular right now
+            {periodLabel.headline}
           </p>
           <p className="font-heading text-[10px] font-semibold tabular-nums tracking-[0.16em]">
-            {String(index + 1).padStart(2, "0")} / {String(records.length).padStart(2, "0")}
+            {String(activeIndex + 1).padStart(2, "0")} / {String(records.length).padStart(2, "0")}
           </p>
         </div>
 
@@ -158,7 +201,10 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
           <span
             aria-hidden
             className="pointer-events-none absolute top-1/2 right-5 -z-10 -translate-y-1/2 font-heading text-[200px] leading-[0.8] tracking-[-0.05em] tabular-nums"
-            style={{ color: "transparent", WebkitTextStroke: "2px rgba(255,255,255,.10)" }}
+            style={{
+              color: "transparent",
+              WebkitTextStroke: "2px rgba(255,255,255,.10)",
+            }}
           >
             {String(index + 1).padStart(2, "0")}
           </span>
@@ -170,7 +216,11 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
           </h3>
           <div className="mt-3 flex items-center gap-2">
             {mod.submitter.avatar_url && (
-              <img src={mod.submitter.avatar_url} alt="" className="h-5 w-5 shrink-0 object-cover" />
+              <img
+                src={mod.submitter.avatar_url}
+                alt=""
+                className="h-5 w-5 shrink-0 object-cover"
+              />
             )}
             <span className="truncate text-xs text-muted-foreground">by {mod.submitter.name}</span>
           </div>
@@ -209,16 +259,18 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
           question worth answering on a page made of pictures. Recessed surface so it reads as
           a control strip attached to the band rather than a third piece of content. */}
       <div className="flex flex-col gap-1.5 overflow-hidden border-l-2 border-border bg-sidebar p-1.5">
-        {records.map((record, i) => {
+        {slides.map((slide, i) => {
+          const record = slide.record;
           const railUrl = railUrlFor(record);
           const isRecordBlurred = (visibility ?? "Blur") === "Blur" && record.is_mature;
-          const isActive = i === index;
+          const isActive = i === activeIndex;
+          const tag = PERIOD_LABELS[slide.period].tag;
           return (
             <button
               key={record.id}
               type="button"
               onClick={() => setIndex(i)}
-              aria-label={`Show ${record.name}`}
+              aria-label={`Show ${PERIOD_LABELS[slide.period].headline}: ${record.name}`}
               aria-current={isActive}
               // `min-h-0` lets the six cells actually divide the band's height — without it a
               // flex child refuses to shrink below its content and they overflow together.
@@ -241,10 +293,40 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
                   {record.name.charAt(0)}
                 </span>
               )}
+              {/* Without this the rail is six unexplained pictures. The window is the only
+                  reason these six mods are together, so each cell has to say which one it is —
+                  and that turns the rail from a position indicator into a period picker. */}
+              <span
+                className={`absolute top-0 left-0 px-1 py-px font-heading text-[9px] font-semibold uppercase tracking-[0.08em] tabular-nums ${
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background/85 text-muted-foreground"
+                }`}
+              >
+                {tag}
+              </span>
             </button>
           );
         })}
       </div>
+
+      {/* The slide clock, spanning the whole band rather than sitting inside the panel. At full
+          width it doubles as the rule that closes the band off — art that ends in open space
+          reads as broken, art cut by a line reads as framed — so the countdown and the boundary
+          are the same 2px. Keyed on the slide so choosing a window by hand restarts it. */}
+      {records.length > 1 && (
+        <div className="col-span-3 bg-primary/20">
+          <div
+            key={activeIndex}
+            className="h-full w-full origin-left bg-primary"
+            style={{
+              animation: `featured-progress ${SLIDE_DURATION_MS}ms linear`,
+              animationPlayState: isHeld ? "paused" : "running",
+            }}
+            onAnimationEnd={() => setIndex((current) => (current + 1) % records.length)}
+          />
+        </div>
+      )}
     </div>
   );
 }

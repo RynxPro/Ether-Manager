@@ -55,6 +55,7 @@ pub fn run() {
             commands::settings::get_mature_content_visibility,
             commands::settings::set_mature_content_visibility,
             commands::gamebanana::search_gamebanana_mods,
+            commands::gamebanana::get_featured_mods,
             commands::gamebanana::get_gamebanana_mod_detail,
             commands::gamebanana::list_bookmarks,
             commands::gamebanana::add_bookmark,

@@ -1,4 +1,4 @@
-import { Bookmark, Eye, ThumbsUp } from "lucide-react";
+import { Bookmark, Download, Eye, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
@@ -120,12 +120,22 @@ export function GameBananaModCard({
         >
           {mod.name}
         </p>
-        <div className="flex items-center gap-3 text-[11px] tabular-nums text-muted-foreground/70">
-          <span className="flex items-center gap-1">
+        <div className="flex items-center gap-2.5 text-[11px] tabular-nums text-muted-foreground/70">
+          {/* Downloads lead: on a mod manager it is the one count that says how many people
+              actually installed this, which is the question you are asking of a card. Rendered
+              only when known — GameBanana's list endpoints do not carry it, so a failed
+              enrichment call leaves it null and the stat drops out rather than reading `0`. */}
+          {mod.download_count !== null && (
+            <span className="flex items-center gap-1" title="Downloads">
+              <Download className="h-3 w-3" />
+              {mod.download_count.toLocaleString()}
+            </span>
+          )}
+          <span className="flex items-center gap-1" title="Likes">
             <ThumbsUp className="h-3 w-3" />
             {mod.like_count.toLocaleString()}
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title="Views">
             <Eye className="h-3 w-3" />
             {mod.view_count.toLocaleString()}
           </span>

@@ -137,7 +137,13 @@ The art is the point of this app. Anything laid over it needs to earn its place.
 
 Restrained and short. `transition-all` at the default duration; a 2px lift on hover
 (`hover:-translate-y-0.5`); colour and filter transitions on state change. No entrance
-animations, no attention-seeking loops.
+animations, and one loop only.
+
+**The one loop is the featured band**, which advances every 7s so all six ranking windows are
+seen without being clicked through. It holds the moment the pointer enters or anything inside
+takes focus — a slide that changes under a click opens the wrong mod — and choosing a window by
+hand restarts the clock rather than inheriting the tail of the last one. Nothing else on any
+screen moves on its own.
 
 > Check an arbitrary Tailwind value actually emits CSS before trusting it —
 > `hover:-translate-y-[3px]` generated no rule at all and the lift was dead for days.

@@ -165,6 +165,7 @@ mod tests {
             like_count: 0,
             view_count: 0,
             post_count: 0,
+            download_count: None,
             has_content_ratings: is_mature,
             initial_visibility: if is_mature { "hide" } else { "show" }.to_string(),
             is_mature,

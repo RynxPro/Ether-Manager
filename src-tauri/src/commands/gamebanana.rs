@@ -8,7 +8,10 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::mods::{slugify_display_name, unique_variant_dir};
 use crate::db::{Bookmark, Mod, NewBookmark, NewMod, Slot};
-use crate::gamebanana::{GameBananaClient, GbFile, GbModDetail, GbSearchResult, ModSort};
+use crate::content_rating::MatureVisibility;
+use crate::gamebanana::{
+    GameBananaClient, GbFeaturedMod, GbFile, GbModDetail, GbSearchResult, ModSort,
+};
 use crate::{archive, fs_ops, AppState};
 
 /// How often progress events are emitted at most, so a fast connection delivering many small
@@ -47,6 +50,35 @@ pub async fn search_gamebanana_mods(
         result,
         visibility_pref,
     ))
+}
+
+/// The featured banner's six slides: the top mod of the day, week, month, half-year, year and
+/// all time.
+///
+/// `Hide` drops mature winners outright rather than blurring them, matching `search_mods`. The
+/// banner then shows fewer slides, which is the honest outcome — there is no second-place
+/// fallback to promote, since GameBanana ranks these and this app does not.
+#[tauri::command]
+pub async fn get_featured_mods(state: State<'_, AppState>) -> Result<Vec<GbFeaturedMod>, String> {
+    let visibility_pref = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_mature_content_visibility()
+            .map_err(|e| e.to_string())?
+    };
+
+    let featured = state
+        .gamebanana
+        .get_featured_mods()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(match visibility_pref {
+        MatureVisibility::Show | MatureVisibility::Blur => featured,
+        MatureVisibility::Hide => featured
+            .into_iter()
+            .filter(|f| !f.record.is_mature)
+            .collect(),
+    })
 }
 
 #[tauri::command]

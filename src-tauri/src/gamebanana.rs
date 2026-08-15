@@ -234,6 +234,16 @@ pub struct GbMod {
     pub view_count: i64,
     #[serde(rename(deserialize = "_nPostCount"), default)]
     pub post_count: i64,
+    /// Never present on a list record — confirmed live (2026-08-15): none of thirty
+    /// `Mod/Index` records carries `_nDownloadCount`, and that endpoint silently ignores
+    /// `_csvProperties`, so it cannot be asked for inline either. `search_mods` fills this in
+    /// afterwards from one batched `Mod/Multi` call; see `fill_download_counts`.
+    ///
+    /// `None` means *not known*, not *zero*. A mod nobody has downloaded is `Some(0)`; a mod
+    /// whose count could not be fetched stays `None` and the card omits the stat rather than
+    /// printing a number nobody measured.
+    #[serde(default, skip_deserializing)]
+    pub download_count: Option<i64>,
     #[serde(rename(deserialize = "_bHasContentRatings"), default)]
     pub has_content_ratings: bool,
     #[serde(
@@ -436,6 +446,171 @@ fn parse_mod_records(values: Vec<serde_json::Value>) -> Vec<GbMod> {
         .collect()
 }
 
+/// The "top of period" windows the featured banner cycles through, in the order it shows them.
+///
+/// These are GameBanana's own bucket names from `Game/:id/TopSubs`, not something this app
+/// computes — it also returns a `3month` bucket, deliberately skipped: six slides fill the rail,
+/// and three months sits close enough to six that the two would usually name the same mod.
+pub const FEATURED_PERIODS: [&str; 6] = ["today", "week", "month", "6month", "year", "alltime"];
+
+/// One `Game/:id/TopSubs` record.
+///
+/// This endpoint ranks submissions per period and is the only one that does — `Mod/Index`
+/// carries no time window at all (`_sPeriod` there is silently ignored, and invented sorts like
+/// `Generic_MostLiked_Week` return `INPUT_ERRORS`; both confirmed live 2026-08-15).
+///
+/// Only what the batch call cannot supply is read here. `_sInitialVisibility` is the important
+/// one: it is the mature signal the rest of the app keys on, and `Mod/Multi` rejects it
+/// outright, so this record is the only place it can come from.
+#[derive(Debug, Deserialize)]
+struct RawTopSub {
+    #[serde(rename(deserialize = "_idRow"))]
+    id: i64,
+    #[serde(rename(deserialize = "_sPeriod"))]
+    period: String,
+    /// `TopSubs` is a submission feed, so it can in principle carry Tools or Sounds alongside
+    /// Mods. Anything that is not a `Mod` is dropped rather than fetched as one.
+    #[serde(rename(deserialize = "_sModelName"), default)]
+    model_name: String,
+    #[serde(
+        rename(deserialize = "_sInitialVisibility"),
+        default = "default_initial_visibility"
+    )]
+    initial_visibility: String,
+}
+
+/// A `Mod/Multi` row carrying everything `TopSubs` leaves out — preview media, live counts and
+/// the modified date the banner shows.
+///
+/// Confirmed live 2026-08-15: `Mod/Multi` accepts each of these properties and rejects
+/// `_bHasFiles`, `_aTags`, `_aSubCategory`, `_sInitialVisibility` and `_bHasContentRatings` as
+/// `UNKNOWN_PROPERTY`. The first two are why `GbMod::has_files`/`tags` are filled in below
+/// rather than fetched.
+#[derive(Debug, Deserialize)]
+struct RawFeaturedFields {
+    #[serde(rename(deserialize = "_idRow"))]
+    id: i64,
+    #[serde(rename(deserialize = "_sName"))]
+    name: String,
+    #[serde(rename(deserialize = "_sProfileUrl"))]
+    profile_url: String,
+    #[serde(rename(deserialize = "_tsDateModified"))]
+    date_modified: i64,
+    #[serde(rename(deserialize = "_aPreviewMedia"), default)]
+    preview_media: GbPreviewMedia,
+    #[serde(rename(deserialize = "_aSubmitter"))]
+    submitter: GbSubmitter,
+    #[serde(rename(deserialize = "_aGame"))]
+    game: GbGameRef,
+    #[serde(rename(deserialize = "_aRootCategory"))]
+    root_category: GbCategoryRef,
+    /// The mod's own leaf category — the character, on a character skin. `Mod/Multi` has no
+    /// `_aSubCategory`, but this is that same value under another key: for a mod with no
+    /// character beneath it, `_aCategory` is simply the root category repeated, which is how
+    /// `sub_category` is reconstructed as `None` below.
+    #[serde(rename(deserialize = "_aCategory"))]
+    category: GbCategoryRef,
+    #[serde(rename(deserialize = "_nLikeCount"), default)]
+    like_count: i64,
+    #[serde(rename(deserialize = "_nViewCount"), default)]
+    view_count: i64,
+    #[serde(rename(deserialize = "_nPostCount"), default)]
+    post_count: i64,
+    #[serde(rename(deserialize = "_nDownloadCount"), default)]
+    download_count: Option<i64>,
+}
+
+/// A mod that topped one of GameBanana's ranking windows, with the window it won.
+#[derive(Debug, Clone, Serialize)]
+pub struct GbFeaturedMod {
+    /// GameBanana's own bucket name — one of [`FEATURED_PERIODS`]. The frontend maps it to a
+    /// label; it is passed through rather than pre-formatted so the wording stays a UI decision.
+    pub period: String,
+    pub record: GbMod,
+}
+
+/// Builds the `GbMod` the rest of the app speaks in from the two halves GameBanana splits it
+/// across: the ranking record and the batched detail row.
+///
+/// `has_files` and `tags` cannot be sourced from either endpoint (`Mod/Multi` rejects both).
+/// They are filled with the neutral empty values rather than guessed, and nothing on this
+/// surface reads them — the banner shows art, counts and a category, and opening a mod refetches
+/// the real detail by id.
+fn featured_mod_from(top: &RawTopSub, fields: RawFeaturedFields) -> GbMod {
+    // A leaf category identical to the root means the mod sits directly under it with no
+    // character below, which is exactly what an absent `_aSubCategory` means on a list record.
+    let sub_category = if fields.category.profile_url == fields.root_category.profile_url {
+        None
+    } else {
+        Some(fields.category)
+    };
+
+    GbMod {
+        id: fields.id,
+        name: fields.name,
+        profile_url: fields.profile_url,
+        date_modified: fields.date_modified,
+        has_files: true,
+        tags: Vec::new(),
+        preview_media: fields.preview_media,
+        submitter: fields.submitter,
+        game: fields.game,
+        root_category: fields.root_category,
+        sub_category,
+        like_count: fields.like_count,
+        view_count: fields.view_count,
+        post_count: fields.post_count,
+        download_count: fields.download_count,
+        has_content_ratings: false,
+        initial_visibility: top.initial_visibility.clone(),
+        is_mature: crate::content_rating::is_mature(&top.initial_visibility),
+    }
+}
+
+/// Picks the top-ranked mod for each wanted period, in [`FEATURED_PERIODS`] order.
+///
+/// `TopSubs` returns several mods per period already ranked, so the first match wins. A period
+/// GameBanana has no entry for is skipped rather than padded from another window — a young game
+/// genuinely has no "top of the year", and repeating a neighbouring period's mod would make the
+/// banner claim something untrue.
+fn pick_featured(subs: &[RawTopSub]) -> Vec<&RawTopSub> {
+    FEATURED_PERIODS
+        .iter()
+        .filter_map(|period| {
+            subs.iter()
+                .find(|s| s.period == *period && s.model_name == "Mod")
+        })
+        .collect()
+}
+
+/// One `Mod/Multi` row.
+///
+/// The count is `Option` because GameBanana sends an explicit `"_nDownloadCount": null` for
+/// some mods — confirmed live 2026-08-15, where a search page's batch came back with two nulls
+/// among ten. `#[serde(default)]` does not cover an explicit null, so without this the single
+/// null failed the whole array and a page lost every count it had just fetched.
+#[derive(Debug, Deserialize)]
+struct RawDownloadCount {
+    #[serde(rename(deserialize = "_idRow"))]
+    id: i64,
+    #[serde(rename(deserialize = "_nDownloadCount"), default)]
+    download_count: Option<i64>,
+}
+
+/// Copies fetched counts onto the matching records, leaving anything the batch did not answer
+/// for as `None`.
+///
+/// Deliberately never substitutes `0`. A mod absent from the response was not measured
+/// (withdrawn, id rejected), and a mod answered with `null` is GameBanana declining to say —
+/// neither is the claim "nobody has downloaded this". The card omits the stat instead.
+fn apply_download_counts(records: &mut [GbMod], counts: &[RawDownloadCount]) {
+    for record in records.iter_mut() {
+        if let Some(row) = counts.iter().find(|c| c.id == record.id) {
+            record.download_count = row.download_count;
+        }
+    }
+}
+
 pub struct GameBananaClient {
     http: reqwest::Client,
 }
@@ -474,9 +649,55 @@ impl GameBananaClient {
         sort: ModSort,
         page: u32,
     ) -> Result<GbSearchResult, GameBananaError> {
-        match query.map(str::trim).filter(|q| !q.is_empty()) {
-            Some(q) => self.search_by_text(q, page).await,
-            None => self.browse_by_category(category_id, sort, page).await,
+        let mut result = match query.map(str::trim).filter(|q| !q.is_empty()) {
+            Some(q) => self.search_by_text(q, page).await?,
+            None => self.browse_by_category(category_id, sort, page).await?,
+        };
+        // Both list paths land here, so neither can ship a page of cards missing the stat.
+        self.fill_download_counts(&mut result.records).await;
+        Ok(result)
+    }
+
+    /// Fills in `GbMod::download_count` for a whole page in one extra request.
+    ///
+    /// The list endpoints do not carry `_nDownloadCount` and ignore `_csvProperties`, but
+    /// `Mod/Multi` honours it and answers with a plain array, so thirty mods cost one small
+    /// call rather than thirty. Confirmed live 2026-08-15.
+    ///
+    /// Failure is swallowed on purpose. This is a secondary stat on a card; a browse page that
+    /// loaded fine must not be turned into an error screen because a supplementary call
+    /// timed out. The records simply keep `download_count: None` and the cards omit the line.
+    async fn fill_download_counts(&self, records: &mut [GbMod]) {
+        if records.is_empty() {
+            return;
+        }
+
+        let ids = records
+            .iter()
+            .map(|m| m.id.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let url =
+            format!("{BASE_URL}/Mod/Multi?_csvRowIds={ids}&_csvProperties=_idRow,_nDownloadCount");
+
+        let fetched = async {
+            let body = self
+                .http
+                .get(&url)
+                .timeout(API_REQUEST_TIMEOUT)
+                .send()
+                .await?
+                .error_for_status()?
+                .text()
+                .await?;
+            serde_json::from_str::<Vec<RawDownloadCount>>(&body)
+                .map_err(|_| GameBananaError::UnexpectedResponse(body.chars().take(500).collect()))
+        }
+        .await;
+
+        match fetched {
+            Ok(counts) => apply_download_counts(records, &counts),
+            Err(e) => eprintln!("download counts unavailable for this page: {e}"),
         }
     }
 
@@ -549,6 +770,81 @@ impl GameBananaClient {
             is_complete: raw.metadata.is_complete,
             hidden_count: 0,
         })
+    }
+
+    /// The six mods that top GameBanana's own ranking windows — best today, this week, this
+    /// month, this half-year, this year, and of all time — in that order.
+    ///
+    /// Two requests, not seven. `Game/:id/TopSubs` ranks every period in one response but
+    /// returns a thin record (no preview media, no view count, no modified date), so the six
+    /// winners are then filled out by a single batched `Mod/Multi` call.
+    ///
+    /// A period GameBanana cannot fill, or a mod the batch does not answer for, is dropped —
+    /// the banner shows five slides rather than inventing a sixth.
+    pub async fn get_featured_mods(&self) -> Result<Vec<GbFeaturedMod>, GameBananaError> {
+        let url = format!("{BASE_URL}/Game/{ZZZ_GAME_ID}/TopSubs");
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        // `TopSubs` answers with a bare array, not the `_aMetadata`/`_aRecords` envelope the
+        // list endpoints use, so `parse_list_response` does not apply here.
+        let subs: Vec<RawTopSub> = serde_json::from_str(&body).map_err(|_| {
+            if let Ok(err) = serde_json::from_str::<RawApiError>(&body) {
+                GameBananaError::Api {
+                    code: err.code,
+                    body: body.clone(),
+                }
+            } else {
+                GameBananaError::UnexpectedResponse(body.chars().take(500).collect())
+            }
+        })?;
+
+        let winners = pick_featured(&subs);
+        if winners.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let ids = winners
+            .iter()
+            .map(|s| s.id.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let fields_url = format!(
+            "{BASE_URL}/Mod/Multi?_csvRowIds={ids}&_csvProperties=_idRow,_sName,_sProfileUrl,\
+             _tsDateModified,_aPreviewMedia,_aSubmitter,_aGame,_aRootCategory,_aCategory,\
+             _nLikeCount,_nViewCount,_nPostCount,_nDownloadCount"
+        );
+        let fields_body = self
+            .http
+            .get(&fields_url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        let mut fields: Vec<RawFeaturedFields> = serde_json::from_str(&fields_body)
+            .map_err(|_| {
+                GameBananaError::UnexpectedResponse(fields_body.chars().take(500).collect())
+            })?;
+
+        Ok(winners
+            .into_iter()
+            .filter_map(|top| {
+                let position = fields.iter().position(|f| f.id == top.id)?;
+                Some(GbFeaturedMod {
+                    period: top.period.clone(),
+                    record: featured_mod_from(top, fields.remove(position)),
+                })
+            })
+            .collect())
     }
 
     /// `@gbprofile` cannot be combined with extra `_csvProperties` in one request (confirmed
@@ -733,15 +1029,116 @@ mod tests {
         );
     }
 
-    /// `#[serde(rename = "_sName")]` renames both directions by default, which would leak
-    /// GameBanana's raw wire format (`_sName`, `_idRow`, ...) into the JSON sent to the
-    /// frontend. These structs use `rename(deserialize = ...)` specifically so serialization
-    /// (Tauri command responses) uses clean Rust field names instead, matching how `Mod`/
-    /// `Character` already look on the frontend.
+    /// `Mod/Index` carries no `_nDownloadCount` at all and ignores `_csvProperties` (both
+    /// confirmed live 2026-08-15), so the batched `Mod/Multi` call is the only thing putting
+    /// this number on a card. If that call is dropped or its shape changes, every card
+    /// silently loses the stat with nothing else failing — hence a live assertion.
+    ///
+    /// Deliberately a majority rather than "all": a mod withdrawn between the two requests
+    /// would legitimately come back unanswered, and that is not a regression.
+    #[tokio::test]
+    async fn browse_records_arrive_with_download_counts_attached() {
+        let client = GameBananaClient::new();
+        let result = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
+
+        let known = result.records.iter().filter(|m| m.download_count.is_some()).count();
+        assert!(
+            known * 2 > result.records.len(),
+            "only {known} of {} browse records carried a download count",
+            result.records.len()
+        );
+    }
+
+    fn fixture_top_sub(id: i64, period: &str, model_name: &str) -> RawTopSub {
+        RawTopSub {
+            id,
+            period: period.to_string(),
+            model_name: model_name.to_string(),
+            initial_visibility: "show".to_string(),
+        }
+    }
+
+    /// The banner's order is the app's decision, not the API's — `TopSubs` returns the buckets
+    /// interleaved and includes a `3month` window this app skips. Pins both, plus the rule that
+    /// only `Mod` records qualify, since the feed can carry Tools and Sounds too.
     #[test]
-    fn serializing_a_mod_uses_clean_field_names_not_gamebanana_wire_format() {
-        let m = GbMod {
-            id: 1,
+    fn featured_picks_one_mod_per_wanted_period_in_display_order() {
+        let subs = vec![
+            fixture_top_sub(10, "alltime", "Mod"),
+            fixture_top_sub(20, "3month", "Mod"),
+            fixture_top_sub(30, "today", "Tool"),
+            fixture_top_sub(31, "today", "Mod"),
+            fixture_top_sub(32, "today", "Mod"),
+            fixture_top_sub(40, "week", "Mod"),
+            fixture_top_sub(50, "month", "Mod"),
+            fixture_top_sub(60, "6month", "Mod"),
+            fixture_top_sub(70, "year", "Mod"),
+        ];
+
+        let picked = pick_featured(&subs);
+
+        assert_eq!(
+            picked.iter().map(|s| s.id).collect::<Vec<_>>(),
+            vec![31, 40, 50, 60, 70, 10],
+            "expected day/week/month/6month/year/alltime, taking the Tool's place with id 31"
+        );
+    }
+
+    /// A period with no entry is skipped, never padded from a neighbouring window — a banner
+    /// that repeated last month's winner as "top today" would be claiming something untrue.
+    #[test]
+    fn featured_skips_a_period_gamebanana_has_no_entry_for() {
+        let subs = vec![
+            fixture_top_sub(10, "today", "Mod"),
+            fixture_top_sub(20, "alltime", "Mod"),
+        ];
+
+        let picked = pick_featured(&subs);
+
+        assert_eq!(picked.iter().map(|s| s.id).collect::<Vec<_>>(), vec![10, 20]);
+    }
+
+    /// The whole point of the change: six different ranking windows, not six slots off one
+    /// popularity list. Live, because the join between `TopSubs` and `Mod/Multi` is the part
+    /// that can silently break — a failed join would render every slide as a letter on grey.
+    #[tokio::test]
+    async fn featured_mods_come_back_as_distinct_periods_with_artwork() {
+        let client = GameBananaClient::new();
+        let featured = client.get_featured_mods().await.unwrap();
+
+        let periods: Vec<&str> = featured.iter().map(|f| f.period.as_str()).collect();
+        assert!(
+            periods.len() >= 5,
+            "expected most ranking windows to be filled, got {periods:?}"
+        );
+        assert!(
+            periods.iter().all(|p| FEATURED_PERIODS.contains(p)),
+            "unexpected period in {periods:?}"
+        );
+        // Same relative order as the display list, with any empty window simply missing.
+        let expected: Vec<&str> = FEATURED_PERIODS
+            .iter()
+            .copied()
+            .filter(|p| periods.contains(p))
+            .collect();
+        assert_eq!(periods, expected);
+
+        assert!(
+            featured
+                .iter()
+                .all(|f| !f.record.preview_media.images.is_empty()),
+            "a slide came back with no artwork, so the Mod/Multi join is broken"
+        );
+        let unique: std::collections::HashSet<i64> = featured.iter().map(|f| f.record.id).collect();
+        assert!(
+            unique.len() > 1,
+            "every period named the same mod, which is the behaviour this replaced"
+        );
+    }
+
+    fn fixture_mod(id: i64) -> GbMod {
+        GbMod {
+            id,
             name: "Test Mod".to_string(),
             profile_url: "https://gamebanana.com/mods/1".to_string(),
             date_modified: 0,
@@ -766,16 +1163,68 @@ mod tests {
             like_count: 0,
             view_count: 0,
             post_count: 0,
+            download_count: None,
             has_content_ratings: false,
             initial_visibility: "show".to_string(),
             is_mature: false,
-        };
+        }
+    }
 
-        let json = serde_json::to_string(&m).unwrap();
+    /// `#[serde(rename = "_sName")]` renames both directions by default, which would leak
+    /// GameBanana's raw wire format (`_sName`, `_idRow`, ...) into the JSON sent to the
+    /// frontend. These structs use `rename(deserialize = ...)` specifically so serialization
+    /// (Tauri command responses) uses clean Rust field names instead, matching how `Mod`/
+    /// `Character` already look on the frontend.
+    #[test]
+    fn serializing_a_mod_uses_clean_field_names_not_gamebanana_wire_format() {
+        let json = serde_json::to_string(&fixture_mod(1)).unwrap();
         assert!(json.contains("\"id\":1"));
         assert!(json.contains("\"name\":\"Test Mod\""));
         assert!(!json.contains("_idRow"));
         assert!(!json.contains("_sName"));
+    }
+
+    /// The distinction the card depends on: only a mod the batch actually put a number against
+    /// gets one. A mod the batch skipped, and a mod it answered with `null`, both stay `None`
+    /// so the card leaves the stat off rather than claiming nobody downloaded it.
+    #[test]
+    fn download_counts_apply_only_to_mods_the_batch_gave_a_number_for() {
+        let mut records = vec![fixture_mod(1), fixture_mod(2), fixture_mod(3)];
+        let counts = vec![
+            RawDownloadCount {
+                id: 1,
+                download_count: Some(1126),
+            },
+            RawDownloadCount {
+                id: 3,
+                download_count: None,
+            },
+        ];
+
+        apply_download_counts(&mut records, &counts);
+
+        assert_eq!(records[0].download_count, Some(1126));
+        assert_eq!(records[1].download_count, None, "id 2 was never answered for");
+        assert_eq!(records[2].download_count, None, "id 3 was answered with null");
+    }
+
+    /// A single explicit `null` used to fail the whole array, so one unmeasured mod cost a
+    /// page every count it had just fetched. Pins that the rest survive it.
+    #[test]
+    fn a_null_download_count_does_not_discard_the_rest_of_the_batch() {
+        let body = r#"[
+            {"_idRow": 1, "_nDownloadCount": 17553},
+            {"_idRow": 2, "_nDownloadCount": null},
+            {"_idRow": 3, "_nDownloadCount": 9945}
+        ]"#;
+
+        let counts: Vec<RawDownloadCount> = serde_json::from_str(body).unwrap();
+        let mut records = vec![fixture_mod(1), fixture_mod(2), fixture_mod(3)];
+        apply_download_counts(&mut records, &counts);
+
+        assert_eq!(records[0].download_count, Some(17553));
+        assert_eq!(records[1].download_count, None);
+        assert_eq!(records[2].download_count, Some(9945));
     }
 
     #[tokio::test]

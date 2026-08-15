@@ -29,6 +29,8 @@ function bookmarkToPlaceholderGbMod(bookmark: Bookmark): GbMod {
     like_count: 0,
     view_count: 0,
     post_count: 0,
+    // Genuinely unknown from a bookmark row, and `null` says so — see `GbMod.download_count`.
+    download_count: null,
     has_content_ratings: false,
     initial_visibility: "show",
     is_mature: false,
