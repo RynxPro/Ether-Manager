@@ -35,7 +35,27 @@ impl Db {
     fn init_schema(&self) -> rusqlite::Result<()> {
         self.conn.execute_batch(schema::SCHEMA_SQL)?;
         self.migrate_thumbnail_column()?;
+        self.migrate_downloads_etag_column()?;
         self.migrate_legacy_slot_values()
+    }
+
+    /// `downloads.etag` arrived with pause/resume — it records which version of the remote file a
+    /// staged partial came from, so resuming can send `If-Range` and get a clean restart rather
+    /// than a corrupt splice if the file changed. `CREATE TABLE IF NOT EXISTS` leaves an existing
+    /// table alone, so a database created between the downloads table shipping and this column
+    /// being added would fail every download read on a missing column without this.
+    /// Idempotent — only runs while the column is absent.
+    fn migrate_downloads_etag_column(&self) -> rusqlite::Result<()> {
+        let has_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('downloads') WHERE name = 'etag'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_column == 0 {
+            self.conn
+                .execute_batch("ALTER TABLE downloads ADD COLUMN etag TEXT;")?;
+        }
+        Ok(())
     }
 
     /// `thumbnail_path` became `thumbnail_url`: mod previews are remote GameBanana images, not
@@ -150,6 +170,37 @@ mod tests {
         let columns = column_names(&db);
         assert!(columns.iter().any(|c| c == "thumbnail_url"));
         assert!(!columns.iter().any(|c| c == "thumbnail_path"));
+    }
+
+    /// Guards the upgrade path for databases created after the downloads table shipped but before
+    /// resume added `etag` to it. Without the migration every download read fails on the missing
+    /// column, which would take the whole Downloads page down rather than just losing resume.
+    #[test]
+    fn adds_the_downloads_etag_column_to_a_database_that_predates_it_and_is_idempotent() {
+        let db = Db::open_in_memory().unwrap();
+        db.conn
+            .execute_batch("ALTER TABLE downloads DROP COLUMN etag;")
+            .unwrap();
+
+        db.migrate_downloads_etag_column().unwrap();
+        db.migrate_downloads_etag_column().unwrap();
+
+        let mut stmt = db
+            .conn
+            .prepare("SELECT name FROM pragma_table_info('downloads')")
+            .unwrap();
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert!(
+            columns.iter().any(|c| c == "etag"),
+            "expected an etag column, got {columns:?}"
+        );
+        // The read path is what actually breaks on a missing column, so exercise it rather than
+        // trusting the pragma alone.
+        assert!(db.list_downloads().unwrap().is_empty());
     }
 
     #[test]

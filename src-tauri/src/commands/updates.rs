@@ -272,11 +272,14 @@ async fn download_and_swap_gamebanana_file(
     gamebanana_mod_id: i64,
     gamebanana_file_id: i64,
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
+    should_stop: impl Fn() -> bool,
 ) -> Result<GbFile, String> {
-    let detail = gamebanana
-        .get_mod_detail(gamebanana_mod_id)
-        .await
-        .map_err(|e| e.to_string())?;
+    let detail = tokio::select! {
+        found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,
+        _ = crate::gamebanana::wait_for_stop(&should_stop) => {
+            return Err(crate::gamebanana::GameBananaError::Cancelled.to_string())
+        }
+    };
     let file = detail
         .files
         .into_iter()
@@ -310,7 +313,17 @@ async fn download_and_swap_gamebanana_file(
 
     let result = async {
         gamebanana
-            .download_file(&file.download_url, &temp_download_path, on_progress)
+            // No resume point: an update has no row to come back to, and the staging file is
+            // deleted on every exit path below, so there is never a partial for a later attempt
+            // to continue from.
+            .download_file(
+                &file.download_url,
+                &temp_download_path,
+                crate::gamebanana::ResumePoint::fresh(),
+                |_| {},
+                on_progress,
+                should_stop,
+            )
             .await
             .map_err(|e| e.to_string())?;
         crate::archive::extract_archive(&temp_download_path, &staging_dir)
@@ -328,8 +341,10 @@ async fn download_and_swap_gamebanana_file(
 /// Updates one installed mod in place. `folder_path`, `enabled` (including any `DISABLED_`
 /// prefix), `display_name`, `character_id`, and `slot` are all left untouched — only the
 /// folder's on-disk contents and the row's tracked `gamebanana_file_id`/`gamebanana_md5`
-/// change. Reuses the exact same `gamebanana-install-progress` event and `install_cancel` slot
-/// as `install_from_gamebanana`; the two are never run concurrently from the UI.
+/// change. This is now the only user of the `gamebanana-install-progress` event and the
+/// `install_cancel` slot: installs moved to the download queue, which carries its own per-row
+/// events and stop flags, leaving this flow the last one that is still a modal you wait in front
+/// of.
 #[tauri::command]
 pub async fn update_installed_mod(
     app: AppHandle,
@@ -355,6 +370,9 @@ pub async fn update_installed_mod(
         let mut guard = state.install_cancel.lock().map_err(|e| e.to_string())?;
         *guard = Some(cancel_flag.clone());
     }
+    // A second handle on the same flag: `on_progress` below can only carry a cancellation once
+    // bytes are arriving, and the wait for GameBanana's file host happens before any do.
+    let stop_check = cancel_flag.clone();
 
     let mut last_emit = Instant::now() - crate::commands::gamebanana::PROGRESS_EMIT_INTERVAL;
     let on_progress = move |downloaded: u64, total: Option<u64>| {
@@ -377,6 +395,7 @@ pub async fn update_installed_mod(
         gamebanana_mod_id,
         gamebanana_file_id,
         on_progress,
+        move || stop_check.load(std::sync::atomic::Ordering::Relaxed),
     )
     .await;
 
@@ -560,6 +579,7 @@ mod tests {
             SAMPLE_MOD_ID,
             SAMPLE_FILE_ID,
             |_, _| false,
+            || false,
         )
         .await
         .unwrap();
@@ -612,6 +632,7 @@ mod tests {
             SAMPLE_MOD_ID,
             SAMPLE_FILE_ID,
             |_, _| false,
+            || false,
         )
         .await
         .unwrap();

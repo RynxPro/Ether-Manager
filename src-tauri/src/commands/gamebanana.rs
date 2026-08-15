@@ -11,7 +11,8 @@ use crate::commands::mods::{slugify_display_name, unique_variant_dir};
 use crate::db::{Bookmark, Db, Mod, NewBookmark, NewMod, Slot};
 use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
-    GameBananaClient, GbFeaturedMod, GbFile, GbModDetail, GbSearchResult, ModSort,
+    GameBananaClient, GameBananaError, GbFeaturedMod, GbFile, GbModDetail, GbSearchResult, ModSort,
+    ResumePoint,
 };
 use crate::{archive, fs_ops, AppState};
 
@@ -131,21 +132,69 @@ pub(crate) struct InstallRequest<'a> {
     pub character_id: &'a str,
     pub slot: Slot,
     pub display_name: &'a str,
+    pub staging: Staging,
+}
+
+/// Where the archive is staged on its way in, and how much of it is already there.
+///
+/// Nothing here is deleted by the install. Whoever chose the path owns it, because only they know
+/// whether a stopped transfer is meant to be kept or thrown away — the install cannot tell a pause
+/// from a cancel, since both reach it as the same abandoned transfer.
+pub(crate) struct Staging {
+    pub path: PathBuf,
+    /// Bytes at `path` the transfer may continue from, and the validator they were served with.
+    /// Zero starts clean regardless of what the file holds.
+    pub resume_from: u64,
+    pub etag: Option<String>,
+}
+
+/// Names the staging file for a download row.
+///
+/// Keyed on the row id rather than a random suffix, which is the whole basis of resume: a paused
+/// transfer has to be findable again by whatever picks it up, possibly in a later run of the app.
+/// The file name is appended only so a half-finished download is recognisable to anyone who opens
+/// their temp folder.
+///
+/// That name comes from GameBanana, so it is scrubbed to plain characters first — interpolating a
+/// remote string straight into a path is how a file called `..\..\something` ends up written
+/// outside the folder that was meant to hold it. The fixed prefix does the rest of the work: the
+/// result is always a single path component, and can never itself be `..`.
+pub(crate) fn staging_path(download_id: i64, file_name: &str) -> PathBuf {
+    let safe: String = file_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    std::env::temp_dir().join(format!("ether-manager-download-{download_id}-{safe}"))
 }
 
 /// Core install logic, kept free of `State`/`Db` so it's directly unit-testable against the
-/// live API without a mock Tauri app. Downloads the given GameBanana file to a process-unique
-/// temp path (never straight into `dest_dir`, so a failed/partial download or extraction never
-/// leaves a half-installed folder under the character/slot tree) and extracts it in place.
-/// `on_extract_start` fires between the two phases. Extraction reports no progress of its own,
-/// so without this the caller cannot tell a large archive being unpacked from a download that
-/// has stalled at 100% — they look identical from outside.
+/// live API without a mock Tauri app. Downloads the given GameBanana file to `request.staging`
+/// (never straight into `dest_dir`, so a failed or partial download never leaves a half-installed
+/// folder under the character/slot tree) and extracts it in place.
+///
+/// `on_extract_start` fires between the two phases. Extraction reports no progress of its own, so
+/// without this the caller cannot tell a large archive being unpacked from a download that has
+/// stalled at 100% — they look identical from outside. `on_validator` fires earlier still, as soon
+/// as the response headers land, so a transfer that is later paused has recorded which version of
+/// the file its bytes came from.
+///
+/// The staging file is left where it is on every exit path, success included. Deleting it is the
+/// caller's job: only the caller knows whether an abandoned transfer was paused, and is worth
+/// keeping, or cancelled.
 async fn download_and_extract_gamebanana_file(
     gamebanana: &GameBananaClient,
     mods_root: &Path,
     request: InstallRequest<'_>,
+    on_validator: impl FnOnce(Option<&str>),
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
     on_extract_start: impl FnOnce(),
+    should_stop: impl Fn() -> bool,
 ) -> Result<(PathBuf, GbFile), String> {
     let InstallRequest {
         gamebanana_mod_id,
@@ -153,12 +202,18 @@ async fn download_and_extract_gamebanana_file(
         character_id,
         slot,
         display_name,
+        staging,
     } = request;
 
-    let detail = gamebanana
-        .get_mod_detail(gamebanana_mod_id)
-        .await
-        .map_err(|e| e.to_string())?;
+    // Raced like the download itself: this lookup is the other await standing between pressing
+    // install and the first byte, and a download nobody can abandon while it is still starting is
+    // the complaint that put the race here.
+    let detail = tokio::select! {
+        found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,
+        _ = crate::gamebanana::wait_for_stop(&should_stop) => {
+            return Err(GameBananaError::Cancelled.to_string())
+        }
+    };
 
     let file = detail
         .files
@@ -174,24 +229,22 @@ async fn download_and_extract_gamebanana_file(
     let base_name = fs_ops::to_disabled_name(&slugify_display_name(display_name));
     let dest_dir = unique_variant_dir(&slot_dir, &base_name);
 
-    let temp_download_path = std::env::temp_dir().join(format!(
-        "ether-manager-gb-download-{}-{}-{}",
-        gamebanana_file_id,
-        crate::commands::unique_temp_id(),
-        file.file_name
-    ));
-
-    let result = async {
-        gamebanana
-            .download_file(&file.download_url, &temp_download_path, on_progress)
-            .await
-            .map_err(|e| e.to_string())?;
-        on_extract_start();
-        archive::extract_archive(&temp_download_path, &dest_dir).map_err(|e| e.to_string())
-    }
-    .await;
-    let _ = std::fs::remove_file(&temp_download_path);
-    result?;
+    gamebanana
+        .download_file(
+            &file.download_url,
+            &staging.path,
+            ResumePoint {
+                have: staging.resume_from,
+                etag: staging.etag.as_deref(),
+            },
+            on_validator,
+            on_progress,
+            should_stop,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    on_extract_start();
+    archive::extract_archive(&staging.path, &dest_dir).map_err(|e| e.to_string())?;
 
     Ok((dest_dir, file))
 }
@@ -211,16 +264,18 @@ pub(crate) async fn install_gamebanana_file(
     gamebanana: &GameBananaClient,
     db: &Mutex<Db>,
     request: InstallRequest<'_>,
+    on_validator: impl FnOnce(Option<&str>),
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
     on_extract_start: impl FnOnce(),
+    should_stop: impl Fn() -> bool,
 ) -> Result<Mod, String> {
-    let InstallRequest {
-        gamebanana_mod_id,
-        gamebanana_file_id,
-        character_id,
-        slot,
-        display_name,
-    } = request;
+    let (gamebanana_mod_id, gamebanana_file_id) =
+        (request.gamebanana_mod_id, request.gamebanana_file_id);
+    let (character_id, slot, display_name) = (
+        request.character_id.to_string(),
+        request.slot,
+        request.display_name.to_string(),
+    );
 
     let mods_folder = {
         let db = db.lock().map_err(|e| e.to_string())?;
@@ -233,18 +288,13 @@ pub(crate) async fn install_gamebanana_file(
     let (dest_dir, file) = download_and_extract_gamebanana_file(
         gamebanana,
         &mods_root,
-        InstallRequest {
-            gamebanana_mod_id,
-            gamebanana_file_id,
-            character_id,
-            slot,
-            display_name,
-        },
+        request,
+        on_validator,
         on_progress,
         on_extract_start,
+        should_stop,
     )
     .await?;
-    let (character_id, display_name) = (character_id.to_string(), display_name.to_string());
     let state = InstallRecording {
         gamebanana,
         db,
@@ -342,7 +392,7 @@ pub async fn backfill_mod_thumbnails(state: State<'_, AppState>) -> Result<usize
 /// update is currently running (e.g. the user double-clicks cancel, or it already finished).
 ///
 /// Only the update flow uses this now — installs moved to the download queue, which owns a
-/// cancel flag per download (`AppState::download_cancels`) because a single shared slot made
+/// stop flag per download (`AppState::download_stops`) because a single shared slot made
 /// the first of two concurrent jobs uncancellable.
 #[tauri::command]
 pub fn cancel_gamebanana_install(state: State<AppState>) -> Result<(), String> {
@@ -367,6 +417,13 @@ mod tests {
         let mods_root =
             std::env::temp_dir().join(format!("ether-manager-install-test-{}", std::process::id()));
 
+        // Keeps the real extension: `extract_archive` chooses its extractor from it, which is why
+        // `staging_path` preserves dots when it scrubs a remote file name.
+        let staged = std::env::temp_dir().join(format!(
+            "ether-manager-install-test-archive-{}.zip",
+            std::process::id()
+        ));
+
         let (dest_dir, file) = download_and_extract_gamebanana_file(
             &gamebanana,
             &mods_root,
@@ -376,9 +433,16 @@ mod tests {
                 character_id: "belle",
                 slot: Slot::CharacterSkin,
                 display_name: "Compact Damage Numbers Test Install",
+                staging: Staging {
+                    path: staged.clone(),
+                    resume_from: 0,
+                    etag: None,
+                },
             },
+            |_| {},
             |_, _| false,
             || {},
+            || false,
         )
         .await
         .unwrap();
@@ -401,7 +465,56 @@ mod tests {
         );
         assert_eq!(file.id, SAMPLE_FILE_ID);
         assert!(!file.md5_checksum.is_empty());
+        assert!(
+            staged.exists(),
+            "the install must leave the staging file alone — deleting it is the caller's call, \
+             since only the caller knows whether a stopped transfer was paused or abandoned"
+        );
 
+        std::fs::remove_file(&staged).unwrap();
         std::fs::remove_dir_all(&mods_root).unwrap();
+    }
+
+    /// A file name comes from GameBanana, and the staging path is built from it. Without the
+    /// scrub, a name carrying separators would place the partial download outside the temp folder
+    /// entirely — and resume made these paths predictable, which is exactly when that matters.
+    #[test]
+    fn a_staging_path_stays_one_component_inside_the_temp_folder() {
+        let temp = std::env::temp_dir();
+
+        for hostile in [
+            "..\\..\\Windows\\System32\\evil.dll",
+            "../../etc/passwd",
+            "..",
+            "sub/dir/mod.zip",
+        ] {
+            let path = staging_path(7, hostile);
+            assert_eq!(
+                path.parent(),
+                Some(temp.as_path()),
+                "{hostile:?} escaped the temp folder as {path:?}"
+            );
+            assert!(path
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("ether-manager-download-7-"));
+        }
+    }
+
+    /// The id has to survive into the name, or two downloads would stage on top of each other and
+    /// resume would pick up someone else's bytes.
+    #[test]
+    fn staging_paths_differ_per_download_row() {
+        assert_ne!(
+            staging_path(1, "mod.zip"),
+            staging_path(2, "mod.zip"),
+            "two rows staging to the same path would corrupt each other"
+        );
+        assert_eq!(
+            staging_path(1, "mod.zip"),
+            staging_path(1, "mod.zip"),
+            "the path must be stable across calls, or a paused transfer could never be found again"
+        );
     }
 }

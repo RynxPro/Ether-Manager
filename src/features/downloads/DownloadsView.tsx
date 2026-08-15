@@ -1,4 +1,4 @@
-import { Download as DownloadIcon, RotateCcw, X } from "lucide-react";
+import { Download as DownloadIcon, Pause, Play, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
 import { updatedLabel } from "@/lib/time";
@@ -9,6 +9,8 @@ import {
   useClearFinishedDownloads,
   useDownloadProgress,
   useDownloads,
+  usePauseDownload,
+  useResumeDownload,
   useRetryDownload,
   type LiveProgress,
 } from "./hooks";
@@ -27,6 +29,7 @@ const STATUS_LABELS: Record<DownloadStatus, { text: string; className: string }>
   Queued: { text: "Waiting", className: "text-muted-foreground" },
   Downloading: { text: "Downloading", className: "text-primary" },
   Extracting: { text: "Unpacking", className: "text-primary" },
+  Paused: { text: "Paused", className: "text-muted-foreground" },
   Installed: { text: "Installed", className: "text-foreground" },
   Failed: { text: "Failed", className: "text-destructive" },
   Cancelled: { text: "Cancelled", className: "text-muted-foreground" },
@@ -48,6 +51,8 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
   const { data: downloads, isLoading } = useDownloads();
   const progress = useDownloadProgress();
   const cancel = useCancelDownload();
+  const pause = usePauseDownload();
+  const resume = useResumeDownload();
   const retry = useRetryDownload();
   const clearFinished = useClearFinishedDownloads();
 
@@ -102,7 +107,9 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
           {active.length > 0 && (
             <section className="space-y-2">
               <h3 className="font-heading text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-                In progress · {active.length}
+                {/* Not "in progress": a paused download belongs here too, and it is not
+                    progressing. The section is the working set, not the moving one. */}
+                Queue · {active.length}
               </h3>
               {active.map((download) => (
                 <DownloadRow
@@ -110,6 +117,8 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
                   download={download}
                   live={progress[download.id]}
                   onCancel={() => cancel.mutate(download.id)}
+                  onPause={() => pause.mutate(download.id)}
+                  onResume={() => resume.mutate(download.id)}
                   onRetry={() => retry.mutate(download.id)}
                   onOpenCharacter={onOpenCharacter}
                 />
@@ -128,6 +137,8 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
                   download={download}
                   live={progress[download.id]}
                   onCancel={() => cancel.mutate(download.id)}
+                  onPause={() => pause.mutate(download.id)}
+                  onResume={() => resume.mutate(download.id)}
                   onRetry={() => retry.mutate(download.id)}
                   onOpenCharacter={onOpenCharacter}
                 />
@@ -144,23 +155,48 @@ interface DownloadRowProps {
   download: Download;
   live: LiveProgress | undefined;
   onCancel: () => void;
+  onPause: () => void;
+  onResume: () => void;
   onRetry: () => void;
   onOpenCharacter: (characterId: string) => void;
 }
 
-function DownloadRow({ download, live, onCancel, onRetry, onOpenCharacter }: DownloadRowProps) {
+function DownloadRow({
+  download,
+  live,
+  onCancel,
+  onPause,
+  onResume,
+  onRetry,
+  onOpenCharacter,
+}: DownloadRowProps) {
   const status = STATUS_LABELS[download.status];
   const isRunning = download.status === "Downloading" || download.status === "Extracting";
   const isQueued = download.status === "Queued";
+  const isPaused = download.status === "Paused";
   const canRetry = download.status === "Failed" || download.status === "Cancelled";
 
   // Live bytes while running, the stored figures once it has stopped — the row keeps saying how
-  // big the thing was long after the event stream is gone.
-  const downloaded = live?.downloaded ?? download.downloaded_bytes;
-  const total = live?.total ?? download.total_bytes;
+  // big the thing was long after the event stream is gone. A paused row reads from the row on
+  // purpose: the last live sample is whatever arrived before the stop, and the stored figure is
+  // the one the resume will actually continue from.
+  const downloaded = isPaused
+    ? download.downloaded_bytes
+    : (live?.downloaded ?? download.downloaded_bytes);
+  const total = isPaused ? download.total_bytes : (live?.total ?? download.total_bytes);
   const percent = total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : null;
-  const isExtracting = download.status === "Extracting" || live?.isExtracting === true;
+  // The live flag is only trusted while the row is still running. It lingers in the progress map
+  // after a download finishes, and reading it unconditionally left a finished row labelled
+  // "Unpacking" forever next to a detail line that correctly said it was installed.
+  const isExtracting =
+    download.status === "Extracting" || (isRunning && live?.isExtracting === true);
   const isIndeterminate = isQueued || isExtracting || percent === null;
+  // Paused shows a bar too, frozen where it stopped — the point of the state is that this much is
+  // already done, and hiding it would make a pause look like a loss.
+  const showsBar = isRunning || isQueued || isPaused;
+  // Unpacking is deliberately absent. Extraction runs straight through once it starts, so neither
+  // stopping control can reach it, and a button that quietly does nothing is worse than no button.
+  const canStop = download.status === "Downloading" || isQueued || isPaused;
 
   return (
     <div
@@ -200,29 +236,44 @@ function DownloadRow({ download, live, onCancel, onRetry, onOpenCharacter }: Dow
             {download.file_name}
           </span>
           <span className="shrink-0">
-            {isRunning || isQueued
-              ? liveDetail(downloaded, total, isExtracting, live?.speedBytesPerSec ?? null)
-              : restingDetail(download)}
+            {rowDetail({
+              download,
+              downloaded,
+              total,
+              isExtracting,
+              speedBytesPerSec: live?.speedBytesPerSec ?? null,
+            })}
           </span>
         </div>
 
-        {(isRunning || isQueued) && (
+        {showsBar && (
           <div className="mt-1.5 h-1 w-full overflow-hidden bg-secondary">
             <div
               // Nothing measurable in either case: queued has not started, and extraction
               // reports no progress. A pulsing sliver says "working" without claiming a position.
               className={
-                isIndeterminate
+                isIndeterminate && !isPaused
                   ? "h-full w-1/3 animate-pulse bg-primary"
-                  : "h-full bg-primary transition-all"
+                  : // A paused bar goes grey and stops moving. Leaving it yellow would say the
+                    // one thing that is not true of it, which is that something is happening.
+                    `h-full transition-all ${isPaused ? "bg-muted-foreground/50" : "bg-primary"}`
               }
-              style={isIndeterminate ? undefined : { width: `${percent}%` }}
+              style={isIndeterminate && !isPaused ? undefined : { width: `${percent ?? 0}%` }}
             />
           </div>
         )}
 
         {download.error && (
-          <p className="mt-1 line-clamp-2 text-[11px] text-destructive" title={download.error}>
+          <p
+            // Red only when it actually failed. A row parked by the startup sweep carries an
+            // explanation too ("interrupted when the app closed"), and painting that in the
+            // failure colour would report a recoverable pause as a breakage — and teach the eye
+            // to skip the colour by the time something really is wrong.
+            className={`mt-1 line-clamp-2 text-[11px] ${
+              download.status === "Failed" ? "text-destructive" : "text-muted-foreground/70"
+            }`}
+            title={download.error}
+          >
             {download.error}
           </p>
         )}
@@ -245,7 +296,24 @@ function DownloadRow({ download, live, onCancel, onRetry, onOpenCharacter }: Dow
             Retry
           </Button>
         )}
-        {(isRunning || isQueued) && (
+        {isPaused && (
+          <Button type="button" variant="outline" size="sm" onClick={onResume}>
+            <Play className="h-3.5 w-3.5" />
+            Resume
+          </Button>
+        )}
+        {(download.status === "Downloading" || isQueued) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onPause}
+            aria-label={`Pause ${download.mod_name}`}
+          >
+            <Pause className="h-4 w-4" />
+          </Button>
+        )}
+        {canStop && (
           <Button
             type="button"
             variant="ghost"
@@ -261,6 +329,37 @@ function DownloadRow({ download, live, onCancel, onRetry, onOpenCharacter }: Dow
   );
 }
 
+interface RowDetail {
+  download: Download;
+  downloaded: number;
+  total: number | null;
+  isExtracting: boolean;
+  speedBytesPerSec: number | null;
+}
+
+/** The line under the file name — the one people read to answer "is this actually doing
+ * anything". Every state gets its own sentence, so no two of them can be mistaken for each other.
+ */
+function rowDetail({
+  download,
+  downloaded,
+  total,
+  isExtracting,
+  speedBytesPerSec,
+}: RowDetail): string {
+  switch (download.status) {
+    case "Queued":
+      return "Waiting its turn";
+    case "Paused":
+      return pausedDetail(downloaded, total);
+    case "Downloading":
+    case "Extracting":
+      return liveDetail(downloaded, total, isExtracting, speedBytesPerSec);
+    default:
+      return restingDetail(download);
+  }
+}
+
 function liveDetail(
   downloaded: number,
   total: number | null,
@@ -268,11 +367,24 @@ function liveDetail(
   speedBytesPerSec: number | null,
 ): string {
   if (isExtracting) return "Unpacking archive…";
-  if (downloaded === 0 && !total) return "Waiting its turn";
+  // Running, but nothing has come back yet: looking the file up and opening the connection both
+  // happen before the first byte. This used to read "Waiting its turn", which is what a genuinely
+  // queued download says — so a slow start was indistinguishable from one that never began, and
+  // that is exactly how it was reported.
+  if (downloaded === 0 && !total) return "Starting…";
   const size = total
     ? `${formatBytes(downloaded)} / ${formatBytes(total)}`
     : formatBytes(downloaded);
   return speedBytesPerSec ? `${size} · ${formatBytes(speedBytesPerSec)}/s` : size;
+}
+
+/** No speed and no time — a paused download is not moving, and how long ago it stopped is not
+ * what you want to know about it. How much of it is already done is. */
+function pausedDetail(downloaded: number, total: number | null): string {
+  if (total && total > 0) {
+    return `${formatBytes(downloaded)} / ${formatBytes(total)} · paused`;
+  }
+  return downloaded > 0 ? `${formatBytes(downloaded)} · paused` : "Not started";
 }
 
 function restingDetail(download: Download): string {

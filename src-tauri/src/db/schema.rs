@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 -- character, slot, display name), which is what makes Retry possible without going back to the
 -- mod page. `mod_name`/`file_name`/`thumbnail_url` are copies rather than lookups: a download
 -- has to stay readable in the list even if the mod is later withdrawn from GameBanana.
+-- `downloaded_bytes` and `etag` are what make pause and resume possible: together they say how
+-- far the staged file got and which version of the remote file those bytes came from, so a later
+-- attempt can ask for the rest with `Range` and `If-Range` instead of starting again.
 CREATE TABLE IF NOT EXISTS downloads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     gamebanana_mod_id INTEGER NOT NULL,
@@ -47,6 +50,7 @@ CREATE TABLE IF NOT EXISTS downloads (
     error TEXT,
     total_bytes INTEGER,
     downloaded_bytes INTEGER NOT NULL DEFAULT 0,
+    etag TEXT,
     created_at INTEGER NOT NULL,
     finished_at INTEGER
 );

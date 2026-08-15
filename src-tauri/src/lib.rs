@@ -7,7 +7,7 @@ mod fs_ops;
 mod gamebanana;
 mod updates;
 
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU8};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -18,12 +18,16 @@ pub struct AppState {
     pub gamebanana: gamebanana::GameBananaClient,
     /// Set while an `update_installed_mod` call is in flight, so `cancel_gamebanana_install` has
     /// something to flip. Only one update is expected at a time, since that flow is still a modal
-    /// the user waits in front of. Installs no longer use this — see `download_cancels`.
+    /// the user waits in front of. Installs no longer use this — see `download_stops`.
     pub install_cancel: Mutex<Option<Arc<AtomicBool>>>,
-    /// One cancel flag per running download, keyed by its row id. A single shared slot was fine
+    /// One stop flag per running download, keyed by its row id. A single shared slot was fine
     /// while a modal owned the only install in flight; with a queue behind it, a second download
     /// starting would have made the first permanently uncancellable.
-    pub download_cancels: Mutex<HashMap<i64, Arc<AtomicBool>>>,
+    ///
+    /// It holds a `Stop` rather than a bool because pausing and cancelling stop the transfer the
+    /// same way and differ only in what happens afterwards — whether the row rests as paused or
+    /// cancelled, and whether the part-downloaded file is kept.
+    pub download_stops: Mutex<HashMap<i64, Arc<AtomicU8>>>,
     /// Held for the duration of one download so they run one at a time. Async, not `std`,
     /// because it is held across awaits — and tokio's is FIFO, which is what makes the queue
     /// run in the order things were added.
@@ -45,17 +49,18 @@ pub fn run() {
             let db_path = app_data_dir.join("ether-manager.sqlite3");
             let db = db::Db::open(&db_path)?;
             // A download that was still running when the app last exited has no task behind it
-            // anymore. Sweeping those to failed on the way in is what stops the Downloads page
-            // showing a progress bar that will never move again; the rows keep everything needed
-            // to retry them.
-            if let Err(e) = db.fail_interrupted_downloads() {
+            // anymore. Parking those on the way in is what stops the Downloads page showing a
+            // progress bar that will never move again — and because whatever they had fetched is
+            // still staged on disk, they come back as paused, so closing the app mid-download
+            // costs a click rather than the megabytes it had already pulled.
+            if let Err(e) = db.park_interrupted_downloads() {
                 eprintln!("could not sweep interrupted downloads: {e}");
             }
             app.manage(AppState {
                 db: Mutex::new(db),
                 gamebanana: gamebanana::GameBananaClient::new(),
                 install_cancel: Mutex::new(None),
-                download_cancels: Mutex::new(HashMap::new()),
+                download_stops: Mutex::new(HashMap::new()),
                 download_slot: tokio::sync::Mutex::new(()),
             });
             Ok(())
@@ -82,6 +87,8 @@ pub fn run() {
             commands::downloads::enqueue_download,
             commands::downloads::list_downloads,
             commands::downloads::cancel_download,
+            commands::downloads::pause_download,
+            commands::downloads::resume_download,
             commands::downloads::retry_download,
             commands::downloads::clear_finished_downloads,
             commands::gamebanana::backfill_mod_thumbnails,

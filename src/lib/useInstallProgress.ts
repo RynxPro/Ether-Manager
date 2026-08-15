@@ -8,9 +8,9 @@ interface UseInstallProgressResult {
   percent: number | null;
 }
 
-/** Listens to the shared `gamebanana-install-progress` event — emitted by both
- * `install_from_gamebanana` and `update_installed_mod`, which reuse the same event and
- * throttle — while `active` is true, deriving download speed from consecutive samples and
+/** Listens to the `gamebanana-install-progress` event — now emitted only by
+ * `update_installed_mod`, since installs moved to the download queue and its own per-row
+ * `download-progress` event — while `active` is true, deriving download speed from samples and
  * percent from `progress.total` (when the server sent a Content-Length). Resets whenever
  * `active` goes false, so switching from pending back to idle clears stale progress. */
 export function useInstallProgress(active: boolean): UseInstallProgressResult {

@@ -30,10 +30,17 @@ tauri-plugin-dialog = "2.7.2"
 reqwest = { version = "0.12", features = ["json", "stream"] }
 # `sync` is for the download queue's one-at-a-time permit — tokio's Mutex hands the permit to
 # waiters in arrival order, which is what makes the queue FIFO without a scheduler of its own.
-tokio = { version = "1", features = ["fs", "sync"] }
+# `time` is for the stop poll in `download_file` — a stalled transfer has to stay interruptible,
+# and the only way to ask is to time out the wait for the next chunk. `macros` is for the
+# `select!`s that race the slow parts of starting a download against a cancellation; it lives here
+# rather than only in dev-dependencies because the app itself needs it, and having it only there
+# built the tests fine while leaving the app unable to compile.
+tokio = { version = "1", features = ["fs", "sync", "time", "macros"] }
 futures-util = "0.3"
 tauri-plugin-window-state = "2.4.1"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+# `net`/`io-util` stand up a deliberately silent HTTP server in-process, which is the only honest
+# way to test that a stalled download can still be stopped.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 

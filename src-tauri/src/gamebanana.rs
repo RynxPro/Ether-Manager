@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
 const BASE_URL: &str = "https://gamebanana.com/apiv11";
 
@@ -611,6 +611,42 @@ fn apply_download_counts(records: &mut [GbMod], counts: &[RawDownloadCount]) {
     }
 }
 
+/// How long a transfer will sit waiting for the next chunk before checking in with its caller
+/// anyway.
+///
+/// This is what keeps pause and cancel responsive on a download that has stalled — the caller only
+/// gets to say stop from inside the progress callback, and without a poll that callback is only
+/// reached when bytes actually arrive. Short enough to feel immediate, long enough that a healthy
+/// transfer never hits it.
+const STOP_POLL_INTERVAL: Duration = Duration::from_millis(250);
+
+/// Where a transfer is picking up from.
+///
+/// `have` of 0 is a clean start: the staging file is truncated and no `Range` goes out at all,
+/// so there is no way to end up appending to bytes nobody vouched for. Anything higher asks for
+/// `Range: bytes=have-`, and `etag` — the validator those bytes arrived with — goes out as
+/// `If-Range`, so a file that changed on the server answers with a full `200` and the transfer
+/// starts over instead of splicing the tail of a new archive onto the head of an old one.
+///
+/// GameBanana's file hosts do support this: confirmed live (2026-08-15), a ranged request to
+/// `files.gamebanana.com` redirects to a `filecacheNN` node and answers `206 Partial Content`
+/// with a `Content-Range` and a stable `ETag`.
+#[derive(Debug, Default, Clone)]
+pub struct ResumePoint<'a> {
+    pub have: u64,
+    pub etag: Option<&'a str>,
+}
+
+impl ResumePoint<'_> {
+    /// Start from nothing — for every caller with no partial transfer to continue.
+    pub fn fresh() -> Self {
+        Self {
+            have: 0,
+            etag: None,
+        }
+    }
+}
+
 pub struct GameBananaClient {
     http: reqwest::Client,
 }
@@ -935,42 +971,160 @@ impl GameBananaClient {
         Ok(parsed.files)
     }
 
-    /// Downloads `url` to `dest_path`, streaming to disk rather than buffering the whole
-    /// file in memory — mod archives can be tens of megabytes.
-    /// `on_progress` is called after every chunk with `(bytes_downloaded_so_far, total_size)`
-    /// (`total_size` is `None` when the server doesn't send `Content-Length`); returning
-    /// `true` aborts the download with `GameBananaError::Cancelled`.
+    /// Streams `url` into `dest_path` rather than buffering it — mod archives run to tens of
+    /// megabytes — continuing from `resume` when it points at bytes already on disk. Returns the
+    /// file's full length once it is complete.
+    ///
+    /// `on_progress` receives `(bytes_so_far, total)`, where `total` is `None` if the server sent
+    /// no `Content-Length`. It is called after each chunk *and* periodically while waiting for
+    /// one, so that returning `true` — which abandons the transfer with
+    /// `GameBananaError::Cancelled` — works even on a connection that has gone quiet.
+    ///
+    /// `on_validator` fires once, the moment the response headers land, carrying the server's
+    /// `ETag`. It is a callback rather than part of the return value because the caller needs the
+    /// validator *before* the transfer ends — the whole point of being able to pause is that the
+    /// transfer might not end, and a paused partial with no validator recorded cannot be safely
+    /// resumed later.
     pub async fn download_file(
         &self,
         url: &str,
         dest_path: &Path,
+        resume: ResumePoint<'_>,
+        on_validator: impl FnOnce(Option<&str>),
         mut on_progress: impl FnMut(u64, Option<u64>) -> bool,
-    ) -> Result<(), GameBananaError> {
-        let response = self
-            .http
-            .get(url)
-            .timeout(DOWNLOAD_TIMEOUT)
-            .send()
-            .await?
-            .error_for_status()?;
-        let total = response.content_length();
+        should_stop: impl Fn() -> bool,
+    ) -> Result<u64, GameBananaError> {
+        let mut response = self
+            .open_range(url, resume.have, resume.etag, &should_stop)
+            .await?;
+        let mut start = resume.have;
+
+        // 416 says the partial is already at least as long as the file now is, so it is not a
+        // prefix of anything the server is willing to send. Ask for the whole thing instead of
+        // keeping bytes that can no longer be checked against it.
+        if response.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE && start > 0 {
+            response = self.open_range(url, 0, None, &should_stop).await?;
+            start = 0;
+        }
+        let response = response.error_for_status()?;
+
+        // A plain 200 in reply to a ranged request means the server declined the range — either
+        // it does not do them, or `If-Range` did not match and the file has changed. The body is
+        // the whole file either way, so whatever is on disk is worthless and the offset resets.
+        if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+            start = 0;
+        }
+
+        on_validator(
+            response
+                .headers()
+                .get(reqwest::header::ETAG)
+                .and_then(|value| value.to_str().ok()),
+        );
+
+        // On a 206 the Content-Length describes what is left to send, not the file. The total the
+        // caller wants to show is that plus what it already had.
+        let total = response.content_length().map(|len| start + len);
         let mut stream = response.bytes_stream();
 
         if let Some(parent) = dest_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
-        let mut file = tokio::fs::File::create(dest_path).await?;
-        let mut downloaded: u64 = 0;
-        while let Some(chunk) = stream.next().await {
+        // One open covering both cases. `set_len` is the part that matters: it trims a staging
+        // file holding *more* than `start`, which is exactly what a hard kill leaves behind when
+        // bytes reached the disk but the count never reached the caller. Without it a resumed
+        // body would be appended on top of bytes it is about to send again.
+        let mut file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false)
+            .open(dest_path)
+            .await?;
+        file.set_len(start).await?;
+        file.seek(std::io::SeekFrom::Start(start)).await?;
+
+        let mut downloaded = start;
+        loop {
+            // Not a plain `while let`: `on_progress` is where the caller gets to say stop, and
+            // hanging that on a chunk arriving means a transfer that has stalled cannot be stopped
+            // at all — which is exactly the moment someone reaches for pause.
+            //
+            // The read future is created once here and then polled repeatedly by the inner loop.
+            // It must never be dropped between polls: timing out `stream.next()` directly throws
+            // away the read that is in flight, and with it the response body. That reads as a
+            // clean zero-byte download rather than an error, and it only bites when a chunk takes
+            // longer to arrive than the poll interval — so a fast connection looks perfect while a
+            // slow one silently gets nothing. `timeout` here wraps a mutable borrow, so only the
+            // wrapper is discarded and the read carries on where it left off.
+            let mut next = std::pin::pin!(stream.next());
+            let item = loop {
+                match tokio::time::timeout(STOP_POLL_INTERVAL, next.as_mut()).await {
+                    Ok(item) => break item,
+                    Err(_) => {
+                        if on_progress(downloaded, total) {
+                            file.flush().await?;
+                            return Err(GameBananaError::Cancelled);
+                        }
+                    }
+                }
+            };
+            let Some(chunk) = item else { break };
             let chunk = chunk?;
             downloaded += chunk.len() as u64;
             file.write_all(&chunk).await?;
             if on_progress(downloaded, total) {
+                // Flushed even though this is the abandoning path: a paused transfer is only
+                // worth pausing if what it fetched is actually on disk for the next attempt.
+                file.flush().await?;
                 return Err(GameBananaError::Cancelled);
             }
         }
         file.flush().await?;
-        Ok(())
+        Ok(downloaded)
+    }
+
+    /// One GET, ranged when `have` is non-zero. Split out so the 416 path can reissue the request
+    /// without a range rather than recursing into an async fn.
+    ///
+    /// The send is raced against `should_stop` because this is the slowest part of starting a
+    /// download and the part with nothing to show for it: reaching a GameBanana file means three
+    /// TLS handshakes across three hosts (`gamebanana.com` → `files.gamebanana.com` →
+    /// `filecacheNN`), measured at a second locally and reported far worse elsewhere. Without the
+    /// race there is no way to abandon a download during that stretch, which is exactly when
+    /// someone gives up on it. Nothing has been written to disk yet, so dropping the request here
+    /// costs nothing.
+    async fn open_range(
+        &self,
+        url: &str,
+        have: u64,
+        etag: Option<&str>,
+        should_stop: &impl Fn() -> bool,
+    ) -> Result<reqwest::Response, GameBananaError> {
+        if should_stop() {
+            return Err(GameBananaError::Cancelled);
+        }
+        let mut request = self.http.get(url).timeout(DOWNLOAD_TIMEOUT);
+        if have > 0 {
+            request = request.header(reqwest::header::RANGE, format!("bytes={have}-"));
+            if let Some(tag) = etag {
+                request = request.header(reqwest::header::IF_RANGE, tag);
+            }
+        }
+        tokio::select! {
+            sent = request.send() => Ok(sent?),
+            _ = wait_for_stop(should_stop) => Err(GameBananaError::Cancelled),
+        }
+    }
+}
+
+/// Resolves once `should_stop` says so, and otherwise never — meant only as the losing half of a
+/// `select!` against real work.
+pub(crate) async fn wait_for_stop(should_stop: &impl Fn() -> bool) {
+    loop {
+        if should_stop() {
+            return;
+        }
+        tokio::time::sleep(STOP_POLL_INTERVAL).await;
     }
 }
 
@@ -1402,7 +1556,14 @@ mod tests {
 
         // A confirmed tiny (552-byte) real file, kept fast and deterministic for CI.
         client
-            .download_file("https://gamebanana.com/dl/610939", &dest, |_, _| false)
+            .download_file(
+                "https://gamebanana.com/dl/610939",
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| false,
+                || false,
+            )
             .await
             .unwrap();
 
@@ -1425,10 +1586,13 @@ mod tests {
             .download_file(
                 "https://gamebanana.com/dl/610939",
                 &dest,
+                ResumePoint::fresh(),
+                |_| {},
                 |downloaded, total| {
                     calls.push((downloaded, total));
                     false
                 },
+                || false,
             )
             .await
             .unwrap();
@@ -1453,12 +1617,304 @@ mod tests {
         ));
 
         let result = client
-            .download_file("https://gamebanana.com/dl/610939", &dest, |_, _| true)
+            .download_file(
+                "https://gamebanana.com/dl/610939",
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| true,
+                || false,
+            )
             .await;
 
         assert!(matches!(result, Err(GameBananaError::Cancelled)));
 
         let _ = std::fs::remove_file(&dest);
+    }
+
+    /// The claim the whole pause feature rests on: a transfer stopped part-way can be picked up
+    /// and finish with exactly the bytes an uninterrupted one would have produced.
+    ///
+    /// Deliberately live. Whether a `Range` header survives GameBanana's two redirects — through
+    /// `files.gamebanana.com` and on to a numbered `filecacheNN` node — is precisely the thing a
+    /// mocked server would assume rather than prove, and it is the thing that would silently turn
+    /// every resume into a corrupt archive if it were not true.
+    #[tokio::test]
+    async fn a_stopped_download_resumes_to_the_same_bytes_as_an_uninterrupted_one() {
+        let client = GameBananaClient::new();
+        // "Compact Damage Numbers", 182101 bytes — big enough to arrive in several chunks, so
+        // stopping after the first leaves a genuine partial, and small enough to stay CI-friendly.
+        let url = "https://gamebanana.com/dl/1776071";
+        let temp = std::env::temp_dir();
+        let whole = temp.join(format!("ether-manager-gb-whole-{}", std::process::id()));
+        let resumed = temp.join(format!("ether-manager-gb-resumed-{}", std::process::id()));
+
+        client
+            .download_file(
+                url,
+                &whole,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| false,
+                || false,
+            )
+            .await
+            .unwrap();
+        let expected = std::fs::read(&whole).unwrap();
+
+        let mut etag: Option<String> = None;
+        let stopped = client
+            .download_file(
+                url,
+                &resumed,
+                ResumePoint::fresh(),
+                |tag| etag = tag.map(str::to_owned),
+                |_, _| true,
+                || false,
+            )
+            .await;
+        assert!(matches!(stopped, Err(GameBananaError::Cancelled)));
+
+        let have = std::fs::metadata(&resumed).unwrap().len();
+        assert!(
+            have > 0 && have < expected.len() as u64,
+            "the stopped transfer must leave a real partial on disk, got {have} of {}",
+            expected.len()
+        );
+
+        let total = client
+            .download_file(
+                url,
+                &resumed,
+                ResumePoint {
+                    have,
+                    etag: etag.as_deref(),
+                },
+                |_| {},
+                |_, _| false,
+                || false,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(total, expected.len() as u64);
+        assert_eq!(
+            std::fs::read(&resumed).unwrap(),
+            expected,
+            "a resumed download must be byte-identical to one that ran straight through — a \
+             mismatch here means the range was dropped and the tail was appended to the head"
+        );
+
+        std::fs::remove_file(&whole).unwrap();
+        std::fs::remove_file(&resumed).unwrap();
+    }
+
+    /// Regression test for a download that could not be stopped.
+    ///
+    /// The caller only gets to say stop from inside the progress callback, and that callback used
+    /// to be reached only when a chunk arrived. A transfer that had gone quiet without dropping
+    /// its connection therefore ignored pause and cancel entirely — which is precisely the state
+    /// someone reaches for pause in. Reported from the app: a 32 MB mod crawled to 7,816 bytes and
+    /// then sat there, unpausable.
+    ///
+    /// The server here answers with headers promising a megabyte and then sends nothing at all.
+    #[tokio::test]
+    async fn a_stalled_transfer_can_still_be_stopped() {
+        use tokio::io::AsyncReadExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0u8; 1024];
+            let _ = socket.read(&mut request).await;
+            let _ = socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1048576\r\n\r\n")
+                .await;
+            // Hold the connection open and stay silent.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let client = GameBananaClient::new();
+        let dest = std::env::temp_dir().join(format!(
+            "ether-manager-gb-stalled-{}",
+            std::process::id()
+        ));
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.download_file(
+                &format!("http://{addr}/stalled"),
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| true,
+                || false,
+            ),
+        )
+        .await;
+
+        match outcome {
+            Err(_) => panic!(
+                "a stalled transfer never reached its progress callback, so nothing could stop it"
+            ),
+            Ok(result) => assert!(matches!(result, Err(GameBananaError::Cancelled))),
+        }
+
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    /// Regression test for a download that silently produced nothing at all.
+    ///
+    /// Interrupting the wait for a chunk must not discard the read that is in flight. When it did,
+    /// every connection slower than the poll interval lost its response body and reported a clean
+    /// zero-byte success — invisible on a fast link, total failure on a slow one, which is the
+    /// worst possible way for it to fail.
+    ///
+    /// This server answers, then delivers each chunk slower than the poll, so every chunk is
+    /// preceded by at least one timed-out poll.
+    #[tokio::test]
+    async fn a_connection_slower_than_the_stop_poll_still_delivers_every_byte() {
+        use tokio::io::AsyncReadExt;
+
+        const CHUNK: &[u8] = b"0123456789";
+        const CHUNKS: usize = 4;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0u8; 1024];
+            let _ = socket.read(&mut request).await;
+            let _ = socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
+                        CHUNK.len() * CHUNKS
+                    )
+                    .as_bytes(),
+                )
+                .await;
+            for _ in 0..CHUNKS {
+                tokio::time::sleep(STOP_POLL_INTERVAL * 2).await;
+                let _ = socket.write_all(CHUNK).await;
+                let _ = socket.flush().await;
+            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        });
+
+        let client = GameBananaClient::new();
+        let dest = std::env::temp_dir().join(format!(
+            "ether-manager-gb-slow-chunks-{}",
+            std::process::id()
+        ));
+
+        let total = client
+            .download_file(
+                &format!("http://{addr}/slow"),
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| false,
+                || false,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(total, (CHUNK.len() * CHUNKS) as u64);
+        assert_eq!(
+            std::fs::read(&dest).unwrap(),
+            CHUNK.repeat(CHUNKS),
+            "a slow connection must deliver the same bytes as a fast one, not an empty file"
+        );
+
+        std::fs::remove_file(&dest).unwrap();
+    }
+
+    /// Reported from the app: a download could not be cancelled while it was still starting.
+    ///
+    /// Reaching a GameBanana file takes three TLS handshakes across three hosts before a single
+    /// byte arrives, and on a slow link that is most of the wait. The progress callback — the only
+    /// way a caller could say stop — is not reached until bytes are flowing, so for that whole
+    /// stretch the download ignored both pause and cancel.
+    ///
+    /// This server accepts the connection and then never answers at all, which is that stretch
+    /// with the clock stopped.
+    #[tokio::test]
+    async fn a_download_can_be_cancelled_before_the_first_byte_arrives() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            drop(socket);
+        });
+
+        let client = GameBananaClient::new();
+        let dest = std::env::temp_dir().join(format!(
+            "ether-manager-gb-early-cancel-{}",
+            std::process::id()
+        ));
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.download_file(
+                &format!("http://{addr}/never-answers"),
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                // Never reached: no byte ever arrives. The stop has to come from elsewhere.
+                |_, _| false,
+                || true,
+            ),
+        )
+        .await;
+
+        match outcome {
+            Err(_) => panic!(
+                "a download that has not received its first byte must still be cancellable — \
+                 waiting on the connection is exactly when someone gives up on it"
+            ),
+            Ok(result) => assert!(matches!(result, Err(GameBananaError::Cancelled))),
+        }
+
+        assert!(
+            !dest.exists(),
+            "nothing was ever received, so cancelling must not leave a file behind"
+        );
+    }
+
+    /// A resume point past the end of the file cannot be satisfied, and the server says so with a
+    /// 416. Restarting is the only safe reading of that, since bytes that long cannot be a prefix
+    /// of the file the server is offering.
+    #[tokio::test]
+    async fn a_resume_point_past_the_end_of_the_file_starts_over_instead_of_failing() {
+        let client = GameBananaClient::new();
+        let dest = std::env::temp_dir().join(format!(
+            "ether-manager-gb-over-resume-{}",
+            std::process::id()
+        ));
+        std::fs::write(&dest, vec![0u8; 999_999]).unwrap();
+
+        let total = client
+            .download_file(
+                "https://gamebanana.com/dl/610939",
+                &dest,
+                ResumePoint {
+                    have: 999_999,
+                    etag: None,
+                },
+                |_| {},
+                |_, _| false,
+                || false,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(total, 552);
+        assert_eq!(std::fs::metadata(&dest).unwrap().len(), 552);
+
+        std::fs::remove_file(&dest).unwrap();
     }
 
     /// Regression test for a user-reported hang: the default `reqwest::Client` has no
@@ -1476,7 +1932,14 @@ mod tests {
 
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(20),
-            client.download_file("http://10.255.255.1/unreachable", &dest, |_, _| false),
+            client.download_file(
+                "http://10.255.255.1/unreachable",
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| false,
+                || false,
+            ),
         )
         .await;
 

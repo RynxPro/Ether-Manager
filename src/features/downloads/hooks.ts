@@ -5,6 +5,8 @@ import {
   cancelDownload,
   clearFinishedDownloads,
   listDownloads,
+  pauseDownload,
+  resumeDownload,
   retryDownload,
   type Download,
   type DownloadPhaseEvent,
@@ -102,6 +104,14 @@ export function useCancelDownload() {
   return useMutation({ mutationFn: (id: number) => cancelDownload(id) });
 }
 
+export function usePauseDownload() {
+  return useMutation({ mutationFn: (id: number) => pauseDownload(id) });
+}
+
+export function useResumeDownload() {
+  return useMutation({ mutationFn: (id: number) => resumeDownload(id) });
+}
+
 export function useRetryDownload() {
   return useMutation({ mutationFn: (id: number) => retryDownload(id) });
 }
@@ -110,13 +120,17 @@ export function useClearFinishedDownloads() {
   return useMutation({ mutationFn: clearFinishedDownloads });
 }
 
-/** Downloads still queued or running. Drives the nav badge as well as the page's own split, so
- * both agree on what "active" means. */
+/** Downloads that still have work left in them. Drives the nav badge as well as the page's own
+ * split, so both agree on what "active" means.
+ *
+ * Paused counts. It is not running, but it is unfinished work the user asked for and can pick up
+ * again — dropping it into history would bury the one row that still owns bytes on disk. */
 export function activeDownloads(downloads: Download[] | undefined): Download[] {
   return (downloads ?? []).filter(
     (download) =>
       download.status === "Queued" ||
       download.status === "Downloading" ||
-      download.status === "Extracting",
+      download.status === "Extracting" ||
+      download.status === "Paused",
   );
 }

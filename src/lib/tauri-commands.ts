@@ -268,11 +268,15 @@ export interface EnqueueDownloadInput {
 
 /** `Extracting` is separated from `Downloading` because it is the phase with no progress to
  * report — a large archive sits at 100% for a while, and without a name for that the app looks
- * stalled exactly when it is working hardest. */
+ * stalled exactly when it is working hardest.
+ *
+ * `Paused` is at rest without being over: the row still owns a part-downloaded file, so it stays
+ * out of history and keeps counting towards the nav badge. */
 export type DownloadStatus =
   | "Queued"
   | "Downloading"
   | "Extracting"
+  | "Paused"
   | "Installed"
   | "Failed"
   | "Cancelled";
@@ -296,6 +300,9 @@ export interface Download {
    * why the progress bar needs an indeterminate mode at all. */
   total_bytes: number | null;
   downloaded_bytes: number;
+  /** The HTTP validator the staged bytes were served with, used to check they still belong to the
+   * file before resuming from them. Backend bookkeeping — nothing on screen reads it. */
+  etag: string | null;
   created_at: number;
   finished_at: number | null;
 }
@@ -371,9 +378,20 @@ export function listDownloads(): Promise<Download[]> {
   return invoke("list_downloads");
 }
 
-/** Stops a download whether it is running or still waiting its turn. */
+/** Stops a download whether it is running or still waiting its turn, and discards what it
+ * fetched. Use `pauseDownload` to stop one you mean to finish later. */
 export function cancelDownload(id: number): Promise<void> {
   return invoke("cancel_download", { id });
+}
+
+/** Stops a download but keeps its bytes on disk, so resuming asks the server only for the rest. */
+export function pauseDownload(id: number): Promise<void> {
+  return invoke("pause_download", { id });
+}
+
+/** Puts a paused download back to work at the back of the queue, continuing where it stopped. */
+export function resumeDownload(id: number): Promise<void> {
+  return invoke("resume_download", { id });
 }
 
 /** Runs a finished download again on the same row. Everything needed was stored when it was
@@ -399,7 +417,8 @@ export function cancelGamebananaInstall(): Promise<void> {
   return invoke("cancel_gamebanana_install");
 }
 
-/** Payload of the `gamebanana-install-progress` event emitted during `installFromGamebanana`. */
+/** Payload of the `gamebanana-install-progress` event, emitted during `updateInstalledMod`.
+ * Installs have their own per-row `download-progress` event — see `DownloadProgressEvent`. */
 export interface InstallProgress {
   downloaded: number;
   total: number | null;
@@ -446,8 +465,8 @@ export function listUpdateChecks(): Promise<UpdateCheck[]> {
 
 /** Downloads `gamebananaFileId` and swaps it into the mod's existing folder in place —
  * `folder_path`, `enabled` state, `display_name`, `character_id`, and `slot` are all left
- * untouched. Reuses the same `gamebanana-install-progress` event and
- * `cancelGamebananaInstall` as `installFromGamebanana`. */
+ * untouched. The last flow still using the `gamebanana-install-progress` event and
+ * `cancelGamebananaInstall`; installs go through the download queue instead. */
 export function updateInstalledMod(modId: number, gamebananaFileId: number): Promise<Mod> {
   return invoke("update_installed_mod", { modId, gamebananaFileId });
 }
