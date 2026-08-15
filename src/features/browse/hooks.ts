@@ -1,13 +1,13 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBookmark,
+  enqueueDownload,
   getFeaturedMods,
   getGamebananaModDetail,
-  installFromGamebanana,
   listBookmarks,
   removeBookmark,
   searchGamebananaMods,
-  type InstallFromGamebananaInput,
+  type EnqueueDownloadInput,
   type ModSort,
 } from "@/lib/tauri-commands";
 
@@ -99,13 +99,18 @@ export function useRemoveBookmark() {
   });
 }
 
-export function useInstallFromGamebanana(characterId: string) {
+/** Hands an install to the download queue.
+ *
+ * Resolving means "recorded and started", not "installed" — so the caller can close immediately
+ * and the work carries on. Nothing is invalidated here: the queue emits `downloads-changed` when
+ * it actually finishes, and `useDownloads` refreshes the library off that. Invalidating now
+ * would just refetch a library that has not changed yet. */
+export function useEnqueueDownload() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: InstallFromGamebananaInput) => installFromGamebanana(input),
+    mutationFn: (input: EnqueueDownloadInput) => enqueueDownload(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mods", characterId] });
-      queryClient.invalidateQueries({ queryKey: ["modCounts"] });
+      queryClient.invalidateQueries({ queryKey: ["downloads"] });
     },
   });
 }

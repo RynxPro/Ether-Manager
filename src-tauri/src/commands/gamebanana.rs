@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::State;
+
+use std::sync::Mutex;
 
 use crate::commands::mods::{slugify_display_name, unique_variant_dir};
-use crate::db::{Bookmark, Mod, NewBookmark, NewMod, Slot};
+use crate::db::{Bookmark, Db, Mod, NewBookmark, NewMod, Slot};
 use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
     GameBananaClient, GbFeaturedMod, GbFile, GbModDetail, GbSearchResult, ModSort,
@@ -124,23 +125,27 @@ pub fn remove_bookmark(state: State<AppState>, gamebanana_mod_id: i64) -> Result
 
 /// What to install and where to file it — bundled into one struct so the function below
 /// stays under clippy's argument-count limit.
-struct InstallRequest<'a> {
-    gamebanana_mod_id: i64,
-    gamebanana_file_id: i64,
-    character_id: &'a str,
-    slot: Slot,
-    display_name: &'a str,
+pub(crate) struct InstallRequest<'a> {
+    pub gamebanana_mod_id: i64,
+    pub gamebanana_file_id: i64,
+    pub character_id: &'a str,
+    pub slot: Slot,
+    pub display_name: &'a str,
 }
 
 /// Core install logic, kept free of `State`/`Db` so it's directly unit-testable against the
 /// live API without a mock Tauri app. Downloads the given GameBanana file to a process-unique
 /// temp path (never straight into `dest_dir`, so a failed/partial download or extraction never
 /// leaves a half-installed folder under the character/slot tree) and extracts it in place.
+/// `on_extract_start` fires between the two phases. Extraction reports no progress of its own,
+/// so without this the caller cannot tell a large archive being unpacked from a download that
+/// has stalled at 100% — they look identical from outside.
 async fn download_and_extract_gamebanana_file(
     gamebanana: &GameBananaClient,
     mods_root: &Path,
     request: InstallRequest<'_>,
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
+    on_extract_start: impl FnOnce(),
 ) -> Result<(PathBuf, GbFile), String> {
     let InstallRequest {
         gamebanana_mod_id,
@@ -181,6 +186,7 @@ async fn download_and_extract_gamebanana_file(
             .download_file(&file.download_url, &temp_download_path, on_progress)
             .await
             .map_err(|e| e.to_string())?;
+        on_extract_start();
         archive::extract_archive(&temp_download_path, &dest_dir).map_err(|e| e.to_string())
     }
     .await;
@@ -194,78 +200,95 @@ async fn download_and_extract_gamebanana_file(
 /// records it as an installed mod — the GameBanana counterpart to `commands::mods::add_mod`.
 /// `character_id`/`slot`/`display_name` are assumed already confirmed by the user (the auto
 /// slot guess is only ever a suggestion, never applied silently — see the Milestone 2 plan's
-/// Assumption 2); this command just executes the install once that confirmation happened.
-#[tauri::command]
-pub async fn install_from_gamebanana(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    gamebanana_mod_id: i64,
-    gamebanana_file_id: i64,
-    character_id: String,
-    slot: Slot,
-    display_name: String,
+/// Assumption 2); this runs the install once that confirmation happened.
+///
+/// Not a `#[tauri::command]`: the frontend never installs directly anymore. Every install goes
+/// through the download queue (`commands::downloads`), which owns this call so that an install
+/// survives the dialog being closed and has somewhere to report a failure to. Taking the pieces
+/// of `AppState` rather than `State` is what lets the queue's spawned task call it — a
+/// `State<'_, _>` borrow cannot be moved into a task.
+pub(crate) async fn install_gamebanana_file(
+    gamebanana: &GameBananaClient,
+    db: &Mutex<Db>,
+    request: InstallRequest<'_>,
+    on_progress: impl FnMut(u64, Option<u64>) -> bool,
+    on_extract_start: impl FnOnce(),
 ) -> Result<Mod, String> {
+    let InstallRequest {
+        gamebanana_mod_id,
+        gamebanana_file_id,
+        character_id,
+        slot,
+        display_name,
+    } = request;
+
     let mods_folder = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let db = db.lock().map_err(|e| e.to_string())?;
         db.get_setting("mods_folder")
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "mods folder is not set yet".to_string())?
     };
     let mods_root = PathBuf::from(mods_folder);
 
-    let cancel_flag = Arc::new(AtomicBool::new(false));
-    {
-        let mut guard = state.install_cancel.lock().map_err(|e| e.to_string())?;
-        *guard = Some(cancel_flag.clone());
-    }
-
-    let mut last_emit = Instant::now() - PROGRESS_EMIT_INTERVAL;
-    let on_progress = move |downloaded: u64, total: Option<u64>| {
-        if cancel_flag.load(Ordering::Relaxed) {
-            return true;
-        }
-        if last_emit.elapsed() >= PROGRESS_EMIT_INTERVAL {
-            last_emit = Instant::now();
-            let _ = app.emit(
-                "gamebanana-install-progress",
-                InstallProgress { downloaded, total },
-            );
-        }
-        false
-    };
-
-    let install_result = download_and_extract_gamebanana_file(
-        &state.gamebanana,
+    let (dest_dir, file) = download_and_extract_gamebanana_file(
+        gamebanana,
         &mods_root,
         InstallRequest {
             gamebanana_mod_id,
             gamebanana_file_id,
-            character_id: &character_id,
+            character_id,
             slot,
-            display_name: &display_name,
+            display_name,
         },
         on_progress,
+        on_extract_start,
     )
-    .await;
+    .await?;
+    let (character_id, display_name) = (character_id.to_string(), display_name.to_string());
+    let state = InstallRecording {
+        gamebanana,
+        db,
+        gamebanana_mod_id,
+        gamebanana_file_id,
+    };
+    record_installed_mod(state, dest_dir, file, character_id, slot, display_name).await
+}
 
-    {
-        let mut guard = state.install_cancel.lock().map_err(|e| e.to_string())?;
-        *guard = None;
-    }
-    let (dest_dir, file) = install_result?;
+/// The handful of things `record_installed_mod` needs, grouped to stay under clippy's
+/// argument-count limit.
+struct InstallRecording<'a> {
+    gamebanana: &'a GameBananaClient,
+    db: &'a Mutex<Db>,
+    gamebanana_mod_id: i64,
+    gamebanana_file_id: i64,
+}
+
+async fn record_installed_mod(
+    recording: InstallRecording<'_>,
+    dest_dir: PathBuf,
+    file: GbFile,
+    character_id: String,
+    slot: Slot,
+    display_name: String,
+) -> Result<Mod, String> {
+    let InstallRecording {
+        gamebanana,
+        db,
+        gamebanana_mod_id,
+        gamebanana_file_id,
+    } = recording;
 
     // One extra request against a mod we just pulled megabytes from: the preview image only
     // appears on the detail endpoint, not on the file list the download used. A mod with no
     // preview — or a hiccup fetching it — must never fail an install that already succeeded,
     // so this degrades to None and the card shows its "no preview" state.
-    let thumbnail_url = state
-        .gamebanana
+    let thumbnail_url = gamebanana
         .get_mod_detail(gamebanana_mod_id)
         .await
         .ok()
         .and_then(|detail| detail.preview_media.thumbnail_url());
 
-    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let db = db.lock().map_err(|e| e.to_string())?;
     db.insert_mod(NewMod {
         character_id,
         slot,
@@ -315,8 +338,12 @@ pub async fn backfill_mod_thumbnails(state: State<'_, AppState>) -> Result<usize
     Ok(filled)
 }
 
-/// Signals the in-flight `install_from_gamebanana` call (if any) to abort. A no-op if no
-/// install is currently running (e.g. the user double-clicks cancel, or it already finished).
+/// Signals the in-flight `updates::update_installed_mod` call (if any) to abort. A no-op if no
+/// update is currently running (e.g. the user double-clicks cancel, or it already finished).
+///
+/// Only the update flow uses this now — installs moved to the download queue, which owns a
+/// cancel flag per download (`AppState::download_cancels`) because a single shared slot made
+/// the first of two concurrent jobs uncancellable.
 #[tauri::command]
 pub fn cancel_gamebanana_install(state: State<AppState>) -> Result<(), String> {
     let guard = state.install_cancel.lock().map_err(|e| e.to_string())?;
@@ -351,6 +378,7 @@ mod tests {
                 display_name: "Compact Damage Numbers Test Install",
             },
             |_, _| false,
+            || {},
         )
         .await
         .unwrap();

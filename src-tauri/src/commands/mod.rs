@@ -1,4 +1,5 @@
 pub mod characters;
+pub mod downloads;
 pub mod gamebanana;
 pub mod mods;
 pub mod settings;

@@ -1,25 +1,35 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bookmark, Compass, Layers, LayoutGrid, Settings as SettingsIcon } from "lucide-react";
+import {
+  Bookmark,
+  Compass,
+  Download,
+  Layers,
+  LayoutGrid,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
 import { ModDetailRoute } from "@/features/browse/ModDetailRoute";
+import { DownloadsView } from "@/features/downloads/DownloadsView";
+import { activeDownloads, useDownloads } from "@/features/downloads/hooks";
 import { AllMods } from "@/features/library/AllMods";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
 import { Library } from "@/features/library/Library";
-import { useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
+import { useCharacters, useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { backfillModThumbnails, type Character, type GbMod } from "@/lib/tauri-commands";
 
-type View = "library" | "allmods" | "browse" | "bookmarks" | "settings";
+type View = "library" | "allmods" | "browse" | "bookmarks" | "downloads" | "settings";
 
 const NAV_ITEMS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
   { id: "library", label: "Library", icon: LayoutGrid },
   { id: "allmods", label: "All mods", icon: Layers },
   { id: "browse", label: "Browse", icon: Compass },
   { id: "bookmarks", label: "Bookmarks", icon: Bookmark },
+  { id: "downloads", label: "Downloads", icon: Download },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -33,6 +43,14 @@ function App() {
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
   const checkAllUpdates = useCheckAllUpdates();
   const queryClient = useQueryClient();
+  // Mounted at the shell rather than on the Downloads page, for two reasons: the nav badge has
+  // to be right wherever you are, and this hook carries the `downloads-changed` listener that
+  // refreshes the library when an install finishes — which must work when Downloads was never
+  // opened, since nothing awaits an install anymore.
+  const { data: downloads } = useDownloads();
+  const activeCount = activeDownloads(downloads).length;
+  // Downloads store a character id; the library page needs the whole record to open it.
+  const { data: characters } = useCharacters();
 
   // Mods installed before the installer stored preview URLs have none, and nothing else would
   // ever give them one. The command only touches rows that are actually missing a preview, so
@@ -103,6 +121,20 @@ function App() {
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
+                {/* Only on Downloads, and only while something is actually running — a badge
+                    that is always there stops being a signal. On the active item it inverts, so
+                    it stays legible against the full accent fill. */}
+                {item.id === "downloads" && activeCount > 0 && (
+                  <span
+                    className={`ml-auto px-1.5 py-px font-heading text-[10px] tabular-nums ${
+                      isActive
+                        ? "bg-primary-foreground text-primary"
+                        : "bg-primary text-primary-foreground"
+                    }`}
+                  >
+                    {activeCount}
+                  </span>
+                )}
               </Button>
             );
           })}
@@ -142,6 +174,15 @@ function App() {
             ) : (
               <BookmarksView onSelectMod={setSelectedMod} />
             )
+          ) : view === "downloads" ? (
+            <DownloadsView
+              onOpenCharacter={(characterId) => {
+                const character = (characters ?? []).find((c) => c.id === characterId);
+                if (!character) return;
+                setView("library");
+                setSelectedCharacter(character);
+              }}
+            />
           ) : view === "settings" ? (
             <SettingsPage />
           ) : view === "allmods" ? (

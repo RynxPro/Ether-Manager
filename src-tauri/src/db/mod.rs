@@ -1,10 +1,12 @@
 mod bookmarks_repo;
+mod downloads_repo;
 mod mods_repo;
 mod schema;
 mod settings_repo;
 mod update_checks_repo;
 
 pub use bookmarks_repo::{Bookmark, NewBookmark};
+pub use downloads_repo::{Download, DownloadStatus, NewDownload};
 pub use mods_repo::{Mod, ModCounts, NewMod, Slot};
 pub use update_checks_repo::UpdateCheck;
 

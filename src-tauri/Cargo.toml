@@ -28,7 +28,9 @@ sevenz-rust2 = "0.20.2"
 unrar = "0.5.8"
 tauri-plugin-dialog = "2.7.2"
 reqwest = { version = "0.12", features = ["json", "stream"] }
-tokio = { version = "1", features = ["fs"] }
+# `sync` is for the download queue's one-at-a-time permit — tokio's Mutex hands the permit to
+# waiters in arrival order, which is what makes the queue FIFO without a scheduler of its own.
+tokio = { version = "1", features = ["fs", "sync"] }
 futures-util = "0.3"
 tauri-plugin-window-state = "2.4.1"
 

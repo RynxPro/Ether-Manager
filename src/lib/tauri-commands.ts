@@ -253,12 +253,64 @@ export interface Bookmark {
   added_at: number;
 }
 
-export interface InstallFromGamebananaInput {
+export interface EnqueueDownloadInput {
   gamebananaModId: number;
   gamebananaFileId: number;
+  /** Copied onto the row rather than looked up later: a download has to stay readable in the
+   * history even if the mod is withdrawn from GameBanana afterwards. */
+  modName: string;
+  fileName: string;
+  thumbnailUrl: string | null;
   characterId: string;
   slot: Slot;
   displayName: string;
+}
+
+/** `Extracting` is separated from `Downloading` because it is the phase with no progress to
+ * report — a large archive sits at 100% for a while, and without a name for that the app looks
+ * stalled exactly when it is working hardest. */
+export type DownloadStatus =
+  | "Queued"
+  | "Downloading"
+  | "Extracting"
+  | "Installed"
+  | "Failed"
+  | "Cancelled";
+
+/** One install the user asked for, kept after it finishes so Downloads has a history. Carries
+ * everything needed to run it again, which is what makes Retry work for a download that failed
+ * days ago. */
+export interface Download {
+  id: number;
+  gamebanana_mod_id: number;
+  gamebanana_file_id: number;
+  mod_name: string;
+  file_name: string;
+  thumbnail_url: string | null;
+  character_id: string;
+  slot: Slot;
+  display_name: string;
+  status: DownloadStatus;
+  error: string | null;
+  /** `null` when the server sent no Content-Length — which GameBanana sometimes doesn't, and is
+   * why the progress bar needs an indeterminate mode at all. */
+  total_bytes: number | null;
+  downloaded_bytes: number;
+  created_at: number;
+  finished_at: number | null;
+}
+
+/** Payload of the `download-progress` event. Carries `id` because several downloads can be on
+ * the page at once, unlike the older id-less install event. */
+export interface DownloadProgressEvent {
+  id: number;
+  downloaded: number;
+  total: number | null;
+}
+
+/** Payload of `download-phase`, emitted once when a download starts unpacking. */
+export interface DownloadPhaseEvent {
+  id: number;
 }
 
 /** Browses ZZZ mods. With `query`, free-text searches (ignores `sort`); otherwise browses
@@ -297,15 +349,42 @@ export function removeBookmark(gamebananaModId: number): Promise<void> {
 }
 
 /** Downloads, extracts, and files a GameBanana mod — character/slot/display name are assumed
- * already confirmed by the user; this never assigns a slot silently. */
-export function installFromGamebanana(input: InstallFromGamebananaInput): Promise<Mod> {
-  return invoke("install_from_gamebanana", {
+ * already confirmed by the user; this never assigns a slot silently.
+ *
+ * Resolves as soon as the download is recorded, not when the mod is installed — the work is
+ * owned by the queue in Rust from that point on, which is what lets the dialog close without
+ * abandoning it. Watch the download's row for the outcome. */
+export function enqueueDownload(input: EnqueueDownloadInput): Promise<Download> {
+  return invoke("enqueue_download", {
     gamebananaModId: input.gamebananaModId,
     gamebananaFileId: input.gamebananaFileId,
+    modName: input.modName,
+    fileName: input.fileName,
+    thumbnailUrl: input.thumbnailUrl,
     characterId: input.characterId,
     slot: input.slot,
     displayName: input.displayName,
   });
+}
+
+export function listDownloads(): Promise<Download[]> {
+  return invoke("list_downloads");
+}
+
+/** Stops a download whether it is running or still waiting its turn. */
+export function cancelDownload(id: number): Promise<void> {
+  return invoke("cancel_download", { id });
+}
+
+/** Runs a finished download again on the same row. Everything needed was stored when it was
+ * queued, so this works for one that failed days ago. */
+export function retryDownload(id: number): Promise<void> {
+  return invoke("retry_download", { id });
+}
+
+/** Deletes installed/failed/cancelled rows, leaving anything still running or queued. */
+export function clearFinishedDownloads(): Promise<number> {
+  return invoke("clear_finished_downloads");
 }
 
 /** Fills in preview URLs for mods installed before the installer stored them. Idempotent and

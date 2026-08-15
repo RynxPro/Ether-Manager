@@ -33,7 +33,7 @@ impl Slot {
         }
     }
 
-    fn from_str(value: &str) -> Option<Self> {
+    pub(crate) fn from_str(value: &str) -> Option<Self> {
         match value {
             "Character Skin" => Some(Slot::CharacterSkin),
             "UI" => Some(Slot::Ui),

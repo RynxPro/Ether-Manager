@@ -28,6 +28,31 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     added_at INTEGER NOT NULL
 );
 
+-- One row per install the user has asked for, kept after it finishes so the Downloads page has
+-- a history. Everything needed to run the install again lives here (mod id, file id, target
+-- character, slot, display name), which is what makes Retry possible without going back to the
+-- mod page. `mod_name`/`file_name`/`thumbnail_url` are copies rather than lookups: a download
+-- has to stay readable in the list even if the mod is later withdrawn from GameBanana.
+CREATE TABLE IF NOT EXISTS downloads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gamebanana_mod_id INTEGER NOT NULL,
+    gamebanana_file_id INTEGER NOT NULL,
+    mod_name TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    thumbnail_url TEXT,
+    character_id TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error TEXT,
+    total_bytes INTEGER,
+    downloaded_bytes INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    finished_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_downloads_created ON downloads(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS mod_update_checks (
     mod_id INTEGER PRIMARY KEY,
     status TEXT NOT NULL,
