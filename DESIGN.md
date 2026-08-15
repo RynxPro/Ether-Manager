@@ -25,7 +25,7 @@ surfaces form a ladder; pick by depth, not by eye.
 | `--muted-foreground` | `#8a8a94` | secondary text |
 | `--foreground` | `#f0f0f2` | primary text |
 | `--primary` | `#ffd400` | see below — scarce |
-| `--destructive` | `#e5484d` | delete only, and only on hover |
+| `--destructive` | `#e5484d` | delete, and only on hover; plus the `NSFW` badge |
 
 ### The accent has exactly three jobs
 
@@ -115,10 +115,12 @@ The art is the point of this app. Anything laid over it needs to earn its place.
 - **This is a resizable desktop window, not a phone.** Grids use `auto-fill` + `minmax` so
   columns follow the window; maximising fits more cards rather than stretching the same six.
   Fixed breakpoint column counts are a web habit and do not belong here.
-  - `POSTER_GRID` — 3:4 portrait cards (characters, bookmarks), 180px floor
-  - `CARD_GRID` — every mod card, browsed or installed, 240px floor. Browse and the library
-    take the same room; they differ in what the card holds and in its art ratio (4:3 browsing,
-    16:10 installed), not in size.
+  - `POSTER_GRID` — 3:4 portrait cards (the character roster), 180px floor
+  - `CARD_GRID` — every mod card, browsed, saved or installed, 240px floor. Browse, Bookmarks
+    and the library take the same room; they differ in what the card holds and in its art ratio
+    (4:3 browsing and saved, 16:10 installed), not in size. Bookmarks used the roster's poster
+    grid until it was rebuilt, which made saved mods read as a different kind of object from
+    the search results they were saved from.
 - **No centred max-width page cap.** Content fills the window. Only cap width where line length
   genuinely matters for reading (Settings, a mod description).
 - **Full-bleed bands escape the page padding** with `-mx-6`, so a header reaches the window

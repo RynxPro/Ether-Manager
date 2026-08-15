@@ -1,6 +1,6 @@
 import { Bookmark as BookmarkIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { POSTER_GRID } from "@/lib/layout";
+import { CARD_GRID } from "@/lib/layout";
+import { BookmarkCard } from "./BookmarkCard";
 import { useBookmarks, useRemoveBookmark } from "./hooks";
 import type { Bookmark, GbMod } from "@/lib/tauri-commands";
 
@@ -40,75 +40,57 @@ interface BookmarksViewProps {
   onSelectMod: (mod: GbMod) => void;
 }
 
+/** The shortlist you build while browsing. It shares Browse's grid and card shape rather than
+ * the roster's 3:4 posters it used to borrow — these are the same objects as Browse's results,
+ * saved, so making them a different size and shape read as a different kind of thing. */
 export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
   const { data: bookmarks, isLoading } = useBookmarks();
   const removeBookmark = useRemoveBookmark();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-semibold text-foreground">Bookmarks</h2>
-        <div className={POSTER_GRID}>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const count = bookmarks?.length ?? 0;
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-foreground">Bookmarks</h2>
+    <div className="space-y-5">
+      <div className="flex items-baseline gap-3 border-b-2 border-primary pb-3.5">
+        <h2 className="font-heading text-2xl uppercase tracking-[0.06em] text-foreground">
+          Bookmarks
+        </h2>
+        <span className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+          Saved from Browse
+        </span>
+        {!isLoading && count > 0 && (
+          <span className="ml-auto font-heading text-[11px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground">
+            {count} saved
+          </span>
+        )}
+      </div>
 
-      {!bookmarks || bookmarks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No bookmarks yet. Save mods from Browse to find them here.
-        </p>
+      {isLoading ? (
+        <div className={CARD_GRID}>
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="aspect-[4/3] animate-pulse border-2 border-border bg-card" />
+          ))}
+        </div>
+      ) : count === 0 ? (
+        // A designed state rather than a line of grey text: an empty shortlist is the normal
+        // condition on a fresh install, not a failure.
+        <div className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border bg-card px-6 py-16 text-center">
+          <BookmarkIcon className="h-7 w-7 text-muted-foreground/40" />
+          <p className="font-heading text-sm uppercase tracking-[0.1em] text-foreground">
+            Nothing saved yet
+          </p>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            The bookmark button on any mod in Browse keeps it here.
+          </p>
+        </div>
       ) : (
-        <div className={POSTER_GRID}>
-          {bookmarks.map((bookmark) => (
-            <div
+        <div className={CARD_GRID}>
+          {bookmarks?.map((bookmark) => (
+            <BookmarkCard
               key={bookmark.gamebanana_mod_id}
-              className="group relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-xl border border-border text-left transition-all hover:border-primary/60 hover:shadow-lg"
-            >
-              <button
-                type="button"
-                onClick={() => onSelectMod(bookmarkToPlaceholderGbMod(bookmark))}
-                className="absolute inset-0 cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                aria-label={`View ${bookmark.name}`}
-              >
-                {bookmark.thumbnail_url ? (
-                  <img
-                    src={bookmark.thumbnail_url}
-                    alt={bookmark.name}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-muted text-2xl font-semibold text-muted-foreground">
-                    {bookmark.name.charAt(0)}
-                  </div>
-                )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-              </button>
-
-              <Button
-                type="button"
-                variant="default"
-                size="icon-sm"
-                className="absolute top-2 right-2 z-10"
-                onClick={() => removeBookmark.mutate(bookmark.gamebanana_mod_id)}
-                aria-label={`Remove ${bookmark.name} from bookmarks`}
-              >
-                <BookmarkIcon className="h-4 w-4" fill="currentColor" />
-              </Button>
-
-              <div className="relative z-0 p-3">
-                <p className="truncate text-sm font-semibold text-white drop-shadow">
-                  {bookmark.name}
-                </p>
-              </div>
-            </div>
+              bookmark={bookmark}
+              onSelect={() => onSelectMod(bookmarkToPlaceholderGbMod(bookmark))}
+              onRemove={() => removeBookmark.mutate(bookmark.gamebanana_mod_id)}
+            />
           ))}
         </div>
       )}

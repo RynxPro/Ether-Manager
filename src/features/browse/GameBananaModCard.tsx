@@ -92,8 +92,8 @@ export function GameBananaModCard({
             blur is gone this is the only thing still marking the mod as mature. z-30 matches the
             bookmark button, above the shield's own z-20 overlay. */}
         {mod.is_mature && (
-          <span className="pointer-events-none absolute top-1.5 left-1.5 z-30 border border-white/20 bg-background/80 px-1.5 py-px font-heading text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            18+
+          <span className="pointer-events-none absolute top-1.5 left-1.5 z-30 border border-destructive/70 bg-background/80 px-1.5 py-px font-heading text-[10px] font-semibold uppercase tracking-[0.1em] text-destructive">
+            NSFW
           </span>
         )}
 
