@@ -67,6 +67,16 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
   const removeBookmark = useRemoveBookmark();
   const [index, setIndex] = useState(0);
   const [isHeld, setIsHeld] = useState(false);
+  // Every mod revealed so far, not just the last one. A single id looks sufficient because the
+  // band shows one slide at a time, but the rail shows all six at once — and revealing a second
+  // mod would then silently re-blur the first, undoing a choice the reader had already made.
+  // Ids rather than indices: the list can come back shorter, and an index would then point at
+  // a different mod than the one that was uncovered.
+  const [revealedIds, setRevealedIds] = useState<ReadonlySet<number>>(() => new Set());
+
+  function reveal(modId: number) {
+    setRevealedIds((current) => new Set(current).add(modId));
+  }
 
   const slides = featured ?? [];
   const records = slides.map((slide) => slide.record);
@@ -111,6 +121,9 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
   const periodLabel = PERIOD_LABELS[slides[activeIndex].period];
   const heroUrl = heroUrlFor(mod);
   const isBlurred = (visibility ?? "Blur") === "Blur" && mod.is_mature;
+  // Still covered right now, as opposed to merely flagged: this is what decides whether a click
+  // on the art reveals it or opens it, and the two must never both answer the same press.
+  const showingBlur = isBlurred && !revealedIds.has(mod.id);
   const isBookmarked = bookmarkedIds.has(mod.id);
   // The sub-category is the character the mod is for, which is the more useful of the two;
   // the root category ("Skins", "Other/Misc") is the fallback when it has none.
@@ -138,20 +151,58 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
       onBlurCapture={() => setIsHeld(false)}
     >
       <div className="relative overflow-hidden bg-secondary">
-        {/* Keyed on the mod so switching slides remounts the shield — otherwise revealing one
-            mature preview would leave the next one revealed too. */}
-        <MatureContentShield key={mod.id} isBlurred={isBlurred} className="h-full w-full">
-          {heroUrl ? (
-            <img src={heroUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-secondary font-heading text-6xl text-muted-foreground/30">
-              {mod.name.charAt(0)}
-            </div>
-          )}
-        </MatureContentShield>
+        {/* The art opens the mod. It is the largest thing on the page and it was inert, which
+            left an 80px button as the only way in to something being sold by a 420px picture —
+            and the picture is what you point at.
 
-        {/* z-30 clears the shield's own reveal overlay, so the carousel stays navigable without
-            revealing anything. */}
+            A `div[role=button]`, not a real `<button>`, for the same reason as
+            GameBananaModCard: MatureContentShield renders its own `<button>` inside this, and
+            buttons cannot validly nest. While blurred, this wrapper leaves the tab order and
+            stops answering keys, so the reveal button is the only control here. */}
+        <div
+          role="button"
+          tabIndex={showingBlur ? -1 : 0}
+          onClick={() => {
+            if (showingBlur) return;
+            onSelectMod(mod);
+          }}
+          onKeyDown={(event) => {
+            if (showingBlur) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelectMod(mod);
+            }
+          }}
+          aria-label={`View ${mod.name}`}
+          className="absolute inset-0 cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {/* Controlled, because the wrapper above needs the same answer: an uncontrolled
+              shield would reveal visually while leaving the art permanently untabbable. It also
+              replaces the old `key={mod.id}` remount, which re-blurred a slide every time the
+              band came back round to it — the band cycles all six in about forty seconds, so
+              that quietly undid the reader's choice on every lap. Tracking ids reveals exactly
+              the mods that were asked for and nothing else. */}
+          <MatureContentShield
+            isBlurred={isBlurred}
+            revealed={revealedIds.has(mod.id)}
+            onReveal={() => reveal(mod.id)}
+            className="h-full w-full"
+          >
+            {heroUrl ? (
+              <img src={heroUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-secondary font-heading text-6xl text-muted-foreground/30">
+                {mod.name.charAt(0)}
+              </div>
+            )}
+          </MatureContentShield>
+        </div>
+
+        {/* Siblings of the clickable art rather than children of it: nested inside, every
+            chevron press would also open the mod, and stopping propagation on each is a rule
+            that has to be remembered next time one is added. z-30 keeps them above both the
+            art wrapper and the shield's reveal overlay, so the carousel stays navigable
+            without revealing anything. */}
         <button
           type="button"
           onClick={() => step(-1)}
@@ -262,7 +313,12 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
         {slides.map((slide, i) => {
           const record = slide.record;
           const railUrl = railUrlFor(record);
-          const isRecordBlurred = (visibility ?? "Blur") === "Blur" && record.is_mature;
+          // Reveals count here too, or uncovering the hero would leave that same mod blurred in
+          // the rail directly beside it — one picture uncovered, its own thumbnail not, which
+          // reads as the reveal having half-failed. Cells for mods that were never revealed
+          // stay covered.
+          const isRecordBlurred =
+            (visibility ?? "Blur") === "Blur" && record.is_mature && !revealedIds.has(record.id);
           const isActive = i === activeIndex;
           const tag = PERIOD_LABELS[slide.period].tag;
           return (
