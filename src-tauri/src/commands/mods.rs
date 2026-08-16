@@ -42,13 +42,13 @@ pub(crate) fn slugify_display_name(name: &str) -> String {
     }
 }
 
-/// Appends a numeric suffix if `base_name` already exists under `slot_dir`, so two mods
+/// Appends a numeric suffix if `base_name` already exists under `parent`, so two mods
 /// with the same display name don't collide on disk.
-pub(crate) fn unique_variant_dir(slot_dir: &Path, base_name: &str) -> PathBuf {
-    let mut candidate = slot_dir.join(base_name);
+pub(crate) fn unique_variant_dir(parent: &Path, base_name: &str) -> PathBuf {
+    let mut candidate = parent.join(base_name);
     let mut n = 1;
     while candidate.exists() {
-        candidate = slot_dir.join(format!("{base_name}_{n}"));
+        candidate = parent.join(format!("{base_name}_{n}"));
         n += 1;
     }
     candidate
@@ -78,14 +78,14 @@ pub fn add_mod(
         .ok_or_else(|| "mods folder is not set yet".to_string())?;
     let mods_root = PathBuf::from(mods_folder);
 
-    let slot_dir = fs_ops::ensure_character_slot_dir(&mods_root, &character_id, slot)
-        .map_err(|e| e.to_string())?;
+    let character_dir =
+        fs_ops::ensure_mod_home_dir(&mods_root, &character_id).map_err(|e| e.to_string())?;
 
     // A newly inserted mod always starts disabled (see insert_mod) — extract straight into a
     // DISABLED_-prefixed folder so the disk matches that from the start, instead of a clean
     // name that XXMI would actually treat as active despite the app showing it as off.
     let base_name = fs_ops::to_disabled_name(&slugify_display_name(&display_name));
-    let dest_dir = unique_variant_dir(&slot_dir, &base_name);
+    let dest_dir = unique_variant_dir(&character_dir, &base_name);
 
     let source = PathBuf::from(&source_path);
     if is_archive_path(&source) {

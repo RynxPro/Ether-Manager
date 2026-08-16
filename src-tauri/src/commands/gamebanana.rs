@@ -255,7 +255,9 @@ async fn download_and_extract_gamebanana_file(
         gamebanana_mod_id,
         gamebanana_file_id,
         character_id,
-        slot,
+        // The slot is still recorded on the row — it drives the UI and Misc tabs — but it no
+        // longer names a folder, so nothing on the extract path needs it.
+        slot: _,
         display_name,
         staging,
     } = request;
@@ -276,13 +278,13 @@ async fn download_and_extract_gamebanana_file(
         .find(|f| f.id == gamebanana_file_id)
         .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))?;
 
-    let slot_dir = fs_ops::ensure_character_slot_dir(mods_root, character_id, slot)
-        .map_err(|e| e.to_string())?;
+    let character_dir =
+        fs_ops::ensure_mod_home_dir(mods_root, character_id).map_err(|e| e.to_string())?;
     // A newly inserted mod always starts disabled (see insert_mod) — extract straight into a
     // DISABLED_-prefixed folder so the disk matches that from the start, instead of a clean
     // name that XXMI would actually treat as active despite the app showing it as off.
     let base_name = fs_ops::to_disabled_name(&slugify_display_name(display_name));
-    let dest_dir = unique_variant_dir(&slot_dir, &base_name);
+    let dest_dir = unique_variant_dir(&character_dir, &base_name);
 
     gamebanana
         .download_file(
@@ -536,7 +538,12 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(dest_dir.starts_with(mods_root.join("Characters").join("belle").join("Character Skin")));
+        // Directly under the character, with no slot folder between — the slot is a property of
+        // the row, not a place on disk.
+        assert_eq!(
+            dest_dir.parent(),
+            Some(mods_root.join("Characters").join("belle").as_path())
+        );
         assert!(dest_dir.exists());
         assert!(
             dest_dir.read_dir().unwrap().next().is_some(),

@@ -6,7 +6,7 @@ use crate::db::{Db, Mod, Slot};
 
 /// XXMI/ZZMI convention, confirmed directly by the user against a real XXMI dev:
 /// disabling a mod prepends this to its own leaf folder name (`pinkdress` -> `DISABLED_pinkdress`).
-/// Never applied to parent character/slot folders.
+/// Never applied to the parent character folder.
 const DISABLED_PREFIX: &str = "DISABLED_";
 
 /// The exact, stable prefix `FsOpsError::ModFolderMissing`'s `Display` starts with — the
@@ -126,28 +126,32 @@ fn is_safe_path_segment(s: &str) -> bool {
     !s.is_empty() && s != "." && s != ".." && !s.contains(['/', '\\']) && !s.contains('\0')
 }
 
-/// Returns `<mods_root>/Characters/<character_id>/<slot>/`.
-pub fn character_slot_dir(
-    mods_root: &Path,
-    character_id: &str,
-    slot: Slot,
-) -> Result<PathBuf, FsOpsError> {
+/// Where a mod for this character lives on disk.
+///
+/// A real character gets `<mods_root>/Characters/<character_id>/`, with the mod folders sitting
+/// directly inside it. There used to be a slot folder between the two, from when a character had
+/// several slots to fill; slots collapsed to the point where every real character uses exactly
+/// `Character Skin`, leaving a level that named a constant. `Slot` still exists in the database
+/// and still drives the UI and Misc tabs — it simply stopped being somewhere on disk.
+///
+/// `ui` and `misc` are not characters. They are pseudo-characters the database uses so that
+/// library-wide mods have somewhere to hang, and filing them under `Characters/` said they were
+/// two more members of the roster. They get `<mods_root>/UI/` and `<mods_root>/Misc/` instead,
+/// beside `Characters/` rather than inside it.
+pub fn mod_home_dir(mods_root: &Path, character_id: &str) -> Result<PathBuf, FsOpsError> {
     if !is_safe_path_segment(character_id) {
         return Err(FsOpsError::InvalidPath(character_id.to_string()));
     }
-    Ok(mods_root
-        .join("Characters")
-        .join(character_id)
-        .join(slot.as_str()))
+    Ok(match character_id {
+        crate::characters::UI_PSEUDO_CHARACTER_ID => mods_root.join(Slot::Ui.as_str()),
+        crate::characters::MISC_PSEUDO_CHARACTER_ID => mods_root.join(Slot::Misc.as_str()),
+        _ => mods_root.join("Characters").join(character_id),
+    })
 }
 
-/// Creates `<mods_root>/Characters/<character_id>/<slot>/` if it doesn't already exist.
-pub fn ensure_character_slot_dir(
-    mods_root: &Path,
-    character_id: &str,
-    slot: Slot,
-) -> Result<PathBuf, FsOpsError> {
-    let dir = character_slot_dir(mods_root, character_id, slot)?;
+/// Creates the directory [`mod_home_dir`] names, if it doesn't already exist.
+pub fn ensure_mod_home_dir(mods_root: &Path, character_id: &str) -> Result<PathBuf, FsOpsError> {
+    let dir = mod_home_dir(mods_root, character_id)?;
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }
@@ -170,32 +174,82 @@ fn set_single_enabled(db: &Db, m: &Mod, enabled: bool) -> Result<(), FsOpsError>
 
 /// Enables or disables a mod on disk (leaf-folder `DISABLED_` rename) and in the DB.
 ///
-/// v1 enable model is strictly one enabled mod per slot: enabling a mod first disables
-/// any other currently-enabled mod in the same character+slot.
+/// Affects exactly the one mod named. Any number can be on at once, per character and per slot.
 pub fn set_mod_enabled(db: &Db, mod_id: i64, enabled: bool) -> Result<(), FsOpsError> {
     let target = db.get_mod(mod_id)?.ok_or(FsOpsError::NotFound(mod_id))?;
 
-    if enabled {
-        // Confirm the target can actually be enabled *before* disabling any sibling — otherwise
-        // a target with a missing folder would fail here having already disabled a perfectly
-        // working sibling as a side effect, leaving the slot with nothing enabled at all
-        // (worse than before the call) instead of leaving everything untouched.
-        if !PathBuf::from(&target.folder_path).exists() {
-            return Err(FsOpsError::ModFolderMissing(PathBuf::from(
-                &target.folder_path,
-            )));
-        }
-
-        let siblings = db.list_mods_for_character(&target.character_id)?;
-        for sibling in siblings
-            .into_iter()
-            .filter(|m| m.slot == target.slot && m.enabled && m.id != target.id)
-        {
-            set_single_enabled(db, &sibling, false)?;
-        }
+    // Enabling one mod no longer disables its slot-mates. ZZMI will load several at once, and
+    // whether that is wise depends on what they touch — two skins for the same character usually
+    // fight over the same model, while two mods that merely share a slot may not overlap at all.
+    // That judgement belongs to whoever installed them, so the UI cautions when more than one is
+    // on instead of the app quietly switching the others off, which is what used to happen with
+    // no mention of it anywhere.
+    if enabled && !PathBuf::from(&target.folder_path).exists() {
+        return Err(FsOpsError::ModFolderMissing(PathBuf::from(
+            &target.folder_path,
+        )));
     }
 
     set_single_enabled(db, &target, enabled)
+}
+
+/// Moves any mod that is not where [`mod_home_dir`] says it belongs, and reports how many moved.
+///
+/// The layout has changed twice: mods used to live under a slot folder, and the `ui`/`misc`
+/// pseudo-characters used to be filed under `Characters/` as though they were roster members.
+/// Both changes only affect where *new* mods land, because the database records each existing
+/// mod's own path — so without this the folders already installed would stay exactly where they
+/// are and the library would be part one shape and part another indefinitely.
+///
+/// One rule covers both, and any later move: put every managed mod where the current layout
+/// says it goes. That also makes it self-correcting rather than a pair of one-shot migrations
+/// to keep track of.
+///
+/// A mod whose folder is outside `mods_root` entirely is left alone — a library pointed
+/// somewhere else, or a path edited by hand, must not be dragged in by a sweep guessing at what
+/// it meant. Failures are per-mod and non-fatal for the same reason: one unmovable folder (open
+/// in Explorer, locked by the game) should not strand the rest.
+pub fn settle_mod_folders(db: &Db, mods_root: &Path) -> Result<usize, FsOpsError> {
+    let mut moved = 0;
+
+    for m in db.list_all_mods()? {
+        let current = PathBuf::from(&m.folder_path);
+        let Ok(home) = mod_home_dir(mods_root, &m.character_id) else {
+            continue;
+        };
+        let Some(parent) = current.parent() else {
+            continue;
+        };
+        if parent == home || !current.starts_with(mods_root) {
+            continue;
+        }
+        let Some(leaf) = current.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+
+        // Two old locations can hold the same leaf name — two slot folders under one character,
+        // or a name that already exists at the destination. A rename that silently ate a mod
+        // folder is not a risk worth carrying for the sake of a shorter function.
+        fs::create_dir_all(&home)?;
+        let dest = crate::commands::mods::unique_variant_dir(&home, leaf);
+        if fs::rename(&current, &dest).is_err() {
+            continue;
+        }
+        db.update_folder_path(m.id, &dest.to_string_lossy())?;
+        moved += 1;
+
+        // The folder it came from has done its job. `remove_dir` rather than `remove_dir_all`,
+        // so it goes only when empty — anything the user left in there is theirs, not ours to
+        // bin. Walking up clears the grandparent too, which is what removes a `Characters/misc`
+        // once its one mod has moved out to `Misc/`.
+        let mut spent = parent;
+        while spent.starts_with(mods_root) && spent != mods_root && fs::remove_dir(spent).is_ok() {
+            let Some(next) = spent.parent() else { break };
+            spent = next;
+        }
+    }
+
+    Ok(moved)
 }
 
 /// Removes a mod's folder from disk entirely. Does not touch the DB row — callers
@@ -328,12 +382,12 @@ mod tests {
     }
 
     #[test]
-    fn ensure_character_slot_dir_creates_nested_path() {
+    fn ensure_mod_home_dir_creates_nested_path() {
         let root = temp_dir("create-dir");
-        let dir = ensure_character_slot_dir(&root, "belle", Slot::CharacterSkin).unwrap();
+        let dir = ensure_mod_home_dir(&root, "belle").unwrap();
 
         assert!(dir.is_dir());
-        assert_eq!(dir, root.join("Characters").join("belle").join("Character Skin"));
+        assert_eq!(dir, root.join("Characters").join("belle"));
 
         fs::remove_dir_all(&root).unwrap();
     }
@@ -358,10 +412,10 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
     }
 
-    /// Caught live while QA-testing the fix above: enabling a mod whose folder is missing must
-    /// fail before touching any sibling — otherwise a doomed enable call would still disable a
-    /// perfectly working sibling as a side effect, leaving the slot worse off than before the
-    /// call (nothing enabled) instead of leaving it untouched.
+    /// A failed enable must change nothing at all. Caught live while QA-testing the fix above,
+    /// back when a doomed call disabled a sibling on its way to failing. Siblings are no longer
+    /// touched by a successful enable either, but the rule still needs pinning: a mod whose
+    /// folder has gone must not take the rest of the slot down with it.
     #[test]
     fn enabling_a_mod_with_a_missing_folder_does_not_disable_a_working_sibling() {
         let root = temp_dir("missing-folder-enable-sibling");
@@ -430,9 +484,12 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
     }
 
+    /// Turning one mod on leaves its slot-mates alone. ZZMI loads more than one, and stacking
+    /// them is the user's call to make — the app cautions about it rather than deciding for
+    /// them, which is what the old one-per-slot rule did without saying so.
     #[test]
-    fn enabling_second_mod_in_slot_disables_the_first() {
-        let root = temp_dir("one-per-slot");
+    fn enabling_a_second_mod_in_a_slot_leaves_the_first_enabled() {
+        let root = temp_dir("multi-per-slot");
         let db = Db::open_in_memory().unwrap();
         let slot_dir = root.join("Characters").join("belle").join("Character Skin");
 
@@ -449,10 +506,37 @@ mod tests {
         let first_after = db.get_mod(first.id).unwrap().unwrap();
         let second_after = db.get_mod(second.id).unwrap().unwrap();
         assert!(
-            !first_after.enabled,
-            "enabling a sibling must disable the previously-enabled mod"
+            first_after.enabled,
+            "enabling a sibling must not silently switch off the mod already on"
         );
         assert!(second_after.enabled);
+        // Both leaf folders carry their enabled name, which is what ZZMI actually reads —
+        // the DB agreeing is not enough on its own.
+        assert!(slot_dir.join("neondream").is_dir());
+        assert!(slot_dir.join("schooluniform").is_dir());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Disabling stays surgical now that enabling is: turning one of several off must not
+    /// disturb the rest, or the caution the UI shows would stop matching what is on disk.
+    #[test]
+    fn disabling_one_of_several_enabled_mods_leaves_the_others_on() {
+        let root = temp_dir("multi-per-slot-disable");
+        let db = Db::open_in_memory().unwrap();
+        let slot_dir = root.join("Characters").join("belle").join("Character Skin");
+
+        let first_dir = slot_dir.join("neondream");
+        let first = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &first_dir);
+        let second_dir = slot_dir.join("schooluniform");
+        let second = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &second_dir);
+
+        set_mod_enabled(&db, first.id, true).unwrap();
+        set_mod_enabled(&db, second.id, true).unwrap();
+        set_mod_enabled(&db, first.id, false).unwrap();
+
+        assert!(!db.get_mod(first.id).unwrap().unwrap().enabled);
+        assert!(db.get_mod(second.id).unwrap().unwrap().enabled);
         assert!(slot_dir.join("DISABLED_neondream").is_dir());
         assert!(slot_dir.join("schooluniform").is_dir());
 
@@ -512,18 +596,151 @@ mod tests {
     }
 
     #[test]
-    fn character_slot_dir_rejects_path_traversal_attempts() {
+    fn mod_home_dir_rejects_path_traversal_attempts() {
         let root = temp_dir("path-traversal");
 
-        assert!(character_slot_dir(&root, "../../../Windows", Slot::CharacterSkin).is_err());
-        assert!(character_slot_dir(&root, "..", Slot::CharacterSkin).is_err());
-        assert!(character_slot_dir(&root, "belle/../../escape", Slot::CharacterSkin).is_err());
-        assert!(character_slot_dir(&root, "belle\\..\\..\\escape", Slot::CharacterSkin).is_err());
-        assert!(character_slot_dir(&root, "", Slot::CharacterSkin).is_err());
+        assert!(mod_home_dir(&root, "../../../Windows").is_err());
+        assert!(mod_home_dir(&root, "..").is_err());
+        assert!(mod_home_dir(&root, "belle/../../escape").is_err());
+        assert!(mod_home_dir(&root, "belle\\..\\..\\escape").is_err());
+        assert!(mod_home_dir(&root, "").is_err());
 
-        assert!(character_slot_dir(&root, "belle", Slot::CharacterSkin).is_ok());
+        assert!(mod_home_dir(&root, "belle").is_ok());
 
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// The migration's whole job: a mod installed under the old layout ends up beside one
+    /// installed under the new, with the row pointing at where it actually is and the emptied
+    /// slot folder gone.
+    #[test]
+    fn flattening_lifts_a_slot_nested_mod_up_beside_a_flat_one() {
+        let root = temp_dir("flatten");
+        let db = Db::open_in_memory().unwrap();
+        let char_dir = root.join("Characters").join("belle");
+
+        let nested_dir = char_dir.join("Character Skin").join("neondream");
+        let nested = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &nested_dir);
+        let flat_dir = char_dir.join("schooluniform");
+        let flat = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &flat_dir);
+
+        assert_eq!(settle_mod_folders(&db, &root).unwrap(), 1);
+
+        let nested_after = db.get_mod(nested.id).unwrap().unwrap();
+        assert_eq!(
+            PathBuf::from(&nested_after.folder_path),
+            char_dir.join("neondream"),
+            "the row has to follow the folder, or the app looks for a mod that moved"
+        );
+        assert!(char_dir.join("neondream").is_dir());
+        assert!(!char_dir.join("Character Skin").exists(), "emptied slot dir");
+
+        let flat_after = db.get_mod(flat.id).unwrap().unwrap();
+        assert_eq!(
+            PathBuf::from(&flat_after.folder_path),
+            flat_dir,
+            "an already-flat mod must not be touched"
+        );
+
+        // Running twice must be a no-op, since it runs on every launch.
+        assert_eq!(settle_mod_folders(&db, &root).unwrap(), 0);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Two slots under one character could hold the same leaf name. Renaming one onto the other
+    /// would destroy a mod, so the collision has to be given its own name instead.
+    #[test]
+    fn flattening_two_slots_sharing_a_leaf_name_keeps_both() {
+        let root = temp_dir("flatten-collision");
+        let db = Db::open_in_memory().unwrap();
+        let char_dir = root.join("Characters").join("belle");
+
+        let skin_dir = char_dir.join("Character Skin").join("pinkdress");
+        let skin = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &skin_dir);
+        let outfit_dir = char_dir.join("Outfit").join("pinkdress");
+        let outfit = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &outfit_dir);
+
+        assert_eq!(settle_mod_folders(&db, &root).unwrap(), 2);
+
+        let skin_path = PathBuf::from(db.get_mod(skin.id).unwrap().unwrap().folder_path);
+        let outfit_path = PathBuf::from(db.get_mod(outfit.id).unwrap().unwrap().folder_path);
+        assert_ne!(skin_path, outfit_path, "one must not overwrite the other");
+        assert!(skin_path.is_dir());
+        assert!(outfit_path.is_dir());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// `ui` and `misc` are not roster members, so their mods belong beside `Characters/` rather
+    /// than inside it, where they read as two more characters.
+    #[test]
+    fn the_pseudo_characters_live_outside_the_characters_folder() {
+        let root = temp_dir("pseudo-home");
+
+        assert_eq!(mod_home_dir(&root, "ui").unwrap(), root.join("UI"));
+        assert_eq!(mod_home_dir(&root, "misc").unwrap(), root.join("Misc"));
+        assert_eq!(
+            mod_home_dir(&root, "belle").unwrap(),
+            root.join("Characters").join("belle")
+        );
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// The second layout change this sweep has to undo: pseudo-character mods filed under
+    /// `Characters/` move out to the root, and the folder that held them goes with them.
+    #[test]
+    fn settling_moves_a_pseudo_character_mod_out_of_the_characters_folder() {
+        let root = temp_dir("settle-pseudo");
+        let db = Db::open_in_memory().unwrap();
+
+        let old_dir = root
+            .join("Characters")
+            .join("misc")
+            .join("Misc")
+            .join("glowfx");
+        let m = insert_mod_with_folder(&db, "misc", Slot::Misc, &old_dir);
+
+        assert_eq!(settle_mod_folders(&db, &root).unwrap(), 1);
+
+        let after = db.get_mod(m.id).unwrap().unwrap();
+        assert_eq!(
+            PathBuf::from(&after.folder_path),
+            root.join("Misc").join("glowfx")
+        );
+        assert!(root.join("Misc").join("glowfx").is_dir());
+        assert!(
+            !root.join("Characters").join("misc").exists(),
+            "the pseudo-character's old home should go once it is empty"
+        );
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A mod outside the mods folder entirely — a library pointed somewhere else, or a path
+    /// edited by hand — is left exactly where it is. Inside the mods folder the sweep is
+    /// deliberately assertive, since the app owns that tree and the database is the source of
+    /// truth for it; outside it, it has no standing to move anything.
+    #[test]
+    fn settling_leaves_a_mod_outside_the_mods_folder_alone() {
+        let root = temp_dir("settle-foreign");
+        let outside = temp_dir("settle-foreign-elsewhere");
+        let db = Db::open_in_memory().unwrap();
+
+        let stray_dir = outside.join("hand_placed_mod");
+        let stray = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &stray_dir);
+
+        assert_eq!(settle_mod_folders(&db, &root).unwrap(), 0);
+
+        assert_eq!(
+            PathBuf::from(db.get_mod(stray.id).unwrap().unwrap().folder_path),
+            stray_dir
+        );
+        assert!(stray_dir.is_dir());
+
+        fs::remove_dir_all(&root).unwrap();
+        fs::remove_dir_all(&outside).unwrap();
     }
 
     #[test]

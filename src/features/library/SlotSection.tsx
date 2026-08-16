@@ -1,3 +1,4 @@
+import { TriangleAlert } from "lucide-react";
 import { CARD_GRID } from "@/lib/layout";
 import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
@@ -25,6 +26,7 @@ export function SlotSection({
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
   const checkUpdate = useCheckModUpdate();
+  const enabledCount = mods.filter((mod) => mod.enabled).length;
 
   return (
     <section className="space-y-3">
@@ -35,6 +37,21 @@ export function SlotSection({
           </h3>
           <AddModDialog characterId={characterId} slot={slot} />
         </div>
+      )}
+
+      {/* Stacking is allowed but rarely a good idea, so this states the risk once and gets out
+          of the way — no dialog on the toggle, which would nag on every deliberate change. It
+          shows only while more than one is actually on, so it reports a live condition rather
+          than warning about something hypothetical. */}
+      {enabledCount > 1 && (
+        <p className="flex items-start gap-2 border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0 text-primary" />
+          <span>
+            <span className="text-foreground">{enabledCount} mods enabled at once.</span> ZZMI
+            will load them all, but mods that alter the same model usually conflict — expect
+            flickering, wrong textures, or a crash. Turn all but one off if the game misbehaves.
+          </span>
+        </p>
       )}
 
       {mods.length === 0 ? (

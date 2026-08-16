@@ -56,6 +56,22 @@ pub fn run() {
             if let Err(e) = db.park_interrupted_downloads() {
                 eprintln!("could not sweep interrupted downloads: {e}");
             }
+            // Mods installed under an older layout are still where that layout put them, since
+            // each row records its own path. Settling them here keeps the library one shape
+            // rather than several, and is a no-op on every launch after the one that needs it.
+            // A failure is worth saying out loud but not worth refusing to start over — the old
+            // paths still work, they are just untidy.
+            match db.get_setting("mods_folder") {
+                Ok(Some(folder)) => {
+                    match fs_ops::settle_mod_folders(&db, std::path::Path::new(&folder)) {
+                        Ok(0) => {}
+                        Ok(moved) => println!("moved {moved} mod folder(s) into the current layout"),
+                        Err(e) => eprintln!("could not settle mod folders: {e}"),
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => eprintln!("could not read the mods folder setting: {e}"),
+            }
             app.manage(AppState {
                 db: Mutex::new(db),
                 gamebanana: gamebanana::GameBananaClient::new(),
