@@ -113,9 +113,16 @@ pub async fn search_gamebanana_mods(
 /// The featured banner's six slides: the top mod of the day, week, month, half-year, year and
 /// all time.
 ///
-/// `Hide` drops mature winners outright rather than blurring them, matching `search_mods`. The
-/// banner then shows fewer slides, which is the honest outcome — there is no second-place
-/// fallback to promote, since GameBanana ranks these and this app does not.
+/// Under `Hide` the preference is pushed down into the pick rather than applied to its result.
+/// Filtering afterwards discarded the whole window along with its winner, which left the band
+/// showing a single slide; each window offers several ranked candidates, so the next one down
+/// can take the place instead. A window is lost only when none of its candidates qualify, and
+/// with GameBanana's ZZZ charts as mature as they are that is most of them — the band is
+/// genuinely short under `Hide`, and how short depends on the day. GameBanana's own site shows
+/// the same handful.
+///
+/// The slides that remain are still true to their headline: "top this week" means top among the
+/// mods this user has asked to see, the same reading the Browse grid already uses.
 #[tauri::command]
 pub async fn get_featured_mods(state: State<'_, AppState>) -> Result<Vec<GbFeaturedMod>, String> {
     let visibility_pref = {
@@ -124,19 +131,11 @@ pub async fn get_featured_mods(state: State<'_, AppState>) -> Result<Vec<GbFeatu
             .map_err(|e| e.to_string())?
     };
 
-    let featured = state
+    state
         .gamebanana
-        .get_featured_mods()
+        .get_featured_mods(visibility_pref == MatureVisibility::Hide)
         .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(match visibility_pref {
-        MatureVisibility::Show | MatureVisibility::Blur => featured,
-        MatureVisibility::Hide => featured
-            .into_iter()
-            .filter(|f| !f.record.is_mature)
-            .collect(),
-    })
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

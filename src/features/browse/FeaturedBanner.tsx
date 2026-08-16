@@ -5,6 +5,7 @@ import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
+import { shouldBlur } from "@/lib/mature";
 import { updatedLabel } from "@/lib/time";
 import type { GbMod } from "@/lib/tauri-commands";
 import { useAddBookmark, useBookmarks, useFeaturedMods, useRemoveBookmark } from "./hooks";
@@ -120,7 +121,7 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
   const mod = records[activeIndex];
   const periodLabel = PERIOD_LABELS[slides[activeIndex].period];
   const heroUrl = heroUrlFor(mod);
-  const isBlurred = (visibility ?? "Blur") === "Blur" && mod.is_mature;
+  const isBlurred = shouldBlur(visibility, mod.is_mature);
   // Still covered right now, as opposed to merely flagged: this is what decides whether a click
   // on the art reveals it or opens it, and the two must never both answer the same press.
   const showingBlur = isBlurred && !revealedIds.has(mod.id);
@@ -130,6 +131,11 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
   const category = mod.sub_category?.name ?? mod.root_category.name;
   const step = (delta: number) =>
     setIndex((current) => (current + delta + records.length) % records.length);
+  // A band of one is not a carousel: the picker, the arrows and the clock all describe moving
+  // between slides, and with nothing to move to they are furniture that implies a control.
+  // Under Hide this is the normal case, not an edge one — GameBanana's ZZZ top charts are
+  // almost entirely mature, so most windows have no eligible winner at all.
+  const hasSlidesToPick = records.length > 1;
 
   return (
     // Art and text in separate columns rather than text laid over the picture. Overlaying meant
@@ -140,7 +146,9 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
     <div
       // The clock is a second row rather than a wrapper around the band, so the three columns
       // and the bar stay siblings in one grid.
-      className="grid grid-cols-[1.35fr_1fr_118px] grid-rows-[420px_2px]"
+      className={`grid grid-rows-[420px_2px] ${
+        hasSlidesToPick ? "grid-cols-[1.35fr_1fr_118px]" : "grid-cols-[1.35fr_1fr]"
+      }`}
       // Held while the pointer is over the band, and while anything inside it has keyboard
       // focus. Without this the slide can change out from under a click — you reach for
       // "View mod" on the mod you were reading about and open a different one. Focus is
@@ -203,6 +211,8 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
             that has to be remembered next time one is added. z-30 keeps them above both the
             art wrapper and the shield's reveal overlay, so the carousel stays navigable
             without revealing anything. */}
+        {hasSlidesToPick && (
+          <>
         <button
           type="button"
           onClick={() => step(-1)}
@@ -219,6 +229,8 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
         >
           <ChevronRight className="h-5 w-5" />
         </button>
+          </>
+        )}
       </div>
 
       {/* The panel is banded rather than a single centred stack. A block of text floating in
@@ -309,7 +321,11 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
           the same thing and also shows what you would be switching to, which is the only
           question worth answering on a page made of pictures. Recessed surface so it reads as
           a control strip attached to the band rather than a third piece of content. */}
-      <div className="flex flex-col gap-1.5 overflow-hidden border-l-2 border-border bg-sidebar p-1.5">
+      <div
+        className={`flex-col gap-1.5 overflow-hidden border-l-2 border-border bg-sidebar p-1.5 ${
+          hasSlidesToPick ? "flex" : "hidden"
+        }`}
+      >
         {slides.map((slide, i) => {
           const record = slide.record;
           const railUrl = railUrlFor(record);
@@ -318,7 +334,7 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
           // reads as the reveal having half-failed. Cells for mods that were never revealed
           // stay covered.
           const isRecordBlurred =
-            (visibility ?? "Blur") === "Blur" && record.is_mature && !revealedIds.has(record.id);
+            shouldBlur(visibility, record.is_mature) && !revealedIds.has(record.id);
           const isActive = i === activeIndex;
           const tag = PERIOD_LABELS[slide.period].tag;
           return (
@@ -328,9 +344,12 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
               onClick={() => setIndex(i)}
               aria-label={`Show ${PERIOD_LABELS[slide.period].headline}: ${record.name}`}
               aria-current={isActive}
-              // `min-h-0` lets the six cells actually divide the band's height — without it a
-              // flex child refuses to shrink below its content and they overflow together.
-              className={`group/rail relative min-h-0 flex-1 overflow-hidden border-2 transition-colors ${
+              // A fixed shape rather than `flex-1`. Dividing the band's height between the
+              // cells only looks right at the full six: at two it produced a pair of 200px
+              // panels, and at one a single 420px column of stretched artwork that read as a
+              // layout fault. 5/3 is what six cells work out to in this column anyway, so the
+              // usual case is unchanged and a short rail simply ends early.
+              className={`group/rail relative aspect-[5/3] flex-none overflow-hidden border-2 transition-colors ${
                 isActive ? "border-primary" : "border-transparent hover:border-muted-foreground"
               }`}
             >
@@ -370,8 +389,11 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
           width it doubles as the rule that closes the band off — art that ends in open space
           reads as broken, art cut by a line reads as framed — so the countdown and the boundary
           are the same 2px. Keyed on the slide so choosing a window by hand restarts it. */}
-      {records.length > 1 && (
-        <div className="col-span-3 bg-primary/20">
+      {/* The row stays even with nothing to count down, because the other half of its job is
+          closing the band off — a single slide ending in open space is the same broken-looking
+          edge, clock or no clock. Only the moving fill is conditional. */}
+      <div className={`bg-primary/20 ${hasSlidesToPick ? "col-span-3" : "col-span-2"}`}>
+        {hasSlidesToPick && (
           <div
             key={activeIndex}
             className="h-full w-full origin-left bg-primary"
@@ -381,8 +403,8 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
             }}
             onAnimationEnd={() => setIndex((current) => (current + 1) % records.length)}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

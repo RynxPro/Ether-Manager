@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
+import { shouldBlur } from "@/lib/mature";
 import { findScrollParent } from "@/lib/scroll";
 import type { GbMod, ModSort } from "@/lib/tauri-commands";
 import { GameBananaModCard } from "./GameBananaModCard";
@@ -211,10 +212,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
             key={mod.id}
             mod={mod}
             isBookmarked={bookmarkedIds.has(mod.id)}
-            // Fail closed while the preference is still loading or its query errored —
-            // `visibility` is `undefined` in both cases, which must never mean "treat as
-            // Show" given DEFAULT is Blur everywhere else in this app.
-            isBlurred={(visibility ?? "Blur") === "Blur" && mod.is_mature}
+            isBlurred={shouldBlur(visibility, mod.is_mature)}
             onSelect={() => onSelectMod(mod)}
             onToggleBookmark={() => handleToggleBookmark(mod)}
           />

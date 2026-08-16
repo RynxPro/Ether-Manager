@@ -6,6 +6,7 @@ import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
+import { shouldBlur } from "@/lib/mature";
 import { updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { GbFile, GbMod, GbModDetail, GbPreviewImage } from "@/lib/tauri-commands";
@@ -78,7 +79,7 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
   // The `mod` list record is authoritative — confirmed live that `@gbprofile` never sends
   // the content-rating fields at all, so `detail.is_mature` always defaults to `false`. Also
   // gated on the visibility setting, same as BrowseGrid/FeaturedBanner.
-  const isMature = (visibility ?? "Blur") === "Blur" && mod.is_mature;
+  const isMature = shouldBlur(visibility, mod.is_mature);
   const isBookmarked = (bookmarks ?? []).some((entry) => entry.gamebanana_mod_id === mod.id);
   // A bookmark placeholder from the Bookmarks view carries no category, so fall through to
   // nothing rather than printing a bare "Mod /".

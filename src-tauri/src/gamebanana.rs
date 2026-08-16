@@ -567,18 +567,28 @@ fn featured_mod_from(top: &RawTopSub, fields: RawFeaturedFields) -> GbMod {
     }
 }
 
-/// Picks the top-ranked mod for each wanted period, in [`FEATURED_PERIODS`] order.
+/// Picks the top-ranked eligible mod for each wanted period, in [`FEATURED_PERIODS`] order.
 ///
-/// `TopSubs` returns several mods per period already ranked, so the first match wins. A period
-/// GameBanana has no entry for is skipped rather than padded from another window — a young game
-/// genuinely has no "top of the year", and repeating a neighbouring period's mod would make the
-/// banner claim something untrue.
-fn pick_featured(subs: &[RawTopSub]) -> Vec<&RawTopSub> {
+/// `TopSubs` returns several mods per period already ranked (three, measured live), so the
+/// first match wins. A period GameBanana has no entry for is skipped rather than padded from
+/// another window — a young game genuinely has no "top of the year", and repeating a
+/// neighbouring period's mod would make the banner claim something untrue.
+///
+/// `exclude_mature` skips past mature entries to the next one down instead of losing the whole
+/// window, which is what the user's `Hide` preference asks for: the top mod of the week *among
+/// the ones they allow*, the same contract the Browse grid already honours. It cannot conjure a
+/// winner where the window has none — measured live, five of ZZZ's seven windows had no
+/// non-mature mod in their top three at all — so under `Hide` the band is genuinely short, and
+/// that is the honest outcome rather than a fault. GameBanana's own site behaves the same way.
+fn pick_featured(subs: &[RawTopSub], exclude_mature: bool) -> Vec<&RawTopSub> {
     FEATURED_PERIODS
         .iter()
         .filter_map(|period| {
-            subs.iter()
-                .find(|s| s.period == *period && s.model_name == "Mod")
+            subs.iter().find(|s| {
+                s.period == *period
+                    && s.model_name == "Mod"
+                    && !(exclude_mature && crate::content_rating::is_mature(&s.initial_visibility))
+            })
         })
         .collect()
 }
@@ -847,7 +857,15 @@ impl GameBananaClient {
     ///
     /// A period GameBanana cannot fill, or a mod the batch does not answer for, is dropped —
     /// the banner shows five slides rather than inventing a sixth.
-    pub async fn get_featured_mods(&self) -> Result<Vec<GbFeaturedMod>, GameBananaError> {
+    ///
+    /// `exclude_mature` applies the user's `Hide` preference while the winners are still being
+    /// chosen rather than after. Filtering afterwards throws the window away along with the mod;
+    /// filtering here takes the next-ranked entry instead, so a window is only lost when none of
+    /// its candidates qualify. How many survive is whatever the charts happen to hold that day.
+    pub async fn get_featured_mods(
+        &self,
+        exclude_mature: bool,
+    ) -> Result<Vec<GbFeaturedMod>, GameBananaError> {
         let url = format!("{BASE_URL}/Game/{ZZZ_GAME_ID}/TopSubs");
         let body = self
             .http
@@ -872,7 +890,7 @@ impl GameBananaClient {
             }
         })?;
 
-        let winners = pick_featured(&subs);
+        let winners = pick_featured(&subs, exclude_mature);
         if winners.is_empty() {
             return Ok(Vec::new());
         }
@@ -1234,11 +1252,20 @@ mod tests {
     }
 
     fn fixture_top_sub(id: i64, period: &str, model_name: &str) -> RawTopSub {
+        fixture_top_sub_seen_as(id, period, model_name, "show")
+    }
+
+    fn fixture_top_sub_seen_as(
+        id: i64,
+        period: &str,
+        model_name: &str,
+        initial_visibility: &str,
+    ) -> RawTopSub {
         RawTopSub {
             id,
             period: period.to_string(),
             model_name: model_name.to_string(),
-            initial_visibility: "show".to_string(),
+            initial_visibility: initial_visibility.to_string(),
         }
     }
 
@@ -1259,13 +1286,64 @@ mod tests {
             fixture_top_sub(70, "year", "Mod"),
         ];
 
-        let picked = pick_featured(&subs);
+        let picked = pick_featured(&subs, false);
 
         assert_eq!(
             picked.iter().map(|s| s.id).collect::<Vec<_>>(),
             vec![31, 40, 50, 60, 70, 10],
             "expected day/week/month/6month/year/alltime, taking the Tool's place with id 31"
         );
+    }
+
+    /// The reason `Hide` is applied during the pick rather than to its result: filtering
+    /// afterwards threw away the window along with its winner, so a chart as mature as ZZZ's
+    /// collapsed the whole band to a single slide.
+    #[test]
+    fn a_mature_winner_hands_its_window_to_the_next_one_down() {
+        let subs = vec![
+            fixture_top_sub_seen_as(10, "today", "Mod", "hide"),
+            fixture_top_sub_seen_as(11, "today", "Mod", "warn"),
+            fixture_top_sub_seen_as(12, "today", "Mod", "show"),
+            fixture_top_sub_seen_as(20, "alltime", "Mod", "show"),
+        ];
+
+        let picked = pick_featured(&subs, true);
+
+        assert_eq!(
+            picked.iter().map(|s| s.id).collect::<Vec<_>>(),
+            vec![12, 20],
+            "today should fall through two mature entries rather than losing the window"
+        );
+    }
+
+    /// A window whose every candidate is mature is genuinely lost — there is nothing eligible to
+    /// promote, and borrowing from a neighbouring window would put a mod under a headline that
+    /// is not true of it. How many windows survive is whatever the charts hold that day.
+    #[test]
+    fn a_window_with_only_mature_candidates_is_dropped_rather_than_borrowed_from() {
+        let subs = vec![
+            fixture_top_sub_seen_as(10, "today", "Mod", "hide"),
+            fixture_top_sub_seen_as(11, "today", "Mod", "hide"),
+            fixture_top_sub_seen_as(20, "week", "Mod", "show"),
+        ];
+
+        let picked = pick_featured(&subs, true);
+
+        assert_eq!(picked.iter().map(|s| s.id).collect::<Vec<_>>(), vec![20]);
+    }
+
+    /// The same feed under `Show`/`Blur` keeps the real winners, mature or not — the promotion
+    /// is the preference being honoured, not a change to what the charts say.
+    #[test]
+    fn without_the_preference_the_actual_winner_keeps_its_window() {
+        let subs = vec![
+            fixture_top_sub_seen_as(10, "today", "Mod", "hide"),
+            fixture_top_sub_seen_as(11, "today", "Mod", "show"),
+        ];
+
+        let picked = pick_featured(&subs, false);
+
+        assert_eq!(picked.iter().map(|s| s.id).collect::<Vec<_>>(), vec![10]);
     }
 
     /// A period with no entry is skipped, never padded from a neighbouring window — a banner
@@ -1277,7 +1355,7 @@ mod tests {
             fixture_top_sub(20, "alltime", "Mod"),
         ];
 
-        let picked = pick_featured(&subs);
+        let picked = pick_featured(&subs, false);
 
         assert_eq!(picked.iter().map(|s| s.id).collect::<Vec<_>>(), vec![10, 20]);
     }
@@ -1288,7 +1366,7 @@ mod tests {
     #[tokio::test]
     async fn featured_mods_come_back_as_distinct_periods_with_artwork() {
         let client = GameBananaClient::new();
-        let featured = client.get_featured_mods().await.unwrap();
+        let featured = client.get_featured_mods(false).await.unwrap();
 
         let periods: Vec<&str> = featured.iter().map(|f| f.period.as_str()).collect();
         assert!(

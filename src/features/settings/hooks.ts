@@ -18,10 +18,14 @@ export function useSetMatureContentVisibility() {
     mutationFn: (value: MatureVisibility) => setMatureContentVisibility(value),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["matureContentVisibility"] });
-      // The preference is applied server-side (search_gamebanana_mods), and is deliberately
-      // not part of the ["gbSearch"] query key, so cached Browse pages must be invalidated
-      // explicitly or they'd keep showing results filtered under the old preference.
+      // The preference is applied server-side and is deliberately not part of these query
+      // keys, so every cache filtered by it has to be invalidated by hand or it keeps serving
+      // results filtered under the old preference. Both commands that apply it need listing:
+      // `gbFeatured` was missed, and because it is held for thirty minutes the banner went on
+      // showing mature mods long after Hide was chosen — unblurred, since blurring used to be
+      // applied only under Blur. Anything added later that filters server-side belongs here.
       queryClient.invalidateQueries({ queryKey: ["gbSearch"] });
+      queryClient.invalidateQueries({ queryKey: ["gbFeatured"] });
     },
   });
 }
