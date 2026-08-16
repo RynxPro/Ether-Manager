@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
 import {
@@ -9,7 +11,12 @@ import {
 } from "@/lib/tauri-commands";
 import { CharacterGrid } from "./CharacterGrid";
 import { SlotSection } from "./SlotSection";
-import { useCharacters, useModsForCharacter, useUpdateChecks } from "./hooks";
+import {
+  useCharacters,
+  useCheckAllUpdates,
+  useModsForCharacter,
+  useUpdateChecks,
+} from "./hooks";
 
 interface LibraryProps {
   onSelectCharacter: (character: Character) => void;
@@ -33,6 +40,7 @@ export function Library({ onSelectCharacter }: LibraryProps) {
   const { data: uiMods } = useModsForCharacter(UI_CHARACTER_ID);
   const { data: miscMods } = useModsForCharacter(MISC_CHARACTER_ID);
   const { data: updateChecks } = useUpdateChecks();
+  const checkAllUpdates = useCheckAllUpdates();
   const updateChecksByModId = new Map<number, UpdateCheck>(
     (updateChecks ?? []).map((check) => [check.mod_id, check]),
   );
@@ -68,33 +76,54 @@ export function Library({ onSelectCharacter }: LibraryProps) {
         )}
       </div>
 
-      <div
-        className="flex gap-1 border-b border-border"
-        role="tablist"
-        aria-label="Library sections"
-      >
-        {tabs.map((item) => {
-          const isActive = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setTab(item.id)}
-              className={`-mb-px border-b-2 px-4 py-2 font-heading text-sm font-semibold uppercase tracking-[0.1em] transition-colors ${
-                isActive
-                  ? "border-b-primary text-primary"
-                  : "border-b-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {item.label}
-              {item.count !== null && (
-                <span className="ml-2 text-xs font-normal opacity-70">{item.count}</span>
-              )}
-            </button>
-          );
-        })}
+      {/* The rule belongs to the row, not the tablist: the update button shares the line but is
+          not a tab, and putting it inside the `tablist` would have it announced as one. */}
+      <div className="flex items-end justify-between gap-4 border-b border-border">
+        <div className="flex gap-1" role="tablist" aria-label="Library sections">
+          {tabs.map((item) => {
+            const isActive = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setTab(item.id)}
+                className={`-mb-px border-b-2 px-4 py-2 font-heading text-sm font-semibold uppercase tracking-[0.1em] transition-colors ${
+                  isActive
+                    ? "border-b-primary text-primary"
+                    : "border-b-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {item.label}
+                {item.count !== null && (
+                  <span className="ml-2 text-xs font-normal opacity-70">{item.count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Shares the rail rather than sitting beside the title, but acts on every installed
+            mod regardless of which tab is open — hence the neutral label and the gap between it
+            and the tabs. It cannot go with the search above, which only renders on Characters,
+            because this has to stay reachable from all three. */}
+        <div className="flex items-center gap-3 pb-1.5">
+          {checkAllUpdates.isError && <span className="text-xs text-destructive">Check failed</span>}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            disabled={checkAllUpdates.isPending}
+            onClick={() => checkAllUpdates.mutate(true)}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${checkAllUpdates.isPending ? "animate-spin" : ""}`}
+            />
+            {checkAllUpdates.isPending ? "Checking…" : "Check for updates"}
+          </Button>
+        </div>
       </div>
 
       {tab === "characters" && <CharacterGrid onSelect={onSelectCharacter} query={query} />}

@@ -117,6 +117,12 @@ export function getModsFolder(): Promise<string | null> {
   return invoke("get_mods_folder");
 }
 
+/** Whether the folder chosen at first run is still there. Separate from `getModsFolder` because
+ * that one answers "what did you pick", which stays true after the drive is unplugged. */
+export function isModsFolderLinked(): Promise<boolean> {
+  return invoke("is_mods_folder_linked");
+}
+
 export function setModsFolder(path: string): Promise<void> {
   return invoke("set_mods_folder", { path });
 }
@@ -337,6 +343,21 @@ export function getGamebananaModDetail(modId: number): Promise<GbModDetail> {
 
 export function getFeaturedMods(): Promise<GbFeaturedMod[]> {
   return invoke("get_featured_mods");
+}
+
+export type ApiHealth = "Good" | "Fair" | "Poor";
+
+export interface ApiStatus {
+  health: ApiHealth;
+  /** Null only when the probe never completed — the one reading with no number behind it. */
+  latency_ms: number | null;
+}
+
+/** Times a real browse request. Covers browsing and search only: mod files come from separate
+ * hosts whose speed varies per node, so no single figure honestly describes both. Never
+ * rejects — an unreachable API is a reading, not a failure. */
+export function checkGamebananaApi(): Promise<ApiStatus> {
+  return invoke("check_gamebanana_api");
 }
 
 export function listBookmarks(): Promise<Bookmark[]> {

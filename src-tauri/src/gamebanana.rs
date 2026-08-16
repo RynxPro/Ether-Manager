@@ -1,6 +1,6 @@
 use std::fmt;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -668,6 +668,36 @@ impl GameBananaClient {
                 .build()
                 .expect("reqwest client with a connect timeout must build"),
         }
+    }
+
+    /// Times one real browse request and reports how long it took to answer.
+    ///
+    /// It calls the same `Mod/Index` endpoint browsing actually uses rather than something
+    /// cheaper: this figure is shown to the user as "is GameBanana responding", and a host
+    /// that answers a HEAD instantly while the browse endpoint crawls would show a healthy
+    /// signal during an outage the user can plainly see. `_nPerpage=1` asks for the smallest
+    /// page it will serve — `_csvProperties` is ignored on list endpoints (same as in
+    /// `search_mods`), so the body stays around 8 KB and the round trip dominates regardless.
+    ///
+    /// Measures to the response headers, not the last byte, because that is the delay a person
+    /// experiences as "the app is thinking" before results can start rendering.
+    ///
+    /// This deliberately says nothing about downloads. Mod files come from separate
+    /// `filecacheNN` hosts whose speed varies per node — one measured at 0.40s while another
+    /// took 11-31s for the same request, with the API answering in 140ms throughout. There is
+    /// no single number that honestly covers both, so this one covers browsing only.
+    pub async fn check_health(&self) -> Result<Duration, GameBananaError> {
+        let url = format!(
+            "{BASE_URL}/Mod/Index?_nPage=1&_nPerpage=1&_aFilters%5BGeneric_Game%5D={ZZZ_GAME_ID}"
+        );
+        let started = Instant::now();
+        self.http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(started.elapsed())
     }
 
     /// Searches for ZZZ mods. With `query`, hits GameBanana's free-text search endpoint

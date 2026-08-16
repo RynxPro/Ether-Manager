@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Settings as SettingsIcon,
 } from "lucide-react";
+import { SidebarFooter } from "@/components/SidebarFooter";
 import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
@@ -17,7 +18,7 @@ import { activeDownloads, useDownloads } from "@/features/downloads/hooks";
 import { AllMods } from "@/features/library/AllMods";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
 import { Library } from "@/features/library/Library";
-import { useCharacters, useCheckAllUpdates, useModsFolder } from "@/features/library/hooks";
+import { useCharacters, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { backfillModThumbnails, type Character, type GbMod } from "@/lib/tauri-commands";
@@ -41,7 +42,6 @@ function App() {
   const [view, setView] = useState<View>("library");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
-  const checkAllUpdates = useCheckAllUpdates();
   const queryClient = useQueryClient();
   // Mounted at the shell rather than on the Downloads page, for two reasons: the nav badge has
   // to be right wherever you are, and this hook carries the `downloads-changed` listener that
@@ -140,21 +140,7 @@ function App() {
           })}
         </nav>
 
-        <div className="mt-auto flex flex-col gap-2 pt-4">
-          {checkAllUpdates.isError && (
-            <p className="px-2 text-xs text-destructive">Update check failed — try again.</p>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="justify-start"
-            disabled={checkAllUpdates.isPending}
-            onClick={() => checkAllUpdates.mutate(true)}
-          >
-            {checkAllUpdates.isPending ? "Checking…" : "Check for updates"}
-          </Button>
-        </div>
+        <SidebarFooter />
       </aside>
 
       {/* No centered max-width container: this is a desktop window, so content fills whatever

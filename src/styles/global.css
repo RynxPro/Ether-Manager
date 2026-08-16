@@ -33,6 +33,13 @@
   --accent: #23232a;
   --accent-foreground: #f0f0f2;
   --destructive: #e5484d;
+  /* The one green in the app, and it earns its place: the sidebar's signal is a three-step
+   * reading, and without it the top step would have to be yellow — which already means
+   * "active" everywhere else, so a healthy connection would look like a highlighted control.
+   * Radix dark green 9, the exact sibling of the red above (Radix dark red 9), so the two
+   * carry the same weight against this background. Reserved for "nothing is wrong"; it is
+   * never an accent, and --primary stays the only colour that marks action. */
+  --success: #30a46c;
   --border: #23232a;
   --input: #26262d;
   --ring: #ffd400;
@@ -82,6 +89,7 @@ body {
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);

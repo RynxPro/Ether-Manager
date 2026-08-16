@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -19,6 +21,23 @@ pub fn pick_mods_folder(app: AppHandle) -> Option<String> {
 pub fn get_mods_folder(state: State<AppState>) -> Result<Option<String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_setting("mods_folder").map_err(|e| e.to_string())
+}
+
+/// Whether the configured mods folder is actually on disk right now.
+///
+/// The path is chosen once at first run and never re-checked, so it can go stale with nothing
+/// happening inside the app at all — an external drive unplugged, the folder renamed, ZZMI
+/// reinstalled somewhere else. Without this, the first sign would be an install failing for
+/// reasons that look like the download's fault. The sidebar says so up front instead.
+#[tauri::command]
+pub fn is_mods_folder_linked(state: State<AppState>) -> Result<bool, String> {
+    let folder = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_setting("mods_folder").map_err(|e| e.to_string())?
+    };
+    // `is_dir` rather than `exists`: a file sitting where the folder used to be is just as
+    // broken, and would otherwise report as linked.
+    Ok(folder.is_some_and(|path| Path::new(&path).is_dir()))
 }
 
 #[tauri::command]

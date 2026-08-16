@@ -28,6 +28,62 @@ pub struct InstallProgress {
     pub total: Option<u64>,
 }
 
+/// Under this, browsing feels immediate — the app is not the thing you are waiting on.
+/// Measured live: the API answers in roughly 140ms on a warm connection and 0.4-0.9s cold,
+/// so a cold first call must not read as a fault.
+const API_GOOD_UNDER: Duration = Duration::from_millis(700);
+/// Under this, browsing is visibly slow but still usable. Past it, it isn't.
+const API_FAIR_UNDER: Duration = Duration::from_millis(2000);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum ApiHealth {
+    Good,
+    Fair,
+    Poor,
+}
+
+/// What the sidebar's signal reports: how quickly GameBanana answered a browse request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct ApiStatus {
+    pub health: ApiHealth,
+    /// `None` when the request never completed, which is the one case with no number to show.
+    pub latency_ms: Option<u64>,
+}
+
+impl ApiStatus {
+    fn from_latency(elapsed: Duration) -> Self {
+        let health = if elapsed < API_GOOD_UNDER {
+            ApiHealth::Good
+        } else if elapsed < API_FAIR_UNDER {
+            ApiHealth::Fair
+        } else {
+            ApiHealth::Poor
+        };
+        Self {
+            health,
+            latency_ms: Some(elapsed.as_millis() as u64),
+        }
+    }
+
+    fn unreachable() -> Self {
+        Self {
+            health: ApiHealth::Poor,
+            latency_ms: None,
+        }
+    }
+}
+
+/// Polled by the sidebar. Never returns `Err`: a probe that fails *is* the reading — "GameBanana
+/// is not answering" is precisely what the lowest signal means — and erroring instead would
+/// blank the indicator at the exact moment it has something to say.
+#[tauri::command]
+pub async fn check_gamebanana_api(state: State<'_, AppState>) -> Result<ApiStatus, String> {
+    Ok(match state.gamebanana.check_health().await {
+        Ok(elapsed) => ApiStatus::from_latency(elapsed),
+        Err(_) => ApiStatus::unreachable(),
+    })
+}
+
 #[tauri::command]
 pub async fn search_gamebanana_mods(
     state: State<'_, AppState>,
@@ -410,6 +466,40 @@ mod tests {
     /// "Compact Damage Numbers" — a real, small (~178KB) ZZZ mod zip, kept fast for CI.
     const SAMPLE_MOD_ID: i64 = 645291;
     const SAMPLE_FILE_ID: i64 = 1776071;
+
+    #[test]
+    fn each_band_of_latency_reports_its_own_signal() {
+        let health = |ms| ApiStatus::from_latency(Duration::from_millis(ms)).health;
+
+        assert_eq!(health(140), ApiHealth::Good, "a warm call is not a warning");
+        assert_eq!(health(650), ApiHealth::Good, "a cold call is still fine");
+        assert_eq!(health(700), ApiHealth::Fair, "the boundary is exclusive");
+        assert_eq!(health(1_900), ApiHealth::Fair);
+        assert_eq!(health(2_000), ApiHealth::Poor);
+        assert_eq!(health(31_000), ApiHealth::Poor);
+    }
+
+    /// The one reading with no number behind it — the row has to render without a latency to
+    /// show, rather than falling back to a misleading zero.
+    #[test]
+    fn a_probe_that_never_answered_reports_no_latency_at_all() {
+        let status = ApiStatus::unreachable();
+
+        assert_eq!(status.health, ApiHealth::Poor);
+        assert_eq!(status.latency_ms, None);
+    }
+
+    #[test]
+    fn a_measured_probe_always_carries_its_latency() {
+        let status = ApiStatus::from_latency(Duration::from_millis(2_500));
+
+        assert_eq!(status.health, ApiHealth::Poor);
+        assert_eq!(
+            status.latency_ms,
+            Some(2_500),
+            "slow is not the same as unreachable, and the number is what separates them"
+        );
+    }
 
     #[tokio::test]
     async fn installs_a_real_small_zzz_mod_end_to_end() {

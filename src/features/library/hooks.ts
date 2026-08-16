@@ -130,7 +130,7 @@ export function useCheckAllUpdates() {
   });
 }
 
-/** Re-checks one mod on demand, for the button on its card. The sidebar's "Check for updates"
+/** Re-checks one mod on demand, for the button on its card. Library's "Check for updates"
  * sweeps the whole library; this is for when you only care about the mod in front of you. Both
  * write to the same cache, so either one refreshes every badge on screen. */
 export function useCheckModUpdate() {
