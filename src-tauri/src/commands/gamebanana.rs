@@ -214,6 +214,62 @@ pub(crate) struct Staging {
 /// remote string straight into a path is how a file called `..\..\something` ends up written
 /// outside the folder that was meant to hold it. The fixed prefix does the rest of the work: the
 /// result is always a single path component, and can never itself be `..`.
+/// Finds one file on a mod, racing the lookup against the stop flag.
+///
+/// Shared by installing and reinstalling because it is the same question either way, and because
+/// the race matters equally to both: this lookup is one of the two awaits standing between
+/// pressing a button and the first byte, and a transfer nobody can abandon while it is still
+/// starting was the original complaint that put the race here.
+pub(crate) async fn fetch_gamebanana_file(
+    gamebanana: &GameBananaClient,
+    gamebanana_mod_id: i64,
+    gamebanana_file_id: i64,
+    should_stop: &impl Fn() -> bool,
+) -> Result<GbFile, String> {
+    let detail = tokio::select! {
+        found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,
+        _ = crate::gamebanana::wait_for_stop(should_stop) => {
+            return Err(GameBananaError::Cancelled.to_string())
+        }
+    };
+
+    detail
+        .files
+        .into_iter()
+        .find(|f| f.id == gamebanana_file_id)
+        .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))
+}
+
+/// Pulls a file down to its staged path, resuming from whatever is already there.
+///
+/// Shared for the same reason as the lookup above: installing and reinstalling fetch identically,
+/// and only differ in what they do with the archive afterwards. Nothing here deletes the staged
+/// file — whoever owns the path decides that, since only they can tell a pause from a failure.
+pub(crate) async fn download_to_staging(
+    gamebanana: &GameBananaClient,
+    file: &GbFile,
+    staging: &Staging,
+    on_validator: impl FnOnce(Option<&str>),
+    on_progress: impl FnMut(u64, Option<u64>) -> bool,
+    should_stop: &impl Fn() -> bool,
+) -> Result<(), String> {
+    gamebanana
+        .download_file(
+            &file.download_url,
+            &staging.path,
+            ResumePoint {
+                have: staging.resume_from,
+                etag: staging.etag.as_deref(),
+            },
+            on_validator,
+            on_progress,
+            should_stop,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub(crate) fn staging_path(download_id: i64, file_name: &str) -> PathBuf {
     let safe: String = file_name
         .chars()
@@ -262,21 +318,13 @@ async fn download_and_extract_gamebanana_file(
         staging,
     } = request;
 
-    // Raced like the download itself: this lookup is the other await standing between pressing
-    // install and the first byte, and a download nobody can abandon while it is still starting is
-    // the complaint that put the race here.
-    let detail = tokio::select! {
-        found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,
-        _ = crate::gamebanana::wait_for_stop(&should_stop) => {
-            return Err(GameBananaError::Cancelled.to_string())
-        }
-    };
-
-    let file = detail
-        .files
-        .into_iter()
-        .find(|f| f.id == gamebanana_file_id)
-        .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))?;
+    let file = fetch_gamebanana_file(
+        gamebanana,
+        gamebanana_mod_id,
+        gamebanana_file_id,
+        &should_stop,
+    )
+    .await?;
 
     let character_dir =
         fs_ops::ensure_mod_home_dir(mods_root, character_id).map_err(|e| e.to_string())?;
@@ -286,20 +334,15 @@ async fn download_and_extract_gamebanana_file(
     let base_name = fs_ops::to_disabled_name(&slugify_display_name(display_name));
     let dest_dir = unique_variant_dir(&character_dir, &base_name);
 
-    gamebanana
-        .download_file(
-            &file.download_url,
-            &staging.path,
-            ResumePoint {
-                have: staging.resume_from,
-                etag: staging.etag.as_deref(),
-            },
-            on_validator,
-            on_progress,
-            should_stop,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+    download_to_staging(
+        gamebanana,
+        &file,
+        &staging,
+        on_validator,
+        on_progress,
+        &should_stop,
+    )
+    .await?;
     on_extract_start();
     archive::extract_archive(&staging.path, &dest_dir).map_err(|e| e.to_string())?;
 

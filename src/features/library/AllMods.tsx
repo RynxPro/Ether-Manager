@@ -8,7 +8,7 @@ import { ModCard } from "./ModCard";
 import {
   useAllMods,
   useCharacters,
-  useCheckModUpdate,
+  useCheckModUpdateWithConfirmation,
   useDeleteMod,
   useToggleMod,
   useUpdateChecks,
@@ -16,6 +16,8 @@ import {
 
 interface AllModsProps {
   onSelectCharacter: (character: Character) => void;
+  /** Opens an installed mod's GameBanana page, via App's shared detail route. */
+  onOpenModDetail: (mod: Mod) => void;
 }
 
 interface CharacterGroup {
@@ -57,7 +59,7 @@ function groupByCharacter(mods: Mod[], characters: Character[]): CharacterGroup[
  * This is the page that answers "what do I actually have?" and "where did I put that one?" —
  * questions the roster can't answer, because it's organised by character and you search when
  * you've forgotten which character something is filed under. */
-export function AllMods({ onSelectCharacter }: AllModsProps) {
+export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
   const [query, setQuery] = useState("");
   const searchRef = useSearchHotkey(() => setQuery(""));
   const { data: allMods, isLoading } = useAllMods();
@@ -65,7 +67,7 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
   const { data: updateChecks } = useUpdateChecks();
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
-  const checkUpdate = useCheckModUpdate();
+  const { checkUpdate, confirmedModId, runCheck } = useCheckModUpdateWithConfirmation();
 
   const characterList = characters ?? [];
   const nameById = new Map(characterList.map((character) => [character.id, character.name]));
@@ -166,7 +168,11 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
                       ? String(toggleMod.error)
                       : deleteMod.isError && deleteMod.variables === mod.id
                         ? String(deleteMod.error)
-                        : undefined;
+                        : // A failed check was silent: the icon stopped spinning, which is
+                          // exactly what success looks like too.
+                          checkUpdate.isError && checkUpdate.variables === mod.id
+                          ? String(checkUpdate.error)
+                          : undefined;
 
                   return (
                     <ModCard
@@ -176,10 +182,16 @@ export function AllMods({ onSelectCharacter }: AllModsProps) {
                       isToggling={isThisModToggling}
                       isDeleting={isThisModDeleting}
                       isCheckingUpdate={isThisModChecking}
+                      isConfirmedUpToDate={confirmedModId === mod.id}
                       error={error}
                       onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
                       onDelete={() => deleteMod.mutate(mod.id)}
-                      onCheckUpdate={() => checkUpdate.mutate(mod.id)}
+                      onOpenDetail={
+                        mod.gamebanana_mod_id === null
+                          ? undefined
+                          : () => onOpenModDetail(mod)
+                      }
+                      onCheckUpdate={() => runCheck(mod.id)}
                     />
                   );
                 })}

@@ -3,13 +3,16 @@ import { CARD_GRID } from "@/lib/layout";
 import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
-import { useCheckModUpdate, useDeleteMod, useToggleMod } from "./hooks";
+import { useCheckModUpdateWithConfirmation, useDeleteMod, useToggleMod } from "./hooks";
 
 interface SlotSectionProps {
   characterId: string;
   slot: Slot;
   mods: Mod[];
   updateChecksByModId: Map<number, UpdateCheck>;
+  /** Opens an installed mod's GameBanana page. Threaded from App, which owns the detail
+   * route — the same page Browse uses, so there is one mod page rather than two. */
+  onOpenModDetail: (mod: Mod) => void;
   /** The UI and Misc tabs need the slot named and their own Add mod button, because they sit
    * side by side under one page title. A character page has exactly one slot, so naming it
    * labels nothing — its banner carries the name and the button instead. */
@@ -21,11 +24,12 @@ export function SlotSection({
   slot,
   mods,
   updateChecksByModId,
+  onOpenModDetail,
   showHeader = true,
 }: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
-  const checkUpdate = useCheckModUpdate();
+  const { checkUpdate, confirmedModId, runCheck } = useCheckModUpdateWithConfirmation();
   const enabledCount = mods.filter((mod) => mod.enabled).length;
 
   return (
@@ -72,7 +76,11 @@ export function SlotSection({
                 ? String(toggleMod.error)
                 : deleteMod.isError && deleteMod.variables === mod.id
                   ? String(deleteMod.error)
-                  : undefined;
+                  : // A check that fails was silent before: the icon simply stopped spinning,
+                    // which is exactly what success looks like too.
+                    checkUpdate.isError && checkUpdate.variables === mod.id
+                    ? String(checkUpdate.error)
+                    : undefined;
 
             return (
               <ModCard
@@ -82,10 +90,14 @@ export function SlotSection({
                 isToggling={isThisModToggling}
                 isDeleting={isThisModDeleting}
                 isCheckingUpdate={isThisModChecking}
+                isConfirmedUpToDate={confirmedModId === mod.id}
                 error={error}
                 onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
                 onDelete={() => deleteMod.mutate(mod.id)}
-                onCheckUpdate={() => checkUpdate.mutate(mod.id)}
+                onOpenDetail={
+                  mod.gamebanana_mod_id === null ? undefined : () => onOpenModDetail(mod)
+                }
+                onCheckUpdate={() => runCheck(mod.id)}
               />
             );
           })}

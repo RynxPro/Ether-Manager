@@ -1,4 +1,13 @@
-import { AlertTriangle, Folder, ImageOff, Package, RefreshCw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ExternalLink,
+  Folder,
+  ImageOff,
+  Package,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MOD_FOLDER_MISSING_PREFIX, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { UpdateModDialog } from "./UpdateModDialog";
@@ -12,6 +21,13 @@ interface ModCardProps {
   isToggling: boolean;
   isDeleting: boolean;
   isCheckingUpdate: boolean;
+  /** Set for a few seconds after a check came back with nothing to install. Finding an update
+   * rewrites this card on its own; finding none used to leave it identical to before the button
+   * was pressed, which reads as the button having done nothing. */
+  isConfirmedUpToDate: boolean;
+  /** Opens this mod's GameBanana page. Absent for hand-added mods, which have no listing to
+   * open — the preview then stays inert rather than offering a link to nothing. */
+  onOpenDetail?: () => void;
   /** The most recent toggle/delete failure for this specific mod, if any — see SlotSection,
    * which matches the shared toggle/delete mutations' state against this card's own mod id. */
   error?: string;
@@ -33,6 +49,8 @@ export function ModCard({
   isToggling,
   isDeleting,
   isCheckingUpdate,
+  isConfirmedUpToDate,
+  onOpenDetail,
   error,
 }: ModCardProps) {
   const hasUpdate = updateCheck?.status === "UpdateAvailable";
@@ -90,6 +108,26 @@ export function ModCard({
           <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
             Update
           </span>
+        )}
+
+        {/* The preview opens the mod's page, the same gesture as in Browse — an installed mod is
+            the same object you were looking at there, so pointing at its picture should mean the
+            same thing. It sits above the image and below the update badge, and the card's own
+            action stays the bar below: this reads about the mod, that changes it. */}
+        {onOpenDetail && (
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            aria-label={`View ${mod.display_name} on GameBanana`}
+            className="absolute inset-0 cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+          >
+            {/* Only on hover, and only a hint: the picture is the target, this says so without
+                sitting on top of the artwork the rest of the time. */}
+            <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-background/85 px-1.5 py-px font-heading text-[10px] uppercase tracking-[0.1em] text-foreground opacity-0 transition-opacity group-hover/card:opacity-100">
+              <ExternalLink className="h-2.5 w-2.5" />
+              Details
+            </span>
+          </button>
         )}
       </div>
 
@@ -158,18 +196,31 @@ export function ModCard({
             updateCheck={updateCheck}
           />
         ) : isFromGameBanana ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-7 w-7"
-            disabled={isCheckingUpdate}
-            onClick={onCheckUpdate}
-            aria-label={`Check ${mod.display_name} for updates`}
-            title="Check for updates"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`} />
-          </Button>
+          // Widens into a labelled confirmation rather than swapping the glyph in place: a tick
+          // where a refresh arrow was is easy to miss on a 28px target, and the word is what
+          // actually answers "did that do anything?".
+          isConfirmedUpToDate ? (
+            <span
+              className="flex h-7 items-center gap-1.5 border border-success/40 px-2 text-[11px] text-success"
+              role="status"
+            >
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              Up to date
+            </span>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              disabled={isCheckingUpdate}
+              onClick={onCheckUpdate}
+              aria-label={`Check ${mod.display_name} for updates`}
+              title="Check for updates"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`} />
+            </Button>
+          )
         ) : null}
 
         <div className="flex-1" />

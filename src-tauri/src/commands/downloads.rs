@@ -12,6 +12,89 @@ use crate::commands::gamebanana::{
 use crate::db::{Download, DownloadStatus, NewDownload, Slot};
 use crate::AppState;
 
+/// Downloads a file and swaps it into an existing mod's folder, leaving the row where it is.
+///
+/// The queue's counterpart to `install_gamebanana_file`: same fetch, same resume, same stop
+/// flag, different ending. `folder_path`, `enabled` (including any `DISABLED_` prefix),
+/// `display_name`, `character_id` and `slot` all survive untouched — only the folder's contents
+/// and the file the row says it holds change.
+///
+/// The mod is re-read here rather than trusted from when the download was queued, because a
+/// queued reinstall can sit behind others for minutes and the mod may have been deleted or moved
+/// in the meantime. A row that has gone is an error, not something to recreate: the user asked to
+/// replace a mod, and quietly installing a fresh copy instead is a different act.
+#[allow(clippy::too_many_arguments)]
+async fn reinstall_over_existing_mod(
+    state: &AppState,
+    target_mod_id: i64,
+    download: &Download,
+    staging: Staging,
+    on_validator: impl FnOnce(Option<&str>),
+    on_progress: impl FnMut(u64, Option<u64>) -> bool,
+    on_extract_start: impl FnOnce(),
+    should_stop: impl Fn() -> bool,
+) -> Result<crate::db::Mod, String> {
+    let existing = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_mod(target_mod_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("mod {target_mod_id} is no longer in the library"))?
+    };
+    let current_dir = std::path::PathBuf::from(&existing.folder_path);
+    if !current_dir.exists() {
+        return Err(format!(
+            "{}: {}",
+            crate::fs_ops::MOD_FOLDER_MISSING_PREFIX,
+            current_dir.display()
+        ));
+    }
+
+    let file = crate::commands::gamebanana::fetch_gamebanana_file(
+        &state.gamebanana,
+        download.gamebanana_mod_id,
+        download.gamebanana_file_id,
+        &should_stop,
+    )
+    .await?;
+
+    crate::commands::gamebanana::download_to_staging(
+        &state.gamebanana,
+        &file,
+        &staging,
+        on_validator,
+        on_progress,
+        &should_stop,
+    )
+    .await?;
+
+    on_extract_start();
+    crate::commands::updates::swap_archive_into_mod_folder(&current_dir, &staging.path)?;
+    // Only now is the archive spent. Leaving it until after the swap means a failed extraction
+    // does not also throw away the megabytes it would need to try again.
+    let _ = std::fs::remove_file(&staging.path);
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.set_gamebanana_file(target_mod_id, file.id, &file.md5_checksum)
+        .map_err(|e| e.to_string())?;
+    // The row now holds exactly what GameBanana offers, so any pending "update available" note
+    // against it is stale — clearing it here is what stops the card keeping its badge.
+    db.upsert_update_check(
+        target_mod_id,
+        &crate::updates::UpdateOutcome {
+            status: crate::updates::UpdateStatus::UpToDate,
+            reason: None,
+            suggested_file_id: None,
+            suggested_file_name: None,
+            is_ambiguous: false,
+        },
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+    db.get_mod(target_mod_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("mod {target_mod_id} vanished immediately after being reinstalled"))
+}
+
 /// How often the byte count reaches the database while a transfer runs.
 ///
 /// Far slower than the progress events, because nothing on screen reads the stored figure — it
@@ -92,6 +175,10 @@ pub async fn enqueue_download(
     character_id: String,
     slot: Slot,
     display_name: String,
+    // When set, this download replaces that mod's files where they stand instead of adding a
+    // second copy — a reinstall riding the same queue as a first install, so it gets the same
+    // pausing, cancelling and crash recovery.
+    target_mod_id: Option<i64>,
 ) -> Result<Download, String> {
     let download = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -104,6 +191,7 @@ pub async fn enqueue_download(
             character_id,
             slot,
             display_name,
+            target_mod_id,
         })
         .map_err(|e| e.to_string())?
     };
@@ -373,7 +461,28 @@ async fn run_download(app: AppHandle, id: i64) {
         let _ = extract_app.emit("download-phase", DownloadPhase { id });
     };
 
-    let result = install_gamebanana_file(
+    // A reinstall replaces one row's files where they stand; a first install adds a row. Both
+    // arrive here having fetched the archive through the queue, so they share everything above
+    // this point — the resume, the stop flag, the progress — and differ only in what becomes of
+    // the bytes. Exclusive branches, so each may consume the callbacks.
+    let result = if let Some(target_mod_id) = download.target_mod_id {
+        reinstall_over_existing_mod(
+            &state,
+            target_mod_id,
+            &download,
+            Staging {
+                path: staged.clone(),
+                resume_from,
+                etag: download.etag.clone(),
+            },
+            on_validator,
+            on_progress,
+            on_extract_start,
+            || Stop::from_u8(stop_check.load(Ordering::Relaxed)) != Stop::Running,
+        )
+        .await
+    } else {
+        install_gamebanana_file(
         &state.gamebanana,
         &state.db,
         InstallRequest {
@@ -396,8 +505,9 @@ async fn run_download(app: AppHandle, id: i64) {
         // could not carry a stop. Without this a download is unstoppable for as long as it takes
         // to start, which on a slow link is most of the time you spend looking at it.
         || Stop::from_u8(stop_check.load(Ordering::Relaxed)) != Stop::Running,
-    )
-    .await;
+        )
+        .await
+    };
 
     if let Ok(mut flags) = state.download_stops.lock() {
         flags.remove(&id);

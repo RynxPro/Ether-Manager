@@ -270,6 +270,9 @@ export interface EnqueueDownloadInput {
   characterId: string;
   slot: Slot;
   displayName: string;
+  /** Set to replace that installed mod's files in place rather than adding a second copy. The
+   * download is queued, paused, resumed and cancelled exactly like any other. */
+  targetModId?: number;
 }
 
 /** `Extracting` is separated from `Downloading` because it is the phase with no progress to
@@ -309,6 +312,9 @@ export interface Download {
   /** The HTTP validator the staged bytes were served with, used to check they still belong to the
    * file before resuming from them. Backend bookkeeping — nothing on screen reads it. */
   etag: string | null;
+  /** Set when this download replaces that installed mod's files rather than adding a new mod —
+   * a reinstall. The queue treats it identically in every other respect. */
+  target_mod_id: number | null;
   created_at: number;
   finished_at: number | null;
 }
@@ -392,6 +398,7 @@ export function enqueueDownload(input: EnqueueDownloadInput): Promise<Download> 
     characterId: input.characterId,
     slot: input.slot,
     displayName: input.displayName,
+    targetModId: input.targetModId ?? null,
   });
 }
 

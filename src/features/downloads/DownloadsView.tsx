@@ -219,10 +219,17 @@ function DownloadRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <p
-            className="truncate font-heading text-[13px] uppercase tracking-[0.04em] text-foreground"
+            className="flex min-w-0 items-baseline gap-2 font-heading text-[13px] uppercase tracking-[0.04em] text-foreground"
             title={download.mod_name}
           >
-            {download.mod_name}
+            <span className="truncate">{download.mod_name}</span>
+            {/* Otherwise a reinstall is indistinguishable from a first install, and the two end
+                very differently: one replaces a mod you already have, the other adds a copy. */}
+            {download.target_mod_id !== null && (
+              <span className="shrink-0 border border-border px-1 text-[9px] tracking-[0.12em] text-muted-foreground">
+                Reinstall
+              </span>
+            )}
           </p>
           <span
             className={`shrink-0 font-heading text-[10px] uppercase tracking-[0.12em] ${status.className}`}

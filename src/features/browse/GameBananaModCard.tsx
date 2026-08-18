@@ -1,4 +1,4 @@
-import { Bookmark, Download, Eye, ThumbsUp } from "lucide-react";
+import { Bookmark, Check, Download, Eye, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ interface GameBananaModCardProps {
   mod: GbMod;
   isBookmarked: boolean;
   isBlurred: boolean;
+  /** How many library entries came from this GameBanana mod. 0 hides the badge entirely. */
+  installedCount: number;
   onSelect: () => void;
   onToggleBookmark: () => void;
 }
@@ -20,6 +22,7 @@ export function GameBananaModCard({
   mod,
   isBookmarked,
   isBlurred,
+  installedCount,
   onSelect,
   onToggleBookmark,
 }: GameBananaModCardProps) {
@@ -94,6 +97,16 @@ export function GameBananaModCard({
         {mod.is_mature && (
           <span className="pointer-events-none absolute top-1.5 left-1.5 z-30 border border-destructive/70 bg-background/80 px-1.5 py-px font-heading text-[10px] font-semibold uppercase tracking-[0.1em] text-destructive">
             NSFW
+          </span>
+        )}
+
+        {/* Bottom-left, clear of the NSFW badge above it. Green rather than the accent: this is
+            "you already have this", a fact about your library, not something asking to be acted
+            on — and the accent is reserved for what wants a click. */}
+        {installedCount > 0 && (
+          <span className="pointer-events-none absolute bottom-1.5 left-1.5 z-30 flex items-center gap-1 border border-success/60 bg-background/85 px-1.5 py-px font-heading text-[10px] font-semibold uppercase tracking-[0.1em] text-success">
+            <Check className="h-2.5 w-2.5" />
+            {installedCount > 1 ? `Installed ×${installedCount}` : "Installed"}
           </span>
         )}
 

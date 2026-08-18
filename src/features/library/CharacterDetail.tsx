@@ -2,7 +2,7 @@ import { ArrowLeft, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CARD_GRID } from "@/lib/layout";
-import type { Character, UpdateCheck } from "@/lib/tauri-commands";
+import type { Character, Mod, UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { SlotSection } from "./SlotSection";
 import { useModsForCharacter, useUpdateChecks } from "./hooks";
@@ -11,13 +11,20 @@ interface CharacterDetailProps {
   character: Character;
   onBack: () => void;
   onBrowse: () => void;
+  /** Opens an installed mod's GameBanana page, via App's shared detail route. */
+  onOpenModDetail: (mod: Mod) => void;
 }
 
 /** Every real character has exactly one slot — Character Skin. There's no per-character UI
  * slot; UI mods (character-themed or not) live in the global UI section on the Library page
  * instead (see Library.tsx). Because there is only ever one slot, the page never names it:
  * the banner is the heading, and the slot section below renders bare. */
-export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetailProps) {
+export function CharacterDetail({
+  character,
+  onBack,
+  onBrowse,
+  onOpenModDetail,
+}: CharacterDetailProps) {
   const { data: mods, isLoading } = useModsForCharacter(character.id);
   const { data: updateChecks } = useUpdateChecks();
   const updateChecksByModId = new Map<number, UpdateCheck>(
@@ -182,6 +189,7 @@ export function CharacterDetail({ character, onBack, onBrowse }: CharacterDetail
           slot="CharacterSkin"
           mods={skins}
           updateChecksByModId={updateChecksByModId}
+          onOpenModDetail={onOpenModDetail}
           showHeader={false}
         />
       )}

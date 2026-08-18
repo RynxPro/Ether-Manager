@@ -20,7 +20,9 @@ import {
  * database's, which matters because a download outlives the screen that started it.
  *
  * The library invalidations are here for the same reason: nothing awaits an install anymore, so
- * a finished download is the only thing that can tell the library a mod arrived. */
+ * a finished download is the only thing that can tell the library a mod arrived. `updateChecks`
+ * is in the list because a reinstall runs through this queue too, and the row it rewrites is the
+ * one carrying the "update available" badge that the reinstall just answered. */
 export function useDownloads() {
   const queryClient = useQueryClient();
 
@@ -30,6 +32,7 @@ export function useDownloads() {
       queryClient.invalidateQueries({ queryKey: ["mods"] });
       queryClient.invalidateQueries({ queryKey: ["allMods"] });
       queryClient.invalidateQueries({ queryKey: ["modCounts"] });
+      queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
     });
     return () => {
       unlistenPromise.then((unlisten) => unlisten());

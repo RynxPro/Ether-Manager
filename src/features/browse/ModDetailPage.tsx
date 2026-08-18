@@ -1,16 +1,38 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import DOMPurify from "dompurify";
-import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import {
+  ArrowLeft,
+  Bookmark,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useInstalledFromGameBanana,
+  useReinstallMod,
+} from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { shouldBlur } from "@/lib/mature";
 import { updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { GbFile, GbMod, GbModDetail, GbPreviewImage } from "@/lib/tauri-commands";
-import { useAddBookmark, useBookmarks, useGamebananaModDetail, useRemoveBookmark } from "./hooks";
+import type {
+  GbFile,
+  GbMod,
+  GbModDetail,
+  GbPreviewImage,
+  Mod,
+} from "@/lib/tauri-commands";
+import {
+  useAddBookmark,
+  useBookmarks,
+  useGamebananaModDetail,
+  useRemoveBookmark,
+} from "./hooks";
 
 interface ModDetailPageProps {
   mod: GbMod;
@@ -24,7 +46,8 @@ interface ModDetailPageProps {
 /** The signature cut corner (DESIGN.md). A radius cannot express it, so it is an inline style
  * rather than a utility. */
 const CUT_CORNER = {
-  clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
+  clipPath:
+    "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
 } as const;
 
 /** The shape the hero falls back to for the moment between mount and the image reporting its
@@ -46,7 +69,8 @@ function imageUrl(image: GbPreviewImage, full: boolean): string {
 /** GameBanana's `_aEmbeddedMedia` is a list of raw video page URLs (YouTube, confirmed live),
  * not ready-to-embed ones — this extracts the video id and builds the `/embed/` form. */
 function youtubeEmbedUrl(url: string): string | null {
-  const match = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/.exec(url);
+  const match =
+    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/.exec(url);
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 }
 
@@ -76,20 +100,49 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
   const sanitizedDescription = detail?.description_html
     ? DOMPurify.sanitize(detail.description_html)
     : "";
+  const installed = useInstalledFromGameBanana();
+  const installedCount = installed.countByModId.get(mod.id) ?? 0;
+  const reinstall = useReinstallMod();
+
+  /** What pressing this file's button should do, and say.
+   *
+   * Reinstalling replaces one library row's files in place, so it needs exactly one row to
+   * address. With none there is nothing to replace; with two — the same file filed under two
+   * characters — there is no way to choose, and silently picking one would be worse than not
+   * offering it. Both of those fall back to installing a fresh copy, which is what the button
+   * has always done, now labelled honestly. */
+  function fileAction(fileId: number): {
+    kind: "install" | "again" | "reinstall";
+    label: string;
+    target: Mod | null;
+  } {
+    const rows = installed.byFileId.get(fileId) ?? [];
+    if (rows.length === 0)
+      return { kind: "install", label: "Install", target: null };
+    if (rows.length > 1)
+      return { kind: "again", label: "Install again", target: null };
+    return { kind: "reinstall", label: "Reinstall", target: rows[0] };
+  }
   // The `mod` list record is authoritative — confirmed live that `@gbprofile` never sends
   // the content-rating fields at all, so `detail.is_mature` always defaults to `false`. Also
   // gated on the visibility setting, same as BrowseGrid/FeaturedBanner.
   const isMature = shouldBlur(visibility, mod.is_mature);
-  const isBookmarked = (bookmarks ?? []).some((entry) => entry.gamebanana_mod_id === mod.id);
+  const isBookmarked = (bookmarks ?? []).some(
+    (entry) => entry.gamebanana_mod_id === mod.id,
+  );
   // A bookmark placeholder from the Bookmarks view carries no category, so fall through to
   // nothing rather than printing a bare "Mod /".
-  const categoryName = detail?.category.name ?? mod.sub_category?.name ?? mod.root_category.name;
+  const categoryName =
+    detail?.category.name ?? mod.sub_category?.name ?? mod.root_category.name;
 
   // Arrowing past the eighth of fifteen thumbnails would otherwise leave the lit one somewhere
   // off the side of the strip, so the strip follows the selection.
   const activeThumb = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    activeThumb.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    activeThumb.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
   }, [activeImageIndex]);
 
   // The back button lives in the header, and a long description scrolls that header away for
@@ -109,7 +162,9 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
   }, []);
 
   function step(delta: number) {
-    setActiveImageIndex((current) => (current + delta + images.length) % images.length);
+    setActiveImageIndex(
+      (current) => (current + delta + images.length) % images.length,
+    );
   }
 
   function handleToggleBookmark() {
@@ -126,8 +181,17 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
 
   return (
     <div className="space-y-5">
-      <div ref={headerRef} className="flex items-end gap-4 border-b-2 border-primary pb-3.5">
-        <Button type="button" variant="outline" size="icon" onClick={onBack} aria-label="Back">
+      <div
+        ref={headerRef}
+        className="flex items-end gap-4 border-b-2 border-primary pb-3.5"
+      >
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onBack}
+          aria-label="Back"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -139,6 +203,17 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
           <h2 className="mt-1 break-words font-heading text-[27px] uppercase leading-[1.05] tracking-[0.02em]">
             {detail?.name ?? mod.name}
           </h2>
+          {/* Beside the title rather than down with the files, because it changes what this page
+              is for: you came to decide whether to install something you already have. Which
+              file you have is a separate question, answered in the list itself. */}
+          {installedCount > 0 && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-success">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              {installedCount > 1
+                ? `In your library — ${installedCount} variants installed`
+                : "In your library"}
+            </p>
+          )}
         </div>
       </div>
 
@@ -209,7 +284,8 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                         alt={detail.name}
                         onLoad={(event) =>
                           setHeroRatio(
-                            event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
+                            event.currentTarget.naturalWidth /
+                              event.currentTarget.naturalHeight,
                           )
                         }
                         // `contain` rather than `cover`: the frame already matches the picture,
@@ -341,7 +417,10 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
               a short window would put its last rows out of reach for as long as the column
               stayed stuck. The list takes whatever height is left and scrolls inside itself. */}
           <aside className="sticky top-0 flex max-h-[calc(100vh-3rem)] w-[400px] shrink-0 flex-col gap-3.5">
-            <div className="shrink-0 border-2 border-border bg-card" style={CUT_CORNER}>
+            <div
+              className="shrink-0 border-2 border-border bg-card"
+              style={CUT_CORNER}
+            >
               <PanelHeader label="Details">
                 {/* The opener plugin, not an anchor: `target="_blank"` does not navigate inside
                     a WebView2, so a plain link here would simply do nothing. */}
@@ -378,15 +457,32 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
               </div>
 
               <div className="grid grid-cols-3 divide-x divide-border border-b border-border bg-background">
-                <StatCell value={detail.like_count.toLocaleString()} label="likes" />
-                <StatCell value={detail.view_count.toLocaleString()} label="views" />
-                <StatCell value={detail.download_count.toLocaleString()} label="downloads" />
+                <StatCell
+                  value={detail.like_count.toLocaleString()}
+                  label="likes"
+                />
+                <StatCell
+                  value={detail.view_count.toLocaleString()}
+                  label="views"
+                />
+                <StatCell
+                  value={detail.download_count.toLocaleString()}
+                  label="downloads"
+                />
               </div>
 
               <dl className="px-3.5 py-1">
-                {categoryName && <MetaRow term="Category" value={categoryName} />}
-                <MetaRow term="Updated" value={updatedLabel(detail.date_modified)} />
-                <MetaRow term="Rating" value={mod.is_mature ? "Mature" : "Safe"} />
+                {categoryName && (
+                  <MetaRow term="Category" value={categoryName} />
+                )}
+                <MetaRow
+                  term="Updated"
+                  value={updatedLabel(detail.date_modified)}
+                />
+                <MetaRow
+                  term="Rating"
+                  value={mod.is_mature ? "Mature" : "Safe"}
+                />
               </dl>
 
               <div className="border-t border-border px-3.5 py-3">
@@ -396,21 +492,39 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                   className="w-full"
                   onClick={handleToggleBookmark}
                   aria-label={
-                    isBookmarked ? `Remove ${detail.name} from bookmarks` : `Bookmark ${detail.name}`
+                    isBookmarked
+                      ? `Remove ${detail.name} from bookmarks`
+                      : `Bookmark ${detail.name}`
                   }
                 >
-                  <Bookmark className="h-3.5 w-3.5" fill={isBookmarked ? "currentColor" : "none"} />
+                  <Bookmark
+                    className="h-3.5 w-3.5"
+                    fill={isBookmarked ? "currentColor" : "none"}
+                  />
                   {isBookmarked ? "Bookmarked" : "Bookmark"}
                 </Button>
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-col border-2 border-border bg-card" style={CUT_CORNER}>
+            <div
+              className="flex min-h-0 flex-col border-2 border-border bg-card"
+              style={CUT_CORNER}
+            >
               <PanelHeader label="Files">
                 <span className="tabular-nums">{detail.files.length}</span>
               </PanelHeader>
+              {/* A reinstall replaces files in place, so a failure has to be visible: the swap
+                  rolls back on its own, but a button that quietly returns to normal is
+                  indistinguishable from one that worked. */}
+              {reinstall.isError && (
+                <p className="border-b border-border px-3.5 py-2 text-xs text-destructive">
+                  Reinstall failed — {String(reinstall.error)}
+                </p>
+              )}
               {detail.files.length === 0 ? (
-                <p className="px-3.5 py-4 text-sm text-muted-foreground">No downloadable files.</p>
+                <p className="px-3.5 py-4 text-sm text-muted-foreground">
+                  No downloadable files.
+                </p>
               ) : (
                 <ul className="min-h-0 flex-1 overflow-y-auto">
                   {detail.files.map((file, index) => (
@@ -435,15 +549,55 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                           <span>{formatFileSize(file.file_size)}</span>
                           <span className="text-border">·</span>
                           <span>{file.download_count.toLocaleString()} dl</span>
+                          {(installed.byFileId.get(file.id)?.length ?? 0) >
+                            0 && (
+                            <>
+                              <span className="text-border">·</span>
+                              <span className="flex items-center gap-1 text-success">
+                                <Check className="h-3 w-3 shrink-0" />
+                                Installed
+                              </span>
+                            </>
+                          )}
                         </p>
                       </div>
                       <Button
                         type="button"
                         size="sm"
                         className="mr-2.5"
-                        onClick={() => onInstall(file, detail)}
+                        variant={
+                          fileAction(file.id).kind === "install"
+                            ? "default"
+                            : "outline"
+                        }
+                        disabled={reinstall.isPending}
+                        onClick={() => {
+                          const action = fileAction(file.id);
+                          // Reinstall replaces the row's files where it stands; the other two
+                          // both mean "put a new copy in the library", which is `onInstall`.
+                          if (action.kind !== "reinstall" || !action.target) {
+                            onInstall(file, detail);
+                            return;
+                          }
+                          // Queued, not awaited — the work belongs to the Downloads page from
+                          // here, which is where its progress, pause and cancel live.
+                          reinstall.mutate({
+                            gamebananaModId: mod.id,
+                            gamebananaFileId: file.id,
+                            modName: detail.name,
+                            fileName: file.file_name,
+                            thumbnailUrl: images[0] ? imageUrl(images[0], true) : null,
+                            characterId: action.target.character_id,
+                            slot: action.target.slot,
+                            displayName: action.target.display_name,
+                            targetModId: action.target.id,
+                          });
+                        }}
                       >
-                        Install
+                        {reinstall.isPending &&
+                        reinstall.variables?.gamebananaFileId === file.id
+                          ? "Queuing…"
+                          : fileAction(file.id).label}
                       </Button>
                     </li>
                   ))}
@@ -499,8 +653,12 @@ interface StatCellProps {
 function StatCell({ value, label }: StatCellProps) {
   return (
     <div className="min-w-0 px-3 py-2.5">
-      <p className="truncate font-heading text-[17px] tabular-nums text-primary">{value}</p>
-      <p className="text-[9px] uppercase tracking-[0.13em] text-muted-foreground">{label}</p>
+      <p className="truncate font-heading text-[17px] tabular-nums text-primary">
+        {value}
+      </p>
+      <p className="text-[9px] uppercase tracking-[0.13em] text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }
@@ -513,7 +671,9 @@ interface MetaRowProps {
 function MetaRow({ term, value }: MetaRowProps) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-border py-1.5 last:border-b-0">
-      <dt className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">{term}</dt>
+      <dt className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
+        {term}
+      </dt>
       <dd className="min-w-0 truncate text-[13px]">{value}</dd>
     </div>
   );

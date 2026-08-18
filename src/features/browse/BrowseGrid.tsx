@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { shouldBlur } from "@/lib/mature";
@@ -49,6 +50,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
     useInfiniteGamebananaMods(query.trim() || null, categoryId, sort);
   const { data: bookmarks } = useBookmarks();
   const { data: visibility } = useMatureContentVisibility();
+  const installed = useInstalledFromGameBanana();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
 
@@ -213,6 +215,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
             mod={mod}
             isBookmarked={bookmarkedIds.has(mod.id)}
             isBlurred={shouldBlur(visibility, mod.is_mature)}
+            installedCount={installed.countByModId.get(mod.id) ?? 0}
             onSelect={() => onSelectMod(mod)}
             onToggleBookmark={() => handleToggleBookmark(mod)}
           />

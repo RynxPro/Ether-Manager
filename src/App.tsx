@@ -21,7 +21,13 @@ import { Library } from "@/features/library/Library";
 import { useCharacters, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
-import { backfillModThumbnails, type Character, type GbMod } from "@/lib/tauri-commands";
+import { placeholderGbMod } from "@/lib/placeholderGbMod";
+import {
+  backfillModThumbnails,
+  type Character,
+  type GbMod,
+  type Mod,
+} from "@/lib/tauri-commands";
 
 type View = "library" | "allmods" | "browse" | "bookmarks" | "downloads" | "settings";
 
@@ -67,6 +73,21 @@ function App() {
         // Worst case the cards keep showing "No preview" — never worth interrupting anyone over.
       });
   }, [queryClient]);
+
+  /** Opens an installed mod's GameBanana page without leaving the section you are in. The
+   * detail route is shared with Browse rather than duplicated, so a mod looks the same whether
+   * you reached it by browsing or by owning it — and Back returns you here, not to Browse. */
+  function openModDetail(mod: Mod) {
+    if (mod.gamebanana_mod_id === null) return;
+    setSelectedMod(
+      placeholderGbMod({
+        gamebananaModId: mod.gamebanana_mod_id,
+        name: mod.display_name,
+        thumbnailUrl: mod.thumbnail_url,
+        dateModified: mod.updated_at,
+      }),
+    );
+  }
 
   function goTo(next: View) {
     setView(next);
@@ -171,6 +192,12 @@ function App() {
             />
           ) : view === "settings" ? (
             <SettingsPage />
+          ) : selectedMod ? (
+            // Library, All mods and the character page all reach the same detail route. It is
+            // rendered inside whichever of them you were in rather than by switching to Browse,
+            // so Back lands where you started — including on the character page, since
+            // `selectedCharacter` is left standing underneath.
+            <ModDetailRoute mod={selectedMod} onBack={() => setSelectedMod(null)} />
           ) : view === "allmods" ? (
             // Drilling into a character from All mods lands on the character page, same as
             // from the roster — so this branch falls through to the shared detail below.
@@ -179,18 +206,20 @@ function App() {
                 character={selectedCharacter}
                 onBack={() => setSelectedCharacter(null)}
                 onBrowse={() => goTo("browse")}
+                onOpenModDetail={openModDetail}
               />
             ) : (
-              <AllMods onSelectCharacter={setSelectedCharacter} />
+              <AllMods onSelectCharacter={setSelectedCharacter} onOpenModDetail={openModDetail} />
             )
           ) : selectedCharacter ? (
             <CharacterDetail
               character={selectedCharacter}
               onBack={() => setSelectedCharacter(null)}
               onBrowse={() => goTo("browse")}
+              onOpenModDetail={openModDetail}
             />
           ) : (
-            <Library onSelectCharacter={setSelectedCharacter} />
+            <Library onSelectCharacter={setSelectedCharacter} onOpenModDetail={openModDetail} />
           )}
         </div>
       </main>

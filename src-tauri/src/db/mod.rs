@@ -36,6 +36,7 @@ impl Db {
         self.conn.execute_batch(schema::SCHEMA_SQL)?;
         self.migrate_thumbnail_column()?;
         self.migrate_downloads_etag_column()?;
+        self.migrate_downloads_target_mod_column()?;
         self.migrate_legacy_slot_values()
     }
 
@@ -54,6 +55,23 @@ impl Db {
         if has_column == 0 {
             self.conn
                 .execute_batch("ALTER TABLE downloads ADD COLUMN etag TEXT;")?;
+        }
+        Ok(())
+    }
+
+    /// `downloads.target_mod_id` arrived with reinstall. A row carrying one replaces that mod's
+    /// files in place instead of adding a second copy to the library, which is what lets a
+    /// reinstall use the same queue — and so the same pause, resume, cancel and crash recovery —
+    /// as a first install. Idempotent, same reasoning as the column above.
+    fn migrate_downloads_target_mod_column(&self) -> rusqlite::Result<()> {
+        let has_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('downloads') WHERE name = 'target_mod_id'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_column == 0 {
+            self.conn
+                .execute_batch("ALTER TABLE downloads ADD COLUMN target_mod_id INTEGER;")?;
         }
         Ok(())
     }

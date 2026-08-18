@@ -1,41 +1,9 @@
 import { Bookmark as BookmarkIcon } from "lucide-react";
 import { CARD_GRID } from "@/lib/layout";
+import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import { BookmarkCard } from "./BookmarkCard";
 import { useBookmarks, useRemoveBookmark } from "./hooks";
-import type { Bookmark, GbMod } from "@/lib/tauri-commands";
-
-/** `ModDetailPage` expects a full `GbMod` (list-record shape), but a bookmark only ever
- * stores id/name/thumbnail — GameBanana's single-mod endpoint has no way to supply the rest
- * (tags, subcategory, live counts) by id alone (confirmed live: `_aTags` and `_aSubCategory`
- * are rejected as `UNKNOWN_PROPERTY` on `Mod/:id`). This placeholder only needs to be good
- * enough for `ModDetailPage` to fetch the real detail and render — the install flow itself
- * reads from that live-fetched `GbModDetail` instead, not from this placeholder, so its
- * category-guessing isn't affected by any of this being empty.
- * `is_mature` is forced `false` deliberately: bookmarking is an active, already-informed choice,
- * so re-blurring something the user already chose to save adds nothing. */
-function bookmarkToPlaceholderGbMod(bookmark: Bookmark): GbMod {
-  return {
-    id: bookmark.gamebanana_mod_id,
-    name: bookmark.name,
-    profile_url: "",
-    date_modified: bookmark.added_at,
-    has_files: true,
-    tags: [],
-    preview_media: { images: [] },
-    submitter: { id: 0, name: "", profile_url: "", avatar_url: null },
-    game: { id: 0, name: "" },
-    root_category: { name: "", profile_url: "" },
-    sub_category: null,
-    like_count: 0,
-    view_count: 0,
-    post_count: 0,
-    // Genuinely unknown from a bookmark row, and `null` says so — see `GbMod.download_count`.
-    download_count: null,
-    has_content_ratings: false,
-    initial_visibility: "show",
-    is_mature: false,
-  };
-}
+import type { GbMod } from "@/lib/tauri-commands";
 
 interface BookmarksViewProps {
   /** Selecting a bookmark navigates to the shared mod detail page, owned by App. */
@@ -90,7 +58,16 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
             <BookmarkCard
               key={bookmark.gamebanana_mod_id}
               bookmark={bookmark}
-              onSelect={() => onSelectMod(bookmarkToPlaceholderGbMod(bookmark))}
+              onSelect={() =>
+                onSelectMod(
+                  placeholderGbMod({
+                    gamebananaModId: bookmark.gamebanana_mod_id,
+                    name: bookmark.name,
+                    thumbnailUrl: bookmark.thumbnail_url,
+                    dateModified: bookmark.added_at,
+                  }),
+                )
+              }
               onRemove={() => removeBookmark.mutate(bookmark.gamebanana_mod_id)}
             />
           ))}

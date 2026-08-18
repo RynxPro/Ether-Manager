@@ -87,6 +87,9 @@ pub struct Download {
     /// never reached the server, and on one whose host sent no ETag — resume still works there,
     /// it just cannot detect the file changing underneath it.
     pub etag: Option<String>,
+    /// Set when this download replaces an existing mod's files in place rather than adding a
+    /// new one. `None` is an ordinary install.
+    pub target_mod_id: Option<i64>,
     pub created_at: i64,
     pub finished_at: Option<i64>,
 }
@@ -100,6 +103,8 @@ pub struct NewDownload {
     pub character_id: String,
     pub slot: Slot,
     pub display_name: String,
+    /// Set when this download replaces an existing mod's files rather than adding a new mod.
+    pub target_mod_id: Option<i64>,
 }
 
 fn now() -> i64 {
@@ -141,6 +146,7 @@ fn row_to_download(row: &Row) -> rusqlite::Result<Download> {
         total_bytes: row.get("total_bytes")?,
         downloaded_bytes: row.get("downloaded_bytes")?,
         etag: row.get("etag")?,
+        target_mod_id: row.get("target_mod_id")?,
         created_at: row.get("created_at")?,
         finished_at: row.get("finished_at")?,
     })
@@ -151,8 +157,8 @@ impl Db {
         self.conn.execute(
             "INSERT INTO downloads (
                 gamebanana_mod_id, gamebanana_file_id, mod_name, file_name, thumbnail_url,
-                character_id, slot, display_name, status, created_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                character_id, slot, display_name, status, target_mod_id, created_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 new.gamebanana_mod_id,
                 new.gamebanana_file_id,
@@ -163,6 +169,7 @@ impl Db {
                 new.slot.as_str(),
                 new.display_name,
                 DownloadStatus::Queued.as_str(),
+                new.target_mod_id,
                 now(),
             ],
         )?;
@@ -327,7 +334,27 @@ mod tests {
             character_id: "belle".to_string(),
             slot: Slot::CharacterSkin,
             display_name: "Compact Damage Numbers".to_string(),
+            target_mod_id: None,
         }
+    }
+
+    /// The column that separates a reinstall from a first install has to survive the round trip,
+    /// because the worker reads it back to decide which of the two it is doing.
+    #[test]
+    fn a_reinstall_row_remembers_the_mod_it_replaces() {
+        let db = Db::open_in_memory().unwrap();
+
+        let plain = db.enqueue_download(new_test_download(1)).unwrap();
+        assert_eq!(plain.target_mod_id, None);
+
+        let mut reinstall = new_test_download(2);
+        reinstall.target_mod_id = Some(42);
+        let queued = db.enqueue_download(reinstall).unwrap();
+        assert_eq!(queued.target_mod_id, Some(42));
+
+        let listed = db.list_downloads().unwrap();
+        let found = listed.iter().find(|d| d.id == queued.id).unwrap();
+        assert_eq!(found.target_mod_id, Some(42));
     }
 
     #[test]

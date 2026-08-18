@@ -7,6 +7,7 @@ import {
   MISC_CHARACTER_ID,
   UI_CHARACTER_ID,
   type Character,
+  type Mod,
   type UpdateCheck,
 } from "@/lib/tauri-commands";
 import { CharacterGrid } from "./CharacterGrid";
@@ -18,8 +19,32 @@ import {
   useUpdateChecks,
 } from "./hooks";
 
+/** Says what a completed sweep actually found. Counts rather than a bare "done", because the
+ * only outcome that changes the page is an update being available — every other result looks
+ * exactly like nothing having happened. */
+function summariseUpdateSweep(checks: UpdateCheck[]): string {
+  if (checks.length === 0) return "No GameBanana mods to check";
+
+  const available = checks.filter((check) => check.status === "UpdateAvailable").length;
+  // An unreachable mod and one whose check errored are the same thing to a reader: the app does
+  // not know. Lumping them keeps the line short without claiming more than it can.
+  const unknown = checks.filter(
+    (check) => check.status === "Unavailable" || check.error !== null,
+  ).length;
+
+  const parts: string[] = [];
+  if (available > 0) parts.push(`${available} update${available === 1 ? "" : "s"} available`);
+  const settled = checks.length - available - unknown;
+  if (settled > 0) parts.push(`${settled} up to date`);
+  if (unknown > 0) parts.push(`${unknown} couldn't be checked`);
+  return parts.join(" · ");
+}
+
 interface LibraryProps {
   onSelectCharacter: (character: Character) => void;
+  /** Opens an installed mod's GameBanana page, via App's shared detail route. Reaches the UI
+   * and Misc tabs, which are the only mod cards this page renders directly. */
+  onOpenModDetail: (mod: Mod) => void;
 }
 
 type LibraryTab = "characters" | "ui" | "misc";
@@ -32,7 +57,7 @@ type LibraryTab = "characters" | "ui" | "misc";
  *
  * Search filters the roster by character name only, and so belongs to the Characters tab alone.
  * Finding a specific mod is the All Mods page's job — one search box, one behaviour each. */
-export function Library({ onSelectCharacter }: LibraryProps) {
+export function Library({ onSelectCharacter, onOpenModDetail }: LibraryProps) {
   const [tab, setTab] = useState<LibraryTab>("characters");
   const [query, setQuery] = useState("");
   const searchRef = useSearchHotkey(() => setQuery(""));
@@ -109,7 +134,17 @@ export function Library({ onSelectCharacter }: LibraryProps) {
             and the tabs. It cannot go with the search above, which only renders on Characters,
             because this has to stay reachable from all three. */}
         <div className="flex items-center gap-3 pb-1.5">
-          {checkAllUpdates.isError && <span className="text-xs text-destructive">Check failed</span>}
+          {/* A sweep that finds nothing changes nothing on screen, which is indistinguishable
+              from the button not having worked — and finding nothing is the usual outcome. The
+              result stays until the next check rather than fading, because it is a fact about
+              the library, not a notification. */}
+          {checkAllUpdates.isError ? (
+            <span className="text-xs text-destructive">Check failed — try again</span>
+          ) : checkAllUpdates.data ? (
+            <span className="text-xs text-muted-foreground">
+              {summariseUpdateSweep(checkAllUpdates.data)}
+            </span>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -134,6 +169,7 @@ export function Library({ onSelectCharacter }: LibraryProps) {
           slot="Ui"
           mods={uiMods ?? []}
           updateChecksByModId={updateChecksByModId}
+          onOpenModDetail={onOpenModDetail}
         />
       )}
 
@@ -143,6 +179,7 @@ export function Library({ onSelectCharacter }: LibraryProps) {
           slot="Misc"
           mods={miscMods ?? []}
           updateChecksByModId={updateChecksByModId}
+          onOpenModDetail={onOpenModDetail}
         />
       )}
     </div>

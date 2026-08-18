@@ -266,6 +266,44 @@ pub fn list_update_checks(state: State<AppState>) -> Result<Vec<UpdateCheck>, St
 /// The staging directory is created as a sibling of `current_dir` (never under `%TEMP%`) so the
 /// final swap is a same-volume rename, not a slow cross-volume copy; it and the downloaded
 /// archive are cleaned up on every exit path, success or failure.
+/// Puts an already-downloaded archive into an installed mod's folder, replacing what is there.
+///
+/// The second half of [`download_and_swap_gamebanana_file`], split out because the download
+/// queue arrives holding the archive already — it fetched the bytes itself, with resume and a
+/// stop flag — and only needs the swap. Extracting to a sibling staging directory first is what
+/// makes the replacement recoverable: `replace_mod_folder` keeps the old contents until the new
+/// ones are in place, and puts them back if it cannot finish.
+///
+/// The staging directory is suffixed with a unique id so two swaps aimed at the same folder
+/// cannot interleave their contents, and is removed on every exit path.
+pub(crate) fn swap_archive_into_mod_folder(
+    current_dir: &std::path::Path,
+    archive_path: &std::path::Path,
+) -> Result<(), String> {
+    let parent = current_dir.parent().ok_or_else(|| {
+        format!(
+            "mod folder {} has no parent directory",
+            current_dir.display()
+        )
+    })?;
+    let leaf = current_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| format!("mod folder {} has an invalid name", current_dir.display()))?;
+    let staging_dir = parent.join(format!(
+        ".ether-staging-{}-{leaf}",
+        crate::commands::unique_temp_id()
+    ));
+
+    let result = crate::archive::extract_archive(archive_path, &staging_dir)
+        .map_err(|e| e.to_string())
+        .and_then(|_| {
+            crate::fs_ops::replace_mod_folder(current_dir, &staging_dir).map_err(|e| e.to_string())
+        });
+    let _ = std::fs::remove_dir_all(&staging_dir);
+    result
+}
+
 async fn download_and_swap_gamebanana_file(
     gamebanana: &crate::gamebanana::GameBananaClient,
     current_dir: &std::path::Path,

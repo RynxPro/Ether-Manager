@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS downloads (
     total_bytes INTEGER,
     downloaded_bytes INTEGER NOT NULL DEFAULT 0,
     etag TEXT,
+    target_mod_id INTEGER,
     created_at INTEGER NOT NULL,
     finished_at INTEGER
 );
