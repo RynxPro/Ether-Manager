@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
+import { MiddleTruncate } from "@/components/MiddleTruncate";
 import { Button } from "@/components/ui/button";
 import { MOD_FOLDER_MISSING_PREFIX, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { UpdateModDialog } from "./UpdateModDialog";
@@ -136,14 +137,14 @@ export function ModCard({
           hasUpdate ? "border-t-primary" : "border-t-border"
         }`}
       >
-        <p
-          className={`truncate font-heading text-sm font-semibold uppercase tracking-wide ${
+        {/* Middle-truncated, because two mods from the same GameBanana page share everything up
+            to the last few words — the tail is the only part that says which one this is. */}
+        <MiddleTruncate
+          text={mod.display_name}
+          className={`font-heading text-sm font-semibold uppercase tracking-wide ${
             mod.enabled ? "text-foreground" : "text-muted-foreground"
           }`}
-          title={mod.display_name}
-        >
-          {mod.display_name}
-        </p>
+        />
         {/* The source, not the enabled state — the bar below already says that, and saying it
             twice was the first thing that read as noise. */}
         <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70">

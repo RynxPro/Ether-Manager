@@ -24,6 +24,7 @@ import {
 import { useCharacters } from "@/features/library/hooks";
 import { executablesIn, fileScan } from "@/lib/fileScan";
 import { formatBytes } from "@/lib/format";
+import { suggestedDisplayName } from "@/lib/installName";
 import {
   MISC_CHARACTER_ID,
   SLOT_LABELS,
@@ -94,7 +95,9 @@ export function InstallConfirmDialog({
   const guessedCharacterId = guessInstallTarget(detail, realCharacters);
 
   const [characterId, setCharacterId] = useState(guessedCharacterId);
-  const [displayName, setDisplayName] = useState(detail.name);
+  const [displayName, setDisplayName] = useState(() =>
+    suggestedDisplayName(detail, file),
+  );
   const enqueue = useEnqueueDownload();
 
   const thumbnail = detail.preview_media.images[0];
@@ -267,6 +270,16 @@ export function InstallConfirmDialog({
                 disabled={enqueue.isPending}
                 required
               />
+              {/* Only when the mod has more than one file, because that is the only time the
+                  suggestion is not simply the mod's name — and the only time it needs
+                  explaining. Naming it after the file is what stops two files from one mod
+                  arriving in the library as two rows with the same name. */}
+              {detail.files.length > 1 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Named after the file, so another file from this mod does not land under the
+                  same name.
+                </p>
+              )}
             </div>
 
             <div className="grid gap-1.5">
