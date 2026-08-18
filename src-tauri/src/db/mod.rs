@@ -8,6 +8,7 @@ mod update_checks_repo;
 pub use bookmarks_repo::{Bookmark, NewBookmark};
 pub use downloads_repo::{Download, DownloadStatus, NewDownload};
 pub use mods_repo::{Mod, ModCounts, NewMod, Slot};
+pub use settings_repo::MagnifierSettings;
 pub use update_checks_repo::UpdateCheck;
 
 use rusqlite::Connection;

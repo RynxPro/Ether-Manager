@@ -534,3 +534,19 @@ export function getMatureContentVisibility(): Promise<MatureVisibility> {
 export function setMatureContentVisibility(value: MatureVisibility): Promise<void> {
   return invoke("set_mature_content_visibility", { value });
 }
+
+/** How the mod detail page's preview magnifier behaves. Read together because the size means
+ * nothing while it is off, and Rust clamps the size on both read and write. */
+export interface MagnifierSettings {
+  enabled: boolean;
+  /** Side of the square lens in CSS pixels. */
+  size: number;
+}
+
+export function getMagnifierSettings(): Promise<MagnifierSettings> {
+  return invoke("get_magnifier_settings");
+}
+
+export function setMagnifierSettings(value: MagnifierSettings): Promise<void> {
+  return invoke("set_magnifier_settings", { value });
+}

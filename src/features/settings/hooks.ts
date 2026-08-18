@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getMagnifierSettings,
   getMatureContentVisibility,
+  setMagnifierSettings,
   setMatureContentVisibility,
+  type MagnifierSettings,
   type MatureVisibility,
 } from "@/lib/tauri-commands";
 
@@ -26,6 +29,26 @@ export function useSetMatureContentVisibility() {
       // applied only under Blur. Anything added later that filters server-side belongs here.
       queryClient.invalidateQueries({ queryKey: ["gbSearch"] });
       queryClient.invalidateQueries({ queryKey: ["gbFeatured"] });
+    },
+  });
+}
+
+/** Read by the mod detail page on every visit, so it is worth keeping rather than refetching:
+ * nothing changes it except the settings page, which invalidates it itself. */
+export function useMagnifierSettings() {
+  return useQuery({
+    queryKey: ["magnifierSettings"],
+    queryFn: getMagnifierSettings,
+    staleTime: Infinity,
+  });
+}
+
+export function useSetMagnifierSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: MagnifierSettings) => setMagnifierSettings(value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["magnifierSettings"] });
     },
   });
 }

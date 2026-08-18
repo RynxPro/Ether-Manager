@@ -4,6 +4,7 @@ use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::content_rating::MatureVisibility;
+use crate::db::MagnifierSettings;
 use crate::AppState;
 
 /// Opens a native folder-picker dialog and returns the chosen path, or `None` if the
@@ -52,6 +53,21 @@ pub fn get_mature_content_visibility(state: State<AppState>) -> Result<MatureVis
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_mature_content_visibility()
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_magnifier_settings(state: State<AppState>) -> Result<MagnifierSettings, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_magnifier_settings().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_magnifier_settings(
+    state: State<AppState>,
+    value: MagnifierSettings,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.set_magnifier_settings(value).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

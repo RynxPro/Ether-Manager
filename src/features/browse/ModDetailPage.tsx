@@ -20,7 +20,7 @@ import {
   useInstalledFromGameBanana,
   useReinstallMod,
 } from "@/features/library/hooks";
-import { useMatureContentVisibility } from "@/features/settings/hooks";
+import { useMagnifierSettings, useMatureContentVisibility } from "@/features/settings/hooks";
 import { executablesIn, fileScan } from "@/lib/fileScan";
 import { shouldBlur } from "@/lib/mature";
 import { exactDate, updatedLabel } from "@/lib/time";
@@ -33,6 +33,8 @@ import type {
   GbPreviewImage,
   Mod,
 } from "@/lib/tauri-commands";
+import { ImageLightbox } from "./ImageLightbox";
+import { MagnifiedImage } from "./MagnifiedImage";
 import {
   useAddBookmark,
   useBookmarks,
@@ -95,11 +97,15 @@ function youtubeEmbedUrl(url: string): string | null {
 export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
   const { data: detail, isLoading } = useGamebananaModDetail(mod.id);
   const { data: visibility } = useMatureContentVisibility();
+  // Falls back to on at the default size for the moment before the setting arrives — the lens
+  // only appears on hover, so a wrong guess for one frame is invisible.
+  const { data: magnifier = { enabled: true, size: 120 } } = useMagnifierSettings();
   const { data: bookmarks } = useBookmarks();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   // Deliberately not reset when the selection changes: holding the previous picture's shape
   // until the next one has decoded keeps the frame from snapping through the fallback on
   // every click.
@@ -333,20 +339,32 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                       onReveal={() => setRevealed(true)}
                       className="h-full w-full"
                     >
-                      <img
-                        src={imageUrl(activeImage, true)}
-                        alt={detail.name}
-                        onLoad={(event) =>
-                          setHeroRatio(
-                            event.currentTarget.naturalWidth /
-                              event.currentTarget.naturalHeight,
-                          )
-                        }
-                        // `contain` rather than `cover`: the frame already matches the picture,
-                        // so this only does anything in the one case where `max-w-full` has had
-                        // to clamp a very wide shot on a narrow window.
-                        className="h-full w-full object-contain"
-                      />
+                      {/* A button rather than an image with a click handler, so it is reachable
+                          by keyboard and announces itself. Withheld while the shield is up: the
+                          shield owns that click, and opening a mature preview full-screen is
+                          precisely what it exists to make deliberate. */}
+                      <button
+                        type="button"
+                        disabled={isMature && !revealed}
+                        onClick={() => setIsLightboxOpen(true)}
+                        aria-label={`View ${detail.name} full size`}
+                        className="h-full w-full outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+                      >
+                        {/* The lens is the cursor here, so no `cursor-zoom-in`: a magnifier
+                            glyph beside a magnifier would be saying it twice. */}
+                        <MagnifiedImage
+                          src={imageUrl(activeImage, true)}
+                          alt={detail.name}
+                          disabled={(isMature && !revealed) || !magnifier.enabled}
+                          size={magnifier.size}
+                          onLoad={(event) =>
+                            setHeroRatio(
+                              event.currentTarget.naturalWidth /
+                                event.currentTarget.naturalHeight,
+                            )
+                          }
+                        />
+                      </button>
                     </MatureContentShield>
                   </div>
 
@@ -377,6 +395,16 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                     </>
                   )}
                 </div>
+
+                {isLightboxOpen && detail && (
+                  <ImageLightbox
+                    sources={images.map((image) => imageUrl(image, true))}
+                    index={activeImageIndex}
+                    onIndexChange={setActiveImageIndex}
+                    onClose={() => setIsLightboxOpen(false)}
+                    title={detail.name}
+                  />
+                )}
 
                 {images.length > 1 && (
                   // Every image, in one strip, at its own shape. The four-tile grid it replaces

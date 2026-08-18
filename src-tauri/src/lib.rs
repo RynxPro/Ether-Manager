@@ -98,6 +98,8 @@ pub fn run() {
             commands::settings::pick_mods_folder,
             commands::settings::get_mature_content_visibility,
             commands::settings::set_mature_content_visibility,
+            commands::settings::get_magnifier_settings,
+            commands::settings::set_magnifier_settings,
             commands::gamebanana::check_gamebanana_api,
             commands::gamebanana::search_gamebanana_mods,
             commands::gamebanana::get_featured_mods,
