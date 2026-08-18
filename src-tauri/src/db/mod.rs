@@ -37,6 +37,7 @@ impl Db {
         self.migrate_thumbnail_column()?;
         self.migrate_downloads_etag_column()?;
         self.migrate_downloads_target_mod_column()?;
+        self.migrate_mods_variant_label_column()?;
         self.migrate_legacy_slot_values()
     }
 
@@ -72,6 +73,44 @@ impl Db {
         if has_column == 0 {
             self.conn
                 .execute_batch("ALTER TABLE downloads ADD COLUMN target_mod_id INTEGER;")?;
+        }
+        Ok(())
+    }
+
+    /// `mods.variant_label` names *which file* of a mod is installed — "Belle Bottom Heavy
+    /// Nsfw", "Main file". It exists so `display_name` can go back to being just the mod's name:
+    /// one string carrying both facts is what made names too long to read and left two files of
+    /// one mod looking like two unrelated things.
+    ///
+    /// A short-lived earlier column, `gamebanana_file_description`, held only the uploader's
+    /// note. This supersedes it — the note is one of the sources a label can come from, not the
+    /// label itself — so where that column exists it is renamed rather than left behind as a
+    /// second, subtly different answer to the same question.
+    ///
+    /// Left null on rows installed before this existed rather than backfilled: recovering it
+    /// would mean a GameBanana request per mod at startup, to caption cards nobody is looking
+    /// at. It fills itself in the next time a mod is installed, updated or reinstalled.
+    /// Idempotent, same reasoning as the columns above.
+    fn migrate_mods_variant_label_column(&self) -> rusqlite::Result<()> {
+        let has_column = |name: &str| -> rusqlite::Result<bool> {
+            let count: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('mods') WHERE name = ?1",
+                [name],
+                |row| row.get(0),
+            )?;
+            Ok(count > 0)
+        };
+
+        if has_column("variant_label")? {
+            return Ok(());
+        }
+        if has_column("gamebanana_file_description")? {
+            self.conn.execute_batch(
+                "ALTER TABLE mods RENAME COLUMN gamebanana_file_description TO variant_label;",
+            )?;
+        } else {
+            self.conn
+                .execute_batch("ALTER TABLE mods ADD COLUMN variant_label TEXT;")?;
         }
         Ok(())
     }

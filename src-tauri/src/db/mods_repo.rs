@@ -55,6 +55,10 @@ pub struct Mod {
     pub gamebanana_mod_id: Option<i64>,
     pub gamebanana_file_id: Option<i64>,
     pub gamebanana_md5: Option<String>,
+    /// Which of the mod's files this is, in words — "Belle Bottom Heavy Nsfw", "Main file".
+    /// See `crate::variant_label`. Null for hand-added mods, for mods that ship a single file,
+    /// for files nothing readable can be said about, and for rows predating this column.
+    pub variant_label: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -76,6 +80,7 @@ pub struct NewMod {
     pub gamebanana_mod_id: Option<i64>,
     pub gamebanana_file_id: Option<i64>,
     pub gamebanana_md5: Option<String>,
+    pub variant_label: Option<String>,
 }
 
 fn now() -> i64 {
@@ -101,6 +106,7 @@ fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
         gamebanana_mod_id: row.get("gamebanana_mod_id")?,
         gamebanana_file_id: row.get("gamebanana_file_id")?,
         gamebanana_md5: row.get("gamebanana_md5")?,
+        variant_label: row.get("variant_label")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -110,8 +116,8 @@ impl Db {
     pub fn insert_mod(&self, new: NewMod) -> rusqlite::Result<Mod> {
         let ts = now();
         self.conn.execute(
-            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?9)",
+            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, variant_label, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
             params![
                 new.character_id,
                 new.slot.as_str(),
@@ -121,6 +127,7 @@ impl Db {
                 new.gamebanana_mod_id,
                 new.gamebanana_file_id,
                 new.gamebanana_md5,
+                new.variant_label,
                 ts,
             ],
         )?;
@@ -153,6 +160,18 @@ impl Db {
             .prepare("SELECT * FROM mods ORDER BY character_id, slot, display_name")?;
         let rows = stmt.query_map([], row_to_mod)?;
         rows.collect()
+    }
+
+    /// Renames a mod in the library only. The folder on disk keeps whatever name it was given
+    /// at install time, because the two are deliberately not kept in step: the path is recorded
+    /// per row and is the thing ZZMI reads, so moving a folder to chase a label would risk the
+    /// working install for a cosmetic change. `updated_at` moves because the row did.
+    pub fn set_display_name(&self, id: i64, display_name: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE mods SET display_name = ?1, updated_at = ?2 WHERE id = ?3",
+            params![display_name, now(), id],
+        )?;
+        Ok(())
     }
 
     pub fn set_enabled(&self, id: i64, enabled: bool) -> rusqlite::Result<()> {
@@ -195,15 +214,27 @@ impl Db {
     }
 
     /// Records that an install/update now tracks a different GameBanana file for this row.
+    /// The description moves with the file id because it describes *that* file. An update or a
+    /// reinstall can land on a different file from the same mod — "SFW Variants Only" becoming
+    /// "NSFW Variants Included" — and leaving the old note behind would caption the card with
+    /// something the folder no longer contains. Passing `None` clears it, which is the honest
+    /// result when the new file carries no note at all.
     pub fn set_gamebanana_file(
         &self,
         id: i64,
         gamebanana_file_id: i64,
         gamebanana_md5: &str,
+        variant_label: Option<&str>,
     ) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE mods SET gamebanana_file_id = ?1, gamebanana_md5 = ?2, updated_at = ?3 WHERE id = ?4",
-            params![gamebanana_file_id, gamebanana_md5, now(), id],
+            "UPDATE mods SET gamebanana_file_id = ?1, gamebanana_md5 = ?2, variant_label = ?3, updated_at = ?4 WHERE id = ?5",
+            params![
+                gamebanana_file_id,
+                gamebanana_md5,
+                variant_label,
+                now(),
+                id
+            ],
         )?;
         Ok(())
     }
@@ -267,6 +298,7 @@ mod tests {
             gamebanana_mod_id: None,
             gamebanana_file_id: None,
             gamebanana_md5: None,
+            variant_label: None,
         }
     }
 
@@ -454,11 +486,24 @@ mod tests {
         new_mod.gamebanana_md5 = Some("old-md5".to_string());
         let inserted = db.insert_mod(new_mod).unwrap();
 
-        db.set_gamebanana_file(inserted.id, 1775946, "new-md5")
+        db.set_gamebanana_file(inserted.id, 1775946, "new-md5", Some("NSFW Variants Included"))
             .unwrap();
 
         let fetched = db.get_mod(inserted.id).unwrap().unwrap();
         assert_eq!(fetched.gamebanana_file_id, Some(1775946));
         assert_eq!(fetched.gamebanana_md5, Some("new-md5".to_string()));
+        assert_eq!(
+            fetched.variant_label,
+            Some("NSFW Variants Included".to_string())
+        );
+
+        // A later file with no note of its own must clear the old one rather than leave the
+        // card describing contents that are no longer there.
+        db.set_gamebanana_file(inserted.id, 1775947, "newer-md5", None)
+            .unwrap();
+        assert_eq!(
+            db.get_mod(inserted.id).unwrap().unwrap().variant_label,
+            None
+        );
     }
 }

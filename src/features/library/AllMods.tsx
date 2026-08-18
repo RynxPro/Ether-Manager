@@ -10,6 +10,7 @@ import {
   useCharacters,
   useCheckModUpdateWithConfirmation,
   useDeleteMod,
+  useRenameMod,
   useToggleMod,
   useUpdateChecks,
 } from "./hooks";
@@ -67,6 +68,7 @@ export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
   const { data: updateChecks } = useUpdateChecks();
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
+  const renameMod = useRenameMod();
   const { checkUpdate, confirmedModId, runCheck } = useCheckModUpdateWithConfirmation();
 
   const characterList = characters ?? [];
@@ -185,6 +187,9 @@ export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
                       isConfirmedUpToDate={confirmedModId === mod.id}
                       error={error}
                       onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
+                      onRename={(displayName) =>
+                        renameMod.mutate({ modId: mod.id, displayName })
+                      }
                       onDelete={() => deleteMod.mutate(mod.id)}
                       onOpenDetail={
                         mod.gamebanana_mod_id === null

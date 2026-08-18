@@ -134,6 +134,7 @@ mod tests {
             gamebanana_mod_id: Some(608561),
             gamebanana_file_id: Some(1481954),
             gamebanana_md5: Some("old-md5".to_string()),
+            variant_label: None,
         })
         .unwrap()
         .id

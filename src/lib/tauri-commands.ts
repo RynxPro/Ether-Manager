@@ -56,6 +56,10 @@ export interface Mod {
   gamebanana_mod_id: number | null;
   gamebanana_file_id: number | null;
   gamebanana_md5: string | null;
+  /** Which of the mod's files this is, in words — "Belle Bottom Heavy Nsfw", "Main file".
+   * Null for hand-added mods, for mods shipping a single file, for files nothing readable can
+   * be said about, and for rows installed before this was recorded. */
+  variant_label: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -107,6 +111,12 @@ export function addMod(input: AddModInput): Promise<Mod> {
 
 export function toggleMod(modId: number, enabled: boolean): Promise<void> {
   return invoke("toggle_mod", { modId, enabled });
+}
+
+/** Renames a mod in the library. The folder on disk keeps its install-time name — only the
+ * label changes. Rejects a blank name. */
+export function renameMod(modId: number, displayName: string): Promise<void> {
+  return invoke("rename_mod", { modId, displayName });
 }
 
 export function deleteMod(modId: number): Promise<void> {

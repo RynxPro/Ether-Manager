@@ -6,6 +6,7 @@ mod db;
 mod fs_ops;
 mod gamebanana;
 mod updates;
+mod variant_label;
 
 use std::sync::atomic::{AtomicBool, AtomicU8};
 use std::collections::HashMap;
@@ -88,6 +89,7 @@ pub fn run() {
             commands::mods::list_all_mods,
             commands::mods::add_mod,
             commands::mods::toggle_mod,
+            commands::mods::rename_mod,
             commands::mods::delete_mod,
             commands::settings::get_mods_folder,
             commands::settings::is_mods_folder_linked,

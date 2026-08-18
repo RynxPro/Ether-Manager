@@ -311,7 +311,9 @@ async fn download_and_swap_gamebanana_file(
     gamebanana_file_id: i64,
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
     should_stop: impl Fn() -> bool,
-) -> Result<GbFile, String> {
+// Returns the installed file and which of the mod's files it is in words — an update can move a
+// row onto a different archive of the same mod, so the label has to move with it.
+) -> Result<(GbFile, Option<String>), String> {
     let detail = tokio::select! {
         found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,
         _ = crate::gamebanana::wait_for_stop(&should_stop) => {
@@ -320,9 +322,11 @@ async fn download_and_swap_gamebanana_file(
     };
     let file = detail
         .files
-        .into_iter()
+        .iter()
         .find(|f| f.id == gamebanana_file_id)
-        .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))?;
+        .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))?
+        .clone();
+    let variant_label = crate::variant_label::variant_label(&detail.files, &file);
 
     let parent = current_dir.parent().ok_or_else(|| {
         format!(
@@ -373,7 +377,7 @@ async fn download_and_swap_gamebanana_file(
     let _ = std::fs::remove_dir_all(&staging_dir);
     result?;
 
-    Ok(file)
+    Ok((file, variant_label))
 }
 
 /// Updates one installed mod in place. `folder_path`, `enabled` (including any `DISABLED_`
@@ -441,11 +445,16 @@ pub async fn update_installed_mod(
         let mut guard = state.install_cancel.lock().map_err(|e| e.to_string())?;
         *guard = None;
     }
-    let file = update_result?;
+    let (file, variant_label) = update_result?;
 
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_gamebanana_file(mod_id, file.id, &file.md5_checksum)
-        .map_err(|e| e.to_string())?;
+    db.set_gamebanana_file(
+        mod_id,
+        file.id,
+        &file.md5_checksum,
+        variant_label.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
     let up_to_date = UpdateOutcome {
         status: UpdateStatus::UpToDate,
         reason: None,
@@ -481,6 +490,7 @@ mod tests {
             gamebanana_mod_id: Some(SAMPLE_MOD_ID),
             gamebanana_file_id: Some(gamebanana_file_id),
             gamebanana_md5: gamebanana_md5.map(str::to_string),
+            variant_label: None,
         })
         .unwrap()
         .id
@@ -571,6 +581,7 @@ mod tests {
                 gamebanana_mod_id: Some(SAMPLE_MOD_ID),
                 gamebanana_file_id: None,
                 gamebanana_md5: None,
+                variant_label: None,
             })
             .unwrap()
             .id;
@@ -622,7 +633,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(file.id, SAMPLE_FILE_ID);
+        assert_eq!(file.0.id, SAMPLE_FILE_ID);
         assert!(
             current_dir.is_dir(),
             "folder must still exist at the same path"

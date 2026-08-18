@@ -377,6 +377,7 @@ mod tests {
             gamebanana_mod_id: None,
             gamebanana_file_id: None,
             gamebanana_md5: None,
+            variant_label: None,
         })
         .unwrap()
     }

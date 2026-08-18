@@ -13,6 +13,7 @@ import {
   listModsForCharacter,
   listUpdateChecks,
   pickModsFolder,
+  renameMod,
   setModsFolder,
   toggleMod,
   updateInstalledMod,
@@ -78,6 +79,18 @@ export function useToggleMod() {
   return useMutation({
     mutationFn: ({ modId, enabled }: { modId: number; enabled: boolean }) =>
       toggleMod(modId, enabled),
+    onSuccess: invalidate,
+  });
+}
+
+/** Renames a mod. Same invalidation as any other mod mutation — the name shows on the card, in
+ * search, in "Wearing X" on a character page and under the character in the Library grid, so
+ * every one of those caches has to hear about it. */
+export function useRenameMod() {
+  const invalidate = useModMutationInvalidation();
+  return useMutation({
+    mutationFn: ({ modId, displayName }: { modId: number; displayName: string }) =>
+      renameMod(modId, displayName),
     onSuccess: invalidate,
   });
 }

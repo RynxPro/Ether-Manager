@@ -225,7 +225,7 @@ pub(crate) async fn fetch_gamebanana_file(
     gamebanana_mod_id: i64,
     gamebanana_file_id: i64,
     should_stop: &impl Fn() -> bool,
-) -> Result<GbFile, String> {
+) -> Result<ChosenFile, String> {
     let detail = tokio::select! {
         found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,
         _ = crate::gamebanana::wait_for_stop(should_stop) => {
@@ -233,11 +233,26 @@ pub(crate) async fn fetch_gamebanana_file(
         }
     };
 
-    detail
+    let file = detail
         .files
-        .into_iter()
+        .iter()
         .find(|f| f.id == gamebanana_file_id)
-        .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))
+        .ok_or_else(|| format!("file {gamebanana_file_id} not found on mod {gamebanana_mod_id}"))?
+        .clone();
+    // Computed here because this is where the mod's whole file list is in hand: naming which
+    // variant this is needs to know what the alternatives were.
+    let variant_label = crate::variant_label::variant_label(&detail.files, &file);
+    Ok(ChosenFile {
+        file,
+        variant_label,
+    })
+}
+
+/// A file picked out of a mod's list, with the label saying which one of them it is.
+pub(crate) struct ChosenFile {
+    pub file: GbFile,
+    /// `None` when the mod ships one file, or when nothing about this one reads as a name.
+    pub variant_label: Option<String>,
 }
 
 /// Pulls a file down to its staged path, resuming from whatever is already there.
@@ -306,7 +321,8 @@ async fn download_and_extract_gamebanana_file(
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
     on_extract_start: impl FnOnce(),
     should_stop: impl Fn() -> bool,
-) -> Result<(PathBuf, GbFile), String> {
+// Returns where it landed, which file it was, and which of the mod's files that is in words.
+) -> Result<(PathBuf, GbFile, Option<String>), String> {
     let InstallRequest {
         gamebanana_mod_id,
         gamebanana_file_id,
@@ -318,7 +334,7 @@ async fn download_and_extract_gamebanana_file(
         staging,
     } = request;
 
-    let file = fetch_gamebanana_file(
+    let chosen = fetch_gamebanana_file(
         gamebanana,
         gamebanana_mod_id,
         gamebanana_file_id,
@@ -336,7 +352,7 @@ async fn download_and_extract_gamebanana_file(
 
     download_to_staging(
         gamebanana,
-        &file,
+        &chosen.file,
         &staging,
         on_validator,
         on_progress,
@@ -346,7 +362,7 @@ async fn download_and_extract_gamebanana_file(
     on_extract_start();
     archive::extract_archive(&staging.path, &dest_dir).map_err(|e| e.to_string())?;
 
-    Ok((dest_dir, file))
+    Ok((dest_dir, chosen.file, chosen.variant_label))
 }
 
 /// Downloads a specific GameBanana file, extracts it into the given character/slot, and
@@ -385,7 +401,7 @@ pub(crate) async fn install_gamebanana_file(
     };
     let mods_root = PathBuf::from(mods_folder);
 
-    let (dest_dir, file) = download_and_extract_gamebanana_file(
+    let (dest_dir, file, variant_label) = download_and_extract_gamebanana_file(
         gamebanana,
         &mods_root,
         request,
@@ -401,7 +417,16 @@ pub(crate) async fn install_gamebanana_file(
         gamebanana_mod_id,
         gamebanana_file_id,
     };
-    record_installed_mod(state, dest_dir, file, character_id, slot, display_name).await
+    record_installed_mod(
+        state,
+        dest_dir,
+        file,
+        character_id,
+        slot,
+        display_name,
+        variant_label,
+    )
+    .await
 }
 
 /// The handful of things `record_installed_mod` needs, grouped to stay under clippy's
@@ -420,6 +445,7 @@ async fn record_installed_mod(
     character_id: String,
     slot: Slot,
     display_name: String,
+    variant_label: Option<String>,
 ) -> Result<Mod, String> {
     let InstallRecording {
         gamebanana,
@@ -448,6 +474,7 @@ async fn record_installed_mod(
         gamebanana_mod_id: Some(gamebanana_mod_id),
         gamebanana_file_id: Some(gamebanana_file_id),
         gamebanana_md5: Some(file.md5_checksum),
+        variant_label,
     })
     .map_err(|e| e.to_string())
 }
@@ -558,7 +585,7 @@ mod tests {
             std::process::id()
         ));
 
-        let (dest_dir, file) = download_and_extract_gamebanana_file(
+        let (dest_dir, file, _variant_label) = download_and_extract_gamebanana_file(
             &gamebanana,
             &mods_root,
             InstallRequest {

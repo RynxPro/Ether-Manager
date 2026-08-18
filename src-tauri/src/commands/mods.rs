@@ -103,8 +103,35 @@ pub fn add_mod(
         gamebanana_mod_id: None,
         gamebanana_file_id: None,
         gamebanana_md5: None,
+        // A hand-added mod came from a folder on disk, not a GameBanana file, so there is no
+        // uploader's note behind it to record.
+        variant_label: None,
     })
     .map_err(|e| e.to_string())
+}
+
+/// Renames a mod in the library.
+///
+/// The installer only ever guesses a name — from the archive's filename, or the uploader's note
+/// for it — and a guess needs a way to be wrong. Without this the name accepted at install was
+/// permanent short of deleting and reinstalling, which is what drove people to pick apart mod
+/// names by hand in the first place.
+///
+/// Only the label changes: the folder on disk keeps its install-time name. Blank names are
+/// refused rather than silently kept, since a card with no name is unusable and the surrounding
+/// UI has no notion of an unnamed mod.
+#[tauri::command]
+pub fn rename_mod(state: State<AppState>, mod_id: i64, display_name: String) -> Result<(), String> {
+    let trimmed = display_name.trim();
+    if trimmed.is_empty() {
+        return Err("a mod needs a name".to_string());
+    }
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    if db.get_mod(mod_id).map_err(|e| e.to_string())?.is_none() {
+        return Err(format!("mod {mod_id} is no longer in the library"));
+    }
+    db.set_display_name(mod_id, trimmed)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

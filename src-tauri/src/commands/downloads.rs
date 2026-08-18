@@ -49,17 +49,18 @@ async fn reinstall_over_existing_mod(
         ));
     }
 
-    let file = crate::commands::gamebanana::fetch_gamebanana_file(
+    let chosen = crate::commands::gamebanana::fetch_gamebanana_file(
         &state.gamebanana,
         download.gamebanana_mod_id,
         download.gamebanana_file_id,
         &should_stop,
     )
     .await?;
+    let file = &chosen.file;
 
     crate::commands::gamebanana::download_to_staging(
         &state.gamebanana,
-        &file,
+        file,
         &staging,
         on_validator,
         on_progress,
@@ -74,8 +75,15 @@ async fn reinstall_over_existing_mod(
     let _ = std::fs::remove_file(&staging.path);
 
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_gamebanana_file(target_mod_id, file.id, &file.md5_checksum)
-        .map_err(|e| e.to_string())?;
+    // The label moves with the file, so a reinstall that lands on a different one of the mod's
+    // archives relabels the row rather than leaving it describing what used to be there.
+    db.set_gamebanana_file(
+        target_mod_id,
+        file.id,
+        &file.md5_checksum,
+        chosen.variant_label.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
     // The row now holds exactly what GameBanana offers, so any pending "update available" note
     // against it is stale — clearing it here is what stops the card keeping its badge.
     db.upsert_update_check(
