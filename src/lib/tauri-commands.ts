@@ -205,8 +205,13 @@ export interface GbFile {
   download_count: number;
   download_url: string;
   md5_checksum: string;
+  /** GameBanana's checks on the upload — see `fileScan` for what they mean together. */
   analysis_result: string | null;
   av_result: string | null;
+  analysis_result_verbose: string | null;
+  /** Paths inside the archive GameBanana's analysis singled out. Empty for most files, and a
+   * flag rather than a verdict — see `executablesIn`. */
+  analysis_warnings: string[];
   description: string | null;
   /** The uploader's own version label (`"7.7"`), `null` on files that never carried one. */
   version: string | null;
@@ -223,6 +228,8 @@ export interface GbModDetail {
   name: string;
   profile_url: string;
   date_modified: number;
+  /** When the mod page first went up — `date_modified` says when it last changed. */
+  date_added: number;
   is_nsfw: boolean;
   preview_media: GbPreviewMedia;
   /** Showcase video URLs (YouTube) — separate from `preview_media`'s static screenshots. */

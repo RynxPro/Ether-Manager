@@ -275,10 +275,27 @@ pub struct GbFile {
     pub download_url: String,
     #[serde(rename(deserialize = "_sMd5Checksum"))]
     pub md5_checksum: String,
+    /// GameBanana's own check of the upload, in two parts: whether it could open the archive
+    /// (`analysis_result`: `"ok"` / `"extraction_error"`) and what the virus scan made of the
+    /// contents (`av_result`: `"clean"` / `"unknown"`).
+    ///
+    /// The two move together — a live survey (2026-08-18, 264 files across 100 ZZZ mods) found
+    /// `unknown` on exactly the four files that also failed extraction, and nothing else on
+    /// either field. That correlation is the whole point: `unknown` does not mean "something
+    /// was found", it means the scanner never got to look, because the archive would not open.
+    /// `fileScan.ts` is where that gets turned into words, and it fails closed.
     #[serde(rename(deserialize = "_sAnalysisResult"))]
     pub analysis_result: Option<String>,
     #[serde(rename(deserialize = "_sAvResult"))]
     pub av_result: Option<String>,
+    /// GameBanana's sentence for the same verdict ("Archive extraction failed (corrupt or
+    /// password-protected)"), carried so the UI can explain a bad result in their words rather
+    /// than inventing its own gloss for a code it may not recognise.
+    #[serde(rename(deserialize = "_sAnalysisResultVerbose"), default)]
+    pub analysis_result_verbose: Option<String>,
+    /// The uploader's note about this particular file — "SFW Variants Only", "6. Black Ver.
+    /// Nude", "OUTDATED DO NOT DOWNLOAD". Present on about two thirds of files (164 of 264 in
+    /// the survey above) and usually the only thing distinguishing one row from the next.
     #[serde(rename(deserialize = "_sDescription"))]
     pub description: Option<String>,
     /// The uploader's own version label for this file (`"7.7"`). Absent on files that never
@@ -288,6 +305,44 @@ pub struct GbFile {
     /// label is the only thing distinguishing one row from the next.
     #[serde(rename(deserialize = "_sVersion"), default)]
     pub version: Option<String>,
+    /// Paths inside the archive that GameBanana's analysis singled out, flattened across every
+    /// warning kind it reported. Absent on files with nothing to report (256 of 264 in the
+    /// survey), so it defaults to empty.
+    ///
+    /// Carried as raw paths on purpose, because the flag alone cannot be trusted as a verdict:
+    /// the only kind seen live is `contains_exe`, and it fired on four compiled shader blobs
+    /// (`res/draw_2d_blur.ps_5_0.8000.bin`) and a file named `patreon.com` as readily as on a
+    /// genuine `RabbitFXFixer.exe`. Shader binaries are ordinary mod content, so relaying the
+    /// flag as "this mod contains an executable" would raise a false alarm on most of the mods
+    /// that trip it. `fileScan.ts` decides from the paths themselves and names them on screen.
+    #[serde(
+        rename(deserialize = "_aAnalysisWarnings"),
+        default,
+        deserialize_with = "deserialize_analysis_warnings"
+    )]
+    pub analysis_warnings: Vec<String>,
+}
+
+/// GameBanana sends `_aAnalysisWarnings` as an object of `kind -> [paths]`, and PHP's empty
+/// array serialises as `[]` rather than `{}`, so both shapes have to land on the same empty
+/// vec. Anything else is treated as "nothing to report" rather than failing the whole fetch —
+/// a file list is not worth losing over a warning field this app only uses to add a caution.
+fn deserialize_analysis_warnings<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    let value = serde_json::Value::deserialize(deserializer)?;
+    let serde_json::Value::Object(kinds) = value else {
+        return Ok(Vec::new());
+    };
+    Ok(kinds
+        .values()
+        .filter_map(|paths| paths.as_array())
+        .flatten()
+        .filter_map(|path| path.as_str())
+        .map(str::to_string)
+        .collect())
 }
 
 /// Category reference as it appears on `Mod/:id`'s `_aCategory` — unlike `GbCategoryRef`,
@@ -312,6 +367,16 @@ pub struct GbModDetail {
     pub profile_url: String,
     #[serde(rename(deserialize = "_tsDateModified"))]
     pub date_modified: i64,
+    /// When the mod page first went up, as opposed to when it last changed. Both are worth
+    /// showing: a mod modified last week reads very differently depending on whether it is a
+    /// month old or has been maintained for two years. `@gbprofile` carries it already, so this
+    /// costs no extra request.
+    ///
+    /// It also sends `_tsDateUpdated`, which is *not* a third useful date — confirmed live it can
+    /// sit either side of `_tsDateModified` (mod 576881 has it four years earlier), so it does
+    /// not mean "most recent" and is left alone.
+    #[serde(rename(deserialize = "_tsDateAdded"))]
+    pub date_added: i64,
     #[serde(rename(deserialize = "_bIsNsfw"))]
     pub is_nsfw: bool,
     #[serde(rename(deserialize = "_aPreviewMedia"), default)]
@@ -1563,6 +1628,26 @@ mod tests {
         assert!(!detail.has_content_ratings);
     }
 
+    /// `date_added` is a *required* field, so an absent `_tsDateAdded` would fail the whole
+    /// detail fetch rather than just blanking one row -- the same trap `_nDownloadCount` fell
+    /// into, where GameBanana omits a key whose value is falsy. Confirmed live that even a mod
+    /// posted minutes ago carries it (there, `_tsDateAdded == _tsDateModified`), so the field
+    /// is genuinely always sent; this pins that, and that a mod is never modified before it
+    /// exists.
+    #[tokio::test]
+    async fn get_mod_detail_carries_a_publication_date_no_later_than_its_last_change() {
+        let client = GameBananaClient::new();
+        let detail = client.get_mod_detail(SAMPLE_MOD_ID).await.unwrap();
+
+        assert!(detail.date_added > 0, "expected a publication date");
+        assert!(
+            detail.date_added <= detail.date_modified,
+            "published {} is after last modified {}",
+            detail.date_added,
+            detail.date_modified
+        );
+    }
+
     /// `is_mature` on `GbModDetail` comes from `_bIsNsfw`, which (unlike the content-rating
     /// fields above) the single-mod endpoint does support — confirmed live 2026-08-09. Finds a
     /// mod the live browse feed already flags mature and checks `get_mod_detail` agrees, rather
@@ -1592,6 +1677,86 @@ mod tests {
         assert_eq!(detail.id, SAMPLE_MOD_ID);
         assert!(!detail.files.is_empty());
         assert!(detail.files.iter().all(|f| !f.md5_checksum.is_empty()));
+    }
+
+    /// `_aAnalysisWarnings` arrives in two shapes and neither may fail the fetch: an object of
+    /// `kind -> [paths]` when there is something to say, and — since PHP serialises an empty
+    /// array as `[]`, not `{}` — potentially a bare array when there is not. Both must flatten
+    /// to the same list, because a deserializer that quietly errored or dropped entries would
+    /// take the executable warning down with it and leave every mod looking harmless.
+    #[test]
+    fn analysis_warnings_flatten_from_every_shape_gamebanana_sends() {
+        fn warnings_of(json: &str) -> Vec<String> {
+            serde_json::from_str::<GbFile>(json).unwrap().analysis_warnings
+        }
+        // Only the fields without a serde default, plus the one under test.
+        let file = |warnings: &str| {
+            format!(
+                r#"{{"_idRow":1,"_sFile":"a.zip","_nFilesize":1,"_tsDateAdded":1,
+                     "_nDownloadCount":0,"_sDownloadUrl":"u","_sMd5Checksum":"m",
+                     "_sAnalysisResult":"ok","_sAvResult":"clean","_sDescription":null{warnings}}}"#
+            )
+        };
+
+        assert!(warnings_of(&file("")).is_empty(), "absent key");
+        assert!(
+            warnings_of(&file(r#","_aAnalysisWarnings":[]"#)).is_empty(),
+            "PHP's empty array"
+        );
+        assert_eq!(
+            warnings_of(&file(
+                r#","_aAnalysisWarnings":{"contains_exe":["RabbitFXFixer.exe","Restore backups.bat"]}"#
+            )),
+            vec!["RabbitFXFixer.exe", "Restore backups.bat"]
+        );
+        // Flattens across kinds, so a warning type added later still reaches the UI.
+        assert_eq!(
+            warnings_of(&file(
+                r#","_aAnalysisWarnings":{"contains_exe":["a.exe"],"something_new":["b.dll"]}"#
+            ))
+            .len(),
+            2
+        );
+    }
+
+    /// The file panel says whether GameBanana could vet each upload, so it needs their verdict
+    /// to actually arrive. All three fields are optional on the struct — a missing one must not
+    /// fail the whole detail fetch — which means nothing else would notice if the endpoint
+    /// quietly stopped sending them and every file started reading "Not scanned".
+    ///
+    /// Pinned against a mod confirmed live (2026-08-18) to have files that *fail* the check, so
+    /// this also proves the unhappy path is reachable rather than only ever asserting "ok".
+    #[tokio::test]
+    async fn mod_files_carry_gamebananas_verdict_including_the_failing_case() {
+        const MOD_WITH_UNSCANNABLE_FILES: i64 = 562973; // "Saint Yanagi"
+
+        let client = GameBananaClient::new();
+        let files = client.get_mod_files(MOD_WITH_UNSCANNABLE_FILES).await.unwrap();
+
+        assert!(!files.is_empty());
+        assert!(
+            files.iter().all(|f| f.analysis_result.is_some()
+                && f.av_result.is_some()
+                && f.analysis_result_verbose.is_some()),
+            "every file should carry a verdict"
+        );
+        assert!(
+            files.iter().any(|f| f.analysis_result.as_deref() == Some("ok")
+                && f.av_result.as_deref() == Some("clean")),
+            "expected at least one file that passed"
+        );
+        assert!(
+            files
+                .iter()
+                .any(|f| f.analysis_result.as_deref() == Some("extraction_error")),
+            "expected at least one file GameBanana could not open"
+        );
+        // The correlation the UI's wording leans on: a file with no AV result is one whose
+        // archive would not open, not one where something was found.
+        for file in files.iter().filter(|f| f.av_result.as_deref() != Some("clean")) {
+            assert_eq!(file.av_result.as_deref(), Some("unknown"));
+            assert_eq!(file.analysis_result.as_deref(), Some("extraction_error"));
+        }
     }
 
     /// GameBanana sends `"_aEmbeddedMedia": null` (not an absent key) on mods with no showcase

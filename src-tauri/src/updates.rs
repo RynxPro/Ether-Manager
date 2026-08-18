@@ -152,8 +152,10 @@ mod tests {
             md5_checksum: md5.to_string(),
             analysis_result: None,
             av_result: None,
+            analysis_result_verbose: None,
             description: None,
             version: None,
+            analysis_warnings: Vec::new(),
         }
     }
 

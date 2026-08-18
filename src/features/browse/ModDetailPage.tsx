@@ -7,6 +7,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  FileWarning,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
@@ -17,8 +20,9 @@ import {
   useReinstallMod,
 } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
+import { executablesIn, fileScan } from "@/lib/fileScan";
 import { shouldBlur } from "@/lib/mature";
-import { updatedLabel } from "@/lib/time";
+import { exactDate, updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type {
   GbFile,
@@ -123,9 +127,14 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
       return { kind: "again", label: "Install again", target: null };
     return { kind: "reinstall", label: "Reinstall", target: rows[0] };
   }
-  // The `mod` list record is authoritative — confirmed live that `@gbprofile` never sends
-  // the content-rating fields at all, so `detail.is_mature` always defaults to `false`. Also
-  // gated on the visibility setting, same as BrowseGrid/FeaturedBanner.
+  // Blurring reads the `mod` list record, not `detail`, and that is deliberate: the two other
+  // ways into this page — a bookmark, an installed mod — build their `mod` with
+  // `placeholderGbMod`, which reports `is_mature: false` on purpose. Both describe something
+  // the user already chose, so covering it back up would ask a question they have answered.
+  // Also gated on the visibility setting, same as BrowseGrid/FeaturedBanner.
+  //
+  // The Rating row below must NOT use this. It states a fact about the mod rather than deciding
+  // what to cover, and a placeholder would have it call every mod in your library "Safe".
   const isMature = shouldBlur(visibility, mod.is_mature);
   const isBookmarked = (bookmarks ?? []).some(
     (entry) => entry.gamebanana_mod_id === mod.id,
@@ -475,13 +484,33 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                 {categoryName && (
                   <MetaRow term="Category" value={categoryName} />
                 )}
+                {/* Published then Updated, oldest first: read together they say how long the
+                    mod has been around and whether anyone is still looking after it, which
+                    neither date answers on its own.
+
+                    Real dates rather than "1y ago" — this panel is the one people read with
+                    the mod's GameBanana page open beside it, and a bucketed age disagrees with
+                    what that page says. Two mods published three months apart can both round to
+                    "1y ago", which reads as the app being wrong. The age is on hover, where it
+                    costs nothing. */}
                 <MetaRow
-                  term="Updated"
-                  value={updatedLabel(detail.date_modified)}
+                  term="Published"
+                  value={exactDate(detail.date_added)}
+                  title={updatedLabel(detail.date_added)}
                 />
                 <MetaRow
+                  term="Updated"
+                  value={exactDate(detail.date_modified)}
+                  title={updatedLabel(detail.date_modified)}
+                />
+                {/* `detail`, not `mod` — see the note beside `isMature`. The list record is
+                    synthesised when this page is opened from the library or from bookmarks, and
+                    reports "not mature" by design, which would make this row call every mod you
+                    own "Safe". `detail.is_mature` comes from GameBanana's own `_bIsNsfw` on the
+                    fetch this page already makes, so the honest answer costs nothing. */}
+                <MetaRow
                   term="Rating"
-                  value={mod.is_mature ? "Mature" : "Safe"}
+                  value={detail.is_mature ? "Mature" : "Safe"}
                 />
               </dl>
 
@@ -539,24 +568,73 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <div className="min-w-0 flex-1 px-3 py-2">
-                        <p className="truncate text-[13px]">{file.file_name}</p>
-                        <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        {/* The installed mark rides up here beside the name rather than at the
+                            end of the meta line: a real date is much wider than "1y ago" was,
+                            and on a row whose button reads "Reinstall" the old single line ran
+                            out of room and broke a date across two of them. */}
+                        <p className="flex items-center gap-1.5 text-[13px]">
+                          <span className="truncate">{file.file_name}</span>
+                          {(installed.byFileId.get(file.id)?.length ?? 0) >
+                            0 && (
+                            <Check
+                              className="h-3.5 w-3.5 shrink-0 text-success"
+                              aria-label="Installed"
+                            />
+                          )}
+                        </p>
+                        {/* The uploader's note on this file — "SFW Variants Only", "6. Black
+                            Ver. Nude", "OUTDATED DO NOT DOWNLOAD". Two thirds of files carry
+                            one, and on a mod whose files are named v72.zip / v73.zip it is the
+                            only thing that says which is which, so it sits above the numbers
+                            rather than among them. Clamped: most are a few words, but they run
+                            to a full sentence often enough to swallow the row. */}
+                        {file.description && (
+                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-foreground/70">
+                            {file.description}
+                          </p>
+                        )}
+                        {/* Wraps as whole facts when it must -- each item holds itself
+                            together, so a narrow panel drops "20,650 dl" to its own line
+                            instead of splitting "Feb 18, 2025" down the middle. */}
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
                           {file.version && (
-                            <span className="border border-border px-1 font-heading tracking-[0.06em] text-foreground">
+                            <span className="whitespace-nowrap border border-border px-1 font-heading tracking-[0.06em] text-foreground">
                               v{file.version}
                             </span>
                           )}
-                          <span>{formatFileSize(file.file_size)}</span>
+                          <span className="whitespace-nowrap">
+                            {formatFileSize(file.file_size)}
+                          </span>
                           <span className="text-border">·</span>
-                          <span>{file.download_count.toLocaleString()} dl</span>
-                          {(installed.byFileId.get(file.id)?.length ?? 0) >
-                            0 && (
+                          {/* Each file's own upload date, not the mod's. On a mod with a dozen
+                              files this is what tells you which one is current -- the list
+                              arrives in no meaningful order and the version labels are the
+                              uploader's own, so they are often missing or repeated. Exact, for
+                              the same reason the panel above is. */}
+                          <span
+                            className="whitespace-nowrap"
+                            title={updatedLabel(file.date_added)}
+                          >
+                            {exactDate(file.date_added)}
+                          </span>
+                          <span className="text-border">·</span>
+                          <span className="whitespace-nowrap">
+                            {file.download_count.toLocaleString()} dl
+                          </span>
+                        </p>
+                        {/* The safety line gets a row of its own rather than trailing the
+                            numbers above. Sharing that row left it up to how much space was
+                            left over -- a wider "Reinstall" button or a longer date pushed it
+                            onto a second line -- so the same verdict sat beside the size on one
+                            row and under it on the next. It is the line that most wants to be
+                            found at a glance down the list, and a column that moves is one you
+                            have to hunt for on every row. */}
+                        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                          <FileScanMark file={file} />
+                          {executablesIn(file).length > 0 && (
                             <>
                               <span className="text-border">·</span>
-                              <span className="flex items-center gap-1 text-success">
-                                <Check className="h-3 w-3 shrink-0" />
-                                Installed
-                              </span>
+                              <ExecutableMark paths={executablesIn(file)} />
                             </>
                           )}
                         </p>
@@ -627,6 +705,56 @@ function SectionLabel({ left, right }: SectionLabelProps) {
   );
 }
 
+interface FileScanMarkProps {
+  file: GbFile;
+}
+
+/** GameBanana's verdict on one uploaded file, colour-coded: green passed, yellow could not be
+ * checked, red failed.
+ *
+ * "Not scanned" is amber rather than red on purpose. It means the archive would not open, so
+ * nothing was ever looked at — worth knowing before you download, but an absence of a finding
+ * is not a finding. */
+function FileScanMark({ file }: FileScanMarkProps) {
+  const scan = fileScan(file);
+  const isClean = scan.verdict === "clean";
+  const Icon = isClean ? ShieldCheck : ShieldAlert;
+
+  return (
+    <span
+      className={cn(
+        "flex items-center gap-1 whitespace-nowrap",
+        scan.verdict === "clean" && "text-success",
+        scan.verdict === "unscanned" && "text-primary",
+        scan.verdict === "flagged" && "text-destructive",
+      )}
+      title={scan.detail ?? undefined}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      {scan.label}
+    </span>
+  );
+}
+
+/** Names the programs inside an archive that should not have needed any.
+ *
+ * Separate from the scan verdict because it answers a different question: that one is "did
+ * GameBanana's check pass", this one is "will something in here run". A file can be perfectly
+ * clean and still contain an installer. Shown only when there is something to show, so it stays
+ * a real signal — eight files in 264 tripped GameBanana's flag at all, and only two of those
+ * held anything this considers a program. */
+function ExecutableMark({ paths }: { paths: string[] }) {
+  return (
+    <span
+      className="flex items-center gap-1 whitespace-nowrap text-destructive"
+      title={`Contains ${paths.join(", ")}`}
+    >
+      <FileWarning className="h-3 w-3 shrink-0" />
+      {paths.length === 1 ? "Executable" : `${paths.length} executables`}
+    </span>
+  );
+}
+
 interface PanelHeaderProps {
   label: string;
   children?: React.ReactNode;
@@ -666,15 +794,19 @@ function StatCell({ value, label }: StatCellProps) {
 interface MetaRowProps {
   term: string;
   value: string;
+  /** Spelled-out form of a relative `value`, revealed on hover. */
+  title?: string;
 }
 
-function MetaRow({ term, value }: MetaRowProps) {
+function MetaRow({ term, value, title }: MetaRowProps) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-border py-1.5 last:border-b-0">
       <dt className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
         {term}
       </dt>
-      <dd className="min-w-0 truncate text-[13px]">{value}</dd>
+      <dd className="min-w-0 truncate text-[13px]" title={title}>
+        {value}
+      </dd>
     </div>
   );
 }

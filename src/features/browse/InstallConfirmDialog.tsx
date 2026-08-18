@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, XIcon } from "lucide-react";
+import { ArrowRight, FileWarning, XIcon } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCharacters } from "@/features/library/hooks";
+import { executablesIn, fileScan } from "@/lib/fileScan";
 import { formatBytes } from "@/lib/format";
 import {
   MISC_CHARACTER_ID,
@@ -39,17 +40,15 @@ const CUT_CORNER = {
   clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
 } as const;
 
-/** GameBanana runs every upload through a virus scan and an archive analysis, and every file
- * sampled live came back `clean`/`ok`. Printing that on every install would be noise nobody
- * reads, which is exactly how a real warning gets missed — so this stays silent on the known
- * good values and surfaces anything else verbatim. Unrecognised values are treated as worth
- * showing rather than assumed benign: this app does not know GameBanana's full vocabulary, and
- * the failure that matters is a bad archive shown as fine. */
+/** GameBanana's scan result, but only when it is worth saying. Printing "clean" on every
+ * install would be noise nobody reads, which is exactly how a real warning gets missed.
+ *
+ * The wording comes from the shared `fileScan`, so this dialog and the file list cannot drift
+ * into describing the same file two different ways. */
 function scanWarning(file: GbFile): string | null {
-  const flags = [file.av_result, file.analysis_result]
-    .filter((value): value is string => Boolean(value))
-    .filter((value) => value !== "clean" && value !== "ok");
-  return flags.length > 0 ? flags.join(" · ") : null;
+  const scan = fileScan(file);
+  if (scan.verdict === "clean") return null;
+  return scan.detail ?? scan.label;
 }
 
 interface InstallConfirmDialogProps {
@@ -113,6 +112,7 @@ export function InstallConfirmDialog({
       : `${target.name} · ${SLOT_LABELS.CharacterSkin}`
     : null;
   const warning = scanWarning(file);
+  const executables = executablesIn(file);
 
   /** Queues the install and gets out of the way. The download is owned by Rust from here, so
    * closing immediately costs nothing — and where this dialog used to hold the only copy of a
@@ -216,6 +216,41 @@ export function InstallConfirmDialog({
               </p>
             )}
           </div>
+
+          {/* A mod is data — meshes, textures, .ini files — so a program inside one is worth
+              stopping on even when it is legitimate, and sometimes it is: a few mods ship a
+              genuine fixer utility. This names the files rather than saying "contains an
+              executable", because the name is what lets you tell a fixer from a surprise, and
+              because the alarm is only useful while it stays rare enough to read.
+
+              It informs rather than blocks. Nothing here runs on install — the archive is
+              unpacked into the mods folder and that is all — so the risk arrives later, if you
+              go and run it. Refusing the install would be theatre; saying what is in there,
+              before it is on disk, is the part that actually helps. */}
+          {executables.length > 0 && (
+            <div className="border-b border-border bg-destructive/10 px-4 py-3">
+              <p className="flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-[0.12em] text-destructive">
+                <FileWarning className="h-3.5 w-3.5 shrink-0" />
+                Contains {executables.length === 1 ? "a program" : "programs"}
+              </p>
+              <ul className="mt-1.5 space-y-0.5">
+                {executables.map((path) => (
+                  <li
+                    key={path}
+                    className="truncate font-mono text-[11px] text-foreground"
+                    title={path}
+                  >
+                    {path}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Installing only unpacks {executables.length === 1 ? "it" : "them"} into your mods
+                folder — nothing is run. Mods do not normally need to, so open{" "}
+                {executables.length === 1 ? "it" : "them"} only if you know what it does.
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-3.5 px-4 py-4">
             <div className="grid gap-1.5">
