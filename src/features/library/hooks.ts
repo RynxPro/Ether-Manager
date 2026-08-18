@@ -12,6 +12,7 @@ import {
   listModCounts,
   listModsForCharacter,
   listUpdateChecks,
+  moveMod,
   pickModsFolder,
   renameMod,
   setModsFolder,
@@ -91,6 +92,18 @@ export function useRenameMod() {
   return useMutation({
     mutationFn: ({ modId, displayName }: { modId: number; displayName: string }) =>
       renameMod(modId, displayName),
+    onSuccess: invalidate,
+  });
+}
+
+/** Moves a mod to another character or bucket. Invalidates the same caches a rename does, plus
+ * it changes which character's page the mod appears on — so both the page it left and the one it
+ * arrived at have to refetch, which the `["mods"]` prefix covers. */
+export function useMoveMod() {
+  const invalidate = useModMutationInvalidation();
+  return useMutation({
+    mutationFn: ({ modId, characterId }: { modId: number; characterId: string }) =>
+      moveMod(modId, characterId),
     onSuccess: invalidate,
   });
 }

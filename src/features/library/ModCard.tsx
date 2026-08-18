@@ -9,10 +9,11 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { MiddleTruncate } from "@/components/MiddleTruncate";
 import { Button } from "@/components/ui/button";
 import { MOD_FOLDER_MISSING_PREFIX, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
+import { EditModDialog } from "./EditModDialog";
 import { UpdateModDialog } from "./UpdateModDialog";
 
 interface ModCardProps {
@@ -34,8 +35,8 @@ interface ModCardProps {
   /** The most recent toggle/delete failure for this specific mod, if any — see SlotSection,
    * which matches the shared toggle/delete mutations' state against this card's own mod id. */
   error?: string;
-  /** Commits a new name. Absent leaves the card read-only, which is what All Mods wants. */
-  onRename?: (displayName: string) => void;
+  /** Offers the edit dialog — name, where it is filed, and a way to its folder. */
+  isEditable?: boolean;
 }
 
 /** A mod as a card rather than a row: preview on top, then the name, then the controls, so a
@@ -57,7 +58,7 @@ export function ModCard({
   isConfirmedUpToDate,
   onOpenDetail,
   error,
-  onRename,
+  isEditable,
 }: ModCardProps) {
   const hasUpdate = updateCheck?.status === "UpdateAvailable";
   const isFolderMissing = error?.startsWith(MOD_FOLDER_MISSING_PREFIX) ?? false;
@@ -68,32 +69,7 @@ export function ModCard({
   // so the two cannot say the same thing by construction.
   const variant = mod.variant_label?.trim() || null;
 
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [draftName, setDraftName] = useState(mod.display_name);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Focus follows the click that opened the editor rather than `autoFocus`, which fires on
-  // mount regardless of why — the distinction ESLint's no-autofocus rule is drawing. Selecting
-  // the text as well means a name being replaced outright can just be typed over, while one
-  // being corrected is still there to click into.
-  useEffect(() => {
-    if (!isRenaming) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [isRenaming]);
-
-  /** Closes the editor either way, and only asks for a write when the name actually moved —
-   * blurring an untouched field should not look like an edit, and a blank one is a slip rather
-   * than an instruction, so it falls back to what was there. */
-  function commitRename() {
-    setIsRenaming(false);
-    const next = draftName.trim();
-    if (next.length === 0) {
-      setDraftName(mod.display_name);
-      return;
-    }
-    if (next !== mod.display_name) onRename?.(next);
-  }
+  const [isEditing, setIsEditing] = useState(false);
 
   return (
     <div
@@ -172,34 +148,14 @@ export function ModCard({
           hasUpdate ? "border-t-primary" : "border-t-border"
         }`}
       >
-        {/* Editing happens in place rather than in a dialog. Renaming is a correction to what
-            the installer guessed, usually a word or two, and the thing being corrected is right
-            here — a modal to change one field would be more ceremony than the act deserves.
-            Enter commits, Escape abandons, and clicking away commits too, since a half-typed
-            name left behind on blur would be its own small bug. */}
-        {isRenaming ? (
-          <input
-            ref={inputRef}
-            value={draftName}
-            onChange={(event) => setDraftName(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") commitRename();
-              if (event.key === "Escape") setIsRenaming(false);
-            }}
-            aria-label={`Rename ${mod.display_name}`}
-            className="w-full border border-primary bg-secondary px-1 py-px font-heading text-sm font-semibold uppercase tracking-wide text-foreground outline-none"
-          />
-        ) : (
-          // Middle-truncated, because two mods from the same GameBanana page share everything up
-          // to the last few words — the tail is the only part that says which one this is.
-          <MiddleTruncate
-            text={mod.display_name}
-            className={`font-heading text-sm font-semibold uppercase tracking-wide ${
-              mod.enabled ? "text-foreground" : "text-muted-foreground"
-            }`}
-          />
-        )}
+        {/* Middle-truncated: a hand-written name can outrun the card, and the tail is where a
+            name says which of several similar things this is. */}
+        <MiddleTruncate
+          text={mod.display_name}
+          className={`font-heading text-sm font-semibold uppercase tracking-wide ${
+            mod.enabled ? "text-foreground" : "text-muted-foreground"
+          }`}
+        />
         {/* The source, not the enabled state — the bar below already says that, and saying it
             twice was the first thing that read as noise.
 
@@ -251,6 +207,10 @@ export function ModCard({
         )}
       </button>
 
+      {/* Mounted only while open so it starts from the mod as it is now — reopening after a
+          rename must not offer the name it had before. */}
+      {isEditing && <EditModDialog mod={mod} onOpenChange={setIsEditing} />}
+
       {/* Update on the left, delete pushed to the far right and ghosted until hovered. They are
           deliberately unlike each other in size, weight and position: one is routine, the other
           destroys files. */}
@@ -293,18 +253,15 @@ export function ModCard({
 
         {/* Sits with delete rather than beside the name: the name is for reading, and a control
             parked against it would be one more thing between the eye and the word. */}
-        {onRename && (
+        {isEditable && (
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="h-7 w-7 opacity-45 hover:bg-transparent hover:text-primary hover:opacity-100"
-            onClick={() => {
-              setDraftName(mod.display_name);
-              setIsRenaming(true);
-            }}
-            aria-label={`Rename ${mod.display_name}`}
-            title="Rename"
+            onClick={() => setIsEditing(true)}
+            aria-label={`Edit ${mod.display_name}`}
+            title="Edit mod"
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>

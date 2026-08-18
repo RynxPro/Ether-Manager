@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDownloadProgress, useDownloads } from "@/features/downloads/hooks";
 import {
   useInstalledFromGameBanana,
   useReinstallMod,
@@ -25,6 +26,7 @@ import { shouldBlur } from "@/lib/mature";
 import { exactDate, updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type {
+  Download,
   GbFile,
   GbMod,
   GbModDetail,
@@ -58,6 +60,10 @@ const CUT_CORNER = {
  * real dimensions. Only ever visible on a cold load; after that the browser cache answers
  * immediately. */
 const FALLBACK_RATIO = 1.6;
+
+/** Queue states where the work is still coming. Everything else — installed, failed, cancelled —
+ * is history the Downloads page keeps, and says nothing about what this button should do now. */
+const UNFINISHED_STATUSES = new Set(["Queued", "Downloading", "Extracting", "Paused"]);
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -107,6 +113,45 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
   const installed = useInstalledFromGameBanana();
   const installedCount = installed.countByModId.get(mod.id) ?? 0;
   const reinstall = useReinstallMod();
+
+  // The queue's own view of what is in flight. Pressing Install here hands the work to the
+  // Downloads page, which used to mean the button went straight back to saying "Install" while
+  // megabytes were arriving — the one screen you pressed it on being the only one with nothing
+  // to report. These two are what the Downloads page reads; borrowing them costs a second
+  // listener and keeps a single description of the queue.
+  const { data: downloads } = useDownloads();
+  const liveProgress = useDownloadProgress();
+
+  /** The unfinished download for a file, if any. Finished, failed and cancelled rows stay in
+   * the queue as history, and none of them should hold the button hostage. */
+  const inFlightByFileId = new Map<number, Download>();
+  for (const download of downloads ?? []) {
+    if (UNFINISHED_STATUSES.has(download.status)) {
+      inFlightByFileId.set(download.gamebanana_file_id, download);
+    }
+  }
+
+  /** What the button says while this file is being fetched, or `null` when it is not.
+   *
+   * Live bytes where there are any, the stored ones otherwise — the persisted counts only move
+   * at phase boundaries, so a row that started before this page was opened still shows a real
+   * figure rather than 0% until the next tick. A percentage needs a total, and GameBanana does
+   * not always send one, so the no-total case says what is happening instead of inventing a
+   * number. */
+  function inFlightLabel(fileId: number): string | null {
+    const download = inFlightByFileId.get(fileId);
+    if (!download) return null;
+    if (download.status === "Queued") return "Queued";
+    if (download.status === "Paused") return "Paused";
+
+    const live = liveProgress[download.id];
+    if (download.status === "Extracting" || live?.isExtracting) return "Unpacking…";
+
+    const downloaded = live?.downloaded ?? download.downloaded_bytes;
+    const total = live?.total ?? download.total_bytes;
+    if (!total) return "Fetching…";
+    return `${Math.min(100, Math.floor((downloaded / total) * 100))}%`;
+  }
 
   /** What pressing this file's button should do, and say.
    *
@@ -642,13 +687,25 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                       <Button
                         type="button"
                         size="sm"
-                        className="mr-2.5"
+                        // One width for every state, so a label that counts upward does not
+                        // resize the button under the cursor — "0%" is 41px and "Downloading…"
+                        // was 109px, and the row twitched on every tick. 96px is the widest
+                        // label any of these buttons can hold ("Install again", "Unpacking…"),
+                        // measured rather than guessed, which also lines the list up into a
+                        // single column instead of a ragged edge.
+                        className="mr-2.5 w-24 justify-center tabular-nums"
                         variant={
                           fileAction(file.id).kind === "install"
                             ? "default"
                             : "outline"
                         }
-                        disabled={reinstall.isPending}
+                        // Only this file's button waits on this file's work — a queuing
+                        // reinstall used to disable every button in the list.
+                        disabled={
+                          inFlightLabel(file.id) !== null ||
+                          (reinstall.isPending &&
+                            reinstall.variables?.gamebananaFileId === file.id)
+                        }
                         onClick={() => {
                           const action = fileAction(file.id);
                           // Reinstall replaces the row's files where it stands; the other two
@@ -672,10 +729,11 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                           });
                         }}
                       >
-                        {reinstall.isPending &&
-                        reinstall.variables?.gamebananaFileId === file.id
-                          ? "Queuing…"
-                          : fileAction(file.id).label}
+                        {inFlightLabel(file.id) ??
+                          (reinstall.isPending &&
+                          reinstall.variables?.gamebananaFileId === file.id
+                            ? "Queuing…"
+                            : fileAction(file.id).label)}
                       </Button>
                     </li>
                   ))}

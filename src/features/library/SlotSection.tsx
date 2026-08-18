@@ -3,12 +3,7 @@ import { CARD_GRID } from "@/lib/layout";
 import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
 import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
-import {
-  useCheckModUpdateWithConfirmation,
-  useDeleteMod,
-  useRenameMod,
-  useToggleMod,
-} from "./hooks";
+import { useCheckModUpdateWithConfirmation, useDeleteMod, useToggleMod } from "./hooks";
 
 interface SlotSectionProps {
   characterId: string;
@@ -34,7 +29,6 @@ export function SlotSection({
 }: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
-  const renameMod = useRenameMod();
   const { checkUpdate, confirmedModId, runCheck } = useCheckModUpdateWithConfirmation();
   const enabledCount = mods.filter((mod) => mod.enabled).length;
 
@@ -99,9 +93,7 @@ export function SlotSection({
                 isConfirmedUpToDate={confirmedModId === mod.id}
                 error={error}
                 onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
-                onRename={(displayName) =>
-                  renameMod.mutate({ modId: mod.id, displayName })
-                }
+                isEditable
                 onDelete={() => deleteMod.mutate(mod.id)}
                 onOpenDetail={
                   mod.gamebanana_mod_id === null ? undefined : () => onOpenModDetail(mod)

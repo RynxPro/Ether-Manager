@@ -90,6 +90,7 @@ pub fn run() {
             commands::mods::add_mod,
             commands::mods::toggle_mod,
             commands::mods::rename_mod,
+            commands::mods::move_mod,
             commands::mods::delete_mod,
             commands::settings::get_mods_folder,
             commands::settings::is_mods_folder_linked,

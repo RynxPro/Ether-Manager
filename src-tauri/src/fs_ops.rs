@@ -252,6 +252,21 @@ pub fn settle_mod_folders(db: &Db, mods_root: &Path) -> Result<usize, FsOpsError
     Ok(moved)
 }
 
+/// Moves a mod folder, falling back to a copy when a plain rename cannot do it.
+///
+/// `fs::rename` is the whole job on one volume and refuses across two, which is not exotic here:
+/// a mods folder on a second drive is a normal way to run this. The fallback copies and then
+/// removes the original, and only removes it once the copy has succeeded — a half-moved mod that
+/// still exists where it was is recoverable, one that exists nowhere is not.
+pub fn move_dir(from: &Path, to: &Path) -> Result<(), FsOpsError> {
+    if fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    copy_dir_recursive(from, to)?;
+    fs::remove_dir_all(from)?;
+    Ok(())
+}
+
 /// Removes a mod's folder from disk entirely. Does not touch the DB row — callers
 /// are expected to also call `Db::delete_mod` once this succeeds.
 pub fn delete_mod_files(m: &Mod) -> std::io::Result<()> {
@@ -669,6 +684,31 @@ mod tests {
         assert_ne!(skin_path, outfit_path, "one must not overwrite the other");
         assert!(skin_path.is_dir());
         assert!(outfit_path.is_dir());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// `move_dir` is what refiling a mod under a different character leans on, so a folder with
+    /// contents has to arrive whole — and the original has to be gone, or the next launch's
+    /// `settle_mod_folders` would find two mods where there is one.
+    #[test]
+    fn moving_a_mod_folder_takes_its_contents_and_leaves_nothing_behind() {
+        let root = temp_dir("move-dir");
+        let from = root.join("Characters").join("belle").join("pinkdress");
+        fs::create_dir_all(from.join("nested")).unwrap();
+        fs::write(from.join("mod.ini"), b"[Mod]").unwrap();
+        fs::write(from.join("nested").join("texture.dds"), b"pixels").unwrap();
+
+        let to = root.join("Misc").join("pinkdress");
+        fs::create_dir_all(to.parent().unwrap()).unwrap();
+        move_dir(&from, &to).unwrap();
+
+        assert!(!from.exists(), "the folder must not still be where it was");
+        assert_eq!(fs::read(to.join("mod.ini")).unwrap(), b"[Mod]");
+        assert_eq!(
+            fs::read(to.join("nested").join("texture.dds")).unwrap(),
+            b"pixels"
+        );
 
         fs::remove_dir_all(&root).unwrap();
     }

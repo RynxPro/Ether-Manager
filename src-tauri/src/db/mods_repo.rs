@@ -174,6 +174,23 @@ impl Db {
         Ok(())
     }
 
+    /// Refiles a mod under a different character (or the UI/Misc buckets) and records where its
+    /// folder ended up. One statement rather than three, because a row whose `character_id` and
+    /// `folder_path` disagree is a mod the library shows in one place and reads from another.
+    pub fn set_location(
+        &self,
+        id: i64,
+        character_id: &str,
+        slot: Slot,
+        folder_path: &str,
+    ) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE mods SET character_id = ?1, slot = ?2, folder_path = ?3, updated_at = ?4 WHERE id = ?5",
+            params![character_id, slot.as_str(), folder_path, now(), id],
+        )?;
+        Ok(())
+    }
+
     pub fn set_enabled(&self, id: i64, enabled: bool) -> rusqlite::Result<()> {
         self.conn.execute(
             "UPDATE mods SET enabled = ?1, updated_at = ?2 WHERE id = ?3",

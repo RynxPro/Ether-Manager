@@ -119,6 +119,13 @@ export function renameMod(modId: number, displayName: string): Promise<void> {
   return invoke("rename_mod", { modId, displayName });
 }
 
+/** Refiles a mod under a different character, or into UI / Misc. Unlike a rename this really
+ * moves the folder, because `character_id` is what the library filters on and the layout is what
+ * decides where those files belong. */
+export function moveMod(modId: number, characterId: string): Promise<Mod> {
+  return invoke("move_mod", { modId, characterId });
+}
+
 export function deleteMod(modId: number): Promise<void> {
   return invoke("delete_mod", { modId });
 }

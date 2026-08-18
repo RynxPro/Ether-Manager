@@ -134,6 +134,94 @@ pub fn rename_mod(state: State<AppState>, mod_id: i64, display_name: String) -> 
         .map_err(|e| e.to_string())
 }
 
+/// Which slot a character implies. A real character always wears a Character Skin — GameBanana
+/// has no per-character subcategory to split further on — and the two pseudo-characters *are*
+/// the slot. So the caller picks a destination and the slot follows, rather than being a second
+/// question with only one right answer.
+fn slot_for(character_id: &str) -> Slot {
+    match character_id {
+        crate::characters::UI_PSEUDO_CHARACTER_ID => Slot::Ui,
+        crate::characters::MISC_PSEUDO_CHARACTER_ID => Slot::Misc,
+        _ => Slot::CharacterSkin,
+    }
+}
+
+fn is_known_character(character_id: &str) -> bool {
+    character_id == crate::characters::UI_PSEUDO_CHARACTER_ID
+        || character_id == crate::characters::MISC_PSEUDO_CHARACTER_ID
+        || crate::characters::all_characters()
+            .iter()
+            .any(|c| c.id == character_id)
+}
+
+/// Refiles a mod under a different character, or into the UI/Misc buckets, moving its folder to
+/// match.
+///
+/// Guessing the destination from a mod's GameBanana category is right often enough to be worth
+/// doing at install time and wrong often enough to need undoing — a skin filed under the wrong
+/// member of the roster is invisible on the page you go looking for it, and re-downloading it
+/// just to re-answer that question is a poor trade.
+///
+/// The folder really moves, unlike a rename. A mod's location is not a label: `character_id` is
+/// what the library filters on and the folder is what the layout says should hold it, so leaving
+/// the files behind would put the row and the disk into the disagreement `settle_mod_folders`
+/// exists to heal, and it would heal it on the next launch by moving them anyway.
+///
+/// The destination is checked against the real roster rather than trusted, since it reaches a
+/// path. An unknown id would otherwise create a folder for a character that does not exist,
+/// holding a mod nothing can ever show.
+#[tauri::command]
+pub fn move_mod(state: State<AppState>, mod_id: i64, character_id: String) -> Result<Mod, String> {
+    if !is_known_character(&character_id) {
+        return Err(format!("{character_id} is not a character or category"));
+    }
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let m = db
+        .get_mod(mod_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("mod {mod_id} is no longer in the library"))?;
+
+    let mods_folder = db
+        .get_setting("mods_folder")
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "mods folder is not set yet".to_string())?;
+    let mods_root = PathBuf::from(mods_folder);
+
+    let slot = slot_for(&character_id);
+    let current = PathBuf::from(&m.folder_path);
+    let home = fs_ops::ensure_mod_home_dir(&mods_root, &character_id).map_err(|e| e.to_string())?;
+
+    // Already in the right place on disk — a mod filed under the wrong character can still have
+    // the right folder, and re-homing a mod to where it already lives should not touch the disk.
+    if current.parent() == Some(home.as_path()) {
+        db.set_location(mod_id, &character_id, slot, &m.folder_path)
+            .map_err(|e| e.to_string())?;
+    } else {
+        if !current.exists() {
+            return Err(format!(
+                "{}: {}",
+                fs_ops::MOD_FOLDER_MISSING_PREFIX,
+                current.display()
+            ));
+        }
+        let leaf = current
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| format!("mod folder {} has an invalid name", current.display()))?;
+        // The destination may already hold a folder of this name from a different mod, so the
+        // same de-duplication an install uses applies here.
+        let dest = unique_variant_dir(&home, leaf);
+        fs_ops::move_dir(&current, &dest).map_err(|e| e.to_string())?;
+        db.set_location(mod_id, &character_id, slot, &dest.to_string_lossy())
+            .map_err(|e| e.to_string())?;
+    }
+
+    db.get_mod(mod_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("mod {mod_id} vanished immediately after being moved"))
+}
+
 #[tauri::command]
 pub fn toggle_mod(state: State<AppState>, mod_id: i64, enabled: bool) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
