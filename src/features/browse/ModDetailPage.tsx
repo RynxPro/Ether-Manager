@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDownloadProgress, useDownloads } from "@/features/downloads/hooks";
@@ -67,8 +68,9 @@ const FALLBACK_RATIO = 1.6;
  * is history the Downloads page keeps, and says nothing about what this button should do now. */
 const UNFINISHED_STATUSES = new Set(["Queued", "Downloading", "Extracting", "Paused"]);
 
-/** How much of the page header has to be on screen for it to still count as reachable. */
-const HEADER_VISIBLE_RATIO = 0.5;
+/** The right column's width, shared by the panel and the skeleton that stands in for it while
+ * the fetch is in flight. Two places that have to agree. */
+const SIDE_PANEL_WIDTH = "w-[400px]";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -208,29 +210,6 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
     });
   }, [activeImageIndex]);
 
-  // The back button lives in the header, and a long description scrolls that header away for
-  // thousands of pixels — leaving the only way out of the page at the top of a scroll you have
-  // to make in full. A slim bar takes over once the header goes, the same way Browse's controls
-  // do, rather than pinning the header itself.
-  // The switch is on *most of* the header being on screen, not on any pixel of it. A mod with a
-  // short description only scrolls a hundred pixels or so, never far enough to clear the header
-  // completely — so `isIntersecting` stayed true at the very bottom of the page, the bar never
-  // appeared, and the real back button was already off the top. Half the header showing is the
-  // point past which the button it holds stops being somewhere you can reach.
-  const headerRef = useRef<HTMLDivElement>(null);
-  const [isHeaderOnScreen, setIsHeaderOnScreen] = useState(true);
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header) return;
-    const observer = new IntersectionObserver(
-      ([entry]) =>
-        setIsHeaderOnScreen(entry.intersectionRatio > HEADER_VISIBLE_RATIO),
-      { threshold: [0, 0.25, HEADER_VISIBLE_RATIO, 0.75, 1] },
-    );
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, []);
-
   function step(delta: number) {
     setActiveImageIndex(
       (current) => (current + delta + images.length) % images.length,
@@ -254,40 +233,57 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
 
   return (
     <div className="space-y-5">
-      <div
-        ref={headerRef}
-        className="flex items-end gap-4 border-b-2 border-primary pb-3.5"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={onBack}
-          aria-label="Back"
+      {/* One header, always here, pinned to the top of the page.
+          It used to be two: a tall band that scrolled away and a slim bar that faded in to
+          replace it once an observer decided the first was gone. Three rounds of bugs came out
+          of the two having to agree — the bar mounting and unmounting fed back into the page
+          height and made it flicker; the observer only flipped when the tall band was gone to
+          the last pixel, so on a short page it never appeared at all and there was no way back;
+          and because the bar had to stop short of the pinned right column while the band ran
+          the full width, the accent rule visibly broke in half the moment you scrolled.
+          None of those are separate faults. They are all the cost of a heading that changes
+          identity partway down the page, so it does not change any more.
+
+          Nothing here depends on scroll position, which is what makes it stable: no observer,
+          no state, no second copy of the title or of the way out, and a constant height that
+          cannot feed back into the scrolling it would be measured against. The rule is the
+          header's own bottom border, so it is the full width of the page at every scroll
+          position by construction rather than by two elements matching.
+
+          `-mt-6 pt-6` so the band paints right up to the top of the window while its contents
+          keep the same 24px gutter the page has everywhere else — without it the title's caps
+          sit against the window edge the moment it pins. Paired with `-top-6` (sticky measures
+          from the scrolling element's content box, and the page's scroller carries `p-6`) the
+          pinned position is pixel-for-pixel where the band already was, so it never appears to
+          move at all. The background is what the content passing underneath is hidden behind. */}
+      <div className="sticky -top-6 z-30 -mt-6 bg-background pt-6">
+        <PageHeader
+          leading={
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onBack}
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          }
+          title={detail?.name ?? mod.name}
+          subtitle={categoryName ? `Mod / ${categoryName}` : "Mod"}
         >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="min-w-0 flex-1">
-          <p className="font-heading text-[10px] uppercase tracking-[0.18em] text-primary">
-            {categoryName ? `Mod / ${categoryName}` : "Mod"}
-          </p>
-          {/* Broken anywhere, because GameBanana names are comma-joined runs the line breaker
-              treats as a single token — the same trap the featured panel's title hit. */}
-          <h2 className="mt-1 break-words font-heading text-[27px] uppercase leading-[1.05] tracking-[0.02em]">
-            {detail?.name ?? mod.name}
-          </h2>
-          {/* Beside the title rather than down with the files, because it changes what this page
-              is for: you came to decide whether to install something you already have. Which
-              file you have is a separate question, answered in the list itself. */}
+          {/* Up here rather than down with the files, because it changes what this page is for:
+              you came to decide whether to install something you already have. Which file you
+              have is a separate question, answered in the list itself. */}
           {installedCount > 0 && (
-            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-success">
+            <p className="flex items-center gap-1.5 text-[11px] text-success">
               <Check className="h-3.5 w-3.5 shrink-0" />
               {installedCount > 1
                 ? `In your library — ${installedCount} variants installed`
                 : "In your library"}
             </p>
           )}
-        </div>
+        </PageHeader>
       </div>
 
       {isLoading || !detail ? (
@@ -297,51 +293,11 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
             <Skeleton className="h-5 w-1/3" />
             <Skeleton className="h-40 w-full" />
           </div>
-          <Skeleton className="h-[540px] w-[400px] shrink-0" />
+          <Skeleton className={`h-[540px] ${SIDE_PANEL_WIDTH} shrink-0`} />
         </div>
       ) : (
         <div className="flex items-start gap-6">
           <div className="min-w-0 flex-1 space-y-6">
-            {/* Always mounted, and only shown or hidden. It used to be mounted conditionally,
-                which put it in a loop with the observer that decides when to show it: adding it
-                to a `space-y-6` column shifted the sibling margins and took 24px off the page,
-                that lifted the real header back into view, the observer said "on screen", the
-                bar unmounted, the 24px came back — about four times a second on any page short
-                enough that 24px spans the whole scroll. A mod page with a short description is
-                exactly that page, and the bar flickered there instead of appearing.
-                Visibility cannot feed back into layout, so the loop has nowhere to start.
-
-                `invisible` rather than only `opacity-0`, so a hidden bar is out of the tab order
-                and out of the accessibility tree rather than merely transparent.
-
-                Zero-height with the bar overflowing out of it, so it costs no layout either way.
-                `-top-6` rather than `top-0` because sticky pins to the scrolling element's
-                padding box and the page's scroller carries `p-6`.
-                Only as wide as this column, unlike Browse's full-bleed version: the right
-                column is pinned too, and a bar reaching the window edge would sit across the
-                top of it. */}
-            <div
-              aria-hidden={isHeaderOnScreen}
-              className={`sticky -top-6 z-30 -mb-6 h-0 transition-opacity duration-200 ${
-                isHeaderOnScreen ? "invisible opacity-0" : "visible opacity-100"
-              }`}
-            >
-              <div className="flex items-center gap-3 border-b-2 border-primary bg-background py-2.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={onBack}
-                    aria-label="Back"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                <p className="min-w-0 truncate font-heading text-sm uppercase tracking-[0.06em]">
-                  {detail?.name ?? mod.name}
-                </p>
-              </div>
-            </div>
-
             {activeImage && (
               <section>
                 <SectionLabel
@@ -525,7 +481,19 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
           {/* Pinned, and capped to the window: a fourteen-file list that ran past the bottom of
               a short window would put its last rows out of reach for as long as the column
               stayed stuck. The list takes whatever height is left and scrolls inside itself. */}
-          <aside className="sticky top-0 flex max-h-[calc(100vh-3rem)] w-[400px] shrink-0 flex-col gap-3.5">
+          {/* Pinned below the header rather than at the window edge — the header spans the full
+              width and pins first, so anything sharing the top of the window with it ends up
+              underneath it.
+
+              The offset is the header (3rem) plus the 1.25rem `space-y-5` already opens between
+              them, so the panel holds the same distance from the accent rule pinned as it does
+              at rest. Landing it flush on the rule instead made the two read as one welded
+              object and left the panel's own yellow caption bar sitting directly under a yellow
+              line. What it can claim in height is the window less that offset and the padding at
+              the foot of the page. */}
+          <aside
+            className={`sticky top-[4.25rem] flex max-h-[calc(100vh-7.25rem)] ${SIDE_PANEL_WIDTH} shrink-0 flex-col gap-3.5`}
+          >
             <div
               className="shrink-0 border-2 border-border bg-card"
               style={CUT_CORNER}
