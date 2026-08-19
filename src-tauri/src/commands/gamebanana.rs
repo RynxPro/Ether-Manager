@@ -414,7 +414,7 @@ async fn download_and_extract_gamebanana_file(
 }
 
 /// Downloads a specific GameBanana file, extracts it into the given character/slot, and
-/// records it as an installed mod — the GameBanana counterpart to `commands::mods::add_mod`.
+/// records it as an installed mod — the GameBanana counterpart to `commands::import`.
 /// `character_id`/`slot`/`display_name` are assumed already confirmed by the user (the auto
 /// slot guess is only ever a suggestion, never applied silently — see the Milestone 2 plan's
 /// Assumption 2); this runs the install once that confirmation happened.
@@ -523,6 +523,8 @@ async fn record_installed_mod(
         gamebanana_file_id: Some(gamebanana_file_id),
         gamebanana_md5: Some(file.md5_checksum),
         variant_label,
+        // GameBanana serves its own preview, so there is nothing to dig out of the archive.
+        bundled_thumbnail: None,
     })
     .map_err(|e| e.to_string())
 }

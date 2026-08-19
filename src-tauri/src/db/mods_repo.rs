@@ -59,6 +59,10 @@ pub struct Mod {
     /// See `crate::variant_label`. Null for hand-added mods, for mods that ship a single file,
     /// for files nothing readable can be said about, and for rows predating this column.
     pub variant_label: Option<String>,
+    /// Card art that came in the archive, as a path relative to `folder_path`. Set only for
+    /// mods brought in from outside the app — a GameBanana mod uses `thumbnail_url` instead.
+    /// Relative so refiling the mod cannot leave it pointing at the old folder.
+    pub bundled_thumbnail: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -81,6 +85,7 @@ pub struct NewMod {
     pub gamebanana_file_id: Option<i64>,
     pub gamebanana_md5: Option<String>,
     pub variant_label: Option<String>,
+    pub bundled_thumbnail: Option<String>,
 }
 
 fn now() -> i64 {
@@ -107,6 +112,7 @@ fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
         gamebanana_file_id: row.get("gamebanana_file_id")?,
         gamebanana_md5: row.get("gamebanana_md5")?,
         variant_label: row.get("variant_label")?,
+        bundled_thumbnail: row.get("bundled_thumbnail")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -116,8 +122,8 @@ impl Db {
     pub fn insert_mod(&self, new: NewMod) -> rusqlite::Result<Mod> {
         let ts = now();
         self.conn.execute(
-            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, variant_label, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, variant_label, bundled_thumbnail, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
             params![
                 new.character_id,
                 new.slot.as_str(),
@@ -128,6 +134,7 @@ impl Db {
                 new.gamebanana_file_id,
                 new.gamebanana_md5,
                 new.variant_label,
+                new.bundled_thumbnail,
                 ts,
             ],
         )?;
@@ -316,6 +323,7 @@ mod tests {
             gamebanana_file_id: None,
             gamebanana_md5: None,
             variant_label: None,
+            bundled_thumbnail: None,
         }
     }
 

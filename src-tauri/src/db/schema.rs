@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS mods (
     gamebanana_file_id INTEGER,
     gamebanana_md5 TEXT,
     variant_label TEXT,
+    bundled_thumbnail TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
 );

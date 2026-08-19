@@ -327,7 +327,8 @@ pub fn replace_mod_folder(current_dir: &Path, staging_dir: &Path) -> Result<(), 
 }
 
 /// Recursively copies `src`'s contents into `dst`, creating `dst` if needed. Used by
-/// `add_mod` when the user picks an already-extracted folder rather than an archive.
+/// `commands::import::place_mods` when the source is a folder the user pointed at rather than
+/// an archive the app unpacked — theirs stays where it is, so it is copied and not moved.
 pub fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     fs::create_dir_all(dst)?;
     for entry in fs::read_dir(src)? {
@@ -393,6 +394,7 @@ mod tests {
             gamebanana_file_id: None,
             gamebanana_md5: None,
             variant_label: None,
+            bundled_thumbnail: None,
         })
         .unwrap()
     }

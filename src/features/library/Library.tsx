@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { FilePlus2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
@@ -46,6 +46,9 @@ interface LibraryProps {
   /** Opens an installed mod's GameBanana page, via App's shared detail route. Reaches the UI
    * and Misc tabs, which are the only mod cards this page renders directly. */
   onOpenModDetail: (mod: Mod) => void;
+  /** Opens the file picker and starts an import. Dropping a file on the window does the same
+   * thing and is the faster path; this is here for anyone who does not think to drag. */
+  onImport: () => void;
 }
 
 type LibraryTab = "characters" | "ui" | "misc";
@@ -58,7 +61,7 @@ type LibraryTab = "characters" | "ui" | "misc";
  *
  * Search filters the roster by character name only, and so belongs to the Characters tab alone.
  * Finding a specific mod is the All Mods page's job — one search box, one behaviour each. */
-export function Library({ onSelectCharacter, onOpenModDetail }: LibraryProps) {
+export function Library({ onSelectCharacter, onOpenModDetail, onImport }: LibraryProps) {
   const [tab, setTab] = useState<LibraryTab>("characters");
   const [query, setQuery] = useState("");
   const searchRef = useSearchHotkey(() => setQuery(""));
@@ -99,6 +102,10 @@ export function Library({ onSelectCharacter, onOpenModDetail }: LibraryProps) {
             className="w-full sm:w-64"
           />
         )}
+        <Button type="button" variant="outline" size="sm" onClick={onImport}>
+          <FilePlus2 className="h-3.5 w-3.5" />
+          Import
+        </Button>
       </PageHeader>
 
       {/* The rule belongs to the row, not the tablist: the update button shares the line but is
@@ -165,21 +172,21 @@ export function Library({ onSelectCharacter, onOpenModDetail }: LibraryProps) {
 
       {tab === "ui" && (
         <SlotSection
-          characterId={UI_CHARACTER_ID}
           slot="Ui"
           mods={uiMods ?? []}
           updateChecksByModId={updateChecksByModId}
           onOpenModDetail={onOpenModDetail}
+          onImport={onImport}
         />
       )}
 
       {tab === "misc" && (
         <SlotSection
-          characterId={MISC_CHARACTER_ID}
           slot="Misc"
           mods={miscMods ?? []}
           updateChecksByModId={updateChecksByModId}
           onOpenModDetail={onOpenModDetail}
+          onImport={onImport}
         />
       )}
     </div>

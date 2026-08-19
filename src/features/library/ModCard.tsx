@@ -13,6 +13,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MiddleTruncate } from "@/components/MiddleTruncate";
 import { Button } from "@/components/ui/button";
+import { modArtSrc } from "@/lib/modArt";
 import { MOD_FOLDER_MISSING_PREFIX, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { EditModDialog } from "./EditModDialog";
 import { UpdateModDialog } from "./UpdateModDialog";
@@ -61,6 +62,9 @@ export function ModCard({
   error,
   isEditable,
 }: ModCardProps) {
+  // GameBanana's remote preview, or the picture that came inside the archive for a mod imported
+  // from outside the app. Resolved in one place so every surface showing a mod agrees.
+  const artSrc = modArtSrc(mod);
   const hasUpdate = updateCheck?.status === "UpdateAvailable";
   const isFolderMissing = error?.startsWith(MOD_FOLDER_MISSING_PREFIX) ?? false;
   // Only GameBanana-installed mods can be update-checked at all — a hand-added folder has no
@@ -88,9 +92,9 @@ export function ModCard({
           portrait frame would crop most of every image away. These cards never share a grid with
           character cards, so the shape can differ while the styling stays identical. */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary">
-        {mod.thumbnail_url ? (
+        {artSrc ? (
           <img
-            src={mod.thumbnail_url}
+            src={artSrc}
             alt=""
             className={`absolute inset-0 h-full w-full object-cover transition-[filter] ${
               mod.enabled

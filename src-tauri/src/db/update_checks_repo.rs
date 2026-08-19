@@ -135,6 +135,7 @@ mod tests {
             gamebanana_file_id: Some(1481954),
             gamebanana_md5: Some("old-md5".to_string()),
             variant_label: None,
+            bundled_thumbnail: None,
         })
         .unwrap()
         .id

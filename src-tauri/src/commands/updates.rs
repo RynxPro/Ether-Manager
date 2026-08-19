@@ -491,6 +491,7 @@ mod tests {
             gamebanana_file_id: Some(gamebanana_file_id),
             gamebanana_md5: gamebanana_md5.map(str::to_string),
             variant_label: None,
+            bundled_thumbnail: None,
         })
         .unwrap()
         .id
@@ -582,6 +583,7 @@ mod tests {
                 gamebanana_file_id: None,
                 gamebanana_md5: None,
                 variant_label: None,
+                bundled_thumbnail: None,
             })
             .unwrap()
             .id;

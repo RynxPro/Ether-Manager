@@ -60,16 +60,12 @@ export interface Mod {
    * Null for hand-added mods, for mods shipping a single file, for files nothing readable can
    * be said about, and for rows installed before this was recorded. */
   variant_label: string | null;
+  /** Card art that came in the archive, as a path relative to `folder_path`. Set only for mods
+   * brought in from outside the app — a GameBanana mod has `thumbnail_url` and a server to
+   * fetch it from. Relative so refiling a mod cannot leave it pointing at the old folder. */
+  bundled_thumbnail: string | null;
   created_at: number;
   updated_at: number;
-}
-
-export interface AddModInput {
-  characterId: string;
-  slot: Slot;
-  displayName: string;
-  sourcePath: string;
-  thumbnailUrl?: string | null;
 }
 
 export function listCharacters(): Promise<Character[]> {
@@ -97,16 +93,6 @@ export function listModsForCharacter(characterId: string): Promise<Mod[]> {
  * name, with no per-keystroke round trip. */
 export function listAllMods(): Promise<Mod[]> {
   return invoke("list_all_mods");
-}
-
-export function addMod(input: AddModInput): Promise<Mod> {
-  return invoke("add_mod", {
-    characterId: input.characterId,
-    slot: input.slot,
-    displayName: input.displayName,
-    sourcePath: input.sourcePath,
-    thumbnailUrl: input.thumbnailUrl ?? null,
-  });
 }
 
 export function toggleMod(modId: number, enabled: boolean): Promise<void> {
@@ -146,6 +132,76 @@ export function setModsFolder(path: string): Promise<void> {
 
 export function pickModsFolder(): Promise<string | null> {
   return invoke("pick_mods_folder");
+}
+
+/** One installable mod found inside something the user brought in from outside the app.
+ *
+ * Field names are snake_case, like `Mod` above, because these cross the bridge as serde structs
+ * rather than as command arguments — only the argument names get camelCased. */
+export interface ImportCandidate {
+  /** Where it sits inside the unpacked tree — `/`-separated, always relative, and empty when
+   * the tree's own root is the mod (an archive with no wrapper folder of its own). */
+  rel_path: string;
+  /** A readable name guessed from the folder holding it. Editable before installing. */
+  suggested_name: string;
+  /** A picture the archive shipped, relative to the tree in the same way. */
+  preview_rel_path: string | null;
+}
+
+export interface ImportPlan {
+  /** Empty means this does not look like an XXMI mod at all — no `.ini` anywhere in it. */
+  candidates: ImportCandidate[];
+  /** Null when nothing in the names identified a character, or when two fit equally well. The
+   * picker starts empty in that case rather than starting wrong. */
+  suggested_character_id: string | null;
+}
+
+export interface BegunImport {
+  session_id: number;
+  /** The name of the file or folder that was picked, for the sheet to show. */
+  source_label: string;
+  plan: ImportPlan;
+}
+
+/** One mod the user confirmed, out of what the plan offered. */
+export interface ImportSelection {
+  rel_path: string;
+  display_name: string;
+  character_id: string;
+  /** The plan's suggestion, or null to install without card art. */
+  preview_rel_path: string | null;
+}
+
+/** The native file picker, filtered to the archives the app can read. Null when dismissed. */
+export function pickModArchive(): Promise<string | null> {
+  return invoke("pick_mod_archive");
+}
+
+/** Unpacks a dropped archive (or reads a dropped folder) somewhere disposable and reports what
+ * is inside. Nothing is filed until `commitImport`, and nothing is left behind after
+ * `cancelImport` — so opening this costs the user nothing. */
+export function beginImport(path: string): Promise<BegunImport> {
+  return invoke("begin_import", { path });
+}
+
+/** A candidate's preview as a `data:` URL. The image is still in a staging directory the webview
+ * cannot reach, so the bytes come across rather than a path. */
+export function readImportPreview(sessionId: number, relPath: string): Promise<string> {
+  return invoke("read_import_preview", { sessionId, relPath });
+}
+
+/** Files the chosen mods into the library. Each one's folder is lifted out on its own, which
+ * drops the wrapper folder archives habitually carry. */
+export function commitImport(
+  sessionId: number,
+  selections: ImportSelection[],
+): Promise<Mod[]> {
+  return invoke("commit_import", { sessionId, selections });
+}
+
+/** Throws away everything an unfinished import unpacked. */
+export function cancelImport(sessionId: number): Promise<void> {
+  return invoke("cancel_import", { sessionId });
 }
 
 export interface GbPreviewImage {

@@ -1,4 +1,6 @@
+import { FilePlus2 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CARD_GRID } from "@/lib/layout";
@@ -19,6 +21,9 @@ interface AllModsProps {
   onSelectCharacter: (character: Character) => void;
   /** Opens an installed mod's GameBanana page, via App's shared detail route. */
   onOpenModDetail: (mod: Mod) => void;
+  /** Opens the file picker and starts an import. Dropping a file on the window does the same
+   * thing and is the faster path; this is here for anyone who does not think to drag. */
+  onImport: () => void;
 }
 
 interface CharacterGroup {
@@ -60,7 +65,7 @@ function groupByCharacter(mods: Mod[], characters: Character[]): CharacterGroup[
  * This is the page that answers "what do I actually have?" and "where did I put that one?" —
  * questions the roster can't answer, because it's organised by character and you search when
  * you've forgotten which character something is filed under. */
-export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
+export function AllMods({ onSelectCharacter, onOpenModDetail, onImport }: AllModsProps) {
   const [query, setQuery] = useState("");
   const searchRef = useSearchHotkey(() => setQuery(""));
   const { data: allMods, isLoading } = useAllMods();
@@ -105,6 +110,10 @@ export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
           aria-label="Search your installed mods"
           className="w-full sm:w-64"
         />
+        <Button type="button" variant="outline" size="sm" onClick={onImport}>
+          <FilePlus2 className="h-3.5 w-3.5" />
+          Import
+        </Button>
       </PageHeader>
 
       {isLoading ? (

@@ -17,7 +17,10 @@ import { DownloadsView } from "@/features/downloads/DownloadsView";
 import { activeDownloads, useDownloads } from "@/features/downloads/hooks";
 import { AllMods } from "@/features/library/AllMods";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
+import { ImportDropOverlay } from "@/features/library/ImportDropOverlay";
+import { ImportModSheet } from "@/features/library/ImportModSheet";
 import { Library } from "@/features/library/Library";
+import { useModImport } from "@/features/library/useModImport";
 import { useCharacters, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -48,6 +51,10 @@ function App() {
   const [view, setView] = useState<View>("library");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
+  // At the shell, because dropping a mod has to work on whichever page you happen to be on —
+  // and because one listener and one sheet is the only arrangement where two drops cannot
+  // fight over the same dialog.
+  const imports = useModImport();
   const queryClient = useQueryClient();
   // Mounted at the shell rather than on the Downloads page, for two reasons: the nav badge has
   // to be right wherever you are, and this hook carries the `downloads-changed` listener that
@@ -207,9 +214,14 @@ function App() {
                 onBack={() => setSelectedCharacter(null)}
                 onBrowse={() => goTo("browse")}
                 onOpenModDetail={openModDetail}
+                onImport={imports.importFromPicker}
               />
             ) : (
-              <AllMods onSelectCharacter={setSelectedCharacter} onOpenModDetail={openModDetail} />
+              <AllMods
+                onSelectCharacter={setSelectedCharacter}
+                onOpenModDetail={openModDetail}
+                onImport={imports.importFromPicker}
+              />
             )
           ) : selectedCharacter ? (
             <CharacterDetail
@@ -217,12 +229,27 @@ function App() {
               onBack={() => setSelectedCharacter(null)}
               onBrowse={() => goTo("browse")}
               onOpenModDetail={openModDetail}
+              onImport={imports.importFromPicker}
             />
           ) : (
-            <Library onSelectCharacter={setSelectedCharacter} onOpenModDetail={openModDetail} />
+            <Library
+              onSelectCharacter={setSelectedCharacter}
+              onOpenModDetail={openModDetail}
+              onImport={imports.importFromPicker}
+            />
           )}
         </div>
       </main>
+
+      <ImportDropOverlay
+        isDragging={imports.isDragging}
+        isBeginning={imports.isBeginning}
+        error={imports.error}
+        onDismissError={imports.dismissError}
+      />
+      {imports.begun && (
+        <ImportModSheet begun={imports.begun} onOpenChange={() => imports.closeSheet()} />
+      )}
     </div>
   );
 }

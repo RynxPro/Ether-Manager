@@ -1,9 +1,8 @@
-import { ArrowLeft, Compass } from "lucide-react";
+import { ArrowLeft, Compass, FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CARD_GRID } from "@/lib/layout";
 import type { Character, Mod, UpdateCheck } from "@/lib/tauri-commands";
-import { AddModDialog } from "./AddModDialog";
 import { SlotSection } from "./SlotSection";
 import { useModsForCharacter, useUpdateChecks } from "./hooks";
 
@@ -13,6 +12,9 @@ interface CharacterDetailProps {
   onBrowse: () => void;
   /** Opens an installed mod's GameBanana page, via App's shared detail route. */
   onOpenModDetail: (mod: Mod) => void;
+  /** Opens the file picker and starts an import — for a mod that came from somewhere other
+   * than GameBanana. Dropping the file anywhere on the window does the same thing. */
+  onImport: () => void;
 }
 
 /** Every real character has exactly one slot — Character Skin. There's no per-character UI
@@ -24,6 +26,7 @@ export function CharacterDetail({
   onBack,
   onBrowse,
   onOpenModDetail,
+  onImport,
 }: CharacterDetailProps) {
   const { data: mods, isLoading } = useModsForCharacter(character.id);
   const { data: updateChecks } = useUpdateChecks();
@@ -163,11 +166,10 @@ export function CharacterDetail({
               </p>
             )}
             <div className="mt-3.5 flex gap-2">
-              <AddModDialog
-                characterId={character.id}
-                slot="CharacterSkin"
-                triggerVariant="default"
-              />
+              <Button type="button" size="sm" onClick={onImport}>
+                <FilePlus2 className="h-3.5 w-3.5" />
+                Import a mod
+              </Button>
               <Button type="button" variant="outline" size="sm" onClick={onBrowse}>
                 <Compass className="h-3.5 w-3.5" />
                 Browse for more
@@ -185,12 +187,12 @@ export function CharacterDetail({
         </div>
       ) : (
         <SlotSection
-          characterId={character.id}
           slot="CharacterSkin"
           mods={skins}
           updateChecksByModId={updateChecksByModId}
           onOpenModDetail={onOpenModDetail}
           showHeader={false}
+          onImport={onImport}
         />
       )}
     </div>

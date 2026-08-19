@@ -1,31 +1,33 @@
-import { TriangleAlert } from "lucide-react";
+import { FilePlus2, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CARD_GRID } from "@/lib/layout";
 import { SLOT_LABELS, type Mod, type Slot, type UpdateCheck } from "@/lib/tauri-commands";
-import { AddModDialog } from "./AddModDialog";
 import { ModCard } from "./ModCard";
 import { useCheckModUpdateWithConfirmation, useDeleteMod, useToggleMod } from "./hooks";
 
 interface SlotSectionProps {
-  characterId: string;
   slot: Slot;
   mods: Mod[];
   updateChecksByModId: Map<number, UpdateCheck>;
   /** Opens an installed mod's GameBanana page. Threaded from App, which owns the detail
    * route — the same page Browse uses, so there is one mod page rather than two. */
   onOpenModDetail: (mod: Mod) => void;
-  /** The UI and Misc tabs need the slot named and their own Add mod button, because they sit
+  /** The UI and Misc tabs need the slot named and their own Import button, because they sit
    * side by side under one page title. A character page has exactly one slot, so naming it
    * labels nothing — its banner carries the name and the button instead. */
   showHeader?: boolean;
+  /** Opens the file picker and starts an import. Threaded from App, which owns the one import
+   * flow — a second would mean a second drag listener and two sheets racing for the screen. */
+  onImport: () => void;
 }
 
 export function SlotSection({
-  characterId,
   slot,
   mods,
   updateChecksByModId,
   onOpenModDetail,
   showHeader = true,
+  onImport,
 }: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
@@ -39,7 +41,10 @@ export function SlotSection({
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {SLOT_LABELS[slot]}
           </h3>
-          <AddModDialog characterId={characterId} slot={slot} />
+          <Button type="button" variant="outline" size="sm" onClick={onImport}>
+            <FilePlus2 className="h-3.5 w-3.5" />
+            Import
+          </Button>
         </div>
       )}
 

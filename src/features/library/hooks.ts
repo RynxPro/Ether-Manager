@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
-  addMod,
+  beginImport,
+  cancelImport,
   checkAllModUpdates,
   checkModUpdate,
+  commitImport,
   deleteMod,
   enqueueDownload,
   getModsFolder,
@@ -14,12 +16,13 @@ import {
   listUpdateChecks,
   moveMod,
   pickModsFolder,
+  readImportPreview,
   renameMod,
   setModsFolder,
   toggleMod,
   updateInstalledMod,
-  type AddModInput,
   type EnqueueDownloadInput,
+  type ImportSelection,
   type Mod,
 } from "@/lib/tauri-commands";
 
@@ -67,14 +70,6 @@ function useModMutationInvalidation() {
   };
 }
 
-export function useAddMod() {
-  const invalidate = useModMutationInvalidation();
-  return useMutation({
-    mutationFn: (input: AddModInput) => addMod(input),
-    onSuccess: invalidate,
-  });
-}
-
 export function useToggleMod() {
   const invalidate = useModMutationInvalidation();
   return useMutation({
@@ -113,6 +108,57 @@ export function useDeleteMod() {
   return useMutation({
     mutationFn: (modId: number) => deleteMod(modId),
     onSuccess: invalidate,
+  });
+}
+
+/** Unpacks something the user brought in from outside the app and reports what is inside.
+ *
+ * Deliberately does not invalidate anything: this writes only to a staging directory, and the
+ * library has not changed until the import is committed. Treating "I looked at a zip" as a
+ * library mutation would refetch every mod list for nothing. */
+export function useBeginImport() {
+  return useMutation({
+    mutationFn: (path: string) => beginImport(path),
+  });
+}
+
+/** Installs the chosen mods. The first point in the flow at which anything is filed, so the
+ * first at which the caches are stale — a pack can add several mods across the library at once,
+ * which is exactly what the shared invalidation covers. */
+export function useCommitImport() {
+  const invalidate = useModMutationInvalidation();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      selections,
+    }: {
+      sessionId: number;
+      selections: ImportSelection[];
+    }) => commitImport(sessionId, selections),
+    onSuccess: invalidate,
+  });
+}
+
+/** Throws away an unfinished import. Nothing was filed, so nothing needs refetching. */
+export function useCancelImport() {
+  return useMutation({
+    mutationFn: (sessionId: number) => cancelImport(sessionId),
+  });
+}
+
+/** A candidate's preview picture, as a `data:` URL.
+ *
+ * `staleTime: Infinity` because a staging directory does not change under us — the bytes are
+ * fixed for the life of the session, and a pack of six would otherwise refetch six base64 blobs
+ * on every render that remounts the sheet. `retry: false` because the honest failure here is
+ * "there is no readable image", which does not get better by asking again. */
+export function useImportPreview(sessionId: number, relPath: string | null) {
+  return useQuery({
+    queryKey: ["importPreview", sessionId, relPath],
+    queryFn: () => readImportPreview(sessionId, relPath as string),
+    enabled: relPath !== null,
+    staleTime: Infinity,
+    retry: false,
   });
 }
 

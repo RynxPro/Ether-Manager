@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 
 use tauri::State;
 
-use crate::db::{Mod, ModCounts, NewMod, Slot};
-use crate::{archive, fs_ops, AppState};
+use crate::db::{Mod, ModCounts, Slot};
+use crate::{fs_ops, AppState};
 
 #[tauri::command]
 pub fn list_mods_for_character(
@@ -54,62 +54,6 @@ pub(crate) fn unique_variant_dir(parent: &Path, base_name: &str) -> PathBuf {
     candidate
 }
 
-fn is_archive_path(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|ext| matches!(ext.to_lowercase().as_str(), "zip" | "7z" | "rar"))
-        .unwrap_or(false)
-}
-
-#[tauri::command]
-pub fn add_mod(
-    state: State<AppState>,
-    character_id: String,
-    slot: Slot,
-    display_name: String,
-    source_path: String,
-    thumbnail_url: Option<String>,
-) -> Result<Mod, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-
-    let mods_folder = db
-        .get_setting("mods_folder")
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "mods folder is not set yet".to_string())?;
-    let mods_root = PathBuf::from(mods_folder);
-
-    let character_dir =
-        fs_ops::ensure_mod_home_dir(&mods_root, &character_id).map_err(|e| e.to_string())?;
-
-    // A newly inserted mod always starts disabled (see insert_mod) — extract straight into a
-    // DISABLED_-prefixed folder so the disk matches that from the start, instead of a clean
-    // name that XXMI would actually treat as active despite the app showing it as off.
-    let base_name = fs_ops::to_disabled_name(&slugify_display_name(&display_name));
-    let dest_dir = unique_variant_dir(&character_dir, &base_name);
-
-    let source = PathBuf::from(&source_path);
-    if is_archive_path(&source) {
-        archive::extract_archive(&source, &dest_dir).map_err(|e| e.to_string())?;
-    } else {
-        fs_ops::copy_dir_recursive(&source, &dest_dir).map_err(|e| e.to_string())?;
-    }
-
-    db.insert_mod(NewMod {
-        character_id,
-        slot,
-        display_name,
-        folder_path: dest_dir.to_string_lossy().to_string(),
-        thumbnail_url,
-        gamebanana_mod_id: None,
-        gamebanana_file_id: None,
-        gamebanana_md5: None,
-        // A hand-added mod came from a folder on disk, not a GameBanana file, so there is no
-        // uploader's note behind it to record.
-        variant_label: None,
-    })
-    .map_err(|e| e.to_string())
-}
-
 /// Renames a mod in the library.
 ///
 /// The installer only ever guesses a name — from the archive's filename, or the uploader's note
@@ -138,7 +82,7 @@ pub fn rename_mod(state: State<AppState>, mod_id: i64, display_name: String) -> 
 /// has no per-character subcategory to split further on — and the two pseudo-characters *are*
 /// the slot. So the caller picks a destination and the slot follows, rather than being a second
 /// question with only one right answer.
-fn slot_for(character_id: &str) -> Slot {
+pub(crate) fn slot_for(character_id: &str) -> Slot {
     match character_id {
         crate::characters::UI_PSEUDO_CHARACTER_ID => Slot::Ui,
         crate::characters::MISC_PSEUDO_CHARACTER_ID => Slot::Misc,
@@ -146,7 +90,7 @@ fn slot_for(character_id: &str) -> Slot {
     }
 }
 
-fn is_known_character(character_id: &str) -> bool {
+pub(crate) fn is_known_character(character_id: &str) -> bool {
     character_id == crate::characters::UI_PSEUDO_CHARACTER_ID
         || character_id == crate::characters::MISC_PSEUDO_CHARACTER_ID
         || crate::characters::all_characters()
@@ -256,11 +200,13 @@ mod tests {
         assert_eq!(slugify_display_name(""), "mod");
     }
 
-    /// `add_mod` builds its destination folder name via
-    /// `fs_ops::to_disabled_name(&slugify_display_name(...))` — pinning that composition here
-    /// since `add_mod` itself takes a Tauri `State` and isn't unit-testable directly.
+    /// Every installer builds its destination folder name via
+    /// `fs_ops::to_disabled_name(&slugify_display_name(...))` — a GameBanana install, a
+    /// reinstall, and `commands::import::place_mods`. Pinned here because those all take a
+    /// Tauri `State` and are not unit-testable directly, and because getting it wrong means a
+    /// folder XXMI treats as active while the app shows the mod as off.
     #[test]
-    fn add_mods_folder_naming_produces_an_already_disabled_name() {
+    fn install_folder_naming_produces_an_already_disabled_name() {
         assert_eq!(
             fs_ops::to_disabled_name(&slugify_display_name("Pink Dress V2!")),
             "DISABLED_pink_dress_v2"
@@ -280,12 +226,4 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
     }
 
-    #[test]
-    fn is_archive_path_detects_supported_extensions() {
-        assert!(is_archive_path(Path::new("mod.zip")));
-        assert!(is_archive_path(Path::new("mod.RAR")));
-        assert!(is_archive_path(Path::new("mod.7z")));
-        assert!(!is_archive_path(Path::new("mod_folder")));
-        assert!(!is_archive_path(Path::new("readme.txt")));
-    }
 }

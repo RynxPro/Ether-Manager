@@ -5,6 +5,7 @@ mod content_rating;
 mod db;
 mod fs_ops;
 mod gamebanana;
+mod import;
 mod updates;
 mod variant_label;
 
@@ -33,6 +34,10 @@ pub struct AppState {
     /// because it is held across awaits — and tokio's is FIFO, which is what makes the queue
     /// run in the order things were added.
     pub download_slot: tokio::sync::Mutex<()>,
+    /// Imports that have been unpacked and inspected but not yet filed, keyed by session id.
+    /// An entry owns a staging directory, so it lives until the import is committed or
+    /// cancelled — the dialog holding the id is what keeps it reachable.
+    pub import_sessions: Mutex<commands::import::ImportSessions>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -69,6 +74,7 @@ pub fn run() {
                         Ok(moved) => println!("moved {moved} mod folder(s) into the current layout"),
                         Err(e) => eprintln!("could not settle mod folders: {e}"),
                     }
+                    commands::settings::allow_mods_folder_assets(app.handle(), &folder);
                 }
                 Ok(None) => {}
                 Err(e) => eprintln!("could not read the mods folder setting: {e}"),
@@ -79,6 +85,7 @@ pub fn run() {
                 install_cancel: Mutex::new(None),
                 download_stops: Mutex::new(HashMap::new()),
                 download_slot: tokio::sync::Mutex::new(()),
+                import_sessions: Mutex::new(HashMap::new()),
             });
             Ok(())
         })
@@ -87,7 +94,11 @@ pub fn run() {
             commands::mods::list_mods_for_character,
             commands::mods::list_mod_counts,
             commands::mods::list_all_mods,
-            commands::mods::add_mod,
+            commands::import::pick_mod_archive,
+            commands::import::begin_import,
+            commands::import::read_import_preview,
+            commands::import::commit_import,
+            commands::import::cancel_import,
             commands::mods::toggle_mod,
             commands::mods::rename_mod,
             commands::mods::move_mod,

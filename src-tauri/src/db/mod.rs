@@ -39,6 +39,7 @@ impl Db {
         self.migrate_downloads_etag_column()?;
         self.migrate_downloads_target_mod_column()?;
         self.migrate_mods_variant_label_column()?;
+        self.migrate_mods_bundled_thumbnail_column()?;
         self.migrate_bookmarks_character_column()?;
         self.migrate_legacy_slot_values()
     }
@@ -117,6 +118,32 @@ impl Db {
         Ok(())
     }
 
+    /// `mods.bundled_thumbnail` is card art that came in the box.
+    ///
+    /// A GameBanana mod has `thumbnail_url` and a server to fetch it from. A mod brought in from
+    /// Patreon or Discord has neither, and would be the only blank card in the library — even
+    /// though those archives routinely ship a preview image beside the mod folder. This records
+    /// where that image ended up.
+    ///
+    /// Relative to the row's own `folder_path`, not absolute: `move_mod` rewrites `folder_path`
+    /// when a mod is refiled, and an absolute path would be left pointing at where the mod used
+    /// to be. Nullable and idempotent, same reasoning as the columns above.
+    /// Named `bundled_thumbnail` rather than the more obvious `thumbnail_path` because this
+    /// table has already used that name once, for what is now `thumbnail_url`. Reusing it would
+    /// have `migrate_thumbnail_column` rename this column away on the next launch.
+    fn migrate_mods_bundled_thumbnail_column(&self) -> rusqlite::Result<()> {
+        let has_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('mods') WHERE name = 'bundled_thumbnail'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_column == 0 {
+            self.conn
+                .execute_batch("ALTER TABLE mods ADD COLUMN bundled_thumbnail TEXT;")?;
+        }
+        Ok(())
+    }
+
     /// `bookmarks.character_id` lets the Bookmarks page group the way the library does, instead
     /// of showing one long undifferentiated wall. A bookmark is a GameBanana mod that was never
     /// installed, so nothing else on the row says who it is for.
@@ -141,14 +168,21 @@ impl Db {
     /// local files, and the old name described something the app never stored. `CREATE TABLE IF
     /// NOT EXISTS` leaves an existing table alone, so a database created before this rename
     /// still carries the old column and would fail every `row_to_mod` read without this.
-    /// Idempotent — the rename only runs while the old name is still present.
+    /// Idempotent — the rename only runs while the old name is still present *and* the new name
+    /// is not. That second half matters: `thumbnail_path` is a retired name, and reusing it for
+    /// anything else would have this migration quietly rename the new column away on the next
+    /// launch, leaving the table with two `thumbnail_url` columns and every read failing. Any
+    /// future column here needs a name this table has never used — see `bundled_thumbnail`.
     fn migrate_thumbnail_column(&self) -> rusqlite::Result<()> {
-        let has_old_column: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM pragma_table_info('mods') WHERE name = 'thumbnail_path'",
-            [],
-            |row| row.get(0),
-        )?;
-        if has_old_column > 0 {
+        let column_count = |name: &str| -> rusqlite::Result<i64> {
+            self.conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('mods') WHERE name = ?1",
+                [name],
+                |row| row.get(0),
+            )
+        };
+
+        if column_count("thumbnail_path")? > 0 && column_count("thumbnail_url")? == 0 {
             self.conn
                 .execute_batch("ALTER TABLE mods RENAME COLUMN thumbnail_path TO thumbnail_url;")?;
         }
@@ -237,6 +271,38 @@ mod tests {
             db.get_mod(id).unwrap().unwrap().thumbnail_url.as_deref(),
             Some("https://images.gamebanana.com/img/ss/mods/530-90_abc.jpg"),
             "renaming the column must carry its values across, not reset them"
+        );
+    }
+
+    /// The hazard that reusing a retired column name creates, caught the hard way.
+    ///
+    /// `bundled_thumbnail` was first written as `thumbnail_path` — a name this table had already
+    /// used for what is now `thumbnail_url`. Every launch, `migrate_thumbnail_column` saw the
+    /// old name and renamed the *new* column onto `thumbnail_url`, leaving two columns by that
+    /// name and failing every read of the table. This pins both halves of the fix: the new
+    /// column keeps a name that has never been used here, and the old migration checks the
+    /// destination is free before renaming anything onto it.
+    #[test]
+    fn a_retired_column_name_is_never_renamed_onto_a_name_already_in_use() {
+        let db = Db::open_in_memory().unwrap();
+        // A database old enough to still carry the retired name, on a build new enough to have
+        // the column that replaced it — the shape that used to corrupt the table.
+        db.conn
+            .execute_batch("ALTER TABLE mods ADD COLUMN thumbnail_path TEXT;")
+            .unwrap();
+
+        db.migrate_thumbnail_column().unwrap();
+        db.migrate_mods_bundled_thumbnail_column().unwrap();
+
+        let columns = column_names(&db);
+        assert_eq!(
+            columns.iter().filter(|c| *c == "thumbnail_url").count(),
+            1,
+            "the rename must not run onto a name that already exists, got {columns:?}"
+        );
+        assert!(
+            columns.iter().any(|c| c == "bundled_thumbnail"),
+            "the new column must survive a launch, got {columns:?}"
         );
     }
 
