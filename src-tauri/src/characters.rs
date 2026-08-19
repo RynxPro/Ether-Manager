@@ -43,6 +43,29 @@ pub const MISC_PSEUDO_CHARACTER_ID: &str = "misc";
 const UI_GAMEBANANA_CATEGORY_ID: i64 = 30395;
 const MISC_GAMEBANANA_CATEGORY_ID: i64 = 29874;
 
+/// Which shelf a GameBanana category belongs on.
+///
+/// GameBanana names a mod's most specific category exactly as the roster does — "Nicole Demara"
+/// for a skin, and literally "UI" or "Other/Misc" for the two that are not characters — which is
+/// what makes this a lookup rather than a guess. The install dialog has relied on that for its
+/// target-guessing since it shipped; this is the same rule, in one place both it and bookmarks
+/// can reach.
+///
+/// `None` for a category this app does not recognise, which is the honest answer for a mod filed
+/// somewhere the roster has no row for. Callers decide what to do with an unplaceable mod rather
+/// than having it quietly land in Misc.
+pub fn character_id_for_category(category_name: &str) -> Option<String> {
+    match category_name {
+        "UI" => return Some(UI_PSEUDO_CHARACTER_ID.to_string()),
+        "Other/Misc" => return Some(MISC_PSEUDO_CHARACTER_ID.to_string()),
+        _ => {}
+    }
+    all_characters()
+        .iter()
+        .find(|character| character.name == category_name)
+        .map(|character| character.id.clone())
+}
+
 /// The "UI" and "Misc" library categories, `Character`-shaped for wire/UI compatibility with the
 /// real roster even though they aren't characters — appended to `list_characters`'s response.
 pub fn pseudo_categories() -> Vec<Character> {
@@ -66,6 +89,30 @@ pub fn pseudo_categories() -> Vec<Character> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_category_named_after_a_character_resolves_to_that_character() {
+        assert_eq!(
+            super::character_id_for_category("Nicole Demara").as_deref(),
+            Some("nicole-demara")
+        );
+    }
+
+    #[test]
+    fn the_two_non_character_categories_resolve_to_their_pseudo_characters() {
+        assert_eq!(super::character_id_for_category("UI").as_deref(), Some("ui"));
+        assert_eq!(
+            super::character_id_for_category("Other/Misc").as_deref(),
+            Some("misc")
+        );
+    }
+
+    /// An unplaceable mod is left unplaced rather than swept into Misc, so the page can say so.
+    #[test]
+    fn an_unknown_category_resolves_to_nothing() {
+        assert_eq!(super::character_id_for_category("Some Future Category"), None);
+        assert_eq!(super::character_id_for_category(""), None);
+    }
+
     use super::*;
 
     #[test]

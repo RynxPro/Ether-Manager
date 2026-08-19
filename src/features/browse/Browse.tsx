@@ -7,6 +7,7 @@ import { useSearchHotkey } from "@/lib/useSearchHotkey";
 import type { GbMod, ModSort } from "@/lib/tauri-commands";
 import { BrowseGrid } from "./BrowseGrid";
 import { FeaturedBanner } from "./FeaturedBanner";
+import { PageHeader } from "@/components/PageHeader";
 import { SearchBar } from "./SearchBar";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -81,10 +82,6 @@ export function Browse({ onSelectMod }: BrowseProps) {
 
   return (
     <div className="space-y-6">
-      {/* The title, the featured band and the controls are one bordered header rather than three
-          blocks stacked with air between them. They belong together — what is being shown off
-          and how you narrow it — and closing the block with the accent rule makes that rule a
-          real division between the header and the results rather than a stray underline. */}
       {/* Zero-height so it costs no layout, with the bar overflowing out of it — a sticky element
           that reserved its own space would push the header down by that much at rest.
           `-top-6` rather than `top-0`, because sticky pins to the scrolling element's padding
@@ -118,30 +115,36 @@ export function Browse({ onSelectMod }: BrowseProps) {
         </div>
       )}
 
-      <div ref={headerRef} className="border-2 border-border border-b-primary">
-        <div className="flex items-baseline gap-3 border-b border-border px-4 py-3">
-          <h2 className="font-heading text-2xl uppercase tracking-[0.06em] text-foreground">
-            Browse
-          </h2>
-          <span className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-            GameBanana · Zenless Zone Zero
-          </span>
-        </div>
+      {/* The ref sits on an unstyled wrapper rather than on anything drawn. Its only job is to
+          tell the observer when the header has scrolled away, so the compact bar above can take
+          over — it needs an element that leaves the viewport, not a box. */}
+      <div ref={headerRef} className="space-y-4">
+        {/* The same header every other page uses. It used to be a row inside the panel below,
+            which left Browse the one page whose title was indented inside a border and whose
+            accent rule was three rows further down — the panel's bottom edge, close enough to
+            the results rule to read as a mistake rather than a division.
 
-        <FeaturedBanner onSelectMod={onSelectMod} />
+            The panel keeps the featured band and the controls together, which is what it was
+            for: what is being shown off, and how you narrow it. The title was never part of
+            that pairing. */}
+        <PageHeader title="Browse" subtitle="GameBanana · Zenless Zone Zero" />
 
-        <div className="border-t border-border px-4 py-3">
-          <SearchBar
-            // Only one of the two search inputs may hold the hotkey ref, or the second to mount
-            // silently steals it — Ctrl+F would then focus whichever is off screen.
-            inputRef={isHeaderOnScreen ? searchRef : undefined}
-            query={query}
-            onQueryChange={setQuery}
-            categoryId={categoryId}
-            onCategoryChange={setCategoryId}
-            sort={sort}
-            onSortChange={setSort}
-          />
+        <div className="border-2 border-border">
+          <FeaturedBanner onSelectMod={onSelectMod} />
+
+          <div className="border-t border-border px-4 py-3">
+            <SearchBar
+              // Only one of the two search inputs may hold the hotkey ref, or the second to mount
+              // silently steals it — Ctrl+F would then focus whichever is off screen.
+              inputRef={isHeaderOnScreen ? searchRef : undefined}
+              query={query}
+              onQueryChange={setQuery}
+              categoryId={categoryId}
+              onCategoryChange={setCategoryId}
+              sort={sort}
+              onSortChange={setSort}
+            />
+          </div>
         </div>
       </div>
 

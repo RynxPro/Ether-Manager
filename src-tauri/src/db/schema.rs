@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     gamebanana_mod_id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     thumbnail_url TEXT,
+    character_id TEXT,
     added_at INTEGER NOT NULL
 );
 

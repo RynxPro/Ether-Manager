@@ -39,6 +39,7 @@ impl Db {
         self.migrate_downloads_etag_column()?;
         self.migrate_downloads_target_mod_column()?;
         self.migrate_mods_variant_label_column()?;
+        self.migrate_bookmarks_character_column()?;
         self.migrate_legacy_slot_values()
     }
 
@@ -112,6 +113,26 @@ impl Db {
         } else {
             self.conn
                 .execute_batch("ALTER TABLE mods ADD COLUMN variant_label TEXT;")?;
+        }
+        Ok(())
+    }
+
+    /// `bookmarks.character_id` lets the Bookmarks page group the way the library does, instead
+    /// of showing one long undifferentiated wall. A bookmark is a GameBanana mod that was never
+    /// installed, so nothing else on the row says who it is for.
+    ///
+    /// Nullable because it genuinely can be unknown: rows saved before this existed have none
+    /// until `backfill_bookmark_characters` fetches it, and a mod filed under a category this
+    /// app does not recognise has none at all. Idempotent, same reasoning as the columns above.
+    fn migrate_bookmarks_character_column(&self) -> rusqlite::Result<()> {
+        let has_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('bookmarks') WHERE name = 'character_id'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_column == 0 {
+            self.conn
+                .execute_batch("ALTER TABLE bookmarks ADD COLUMN character_id TEXT;")?;
         }
         Ok(())
     }

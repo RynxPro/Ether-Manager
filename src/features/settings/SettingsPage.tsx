@@ -11,6 +11,7 @@ import {
   useSetMagnifierSettings,
   useSetMatureContentVisibility,
 } from "./hooks";
+import { PageHeader } from "@/components/PageHeader";
 
 /** Shown for the moment before the stored settings arrive. Matches the Rust default so the
  * controls do not visibly jump into place on load. */
@@ -58,7 +59,7 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-8">
-      <h2 className="text-2xl font-semibold text-foreground">Settings</h2>
+      <PageHeader title="Settings" subtitle="How Ether Manager behaves" />
 
       <section className="space-y-3">
         <div>

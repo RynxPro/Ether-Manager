@@ -106,6 +106,7 @@ pub fn run() {
             commands::gamebanana::get_gamebanana_mod_detail,
             commands::gamebanana::list_bookmarks,
             commands::gamebanana::add_bookmark,
+            commands::gamebanana::backfill_bookmark_characters,
             commands::gamebanana::remove_bookmark,
             commands::downloads::enqueue_download,
             commands::downloads::list_downloads,

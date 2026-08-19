@@ -49,9 +49,15 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
   );
 
   const [displayName, setDisplayName] = useState(mod.display_name);
+  // Where the mod *would* go. Staged rather than applied, so picking a character is a decision
+  // you can still take back — a move relocates a folder on disk, and the only honest way to
+  // offer Cancel is to not have moved anything yet.
+  const [characterId, setCharacterId] = useState(mod.character_id);
   const [query, setQuery] = useState("");
   const rename = useRenameMod();
   const move = useMoveMod();
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -76,17 +82,35 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
     ? realCharacters.filter((character) => character.name.toLowerCase().includes(needle))
     : realCharacters;
 
-  function moveTo(characterId: string) {
-    if (characterId === mod.character_id) return;
-    move.mutate({ modId: mod.id, characterId });
-  }
-
   const trimmedName = displayName.trim();
-  const isNameChanged = trimmedName.length > 0 && trimmedName !== mod.display_name;
+  const isNameValid = trimmedName.length > 0;
+  const isNameChanged = isNameValid && trimmedName !== mod.display_name;
+  const isLocationChanged = characterId !== mod.character_id;
+  const hasChanges = isNameChanged || isLocationChanged;
 
-  function handleRename() {
-    if (!isNameChanged) return;
-    rename.mutate({ modId: mod.id, displayName: trimmedName });
+  /** Applies whichever fields actually moved, then closes.
+   *
+   * Sequential and not parallel, so a failure has one cause. If the rename lands and the move
+   * does not, the dialog stays open on the error with the name already saved — re-pressing Save
+   * then retries only the part that failed, because the mod prop has caught up and the name no
+   * longer counts as changed. Reporting a half-success is better than pretending the whole
+   * thing failed and inviting a rename that is already done. */
+  async function handleSave() {
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      if (isNameChanged) {
+        await rename.mutateAsync({ modId: mod.id, displayName: trimmedName });
+      }
+      if (isLocationChanged) {
+        await move.mutateAsync({ modId: mod.id, characterId });
+      }
+      onOpenChange(false);
+    } catch (error) {
+      setSaveError(String(error));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   /** Opens the folder in the system file manager with the mod selected. Reveals rather than
@@ -128,29 +152,19 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
             >
               Name
             </Label>
-            <div className="flex gap-2">
-              <Input
-                id="edit-mod-name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    handleRename();
-                  }
-                }}
-                disabled={rename.isPending}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={!isNameChanged || rename.isPending}
-                onClick={handleRename}
-              >
-                {rename.isPending ? "Saving…" : "Rename"}
-              </Button>
-            </div>
+            <Input
+              id="edit-mod-name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && hasChanges && isNameValid) {
+                  event.preventDefault();
+                  void handleSave();
+                }
+              }}
+              disabled={isSaving}
+            />
+            {!isNameValid && <p className="text-[11px] text-destructive">A mod needs a name.</p>}
             {/* The variant is the installer's record of which file this came from, and renaming
                 does not change which file is on disk — so it stays put, as a reminder of what
                 the mod actually is while its name is being rewritten. */}
@@ -158,9 +172,6 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               <p className="text-[11px] text-muted-foreground">
                 From <span className="text-foreground">{mod.variant_label}</span>
               </p>
-            )}
-            {rename.isError && (
-              <p className="text-[11px] text-destructive">{String(rename.error)}</p>
             )}
           </div>
 
@@ -182,7 +193,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search characters…"
               aria-label="Search characters"
-              disabled={move.isPending}
+              disabled={isSaving}
             />
 
             <div className="flex gap-1.5">
@@ -190,11 +201,11 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                 <Button
                   key={id}
                   type="button"
-                  variant={mod.character_id === id ? "default" : "outline"}
+                  variant={characterId === id ? "default" : "outline"}
                   size="sm"
                   className="flex-1"
-                  disabled={move.isPending}
-                  onClick={() => moveTo(id)}
+                  disabled={isSaving}
+                  onClick={() => setCharacterId(id)}
                 >
                   {label}
                 </Button>
@@ -216,14 +227,14 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                 </p>
               ) : (
                 matches.map((character) => {
-                  const isCurrent = character.id === mod.character_id;
+                  const isCurrent = character.id === characterId;
                   return (
                     <button
                       key={character.id}
                       type="button"
-                      disabled={move.isPending}
+                      disabled={isSaving}
                       aria-current={isCurrent}
-                      onClick={() => moveTo(character.id)}
+                      onClick={() => setCharacterId(character.id)}
                       className={`flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-secondary disabled:opacity-50 ${
                         isCurrent ? "text-primary" : "text-foreground"
                       }`}
@@ -231,7 +242,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                       {character.name}
                       {isCurrent && (
                         <span className="font-heading text-[10px] uppercase tracking-[0.1em]">
-                          Current
+                          {isLocationChanged ? "Selected" : "Current"}
                         </span>
                       )}
                     </button>
@@ -240,9 +251,8 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               )}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {move.isPending ? "Moving the files…" : "Moves the mod's folder to match."}
+              Saving moves the mod&apos;s folder to match.
             </p>
-            {move.isError && <p className="text-[11px] text-destructive">{String(move.error)}</p>}
           </div>
 
           <div className="grid gap-1.5">
@@ -265,12 +275,21 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
           </div>
         </div>
 
-        <DialogFooter className="mx-0 mb-0 border-t border-border bg-background px-4 py-3">
+        {saveError && <p className="px-4 pb-2 text-[11px] text-destructive">{saveError}</p>}
+
+        <DialogFooter className="mx-0 mb-0 gap-2 border-t border-border bg-background px-4 py-3">
           <DialogClose asChild>
-            <Button type="button" variant="outline">
-              Done
+            <Button type="button" variant="outline" disabled={isSaving}>
+              Cancel
             </Button>
           </DialogClose>
+          <Button
+            type="button"
+            disabled={!hasChanges || !isNameValid || isSaving}
+            onClick={() => void handleSave()}
+          >
+            {isSaving ? "Saving…" : "Save"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

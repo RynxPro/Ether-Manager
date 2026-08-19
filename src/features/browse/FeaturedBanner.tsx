@@ -103,6 +103,7 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
         gamebananaModId: mod.id,
         name: mod.name,
         thumbnailUrl: thumbnailUrlFor(mod),
+        categoryName: mod.sub_category?.name ?? mod.root_category.name,
       });
     }
   }

@@ -280,6 +280,9 @@ export interface Bookmark {
   gamebanana_mod_id: number;
   name: string;
   thumbnail_url: string | null;
+  /** Which character (or `"ui"`/`"misc"`) this mod belongs to. `null` while unplaced — a
+   * category the roster does not recognise, or a bookmark saved before this was recorded. */
+  character_id: string | null;
   added_at: number;
 }
 
@@ -398,8 +401,17 @@ export function addBookmark(
   gamebananaModId: number,
   name: string,
   thumbnailUrl: string | null,
+  /** The mod's most specific GameBanana category, so Bookmarks can shelve it beside the right
+   * character. Rust resolves the name; pass `null` where the screen does not know it. */
+  categoryName: string | null,
 ): Promise<Bookmark> {
-  return invoke("add_bookmark", { gamebananaModId, name, thumbnailUrl });
+  return invoke("add_bookmark", { gamebananaModId, name, thumbnailUrl, categoryName });
+}
+
+/** Works out the character for bookmarks saved before it was recorded. One GameBanana request
+ * per unplaced bookmark, and a no-op once they all have one. Returns how many it placed. */
+export function backfillBookmarkCharacters(): Promise<number> {
+  return invoke("backfill_bookmark_characters");
 }
 
 export function removeBookmark(gamebananaModId: number): Promise<void> {

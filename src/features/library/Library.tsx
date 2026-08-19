@@ -18,6 +18,7 @@ import {
   useModsForCharacter,
   useUpdateChecks,
 } from "./hooks";
+import { PageHeader } from "@/components/PageHeader";
 
 /** Says what a completed sweep actually found. Counts rather than a bare "done", because the
  * only outcome that changes the page is an update being available — every other result looks
@@ -86,8 +87,7 @@ export function Library({ onSelectCharacter, onOpenModDetail }: LibraryProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-foreground">Library</h2>
+      <PageHeader title="Library" subtitle="Your roster and what it is wearing">
         {tab === "characters" && (
           <Input
             ref={searchRef}
@@ -96,10 +96,10 @@ export function Library({ onSelectCharacter, onOpenModDetail }: LibraryProps) {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Find a character…"
             aria-label="Find a character"
-            className="w-full sm:max-w-xs"
+            className="w-full sm:w-64"
           />
         )}
-      </div>
+      </PageHeader>
 
       {/* The rule belongs to the row, not the tablist: the update button shares the line but is
           not a tab, and putting it inside the `tablist` would have it announced as one. */}

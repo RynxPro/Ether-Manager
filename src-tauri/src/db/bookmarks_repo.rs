@@ -10,6 +10,9 @@ pub struct Bookmark {
     pub gamebanana_mod_id: i64,
     pub name: String,
     pub thumbnail_url: Option<String>,
+    /// Which character (or `"ui"`/`"misc"`) this mod belongs to, resolved from its GameBanana
+    /// category. `None` when the category is unrecognised, or not yet backfilled.
+    pub character_id: Option<String>,
     pub added_at: i64,
 }
 
@@ -17,6 +20,7 @@ pub struct NewBookmark {
     pub gamebanana_mod_id: i64,
     pub name: String,
     pub thumbnail_url: Option<String>,
+    pub character_id: Option<String>,
 }
 
 fn now() -> i64 {
@@ -31,6 +35,7 @@ fn row_to_bookmark(row: &Row) -> rusqlite::Result<Bookmark> {
         gamebanana_mod_id: row.get("gamebanana_mod_id")?,
         name: row.get("name")?,
         thumbnail_url: row.get("thumbnail_url")?,
+        character_id: row.get("character_id")?,
         added_at: row.get("added_at")?,
     })
 }
@@ -40,12 +45,21 @@ impl Db {
     /// erroring or creating a duplicate row — `gamebanana_mod_id` is the primary key.
     pub fn add_bookmark(&self, new: NewBookmark) -> rusqlite::Result<Bookmark> {
         self.conn.execute(
-            "INSERT INTO bookmarks (gamebanana_mod_id, name, thumbnail_url, added_at)
-             VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO bookmarks (gamebanana_mod_id, name, thumbnail_url, character_id, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(gamebanana_mod_id) DO UPDATE SET
                 name = excluded.name,
-                thumbnail_url = excluded.thumbnail_url",
-            params![new.gamebanana_mod_id, new.name, new.thumbnail_url, now()],
+                thumbnail_url = excluded.thumbnail_url,
+                -- Only ever fills a gap. Re-bookmarking from a screen that could not work out
+                -- the character must not erase one already known.
+                character_id = COALESCE(excluded.character_id, bookmarks.character_id)",
+            params![
+                new.gamebanana_mod_id,
+                new.name,
+                new.thumbnail_url,
+                new.character_id,
+                now()
+            ],
         )?;
         self.conn.query_row(
             "SELECT * FROM bookmarks WHERE gamebanana_mod_id = ?1",
@@ -82,6 +96,32 @@ impl Db {
     }
 }
 
+impl Db {
+    /// Bookmarks saved before the character was recorded, for the one-off backfill to fill in.
+    pub fn list_bookmarks_missing_character(&self) -> rusqlite::Result<Vec<Bookmark>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT * FROM bookmarks WHERE character_id IS NULL")?;
+        let rows = stmt.query_map([], row_to_bookmark)?;
+        rows.collect()
+    }
+
+    /// Deliberately leaves `added_at` alone: learning which character a bookmark belongs to is
+    /// bookkeeping about a mod already saved, not a new save, and bumping the date would
+    /// reorder a list sorted by when things were bookmarked.
+    pub fn set_bookmark_character(
+        &self,
+        gamebanana_mod_id: i64,
+        character_id: &str,
+    ) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE bookmarks SET character_id = ?1 WHERE gamebanana_mod_id = ?2",
+            params![character_id, gamebanana_mod_id],
+        )?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +131,7 @@ mod tests {
             gamebanana_mod_id,
             name: "Pink Dress".to_string(),
             thumbnail_url: Some("https://images.gamebanana.com/img/ss/mods/thumb.jpg".to_string()),
+            character_id: None,
         }
     }
 
@@ -129,6 +170,7 @@ mod tests {
             gamebanana_mod_id: 608561,
             name: "Pink Dress V2".to_string(),
             thumbnail_url: None,
+            character_id: None,
         };
         db.add_bookmark(updated).unwrap();
 

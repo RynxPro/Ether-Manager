@@ -14,6 +14,7 @@ import {
   useRetryDownload,
   type LiveProgress,
 } from "./hooks";
+import { PageHeader } from "@/components/PageHeader";
 
 /** Eridu's signature corner. Inline because a clip path cannot come from a border radius. */
 const CUT_CORNER = {
@@ -62,26 +63,19 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-baseline gap-3 border-b-2 border-primary pb-3.5">
-        <h2 className="font-heading text-2xl uppercase tracking-[0.06em] text-foreground">
-          Downloads
-        </h2>
-        <span className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-          One at a time, and they keep going if you leave
-        </span>
+      <PageHeader title="Downloads" subtitle="One at a time, and they keep going if you leave">
         {finished.length > 0 && (
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="ml-auto"
             onClick={() => clearFinished.mutate()}
             disabled={clearFinished.isPending}
           >
             Clear finished
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       {isLoading ? (
         <div className="space-y-2">

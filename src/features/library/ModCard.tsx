@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MiddleTruncate } from "@/components/MiddleTruncate";
 import { Button } from "@/components/ui/button";
 import { MOD_FOLDER_MISSING_PREFIX, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
@@ -70,6 +71,7 @@ export function ModCard({
   const variant = mod.variant_label?.trim() || null;
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   return (
     <div
@@ -211,6 +213,29 @@ export function ModCard({
           rename must not offer the name it had before. */}
       {isEditing && <EditModDialog mod={mod} onOpenChange={setIsEditing} />}
 
+      {/* Asked here rather than at each caller, so the character page and All Mods cannot
+          disagree about whether deleting is guarded. */}
+      {isConfirmingDelete && (
+        <ConfirmDialog
+          title="Delete mod"
+          description={
+            <>
+              <span className="text-foreground">{mod.display_name}</span> and its folder are
+              removed from disk. Ether Manager cannot put them back
+              {isFromGameBanana ? " — you would install it again from GameBanana." : "."}
+            </>
+          }
+          confirmLabel={isDeleting ? "Deleting…" : "Delete"}
+          isDestructive
+          isPending={isDeleting}
+          onConfirm={() => {
+            setIsConfirmingDelete(false);
+            onDelete();
+          }}
+          onOpenChange={setIsConfirmingDelete}
+        />
+      )}
+
       {/* Update on the left, delete pushed to the far right and ghosted until hovered. They are
           deliberately unlike each other in size, weight and position: one is routine, the other
           destroys files. */}
@@ -273,7 +298,7 @@ export function ModCard({
           size="icon"
           className="h-7 w-7 opacity-45 hover:bg-transparent hover:text-destructive hover:opacity-100"
           disabled={isDeleting}
-          onClick={onDelete}
+          onClick={() => setIsConfirmingDelete(true)}
           aria-label={`Delete ${mod.display_name}`}
           title="Delete mod"
         >

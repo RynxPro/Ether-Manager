@@ -235,6 +235,9 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
         gamebananaModId: mod.id,
         name: detail?.name ?? mod.name,
         thumbnailUrl: images[0] ? imageUrl(images[0], true) : null,
+        // `detail` is a live fetch and carries the one specific category; the placeholder
+        // fallback covers bookmarking before it lands, and the backfill sorts that out later.
+        categoryName: detail?.category.name ?? mod.sub_category?.name ?? null,
       });
     }
   }

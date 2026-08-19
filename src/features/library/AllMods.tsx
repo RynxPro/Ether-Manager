@@ -13,6 +13,7 @@ import {
   useToggleMod,
   useUpdateChecks,
 } from "./hooks";
+import { PageHeader } from "@/components/PageHeader";
 
 interface AllModsProps {
   onSelectCharacter: (character: Character) => void;
@@ -94,8 +95,7 @@ export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-foreground">All mods</h2>
+      <PageHeader title="All mods" subtitle="Everything installed, grouped by character">
         <Input
           ref={searchRef}
           type="search"
@@ -103,9 +103,9 @@ export function AllMods({ onSelectCharacter, onOpenModDetail }: AllModsProps) {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search your mods…"
           aria-label="Search your installed mods"
-          className="w-full sm:max-w-xs"
+          className="w-full sm:w-64"
         />
-      </div>
+      </PageHeader>
 
       {isLoading ? (
         <div className="max-w-3xl space-y-2">

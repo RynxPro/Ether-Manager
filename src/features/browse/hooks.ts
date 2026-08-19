@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBookmark,
+  backfillBookmarkCharacters,
   enqueueDownload,
   getFeaturedMods,
   getGamebananaModDetail,
@@ -71,6 +72,19 @@ export function useBookmarks() {
   });
 }
 
+/** Fills in the character for bookmarks saved before it was recorded. Invalidates the list so
+ * the page regroups itself once they land, and stays quiet when it placed nothing — a refetch
+ * that changes nothing is churn. */
+export function useBackfillBookmarkCharacters() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: backfillBookmarkCharacters,
+    onSuccess: (placed) => {
+      if (placed > 0) queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+}
+
 export function useAddBookmark() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -78,11 +92,13 @@ export function useAddBookmark() {
       gamebananaModId,
       name,
       thumbnailUrl,
+      categoryName,
     }: {
       gamebananaModId: number;
       name: string;
       thumbnailUrl: string | null;
-    }) => addBookmark(gamebananaModId, name, thumbnailUrl),
+      categoryName: string | null;
+    }) => addBookmark(gamebananaModId, name, thumbnailUrl, categoryName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
     },

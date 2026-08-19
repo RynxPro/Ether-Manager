@@ -162,14 +162,62 @@ pub fn add_bookmark(
     gamebanana_mod_id: i64,
     name: String,
     thumbnail_url: Option<String>,
+    // The mod's most specific GameBanana category, so the Bookmarks page can shelve it the way
+    // the library does. Optional because not every screen that offers a bookmark knows it, and
+    // a bookmark is worth saving either way — `backfill_bookmark_characters` fills the gaps.
+    category_name: Option<String>,
 ) -> Result<Bookmark, String> {
+    let character_id = category_name
+        .as_deref()
+        .and_then(crate::characters::character_id_for_category);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.add_bookmark(NewBookmark {
         gamebanana_mod_id,
         name,
         thumbnail_url,
+        character_id,
     })
     .map_err(|e| e.to_string())
+}
+
+/// Works out which character the already-saved bookmarks belong to.
+///
+/// Bookmarks predate the column, so without this the page would show a wall of "Unsorted" until
+/// every one of them happened to be re-saved. One GameBanana request each, run once — the rows
+/// it fills stop being candidates, so a second run is a no-op and costs nothing.
+///
+/// Returns how many it placed. A mod whose category the roster does not recognise stays null and
+/// will be retried on a later run, which is cheap and eventually right if the roster gains a row.
+#[tauri::command]
+pub async fn backfill_bookmark_characters(state: State<'_, AppState>) -> Result<usize, String> {
+    let pending = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.list_bookmarks_missing_character()
+            .map_err(|e| e.to_string())?
+    };
+
+    let mut placed = 0;
+    for bookmark in pending {
+        // One failure must not abandon the rest: a mod taken down since it was bookmarked would
+        // otherwise stop every later one from ever being placed.
+        let Ok(detail) = state
+            .gamebanana
+            .get_mod_detail(bookmark.gamebanana_mod_id)
+            .await
+        else {
+            continue;
+        };
+        let Some(character_id) =
+            crate::characters::character_id_for_category(&detail.category.name)
+        else {
+            continue;
+        };
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.set_bookmark_character(bookmark.gamebanana_mod_id, &character_id)
+            .map_err(|e| e.to_string())?;
+        placed += 1;
+    }
+    Ok(placed)
 }
 
 #[tauri::command]

@@ -64,6 +64,9 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
         gamebananaModId: mod.id,
         name: mod.name,
         thumbnailUrl: thumbnailUrlFor(mod),
+        // Most specific first: a skin's sub-category is the character's own name, which is what
+        // resolves to a shelf. The root is only reached for UI and Other/Misc, which have none.
+        categoryName: mod.sub_category?.name ?? mod.root_category.name,
       });
     }
   };
