@@ -2,7 +2,7 @@ import { Bookmark as BookmarkIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
-import { useCharacters } from "@/features/library/hooks";
+import { useCharacters, useInstalledFromGameBanana } from "@/features/library/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import type { Bookmark, Character, GbMod } from "@/lib/tauri-commands";
@@ -68,6 +68,9 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
   const [pendingRemoval, setPendingRemoval] = useState<Bookmark | null>(null);
   const [query, setQuery] = useState("");
   const { data: characters } = useCharacters();
+  // Reads the same allMods cache the library pages use, so installing something marks it here
+  // without a second source of truth to keep in step.
+  const installed = useInstalledFromGameBanana();
   const backfill = useBackfillBookmarkCharacters();
   const hasUnplaced = bookmarks?.some((bookmark) => bookmark.character_id === null) ?? false;
 
@@ -150,6 +153,7 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
                   <BookmarkCard
                     key={bookmark.gamebanana_mod_id}
                     bookmark={bookmark}
+                    installedCount={installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0}
                     onSelect={() =>
                       onSelectMod(
                         placeholderGbMod({

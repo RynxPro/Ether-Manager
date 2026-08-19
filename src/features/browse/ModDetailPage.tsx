@@ -67,6 +67,9 @@ const FALLBACK_RATIO = 1.6;
  * is history the Downloads page keeps, and says nothing about what this button should do now. */
 const UNFINISHED_STATUSES = new Set(["Queued", "Downloading", "Extracting", "Paused"]);
 
+/** How much of the page header has to be on screen for it to still count as reachable. */
+const HEADER_VISIBLE_RATIO = 0.5;
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -209,13 +212,20 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
   // thousands of pixels — leaving the only way out of the page at the top of a scroll you have
   // to make in full. A slim bar takes over once the header goes, the same way Browse's controls
   // do, rather than pinning the header itself.
+  // The switch is on *most of* the header being on screen, not on any pixel of it. A mod with a
+  // short description only scrolls a hundred pixels or so, never far enough to clear the header
+  // completely — so `isIntersecting` stayed true at the very bottom of the page, the bar never
+  // appeared, and the real back button was already off the top. Half the header showing is the
+  // point past which the button it holds stops being somewhere you can reach.
   const headerRef = useRef<HTMLDivElement>(null);
   const [isHeaderOnScreen, setIsHeaderOnScreen] = useState(true);
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
-    const observer = new IntersectionObserver(([entry]) =>
-      setIsHeaderOnScreen(entry.isIntersecting),
+    const observer = new IntersectionObserver(
+      ([entry]) =>
+        setIsHeaderOnScreen(entry.intersectionRatio > HEADER_VISIBLE_RATIO),
+      { threshold: [0, 0.25, HEADER_VISIBLE_RATIO, 0.75, 1] },
     );
     observer.observe(header);
     return () => observer.disconnect();
@@ -292,16 +302,31 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
       ) : (
         <div className="flex items-start gap-6">
           <div className="min-w-0 flex-1 space-y-6">
-            {/* Zero-height so it costs no layout, with the bar overflowing out of it, and
-                `-mb-6` to cancel the gap `space-y-6` would otherwise open beneath it.
+            {/* Always mounted, and only shown or hidden. It used to be mounted conditionally,
+                which put it in a loop with the observer that decides when to show it: adding it
+                to a `space-y-6` column shifted the sibling margins and took 24px off the page,
+                that lifted the real header back into view, the observer said "on screen", the
+                bar unmounted, the 24px came back — about four times a second on any page short
+                enough that 24px spans the whole scroll. A mod page with a short description is
+                exactly that page, and the bar flickered there instead of appearing.
+                Visibility cannot feed back into layout, so the loop has nowhere to start.
+
+                `invisible` rather than only `opacity-0`, so a hidden bar is out of the tab order
+                and out of the accessibility tree rather than merely transparent.
+
+                Zero-height with the bar overflowing out of it, so it costs no layout either way.
                 `-top-6` rather than `top-0` because sticky pins to the scrolling element's
                 padding box and the page's scroller carries `p-6`.
                 Only as wide as this column, unlike Browse's full-bleed version: the right
                 column is pinned too, and a bar reaching the window edge would sit across the
                 top of it. */}
-            {!isHeaderOnScreen && (
-              <div className="sticky -top-6 z-30 -mb-6 h-0">
-                <div className="flex animate-in items-center gap-3 border-b-2 border-primary bg-background py-2.5 duration-200 slide-in-from-top-4">
+            <div
+              aria-hidden={isHeaderOnScreen}
+              className={`sticky -top-6 z-30 -mb-6 h-0 transition-opacity duration-200 ${
+                isHeaderOnScreen ? "invisible opacity-0" : "visible opacity-100"
+              }`}
+            >
+              <div className="flex items-center gap-3 border-b-2 border-primary bg-background py-2.5">
                   <Button
                     type="button"
                     variant="outline"
@@ -311,12 +336,11 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
-                  <p className="min-w-0 truncate font-heading text-sm uppercase tracking-[0.06em]">
-                    {detail?.name ?? mod.name}
-                  </p>
-                </div>
+                <p className="min-w-0 truncate font-heading text-sm uppercase tracking-[0.06em]">
+                  {detail?.name ?? mod.name}
+                </p>
               </div>
-            )}
+            </div>
 
             {activeImage && (
               <section>
