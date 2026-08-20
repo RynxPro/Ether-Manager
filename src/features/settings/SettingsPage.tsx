@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { useModsFolder, usePickModsFolder, useSetModsFolder } from "@/features/library/hooks";
+import {
+  useModsFolder,
+  usePickModsFolder,
+  useSetModsFolder,
+} from "@/features/library/hooks";
 import { MAGNIFIER_MAX_SIZE, MAGNIFIER_MIN_SIZE } from "@/lib/magnifier";
 import type { MagnifierSettings, MatureVisibility } from "@/lib/tauri-commands";
 import {
@@ -18,7 +22,11 @@ import { PageHeader } from "@/components/PageHeader";
  * controls do not visibly jump into place on load. */
 const MAGNIFIER_FALLBACK: MagnifierSettings = { enabled: true, size: 120 };
 
-const OPTIONS: { value: MatureVisibility; label: string; description: string }[] = [
+const OPTIONS: {
+  value: MatureVisibility;
+  label: string;
+  description: string;
+}[] = [
   {
     value: "Show",
     label: "Show",
@@ -71,159 +79,189 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="space-y-8">
+      {/* Outside the width cap. The cap exists so a paragraph is not a window wide — it was never
+          meant to shorten the header, whose rule reaches the window edge on every other page.
+          Capping the whole page stopped that rule 1024px short of where it belongs. */}
       <PageHeader title="Settings" subtitle="How Ether Manager behaves" />
 
-      <section className="space-y-3">
-        <div>
-          <h3 id="mature-content-heading" className="text-sm font-medium text-foreground">
-            Mature content
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            How mods marked mature on GameBanana appear while you browse.
-          </p>
-        </div>
-
-        {isError && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            Your saved preference couldn't be read — pick one below to fix it.
-          </p>
-        )}
-
-        <div role="radiogroup" aria-labelledby="mature-content-heading" className="grid gap-2">
-          {OPTIONS.map((option) => {
-            const selected = visibility === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                disabled={setVisibility.isPending}
-                onClick={() => setVisibility.mutate(option.value)}
-                className={`flex items-start justify-between gap-2 rounded-lg border p-3 text-left transition-colors ${
-                  selected
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-background hover:bg-muted"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">{option.label}</p>
-                  <p className="text-xs text-muted-foreground">{option.description}</p>
-                </div>
-                {selected && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {setVisibility.isError && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            {String(setVisibility.error)}
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-3 border-t border-border pt-6">
-        <div className="flex items-start justify-between gap-6">
+      <div className="max-w-2xl space-y-8">
+        <section className="space-y-3">
           <div>
-            <h3 id="magnifier-heading" className="text-sm font-medium text-foreground">
-              Preview magnifier
+            <h3
+              id="mature-content-heading"
+              className="text-sm font-medium text-foreground"
+            >
+              Mature content
             </h3>
             <p className="text-xs text-muted-foreground">
-              A square lens that follows the pointer over a mod&apos;s preview, magnifying what
-              is under it. Clicking the preview still opens it full size either way.
+              How mods marked mature on GameBanana appear while you browse.
             </p>
           </div>
-          <Switch
-            checked={magnifier.enabled}
-            onCheckedChange={(enabled) => saveMagnifier({ ...magnifier, enabled })}
-            aria-labelledby="magnifier-heading"
-          />
-        </div>
 
-        {/* Kept mounted while off rather than hidden, so turning it back on does not make the
+          {isError && (
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Your saved preference couldn't be read — pick one below to fix it.
+            </p>
+          )}
+
+          <div
+            role="radiogroup"
+            aria-labelledby="mature-content-heading"
+            className="grid gap-2"
+          >
+            {OPTIONS.map((option) => {
+              const selected = visibility === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={setVisibility.isPending}
+                  onClick={() => setVisibility.mutate(option.value)}
+                  className={`flex items-start justify-between gap-2 rounded-lg border p-3 text-left transition-colors ${
+                    selected
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-background hover:bg-muted"
+                  }`}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {option.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {option.description}
+                    </p>
+                  </div>
+                  {selected && (
+                    <Check
+                      className="h-4 w-4 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {setVisibility.isError && (
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {String(setVisibility.error)}
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-3 border-t border-border pt-6">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <h3
+                id="magnifier-heading"
+                className="text-sm font-medium text-foreground"
+              >
+                Preview magnifier
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                A square lens that follows the pointer over a mod&apos;s
+                preview, magnifying what is under it. Clicking the preview still
+                opens it full size either way.
+              </p>
+            </div>
+            <Switch
+              checked={magnifier.enabled}
+              onCheckedChange={(enabled) =>
+                saveMagnifier({ ...magnifier, enabled })
+              }
+              aria-labelledby="magnifier-heading"
+            />
+          </div>
+
+          {/* Kept mounted while off rather than hidden, so turning it back on does not make the
             page jump — and dimmed, because a size you cannot see the effect of is not worth
             reading as an equal control. */}
-        <div
-          className={`space-y-2 transition-opacity ${magnifier.enabled ? "" : "pointer-events-none opacity-40"}`}
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <label
-              htmlFor="magnifier-size"
-              className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
-            >
-              Lens size
-            </label>
-            <span className="text-xs tabular-nums text-muted-foreground">{draftSize}px</span>
-          </div>
-          {/* Live while dragging, written once on release: the lens updates as you move it, but
-              a write per pixel would be dozens of database round trips for one decision. */}
-          <Slider
-            id="magnifier-size"
-            min={MAGNIFIER_MIN_SIZE}
-            max={MAGNIFIER_MAX_SIZE}
-            step={4}
-            value={[draftSize]}
-            onValueChange={([size]) => setDraftSize(size)}
-            onValueCommit={([size]) => saveMagnifier({ ...magnifier, size })}
-            disabled={!magnifier.enabled}
-            aria-label="Lens size"
-          />
-          {/* The number alone says little — this is the square you will actually see. */}
-          <div className="flex items-center gap-3 pt-1">
-            <div
-              className="shrink-0 border-2 border-primary bg-secondary"
-              style={{ width: draftSize, height: draftSize }}
-            />
-            <p className="text-xs text-muted-foreground">Actual size.</p>
-          </div>
-        </div>
-
-        {saveMagnifierSettings.isError && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            {String(saveMagnifierSettings.error)}
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-1 border-t border-border pt-6">
-        <h3 className="text-sm font-medium text-foreground">Mods folder</h3>
-        <p className="text-xs text-muted-foreground">
-          Where XXMI/ZZMI loads mods from. Ether Manager files installed mods inside it.
-        </p>
-        <div className="flex items-center gap-3 pt-1">
-          <p className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
-            {modsFolder ?? "Not set"}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={handleChangeModsFolder}
-            disabled={isChangingFolder}
+          <div
+            className={`space-y-2 transition-opacity ${magnifier.enabled ? "" : "pointer-events-none opacity-40"}`}
           >
-            {isChangingFolder ? "Working…" : "Change"}
-          </Button>
-        </div>
-        {/* Said plainly because it is the surprising part: a mod's folder is recorded by its own
+            <div className="flex items-baseline justify-between gap-3">
+              <label
+                htmlFor="magnifier-size"
+                className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
+              >
+                Lens size
+              </label>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {draftSize}px
+              </span>
+            </div>
+            {/* Live while dragging, written once on release: the lens updates as you move it, but
+              a write per pixel would be dozens of database round trips for one decision. */}
+            <Slider
+              id="magnifier-size"
+              min={MAGNIFIER_MIN_SIZE}
+              max={MAGNIFIER_MAX_SIZE}
+              step={4}
+              value={[draftSize]}
+              onValueChange={([size]) => setDraftSize(size)}
+              onValueCommit={([size]) => saveMagnifier({ ...magnifier, size })}
+              disabled={!magnifier.enabled}
+              aria-label="Lens size"
+            />
+            {/* The number alone says little — this is the square you will actually see. */}
+            <div className="flex items-center gap-3 pt-1">
+              <div
+                className="shrink-0 border-2 border-primary bg-secondary"
+                style={{ width: draftSize, height: draftSize }}
+              />
+              <p className="text-xs text-muted-foreground">Actual size.</p>
+            </div>
+          </div>
+
+          {saveMagnifierSettings.isError && (
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {String(saveMagnifierSettings.error)}
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-1 border-t border-border pt-6">
+          <h3 className="text-sm font-medium text-foreground">Mods folder</h3>
+          <p className="text-xs text-muted-foreground">
+            Where XXMI/ZZMI loads mods from. Ether Manager files installed mods
+            inside it.
+          </p>
+          <div className="flex items-center gap-3 pt-1">
+            <p className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+              {modsFolder ?? "Not set"}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={handleChangeModsFolder}
+              disabled={isChangingFolder}
+            >
+              {isChangingFolder ? "Working…" : "Change"}
+            </Button>
+          </div>
+          {/* Said plainly because it is the surprising part: a mod's folder is recorded by its own
             full path, so pointing this somewhere new leaves everything already installed exactly
             where it is — still listed in the library, and no longer anywhere the game reads. */}
-        <p className="pt-1 text-xs text-muted-foreground">
-          Mods already installed stay where they are. The game only loads what is inside the
-          folder chosen here.
-        </p>
-        {setFolder.isError && (
-          <p className="flex items-center gap-1.5 pt-1 text-xs text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            {String(setFolder.error)}
+          <p className="pt-1 text-xs text-muted-foreground">
+            Mods already installed stay where they are. The game only loads what
+            is inside the folder chosen here.
           </p>
-        )}
-      </section>
+          {setFolder.isError && (
+            <p className="flex items-center gap-1.5 pt-1 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {String(setFolder.error)}
+            </p>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
