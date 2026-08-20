@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import type { Character, ModCounts } from "@/lib/tauri-commands";
 
 interface CharacterCardProps {
@@ -26,6 +27,11 @@ export function CharacterCard({
 }: CharacterCardProps) {
   const hasMods = counts.total > 0;
   const hasEnabled = counts.enabled > 0;
+  // The same condition the character's own page warns about: ZZMI loads every enabled mod, and
+  // two that touch the same model fight over it. Surfaced on the roster so the character worth
+  // opening is visible without opening all sixty — otherwise the warning only exists somewhere
+  // you have to already suspect.
+  const hasConflictRisk = counts.enabled > 1;
 
   let secondLine: string;
   if (!hasMods) {
@@ -98,12 +104,26 @@ export function CharacterCard({
           hasUpdate ? "border-t-primary" : "border-t-border"
         } ${hasMods ? "bg-background" : "bg-sidebar"} group-hover:border-t-primary`}
       >
-        <span
-          className={`block truncate font-heading text-sm font-semibold uppercase tracking-wide ${
-            hasMods ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-          }`}
-        >
-          {character.name}
+        <span className="flex items-center justify-between gap-2">
+          <span
+            className={`min-w-0 flex-1 truncate font-heading text-sm font-semibold uppercase tracking-wide ${
+              hasMods ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+            }`}
+          >
+            {character.name}
+          </span>
+          {/* In the caption rather than over the art, at the end of the name line and so directly
+              above the counts — the mark and the number it is about form one right-hand column.
+              A mark rather than a word: the card has no room for a sentence, and the page it
+              leads to explains the conflict properly. */}
+          {hasConflictRisk && (
+            <span
+              title={`${counts.enabled} mods enabled at once — they may conflict`}
+              className="shrink-0 text-primary"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </span>
+          )}
         </span>
         <span className="flex items-baseline justify-between gap-2">
           <span
