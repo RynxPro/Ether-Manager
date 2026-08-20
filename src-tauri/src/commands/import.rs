@@ -321,12 +321,18 @@ fn place_mods(
             .map(|p| p.starts_with(&source))
             .unwrap_or(false);
 
-        if owns_tree {
+        // Both of these create `dest` as they go, so a failure part-way leaves a half-made folder
+        // that no library row points at — invisible to the app and impossible to remove from
+        // inside it, and it takes the name, so a retry lands at `<name>_1`. `unique_mod_dir`
+        // guaranteed both spellings were free, so whatever is there is ours to clear away.
+        let placed_files = if owns_tree {
             fs_ops::move_dir(&source, &dest)
-                .map_err(|e| format!("could not install {}: {e}", selection.display_name))?;
         } else {
-            fs_ops::copy_dir_recursive(&source, &dest)
-                .map_err(|e| format!("could not install {}: {e}", selection.display_name))?;
+            fs_ops::copy_dir_recursive(&source, &dest).map_err(Into::into)
+        };
+        if let Err(e) = placed_files {
+            let _ = std::fs::remove_dir_all(&dest);
+            return Err(format!("could not install {}: {e}", selection.display_name));
         }
 
         // A mod shipping `Foo.INI` would otherwise install, read as enabled everywhere in the app,

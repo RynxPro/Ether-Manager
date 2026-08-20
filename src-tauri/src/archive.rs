@@ -39,7 +39,19 @@ impl From<zip::result::ZipError> for ArchiveError {
 
 /// Extracts an archive (`.zip`, `.7z`, or `.rar`, detected by file extension) into `dest_dir`.
 /// `dest_dir` is created if it doesn't already exist.
+/// Unpacks an archive into `dest_dir`, creating it if it is not already there.
+///
+/// A failure leaves nothing behind. `dest_dir` has to exist before unpacking can start, so
+/// without this an archive that turned out to be truncated — the usual cause being a download
+/// from a struggling GameBanana — left an empty folder where the mod should have been. Nothing
+/// removed it, because the library row is only written once the install has fully succeeded: the
+/// folder had no entry in the app, so it could not be seen or deleted from inside it, and worse
+/// it held the name, so the retry that finally worked was filed as `<name>_1` instead.
+///
+/// Only a directory this call created is cleaned up. One that was already there belongs to
+/// whoever made it, and unpacking into an existing folder must never be able to empty it.
 pub fn extract_archive(archive_path: &Path, dest_dir: &Path) -> Result<(), ArchiveError> {
+    let dest_existed = dest_dir.exists();
     fs::create_dir_all(dest_dir)?;
 
     let ext = archive_path
@@ -48,12 +60,17 @@ pub fn extract_archive(archive_path: &Path, dest_dir: &Path) -> Result<(), Archi
         .unwrap_or("")
         .to_lowercase();
 
-    match ext.as_str() {
+    let result = match ext.as_str() {
         "zip" => extract_zip(archive_path, dest_dir),
         "7z" => extract_seven_zip(archive_path, dest_dir),
         "rar" => extract_rar(archive_path, dest_dir),
         other => Err(ArchiveError::UnsupportedFormat(other.to_string())),
+    };
+
+    if result.is_err() && !dest_existed {
+        let _ = fs::remove_dir_all(dest_dir);
     }
+    result
 }
 
 fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<(), ArchiveError> {
@@ -102,6 +119,52 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    /// A download that stopped early. This is what a struggling GameBanana actually hands back,
+    /// and unpacking it fails after the destination folder has already been made.
+    fn write_truncated_zip(path: &Path) {
+        fs::write(path, b"PK\x03\x04 this stopped halfway through").unwrap();
+    }
+
+    /// The install that made this test: a flaky download failed, left an empty folder holding the
+    /// mod's name, and the retry that worked was filed as `<name>_1` beside it. The folder had no
+    /// library row, so it could not be removed from inside the app either.
+    #[test]
+    fn a_failed_extraction_leaves_no_empty_folder_behind() {
+        let work = temp_dir("failed-extract");
+        let archive = work.join("truncated.zip");
+        write_truncated_zip(&archive);
+        let dest = work.join("DISABLED_somemod");
+
+        assert!(extract_archive(&archive, &dest).is_err());
+        assert!(
+            !dest.exists(),
+            "a folder made only for this install must not outlive it"
+        );
+
+        fs::remove_dir_all(&work).unwrap();
+    }
+
+    /// The other half of the rule: cleaning up must only ever reclaim what this call created.
+    /// Emptying a folder that was already populated would destroy an installed mod.
+    #[test]
+    fn a_failed_extraction_leaves_an_existing_folder_and_its_contents_alone() {
+        let work = temp_dir("failed-extract-existing");
+        let archive = work.join("truncated.zip");
+        write_truncated_zip(&archive);
+        let dest = work.join("already_here");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("Nicole.ini"), b"[Mod]\n").unwrap();
+
+        assert!(extract_archive(&archive, &dest).is_err());
+        assert!(dest.is_dir(), "a folder we did not create is not ours to bin");
+        assert!(
+            dest.join("Nicole.ini").is_file(),
+            "and neither is anything already inside it"
+        );
+
+        fs::remove_dir_all(&work).unwrap();
+    }
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
