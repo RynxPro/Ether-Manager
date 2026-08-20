@@ -91,6 +91,10 @@ export function Library({ onSelectCharacter, onOpenModDetail, onImport }: Librar
   return (
     <div className="space-y-6">
       <PageHeader title="Library" subtitle="Your roster and what it is wearing">
+        <Button type="button" variant="outline" size="sm" onClick={onImport}>
+          <FilePlus2 className="h-3.5 w-3.5" />
+          Import
+        </Button>
         {tab === "characters" && (
           <Input
             ref={searchRef}
@@ -102,10 +106,6 @@ export function Library({ onSelectCharacter, onOpenModDetail, onImport }: Librar
             className="w-full sm:w-64"
           />
         )}
-        <Button type="button" variant="outline" size="sm" onClick={onImport}>
-          <FilePlus2 className="h-3.5 w-3.5" />
-          Import
-        </Button>
       </PageHeader>
 
       {/* The rule belongs to the row, not the tablist: the update button shares the line but is

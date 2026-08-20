@@ -101,6 +101,10 @@ export function AllMods({ onSelectCharacter, onOpenModDetail, onImport }: AllMod
   return (
     <div className="space-y-6">
       <PageHeader title="All mods" subtitle="Everything installed, grouped by character">
+        <Button type="button" variant="outline" size="sm" onClick={onImport}>
+          <FilePlus2 className="h-3.5 w-3.5" />
+          Import
+        </Button>
         <Input
           ref={searchRef}
           type="search"
@@ -110,10 +114,6 @@ export function AllMods({ onSelectCharacter, onOpenModDetail, onImport }: AllMod
           aria-label="Search your installed mods"
           className="w-full sm:w-64"
         />
-        <Button type="button" variant="outline" size="sm" onClick={onImport}>
-          <FilePlus2 className="h-3.5 w-3.5" />
-          Import
-        </Button>
       </PageHeader>
 
       {isLoading ? (
