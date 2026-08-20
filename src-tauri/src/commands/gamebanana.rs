@@ -293,6 +293,7 @@ pub(crate) async fn fetch_gamebanana_file(
     Ok(ChosenFile {
         file,
         variant_label,
+        thumbnail_url: detail.preview_media.thumbnail_url(),
     })
 }
 
@@ -301,6 +302,12 @@ pub(crate) struct ChosenFile {
     pub file: GbFile,
     /// `None` when the mod ships one file, or when nothing about this one reads as a name.
     pub variant_label: Option<String>,
+    /// Carried out of the detail this lookup already fetched, rather than asked for again once
+    /// the download has finished. The install used to make a second, identical request for it at
+    /// the very end — after the progress bar had reached the end and with nothing checking for
+    /// cancellation — so a slow GameBanana could hold a finished install for up to the 30s API
+    /// timeout while pause and cancel did nothing. The detail was in hand the whole time.
+    pub thumbnail_url: Option<String>,
 }
 
 /// Pulls a file down to its staged path, resuming from whatever is already there.
@@ -370,7 +377,7 @@ async fn download_and_extract_gamebanana_file(
     on_extract_start: impl FnOnce(),
     should_stop: impl Fn() -> bool,
 // Returns where it landed, which file it was, and which of the mod's files that is in words.
-) -> Result<(PathBuf, GbFile, Option<String>), String> {
+) -> Result<(PathBuf, GbFile, Option<String>, Option<String>), String> {
     let InstallRequest {
         gamebanana_mod_id,
         gamebanana_file_id,
@@ -408,15 +415,46 @@ async fn download_and_extract_gamebanana_file(
         &should_stop,
     )
     .await?;
+
+    // Checked at each boundary from here on. Only the download loop used to consult this, so a
+    // pause or a cancel arriving after the last byte had landed was simply never seen — the
+    // buttons went dead for the rest of the install and the job ran to completion regardless.
+    if should_stop() {
+        return Err(GameBananaError::Cancelled.to_string());
+    }
+
     on_extract_start();
-    archive::extract_archive(&staging.path, &dest_dir).map_err(|e| e.to_string())?;
+    // Unpacking is synchronous work that can run for a while on a large mod, so it goes to a
+    // blocking thread rather than sitting on an async worker and stalling everything else the
+    // runtime has to do. It cleans up after itself if the archive turns out to be truncated, so
+    // a failed install leaves no empty folder holding this mod's name — see
+    // `archive::extract_archive`.
+    let archive_path = staging.path.clone();
+    let extract_into = dest_dir.clone();
+    tokio::task::spawn_blocking(move || archive::extract_archive(&archive_path, &extract_into))
+        .await
+        .map_err(|e| format!("extracting did not finish: {e}"))?
+        .map_err(|e| e.to_string())?;
+
+    if should_stop() {
+        // The mod is on disk but nobody asked for it any more, and no library row exists yet, so
+        // leaving the folder would strand files the app cannot see. `unique_mod_dir` guaranteed
+        // this path was free, so everything here is ours.
+        let _ = std::fs::remove_dir_all(&dest_dir);
+        return Err(GameBananaError::Cancelled.to_string());
+    }
 
     // A mod shipping `Foo.INI` would otherwise install, read as enabled everywhere in the app, and
     // never load: 3DMigoto matches the extension case-sensitively. See
     // `fs_ops::normalize_ini_extensions`.
     fs_ops::normalize_ini_extensions(&dest_dir);
 
-    Ok((dest_dir, chosen.file, chosen.variant_label))
+    Ok((
+        dest_dir,
+        chosen.file,
+        chosen.variant_label,
+        chosen.thumbnail_url,
+    ))
 }
 
 /// Downloads a specific GameBanana file, extracts it into the given character/slot, and
@@ -455,7 +493,7 @@ pub(crate) async fn install_gamebanana_file(
     };
     let mods_root = PathBuf::from(mods_folder);
 
-    let (dest_dir, file, variant_label) = download_and_extract_gamebanana_file(
+    let (dest_dir, file, variant_label, thumbnail_url) = download_and_extract_gamebanana_file(
         gamebanana,
         &mods_root,
         request,
@@ -466,10 +504,10 @@ pub(crate) async fn install_gamebanana_file(
     )
     .await?;
     let state = InstallRecording {
-        gamebanana,
         db,
         gamebanana_mod_id,
         gamebanana_file_id,
+        thumbnail_url,
     };
     record_installed_mod(
         state,
@@ -486,10 +524,11 @@ pub(crate) async fn install_gamebanana_file(
 /// The handful of things `record_installed_mod` needs, grouped to stay under clippy's
 /// argument-count limit.
 struct InstallRecording<'a> {
-    gamebanana: &'a GameBananaClient,
     db: &'a Mutex<Db>,
     gamebanana_mod_id: i64,
     gamebanana_file_id: i64,
+    /// Already in hand from the file lookup — see `ChosenFile::thumbnail_url`.
+    thumbnail_url: Option<String>,
 }
 
 async fn record_installed_mod(
@@ -502,22 +541,17 @@ async fn record_installed_mod(
     variant_label: Option<String>,
 ) -> Result<Mod, String> {
     let InstallRecording {
-        gamebanana,
         db,
         gamebanana_mod_id,
         gamebanana_file_id,
+        thumbnail_url,
     } = recording;
 
-    // One extra request against a mod we just pulled megabytes from: the preview image only
-    // appears on the detail endpoint, not on the file list the download used. A mod with no
-    // preview — or a hiccup fetching it — must never fail an install that already succeeded,
-    // so this degrades to None and the card shows its "no preview" state.
-    let thumbnail_url = gamebanana
-        .get_mod_detail(gamebanana_mod_id)
-        .await
-        .ok()
-        .and_then(|detail| detail.preview_media.thumbnail_url());
-
+    // The preview came out of the detail the file lookup already fetched, rather than being
+    // asked for again here. This used to be one more request against a mod we had just pulled
+    // megabytes from, made after the progress bar had reached the end, with nothing checking for
+    // cancellation — so a slow GameBanana could hold a finished install for up to the API
+    // timeout while pause and cancel appeared to do nothing at all.
     let db = db.lock().map_err(|e| e.to_string())?;
     db.insert_mod(NewMod {
         character_id,
@@ -641,7 +675,7 @@ mod tests {
             std::process::id()
         ));
 
-        let (dest_dir, file, _variant_label) = download_and_extract_gamebanana_file(
+        let (dest_dir, file, _variant_label, thumbnail_url) = download_and_extract_gamebanana_file(
             &gamebanana,
             &mods_root,
             InstallRequest {
@@ -674,6 +708,13 @@ mod tests {
         assert!(
             dest_dir.read_dir().unwrap().next().is_some(),
             "extracted mod folder must not be empty"
+        );
+        // The whole point of carrying this out of the file lookup: the preview arrives with the
+        // install, from the detail already fetched, instead of costing a second request made
+        // after the download had finished and while nothing was listening for a cancel.
+        assert!(
+            thumbnail_url.is_some_and(|url| url.starts_with("http")),
+            "the preview should come back with the install, not need fetching again"
         );
         assert!(
             dest_dir
