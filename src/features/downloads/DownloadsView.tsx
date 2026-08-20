@@ -60,6 +60,10 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
   const active = activeDownloads(downloads);
   const activeIds = new Set(active.map((download) => download.id));
   const finished = (downloads ?? []).filter((download) => !activeIds.has(download.id));
+  // The queue runs one at a time, so its head is the job actually in flight and everything behind
+  // it is waiting. Paused counts as leading: it is still the one holding the slot, and its bytes
+  // are the ones a resume continues from.
+  const [leading, ...waiting] = active;
 
   return (
     <div className="space-y-5">
@@ -98,14 +102,24 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
         </div>
       ) : (
         <div className="space-y-5">
-          {active.length > 0 && (
+          {/* The one in flight, given the page. Only one download runs at a time, so there is
+              never a second hero competing with this — the rest are genuinely waiting. */}
+          {leading && (
+            <ActiveDownloadHero
+              download={leading}
+              live={progress[leading.id]}
+              onCancel={() => cancel.mutate(leading.id)}
+              onPause={() => pause.mutate(leading.id)}
+              onResume={() => resume.mutate(leading.id)}
+            />
+          )}
+
+          {waiting.length > 0 && (
             <section className="space-y-2">
               <h3 className="font-heading text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-                {/* Not "in progress": a paused download belongs here too, and it is not
-                    progressing. The section is the working set, not the moving one. */}
-                Queue · {active.length}
+                Up next · {waiting.length}
               </h3>
-              {active.map((download) => (
+              {waiting.map((download) => (
                 <DownloadRow
                   key={download.id}
                   download={download}
@@ -122,9 +136,14 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
 
           {finished.length > 0 && (
             <section className="space-y-2">
-              <h3 className="font-heading text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-                History
-              </h3>
+              {/* Only worth saying when there is something above it to tell it apart from. With
+                  nothing downloading, the finished list is the whole page and a heading over it
+                  names nothing — the same reason the character page dropped its slot heading. */}
+              {active.length > 0 && (
+                <h3 className="font-heading text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                  History
+                </h3>
+              )}
               {finished.map((download) => (
                 <DownloadRow
                   key={download.id}
@@ -141,6 +160,141 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** How long the rest will take, in words, or null when there is nothing honest to say.
+ *
+ * Guarded on all three inputs because a wrong number here is worse than none: a stalled sample
+ * reports zero bytes a second, which divides into a countdown of hours on a file that is nearly
+ * done. Rounded to a scale a person reads rather than to the second — "about 2m" survives the
+ * next sample changing its mind, where "1m 47s" visibly lurches. */
+function formatEta(
+  downloaded: number,
+  total: number | null,
+  speedBytesPerSec: number | null,
+): string | null {
+  if (!total || total <= 0 || !speedBytesPerSec || speedBytesPerSec <= 0) return null;
+  const remaining = total - downloaded;
+  if (remaining <= 0) return null;
+
+  const seconds = remaining / speedBytesPerSec;
+  if (seconds < 10) return "a few seconds left";
+  if (seconds < 90) return `about ${Math.round(seconds / 5) * 5}s left`;
+  if (seconds < 3600) return `about ${Math.round(seconds / 60)}m left`;
+  return "over an hour left";
+}
+
+interface ActiveDownloadHeroProps {
+  download: Download;
+  live: LiveProgress | undefined;
+  onCancel: () => void;
+  onPause: () => void;
+  onResume: () => void;
+}
+
+/** The one download that is actually happening, given the room to say so.
+ *
+ * Everything on this page used to take the same row, so the job in flight looked exactly like one
+ * that finished a fortnight ago — and its Pause sat over 1300px from its name, which is the
+ * distance that got the old mod row replaced by a card. Since only one download runs at a time,
+ * that one can simply be the page: art large enough to recognise, the bar full width beneath it,
+ * and the controls beside the name they act on.
+ *
+ * Queued and finished work stays in rows below. Three densities for three genuinely different
+ * things — one you are watching, some that are waiting, and a history you glance at. */
+function ActiveDownloadHero({
+  download,
+  live,
+  onCancel,
+  onPause,
+  onResume,
+}: ActiveDownloadHeroProps) {
+  const isPaused = download.status === "Paused";
+  const downloaded = isPaused
+    ? download.downloaded_bytes
+    : (live?.downloaded ?? download.downloaded_bytes);
+  const total = isPaused ? download.total_bytes : (live?.total ?? download.total_bytes);
+  const percent = total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : null;
+  const isExtracting = download.status === "Extracting" || live?.isExtracting === true;
+  const speed = isPaused || isExtracting ? null : (live?.speedBytesPerSec ?? null);
+  const eta = formatEta(downloaded, total, speed);
+
+  return (
+    <div style={CUT_CORNER} className="flex gap-4 border-2 border-primary bg-card p-3.5">
+      <div className="h-[105px] w-[168px] shrink-0 overflow-hidden border border-border bg-secondary">
+        {download.thumbnail_url ? (
+          <img src={download.thumbnail_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center font-heading text-2xl text-muted-foreground/30">
+            {download.mod_name.charAt(0)}
+          </span>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h3
+              className="truncate font-heading text-base uppercase tracking-[0.05em]"
+              title={download.mod_name}
+            >
+              {download.mod_name}
+            </h3>
+            <p className="truncate text-xs text-muted-foreground" title={download.file_name}>
+              {download.file_name}
+            </p>
+          </div>
+          {/* Beside the name, not at the far edge — the whole reason this shape exists. */}
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={isPaused ? "default" : "outline"}
+              onClick={isPaused ? onResume : onPause}
+              // Extraction runs straight through once it starts, so neither stopping control can
+              // reach it — same reasoning as the row.
+              disabled={isExtracting}
+            >
+              {isPaused ? "Resume" : "Pause"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isExtracting}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-3">
+          <div className="h-1.5 w-full overflow-hidden bg-secondary">
+            <div
+              className={`h-full bg-primary transition-[width] ${percent === null ? "w-1/3 animate-pulse" : ""}`}
+              style={percent === null ? undefined : { width: `${percent}%` }}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {isExtracting ? (
+              <span>Unpacking…</span>
+            ) : (
+              <>
+                <span>
+                  <span className="text-foreground">{formatBytes(downloaded)}</span>
+                  {total ? ` of ${formatBytes(total)}` : ""}
+                </span>
+                {speed && <span>{formatBytes(speed)}/s</span>}
+                {eta && <span>{eta}</span>}
+                {isPaused && <span>Paused</span>}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
