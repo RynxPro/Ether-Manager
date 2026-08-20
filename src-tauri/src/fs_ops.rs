@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use crate::db::{Db, Mod, Slot};
 
@@ -251,7 +252,7 @@ pub fn set_mod_enabled(db: &Db, mod_id: i64, enabled: bool) -> Result<(), FsOpsE
     // Already in the spelling being asked for. Toggling a mod that some other program already
     // toggled the same way is a no-op rather than an error — the disk is what was wanted.
     if current != desired {
-        fs::rename(&current, &desired)?;
+        retrying(|| fs::rename(&current, &desired))?;
     }
     Ok(())
 }
@@ -302,6 +303,10 @@ pub fn settle_mod_folders(db: &Db, mods_root: &Path) -> Result<usize, FsOpsError
         } else {
             dest_canonical.clone()
         };
+        // No retry here, unlike the operations a user is waiting on. This sweep runs during
+        // startup and already has somewhere to put a failure: skip the mod and try again next
+        // launch. Waiting out a lock would stall the window opening for seconds, per stuck mod,
+        // to bring forward tidying that nobody asked for and nobody is watching.
         if fs::rename(&current, &dest).is_err() {
             continue;
         }
@@ -320,6 +325,61 @@ pub fn settle_mod_folders(db: &Db, mods_root: &Path) -> Result<usize, FsOpsError
     }
 
     Ok(moved)
+}
+
+/// How long [`retrying`] keeps trying before giving up.
+///
+/// Two seconds, not the ten XXMI's own file helpers wait. Every caller here sits behind something
+/// the user is watching — a toggle, a delete — and a UI that freezes for ten seconds reads as
+/// broken rather than as patient. Two comfortably outlasts a virus scanner glancing at a folder,
+/// which is the case worth surviving. The other common holder is the running game, and no amount
+/// of waiting helps there, so failing promptly and saying so is the better answer.
+const RETRY_BUDGET: Duration = Duration::from_secs(2);
+const RETRY_FIRST_WAIT: Duration = Duration::from_millis(1);
+const RETRY_MAX_WAIT: Duration = Duration::from_millis(250);
+
+/// Whether this failure is Windows saying "something else is holding that right now".
+///
+/// These clear on their own, usually within a moment: Defender scanning a file that was just
+/// extracted, XXMI's optimizer walking the tree on game launch, an Explorer window left open on a
+/// mod folder.
+///
+/// `NotFound` is deliberately absent, though XXMI's equivalent list includes it. A missing path is
+/// not a busy path — it is how this module tells that a mod's files are genuinely gone, and
+/// `ModFolderMissing` is built on exactly that. Retrying it for two seconds would turn a real,
+/// reportable answer into a pause followed by the same answer.
+fn is_transient(error: &std::io::Error) -> bool {
+    // 32 ERROR_SHARING_VIOLATION, 33 ERROR_LOCK_VIOLATION, 145 ERROR_DIR_NOT_EMPTY — the last
+    // shows up when a directory is emptied while something is still writing into it.
+    const WINDOWS_BUSY: [i32; 3] = [32, 33, 145];
+    matches!(error.kind(), std::io::ErrorKind::PermissionDenied)
+        || error
+            .raw_os_error()
+            .is_some_and(|code| WINDOWS_BUSY.contains(&code))
+}
+
+/// Runs a filesystem operation, retrying while it fails for a reason that clears on its own.
+///
+/// Backs off from a millisecond, doubling to a quarter-second ceiling, and stops at
+/// [`RETRY_BUDGET`]. No jitter: that exists to decorrelate several contenders retrying in step,
+/// and there is only ever one of this app.
+///
+/// Anything that is not [`is_transient`] comes straight back on the first attempt.
+fn retrying<T>(mut operation: impl FnMut() -> std::io::Result<T>) -> std::io::Result<T> {
+    let deadline = Instant::now() + RETRY_BUDGET;
+    let mut wait = RETRY_FIRST_WAIT;
+    loop {
+        match operation() {
+            Ok(value) => return Ok(value),
+            Err(error) => {
+                if !is_transient(&error) || Instant::now() + wait >= deadline {
+                    return Err(error);
+                }
+                std::thread::sleep(wait);
+                wait = (wait * 2).min(RETRY_MAX_WAIT);
+            }
+        }
+    }
 }
 
 /// How deep [`normalize_ini_extensions`] will walk. Mod folders are a couple of levels at most —
@@ -415,11 +475,11 @@ fn normalize_ini_extensions_at(dir: &Path, depth: usize) -> usize {
 /// removes the original, and only removes it once the copy has succeeded — a half-moved mod that
 /// still exists where it was is recoverable, one that exists nowhere is not.
 pub fn move_dir(from: &Path, to: &Path) -> Result<(), FsOpsError> {
-    if fs::rename(from, to).is_ok() {
+    if retrying(|| fs::rename(from, to)).is_ok() {
         return Ok(());
     }
     copy_dir_recursive(from, to)?;
-    fs::remove_dir_all(from)?;
+    retrying(|| fs::remove_dir_all(from))?;
     Ok(())
 }
 
@@ -428,7 +488,7 @@ pub fn move_dir(from: &Path, to: &Path) -> Result<(), FsOpsError> {
 pub fn delete_mod_files(m: &Mod) -> std::io::Result<()> {
     let path = PathBuf::from(&m.folder_path);
     if path.exists() {
-        fs::remove_dir_all(path)?;
+        retrying(|| fs::remove_dir_all(&path))?;
     }
     Ok(())
 }
@@ -461,14 +521,14 @@ pub fn replace_mod_folder(current_dir: &Path, staging_dir: &Path) -> Result<(), 
     let unique = BACKUP_DIR_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let backup_dir = parent.join(format!(".ether-backup-{unique}-{leaf}"));
 
-    fs::rename(current_dir, &backup_dir)?;
+    retrying(|| fs::rename(current_dir, &backup_dir))?;
 
-    if let Err(swap_error) = fs::rename(staging_dir, current_dir) {
+    if let Err(swap_error) = retrying(|| fs::rename(staging_dir, current_dir)) {
         // Roll back before surfacing the error — a failed swap must never leave the mod's
         // folder missing. But the rollback itself can fail too (transient lock, AV scan,
         // permissions), and that must not be silently swallowed: the mod's real files would
         // still be safe at `backup_dir`, just not where anything else expects them.
-        if let Err(rollback_error) = fs::rename(&backup_dir, current_dir) {
+        if let Err(rollback_error) = retrying(|| fs::rename(&backup_dir, current_dir)) {
             return Err(FsOpsError::SwapAndRollbackFailed {
                 backup_dir,
                 swap_error,
@@ -478,7 +538,7 @@ pub fn replace_mod_folder(current_dir: &Path, staging_dir: &Path) -> Result<(), 
         return Err(FsOpsError::Io(swap_error));
     }
 
-    let _ = fs::remove_dir_all(&backup_dir);
+    let _ = retrying(|| fs::remove_dir_all(&backup_dir));
     Ok(())
 }
 
@@ -612,6 +672,76 @@ mod tests {
         assert!(root.join("モデル名").is_file());
 
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    fn busy_error() -> std::io::Error {
+        // ERROR_SHARING_VIOLATION — what Windows returns while another process holds the file.
+        std::io::Error::from_raw_os_error(32)
+    }
+
+    /// The everyday case: Defender or XXMI has the folder for a moment, then lets go.
+    #[test]
+    fn a_busy_file_is_retried_until_whatever_held_it_lets_go() {
+        let mut attempts = 0;
+        let result = retrying(|| {
+            attempts += 1;
+            if attempts < 4 {
+                Err(busy_error())
+            } else {
+                Ok("renamed")
+            }
+        });
+
+        assert_eq!(result.unwrap(), "renamed");
+        assert_eq!(attempts, 4, "it should have kept trying, not given up at one");
+    }
+
+    /// A missing path is an answer, not a delay. `ModFolderMissing` is built on it, so retrying
+    /// would turn something worth reporting into two seconds of nothing and then the same result.
+    #[test]
+    fn a_missing_path_comes_back_immediately_instead_of_being_retried() {
+        let mut attempts = 0;
+        let result = retrying(|| {
+            attempts += 1;
+            Err::<(), _>(std::io::Error::from(std::io::ErrorKind::NotFound))
+        });
+
+        assert!(result.is_err());
+        assert_eq!(attempts, 1, "not-found must not be treated as busy");
+    }
+
+    /// Something holding the folder for good — the running game, most likely — has to end as a
+    /// reported failure rather than an indefinite wait.
+    #[test]
+    fn a_file_that_never_frees_up_eventually_gives_up_and_reports_it() {
+        let started = Instant::now();
+        let mut attempts = 0;
+        let result = retrying(|| {
+            attempts += 1;
+            Err::<(), _>(busy_error())
+        });
+
+        assert!(result.is_err());
+        assert!(attempts > 1, "it should have tried more than once");
+        assert!(
+            started.elapsed() < RETRY_BUDGET * 2,
+            "giving up must happen near the budget, not long after it"
+        );
+    }
+
+    #[test]
+    fn only_the_failures_that_clear_on_their_own_count_as_transient() {
+        assert!(is_transient(&busy_error()));
+        assert!(is_transient(&std::io::Error::from_raw_os_error(145)));
+        assert!(is_transient(&std::io::Error::from(
+            std::io::ErrorKind::PermissionDenied
+        )));
+        assert!(!is_transient(&std::io::Error::from(
+            std::io::ErrorKind::NotFound
+        )));
+        assert!(!is_transient(&std::io::Error::from(
+            std::io::ErrorKind::InvalidInput
+        )));
     }
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
