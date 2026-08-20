@@ -151,6 +151,13 @@ export function clearModThumbnail(modId: number): Promise<Mod> {
   return invoke("clear_mod_thumbnail", { modId });
 }
 
+/** Where ZZMI loads mods from on this machine, worked out from XXMI's own config rather than
+ * guessed — null when nothing convincing was found. Only ever an offer: applying it still goes
+ * through `setModsFolder`. */
+export function detectModsFolder(): Promise<string | null> {
+  return invoke("detect_mods_folder");
+}
+
 export function getModsFolder(): Promise<string | null> {
   return invoke("get_mods_folder");
 }

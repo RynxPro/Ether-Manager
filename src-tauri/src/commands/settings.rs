@@ -18,6 +18,16 @@ pub fn pick_mods_folder(app: AppHandle) -> Option<String> {
         .map(|path| path.to_string())
 }
 
+/// Where ZZMI loads mods from on this machine, if it can be worked out — read from XXMI's own
+/// config rather than guessed. See `crate::xxmi`.
+///
+/// Offers only, never applies: the user still confirms, and that goes through `set_mods_folder`
+/// like any other choice. `None` simply means first-run setup shows the picker it always did.
+#[tauri::command]
+pub fn detect_mods_folder() -> Option<String> {
+    crate::xxmi::detect_zzmi_mods_folder().map(|path| path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 pub fn get_mods_folder(state: State<AppState>) -> Result<Option<String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;

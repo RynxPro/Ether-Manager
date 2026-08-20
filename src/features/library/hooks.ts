@@ -7,6 +7,7 @@ import {
   checkModUpdate,
   commitImport,
   deleteMod,
+  detectModsFolder,
   enqueueDownload,
   getModsFolder,
   listAllMods,
@@ -199,6 +200,16 @@ export function useImportPreview(sessionId: number, relPath: string | null) {
     enabled: relPath !== null,
     staleTime: Infinity,
     retry: false,
+  });
+}
+
+/** The ZZMI mods folder this machine appears to have, for first-run setup to offer. Read once —
+ * an XXMI install does not move while the welcome screen is open. */
+export function useDetectedModsFolder() {
+  return useQuery({
+    queryKey: ["detectedModsFolder"],
+    queryFn: detectModsFolder,
+    staleTime: Infinity,
   });
 }
 

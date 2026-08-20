@@ -9,6 +9,7 @@ mod import;
 mod thumbnail;
 mod updates;
 mod variant_label;
+mod xxmi;
 
 use std::sync::atomic::{AtomicBool, AtomicU8};
 use std::collections::HashMap;
@@ -107,6 +108,7 @@ pub fn run() {
             commands::mods::pick_mod_thumbnail,
             commands::mods::clear_mod_thumbnail,
             commands::mods::delete_mod,
+            commands::settings::detect_mods_folder,
             commands::settings::get_mods_folder,
             commands::settings::is_mods_folder_linked,
             commands::settings::set_mods_folder,
