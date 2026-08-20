@@ -1,13 +1,21 @@
 import { Bookmark as BookmarkIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { FilterChip } from "@/components/FilterChip";
 import { Input } from "@/components/ui/input";
-import { useCharacters, useInstalledFromGameBanana } from "@/features/library/hooks";
+import {
+  useCharacters,
+  useInstalledFromGameBanana,
+} from "@/features/library/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import type { Bookmark, Character, GbMod } from "@/lib/tauri-commands";
 import { BookmarkCard } from "./BookmarkCard";
-import { useBackfillBookmarkCharacters, useBookmarks, useRemoveBookmark } from "./hooks";
+import {
+  useBackfillBookmarkCharacters,
+  useBookmarks,
+  useRemoveBookmark,
+} from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
 
 interface BookmarkGroup {
@@ -32,8 +40,13 @@ const UNSORTED_ID = "__unsorted__";
  * So "who is this for" became a filter instead of a layout. The question is still answerable at
  * a glance — the rail lists every character with a count — but the page only pays for it when
  * the answer is being used. */
-function countByCharacter(bookmarks: Bookmark[], characters: Character[]): BookmarkGroup[] {
-  const byId = new Map(characters.map((character) => [character.id, character]));
+function countByCharacter(
+  bookmarks: Bookmark[],
+  characters: Character[],
+): BookmarkGroup[] {
+  const byId = new Map(
+    characters.map((character) => [character.id, character]),
+  );
   const groups = new Map<string, BookmarkGroup>();
 
   for (const bookmark of bookmarks) {
@@ -58,37 +71,6 @@ function countByCharacter(bookmarks: Bookmark[], characters: Character[]): Bookm
   });
 }
 
-interface FilterChipProps {
-  label: string;
-  count: number;
-  isSelected: boolean;
-  onClick: () => void;
-}
-
-/** One character in the filter rail.
- *
- * Small uppercase Bahnschrift is the label style here, so the chip reads as a label before it
- * reads as a control — and the accent marks only the one that is on, which is the job the accent
- * already has everywhere else. `aria-pressed` because this is a toggle, not navigation: it does
- * not go anywhere, it narrows what is already on screen. */
-function FilterChip({ label, count, isSelected, onClick }: FilterChipProps) {
-  return (
-    <button
-      type="button"
-      aria-pressed={isSelected}
-      onClick={onClick}
-      className={`flex items-center gap-1.5 border px-2 py-1 font-heading text-[10px] uppercase tracking-[0.1em] transition-all ${
-        isSelected
-          ? "border-primary text-primary"
-          : "border-border text-muted-foreground hover:border-primary hover:text-foreground"
-      }`}
-    >
-      {label}
-      <span className="tabular-nums opacity-60">{count}</span>
-    </button>
-  );
-}
-
 interface BookmarksViewProps {
   /** Selecting a bookmark navigates to the shared mod detail page, owned by App. */
   onSelectMod: (mod: GbMod) => void;
@@ -108,13 +90,16 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
   const [query, setQuery] = useState("");
   // `null` is "every character", which is the resting state — the rail narrows the shortlist
   // rather than being a mode you have to leave. `UNSORTED_ID` selects the loose ends.
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(
+    null,
+  );
   const { data: characters } = useCharacters();
   // Reads the same allMods cache the library pages use, so installing something marks it here
   // without a second source of truth to keep in step.
   const installed = useInstalledFromGameBanana();
   const backfill = useBackfillBookmarkCharacters();
-  const hasUnplaced = bookmarks?.some((bookmark) => bookmark.character_id === null) ?? false;
+  const hasUnplaced =
+    bookmarks?.some((bookmark) => bookmark.character_id === null) ?? false;
 
   // Bookmarks saved before the character was recorded have none, and would sit under "Unsorted"
   // forever. Run once per visit: it is a no-op the moment they all have one, and asking for it
@@ -127,14 +112,17 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
   }, [hasUnplaced]);
 
   const needle = query.trim().toLowerCase();
-  const nameById = new Map((characters ?? []).map((character) => [character.id, character.name]));
+  const nameById = new Map(
+    (characters ?? []).map((character) => [character.id, character.name]),
+  );
   const matches = (bookmarks ?? []).filter((bookmark) => {
     if (!needle) return true;
     const characterName = bookmark.character_id
       ? (nameById.get(bookmark.character_id) ?? bookmark.character_id)
       : "unsorted";
     return (
-      bookmark.name.toLowerCase().includes(needle) || characterName.toLowerCase().includes(needle)
+      bookmark.name.toLowerCase().includes(needle) ||
+      characterName.toLowerCase().includes(needle)
     );
   });
   // The rail counts what the search left, so a chip never offers a character with nothing behind
@@ -144,7 +132,8 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
     selectedCharacter === null
       ? matches
       : matches.filter(
-          (bookmark) => (bookmark.character_id ?? UNSORTED_ID) === selectedCharacter,
+          (bookmark) =>
+            (bookmark.character_id ?? UNSORTED_ID) === selectedCharacter,
         );
   const count = bookmarks?.length ?? 0;
 
@@ -171,7 +160,10 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
       {isLoading ? (
         <div className={CARD_GRID}>
           {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="aspect-[4/3] animate-pulse border-2 border-border bg-card" />
+            <div
+              key={index}
+              className="aspect-[4/3] animate-pulse border-2 border-border bg-card"
+            />
           ))}
         </div>
       ) : count === 0 ? (
@@ -187,7 +179,9 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
           </p>
         </div>
       ) : matches.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No bookmarks match “{query.trim()}”.</p>
+        <p className="text-sm text-muted-foreground">
+          No bookmarks match “{query.trim()}”.
+        </p>
       ) : (
         <div className="space-y-4">
           {/* The characters, as a rail rather than as nine headings with nine grids under them.
@@ -224,7 +218,9 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
               <BookmarkCard
                 key={bookmark.gamebanana_mod_id}
                 bookmark={bookmark}
-                installedCount={installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0}
+                installedCount={
+                  installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0
+                }
                 onSelect={() =>
                   onSelectMod(
                     placeholderGbMod({
@@ -247,9 +243,9 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
           title="Remove bookmark"
           description={
             <>
-              <span className="text-foreground">{pendingRemoval.name}</span> leaves your
-              bookmarks. Nothing is installed or deleted — you can bookmark it again from
-              Browse.
+              <span className="text-foreground">{pendingRemoval.name}</span>{" "}
+              leaves your bookmarks. Nothing is installed or deleted — you can
+              bookmark it again from Browse.
             </>
           }
           confirmLabel="Remove"
