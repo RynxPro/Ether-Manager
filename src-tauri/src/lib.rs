@@ -6,6 +6,7 @@ mod db;
 mod fs_ops;
 mod gamebanana;
 mod import;
+mod thumbnail;
 mod updates;
 mod variant_label;
 
@@ -102,6 +103,9 @@ pub fn run() {
             commands::mods::toggle_mod,
             commands::mods::rename_mod,
             commands::mods::move_mod,
+            commands::mods::set_mod_thumbnail,
+            commands::mods::pick_mod_thumbnail,
+            commands::mods::clear_mod_thumbnail,
             commands::mods::delete_mod,
             commands::settings::get_mods_folder,
             commands::settings::is_mods_folder_linked,

@@ -24,6 +24,9 @@ import {
   type EnqueueDownloadInput,
   type ImportSelection,
   type Mod,
+  setModThumbnail,
+  pickModThumbnail,
+  clearModThumbnail,
 } from "@/lib/tauri-commands";
 
 export function useCharacters() {
@@ -85,8 +88,40 @@ export function useToggleMod() {
 export function useRenameMod() {
   const invalidate = useModMutationInvalidation();
   return useMutation({
-    mutationFn: ({ modId, displayName }: { modId: number; displayName: string }) =>
-      renameMod(modId, displayName),
+    mutationFn: ({
+      modId,
+      displayName,
+    }: {
+      modId: number;
+      displayName: string;
+    }) => renameMod(modId, displayName),
+    onSuccess: invalidate,
+  });
+}
+
+/** Sets a mod's card picture from image bytes — a paste, usually. */
+export function useSetModThumbnail() {
+  const invalidate = useModMutationInvalidation();
+  return useMutation({
+    mutationFn: ({ modId, bytes }: { modId: number; bytes: Uint8Array }) =>
+      setModThumbnail(modId, bytes),
+    onSuccess: invalidate,
+  });
+}
+
+/** Picks an image off disk and hands back its bytes. Nothing is invalidated because nothing is
+ * written — the dialog stages the result and saves it with everything else. */
+export function usePickModThumbnail() {
+  return useMutation({
+    mutationFn: () => pickModThumbnail(),
+  });
+}
+
+/** Drops a picture set here, leaving the card on whatever it had before. */
+export function useClearModThumbnail() {
+  const invalidate = useModMutationInvalidation();
+  return useMutation({
+    mutationFn: (modId: number) => clearModThumbnail(modId),
     onSuccess: invalidate,
   });
 }
@@ -97,8 +132,13 @@ export function useRenameMod() {
 export function useMoveMod() {
   const invalidate = useModMutationInvalidation();
   return useMutation({
-    mutationFn: ({ modId, characterId }: { modId: number; characterId: string }) =>
-      moveMod(modId, characterId),
+    mutationFn: ({
+      modId,
+      characterId,
+    }: {
+      modId: number;
+      characterId: string;
+    }) => moveMod(modId, characterId),
     onSuccess: invalidate,
   });
 }
@@ -244,7 +284,10 @@ export function useInstalledFromGameBanana(): InstalledFromGameBanana {
   const byFileId = new Map<number, Mod[]>();
   for (const mod of mods ?? []) {
     if (mod.gamebanana_mod_id !== null) {
-      countByModId.set(mod.gamebanana_mod_id, (countByModId.get(mod.gamebanana_mod_id) ?? 0) + 1);
+      countByModId.set(
+        mod.gamebanana_mod_id,
+        (countByModId.get(mod.gamebanana_mod_id) ?? 0) + 1,
+      );
     }
     if (mod.gamebanana_file_id !== null) {
       const rows = byFileId.get(mod.gamebanana_file_id);
@@ -303,7 +346,10 @@ export function useCheckModUpdateWithConfirmation() {
         if (check.status !== "UpToDate") return;
         clearTimeout(timer.current ?? undefined);
         setConfirmedModId(modId);
-        timer.current = setTimeout(() => setConfirmedModId(null), CONFIRM_VISIBLE_MS);
+        timer.current = setTimeout(
+          () => setConfirmedModId(null),
+          CONFIRM_VISIBLE_MS,
+        );
       },
     });
   }
@@ -314,8 +360,13 @@ export function useCheckModUpdateWithConfirmation() {
 export function useUpdateInstalledMod(characterId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ modId, gamebananaFileId }: { modId: number; gamebananaFileId: number }) =>
-      updateInstalledMod(modId, gamebananaFileId),
+    mutationFn: ({
+      modId,
+      gamebananaFileId,
+    }: {
+      modId: number;
+      gamebananaFileId: number;
+    }) => updateInstalledMod(modId, gamebananaFileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["mods", characterId] });
       queryClient.invalidateQueries({ queryKey: ["updateChecks"] });

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use tauri::State;
+use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::db::{Mod, ModCounts, Slot};
 use crate::{fs_ops, AppState};
@@ -178,6 +179,71 @@ pub fn move_mod(state: State<AppState>, mod_id: i64, character_id: String) -> Re
 pub fn toggle_mod(state: State<AppState>, mod_id: i64, enabled: bool) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     fs_ops::set_mod_enabled(&db, mod_id, enabled).map_err(|e| e.to_string())
+}
+
+/// Sets a mod's card picture from raw image bytes.
+///
+/// Bytes rather than a path because the commonest source has no path: an image copied out of a
+/// Discord message or a browser arrives in the clipboard as data, and a screenshot never touched
+/// the disk at all. The frontend reads them off the paste event and hands them straight over.
+///
+/// Whatever the bytes claim to be, `thumbnail::write_thumbnail` decides from their own header.
+#[tauri::command]
+pub fn set_mod_thumbnail(state: State<AppState>, mod_id: i64, bytes: Vec<u8>) -> Result<Mod, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    apply_thumbnail(&db, mod_id, &bytes)
+}
+
+/// Opens the native picker for an image on disk and hands back its bytes. Returns `None` when the
+/// picker is dismissed.
+///
+/// Deliberately writes nothing. The Edit dialog stages every change it offers and applies them on
+/// Save, so that Cancel means what it says — picking a file here has to be as undoable as typing
+/// a new name, which it would not be if choosing one had already written it into the mod's folder.
+/// The bytes travel back so the dialog can show a preview of what it is about to save.
+#[tauri::command]
+pub fn pick_mod_thumbnail(app: AppHandle) -> Result<Option<Vec<u8>>, String> {
+    let Some(chosen) = app
+        .dialog()
+        .file()
+        .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = chosen
+        .into_path()
+        .map_err(|e| format!("could not read that file: {e}"))?;
+    std::fs::read(&path).map(Some).map_err(|e| format!("could not read that file: {e}"))
+}
+
+/// Drops a picture this app set, leaving the card to fall back to whatever it had before — a
+/// GameBanana listing's preview, or nothing.
+#[tauri::command]
+pub fn clear_mod_thumbnail(state: State<AppState>, mod_id: i64) -> Result<Mod, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let m = require_mod(&db, mod_id)?;
+
+    crate::thumbnail::clear_thumbnail(Path::new(&m.folder_path));
+    db.set_bundled_thumbnail(mod_id, None)
+        .map_err(|e| e.to_string())?;
+    require_mod(&db, mod_id)
+}
+
+fn require_mod(db: &crate::db::Db, mod_id: i64) -> Result<Mod, String> {
+    db.get_mod(mod_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("mod {mod_id} not found"))
+}
+
+/// Writes the picture into the mod's folder and records it, returning the mod as it now stands so
+/// the card can redraw without a second round trip.
+fn apply_thumbnail(db: &crate::db::Db, mod_id: i64, bytes: &[u8]) -> Result<Mod, String> {
+    let m = require_mod(db, mod_id)?;
+    let file_name = crate::thumbnail::write_thumbnail(Path::new(&m.folder_path), bytes)?;
+    db.set_bundled_thumbnail(mod_id, Some(&file_name))
+        .map_err(|e| e.to_string())?;
+    require_mod(db, mod_id)
 }
 
 #[tauri::command]

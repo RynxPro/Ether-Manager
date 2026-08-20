@@ -16,7 +16,8 @@ export type Slot = "CharacterSkin" | "Ui" | "Misc";
 
 /** Sort order for the browse path only — GameBanana's free-text search endpoint ignores sort
  * entirely (confirmed live), so this has no effect while a text query is active. */
-export type ModSort = "LatestUpdated" | "Newest" | "MostLiked" | "MostViewed" | "MostDownloaded";
+export type ModSort =
+  "LatestUpdated" | "Newest" | "MostLiked" | "MostViewed" | "MostDownloaded";
 
 /** Human-readable label for each `Slot` value — the enum values themselves are plain PascalCase
  * identifiers (matching Rust), not meant to be displayed directly. */
@@ -124,6 +125,32 @@ export function deleteMod(modId: number): Promise<void> {
   return invoke("delete_mod", { modId });
 }
 
+/** Sets a mod's card picture from raw image bytes, returning the mod as it now stands.
+ *
+ * Bytes rather than a path because the usual source has no path — an image copied out of Discord
+ * or a browser is clipboard data, and a screenshot never touched the disk. Rust decides what the
+ * bytes really are from their own header, so nothing here has to be trusted about them. */
+export function setModThumbnail(
+  modId: number,
+  bytes: Uint8Array,
+): Promise<Mod> {
+  // A plain number array is what Tauri deserialises into `Vec<u8>`; this is a one-off user
+  // action, so the verbosity of the payload costs nothing worth optimising away.
+  return invoke("set_mod_thumbnail", { modId, bytes: Array.from(bytes) });
+}
+
+/** Opens the native picker for an image already on disk and returns its bytes, or null when the
+ * picker is dismissed. Writes nothing — the Edit dialog stages what it gets and applies it on
+ * Save, so choosing a file stays as undoable as typing a new name. */
+export function pickModThumbnail(): Promise<number[] | null> {
+  return invoke("pick_mod_thumbnail");
+}
+
+/** Drops a picture set here, so the card falls back to whatever it had before. */
+export function clearModThumbnail(modId: number): Promise<Mod> {
+  return invoke("clear_mod_thumbnail", { modId });
+}
+
 export function getModsFolder(): Promise<string | null> {
   return invoke("get_mods_folder");
 }
@@ -194,7 +221,10 @@ export function beginImport(path: string): Promise<BegunImport> {
 
 /** A candidate's preview as a `data:` URL. The image is still in a staging directory the webview
  * cannot reach, so the bytes come across rather than a path. */
-export function readImportPreview(sessionId: number, relPath: string): Promise<string> {
+export function readImportPreview(
+  sessionId: number,
+  relPath: string,
+): Promise<string> {
   return invoke("read_import_preview", { sessionId, relPath });
 }
 
@@ -269,7 +299,8 @@ export interface GbMod {
 
 /** GameBanana's own ranking windows, in the order the featured banner shows them. These are the
  * API's bucket names, not this app's — it also ranks a `3month` window, deliberately skipped. */
-export type FeaturedPeriod = "today" | "week" | "month" | "6month" | "year" | "alltime";
+export type FeaturedPeriod =
+  "today" | "week" | "month" | "6month" | "year" | "alltime";
 
 /** A mod that topped one ranking window, with the window it won. A period GameBanana has no
  * entry for is absent rather than padded, so this list can be shorter than six. */
@@ -469,7 +500,12 @@ export function addBookmark(
    * character. Rust resolves the name; pass `null` where the screen does not know it. */
   categoryName: string | null,
 ): Promise<Bookmark> {
-  return invoke("add_bookmark", { gamebananaModId, name, thumbnailUrl, categoryName });
+  return invoke("add_bookmark", {
+    gamebananaModId,
+    name,
+    thumbnailUrl,
+    categoryName,
+  });
 }
 
 /** Works out the character for bookmarks saved before it was recorded. One GameBanana request
@@ -488,7 +524,9 @@ export function removeBookmark(gamebananaModId: number): Promise<void> {
  * Resolves as soon as the download is recorded, not when the mod is installed — the work is
  * owned by the queue in Rust from that point on, which is what lets the dialog close without
  * abandoning it. Watch the download's row for the outcome. */
-export function enqueueDownload(input: EnqueueDownloadInput): Promise<Download> {
+export function enqueueDownload(
+  input: EnqueueDownloadInput,
+): Promise<Download> {
   return invoke("enqueue_download", {
     gamebananaModId: input.gamebananaModId,
     gamebananaFileId: input.gamebananaFileId,
@@ -595,7 +633,10 @@ export function listUpdateChecks(): Promise<UpdateCheck[]> {
  * `folder_path`, `enabled` state, `display_name`, `character_id`, and `slot` are all left
  * untouched. The last flow still using the `gamebanana-install-progress` event and
  * `cancelGamebananaInstall`; installs go through the download queue instead. */
-export function updateInstalledMod(modId: number, gamebananaFileId: number): Promise<Mod> {
+export function updateInstalledMod(
+  modId: number,
+  gamebananaFileId: number,
+): Promise<Mod> {
   return invoke("update_installed_mod", { modId, gamebananaFileId });
 }
 
@@ -607,7 +648,9 @@ export function getMatureContentVisibility(): Promise<MatureVisibility> {
   return invoke("get_mature_content_visibility");
 }
 
-export function setMatureContentVisibility(value: MatureVisibility): Promise<void> {
+export function setMatureContentVisibility(
+  value: MatureVisibility,
+): Promise<void> {
   return invoke("set_mature_content_visibility", { value });
 }
 

@@ -333,6 +333,22 @@ impl Db {
         Ok(counts)
     }
 
+    /// Points a mod at a card picture inside its own folder, or at none.
+    ///
+    /// Deliberately does not touch `updated_at`: choosing a picture is bookkeeping about how the
+    /// mod is shown, not a change to the installed files.
+    pub fn set_bundled_thumbnail(
+        &self,
+        id: i64,
+        bundled_thumbnail: Option<&str>,
+    ) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE mods SET bundled_thumbnail = ?1 WHERE id = ?2",
+            params![bundled_thumbnail, id],
+        )?;
+        Ok(())
+    }
+
     /// Stores the canonical spelling, for the reason given on `insert_mod`.
     pub fn update_folder_path(&self, id: i64, folder_path: &str) -> rusqlite::Result<()> {
         let folder_path = fs_ops::canonical_path(Path::new(folder_path))
