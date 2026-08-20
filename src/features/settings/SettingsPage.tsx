@@ -1,8 +1,9 @@
 import { AlertTriangle, Check } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { useModsFolder } from "@/features/library/hooks";
+import { useModsFolder, usePickModsFolder, useSetModsFolder } from "@/features/library/hooks";
 import { MAGNIFIER_MAX_SIZE, MAGNIFIER_MIN_SIZE } from "@/lib/magnifier";
 import type { MagnifierSettings, MatureVisibility } from "@/lib/tauri-commands";
 import {
@@ -39,6 +40,18 @@ const OPTIONS: { value: MatureVisibility; label: string; description: string }[]
  * on top of what you were doing. */
 export function SettingsPage() {
   const { data: modsFolder } = useModsFolder();
+  const pickFolder = usePickModsFolder();
+  const setFolder = useSetModsFolder();
+  const isChangingFolder = pickFolder.isPending || setFolder.isPending;
+
+  // Cancelling the native picker returns nothing, which must leave the current folder alone
+  // rather than clear it — the same shape as first-run setup, which this deliberately mirrors.
+  async function handleChangeModsFolder() {
+    const path = await pickFolder.mutateAsync();
+    if (path) {
+      setFolder.mutate(path);
+    }
+  }
   // If the query errors (a corrupted stored value), still render every option enabled —
   // picking any one writes a fresh, valid value, so this page is the recovery path and
   // must never be unusable.
@@ -182,7 +195,34 @@ export function SettingsPage() {
         <p className="text-xs text-muted-foreground">
           Where XXMI/ZZMI loads mods from. Ether Manager files installed mods inside it.
         </p>
-        <p className="truncate pt-1 font-mono text-xs text-foreground">{modsFolder ?? "Not set"}</p>
+        <div className="flex items-center gap-3 pt-1">
+          <p className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+            {modsFolder ?? "Not set"}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={handleChangeModsFolder}
+            disabled={isChangingFolder}
+          >
+            {isChangingFolder ? "Working…" : "Change"}
+          </Button>
+        </div>
+        {/* Said plainly because it is the surprising part: a mod's folder is recorded by its own
+            full path, so pointing this somewhere new leaves everything already installed exactly
+            where it is — still listed in the library, and no longer anywhere the game reads. */}
+        <p className="pt-1 text-xs text-muted-foreground">
+          Mods already installed stay where they are. The game only loads what is inside the
+          folder chosen here.
+        </p>
+        {setFolder.isError && (
+          <p className="flex items-center gap-1.5 pt-1 text-xs text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {String(setFolder.error)}
+          </p>
+        )}
       </section>
     </div>
   );

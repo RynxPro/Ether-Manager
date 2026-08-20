@@ -181,8 +181,14 @@ export function InstallConfirmDialog({
               )}
             </div>
             <div className="min-w-0">
+              {/* Wraps rather than truncating, unlike every other name in this dialog. This is
+                  the one you are being asked to confirm, and GameBanana names are long — the
+                  uppercase styling and open tracking spend the width faster still, so a single
+                  line cut most real names short and left the rest only on hover. Two lines hold
+                  nearly all of them without letting the dialog grow without limit. `break-words`
+                  is for the ones that arrive as a single unbroken run of characters. */}
               <p
-                className="truncate font-heading text-sm uppercase tracking-[0.04em]"
+                className="line-clamp-2 break-words font-heading text-sm uppercase tracking-[0.04em]"
                 title={detail.name}
               >
                 {detail.name}
