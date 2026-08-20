@@ -298,6 +298,9 @@ pub(crate) fn swap_archive_into_mod_folder(
     let result = crate::archive::extract_archive(archive_path, &staging_dir)
         .map_err(|e| e.to_string())
         .and_then(|_| {
+            // Normalised before the swap, so what lands in the mod's folder is what 3DMigoto
+            // will actually collect. See `fs_ops::normalize_ini_extensions`.
+            crate::fs_ops::normalize_ini_extensions(&staging_dir);
             crate::fs_ops::replace_mod_folder(current_dir, &staging_dir).map_err(|e| e.to_string())
         });
     let _ = std::fs::remove_dir_all(&staging_dir);
@@ -370,6 +373,8 @@ async fn download_and_swap_gamebanana_file(
             .map_err(|e| e.to_string())?;
         crate::archive::extract_archive(&temp_download_path, &staging_dir)
             .map_err(|e| e.to_string())?;
+        // Normalised before the swap, for the reason given on the other update path above.
+        crate::fs_ops::normalize_ini_extensions(&staging_dir);
         crate::fs_ops::replace_mod_folder(current_dir, &staging_dir).map_err(|e| e.to_string())
     }
     .await;

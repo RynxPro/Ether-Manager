@@ -411,6 +411,11 @@ async fn download_and_extract_gamebanana_file(
     on_extract_start();
     archive::extract_archive(&staging.path, &dest_dir).map_err(|e| e.to_string())?;
 
+    // A mod shipping `Foo.INI` would otherwise install, read as enabled everywhere in the app, and
+    // never load: 3DMigoto matches the extension case-sensitively. See
+    // `fs_ops::normalize_ini_extensions`.
+    fs_ops::normalize_ini_extensions(&dest_dir);
+
     Ok((dest_dir, chosen.file, chosen.variant_label))
 }
 

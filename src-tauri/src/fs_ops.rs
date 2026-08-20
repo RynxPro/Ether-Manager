@@ -322,6 +322,92 @@ pub fn settle_mod_folders(db: &Db, mods_root: &Path) -> Result<usize, FsOpsError
     Ok(moved)
 }
 
+/// How deep [`normalize_ini_extensions`] will walk. Mod folders are a couple of levels at most —
+/// this only exists so a symlink or junction pointing back up its own tree cannot spin forever.
+const MAX_NORMALIZE_DEPTH: usize = 16;
+
+/// Renames every `.ini` whose extension is not already lowercase, and reports how many changed.
+///
+/// 3DMigoto picks ini files out of its recursive scan with a case-*sensitive* comparison against
+/// `.ini` — unlike the `exclude_recursive` patterns a few lines above it in the same loop, which
+/// are matched case-insensitively. So a mod shipping `NicoleBH.INI` installs cleanly, appears in
+/// the library, toggles on, and sits in a folder with no `DISABLED_` prefix — every signal the app
+/// can give says it is working — while the game never loads it and nothing says why.
+///
+/// Renaming the extension into the form the loader insists on is the same kind of change as
+/// adding the `DISABLED_` prefix: it makes the folder on disk mean what the app says it means.
+/// Only the extension is touched, because the loader compares the last four characters and
+/// nothing else — a mod's own capitalisation of its name is left alone.
+///
+/// A file that cannot be renamed is skipped rather than failing the install: a mod that is on
+/// disk and otherwise working must not be undone by one stubborn file.
+///
+/// Deliberately silent in the UI. Import already drops a mod's wrapper folder, copies a loose
+/// preview inside it and applies the `DISABLED_` prefix without announcing any of it, because
+/// they are all just "make the installed mod correct" — and this is the same. XXMI puts its own
+/// repairs in front of the user, but those involve a real choice (disable this whole mod?
+/// comment out lines that change how it renders?); there is no choice to offer here, since
+/// nobody wants their mod inert. It logs instead, so the change is discoverable but not noise.
+pub fn normalize_ini_extensions(dir: &Path) -> usize {
+    let renamed = normalize_ini_extensions_at(dir, 0);
+    if renamed > 0 {
+        println!(
+            "renamed {renamed} ini file(s) to a lowercase extension in {} so the game will load them",
+            dir.display()
+        );
+    }
+    renamed
+}
+
+fn normalize_ini_extensions_at(dir: &Path, depth: usize) -> usize {
+    if depth > MAX_NORMALIZE_DEPTH {
+        return 0;
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return 0;
+    };
+
+    let mut renamed = 0;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            renamed += normalize_ini_extensions_at(&path, depth + 1);
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        // Split off the last four bytes only where that lands on a character boundary, so a name
+        // ending in a multi-byte character cannot panic the walk.
+        let Some(split) = name.len().checked_sub(4) else {
+            continue;
+        };
+        if !name.is_char_boundary(split) {
+            continue;
+        }
+        let (stem, extension) = name.split_at(split);
+        if extension == ".ini" || !extension.eq_ignore_ascii_case(".ini") {
+            continue;
+        }
+        let target = path.with_file_name(format!("{stem}.ini"));
+        // The two names differ only in the case of those four bytes, so on Windows they are the
+        // same file and a bare `exists()` check would refuse every rename this function is for.
+        // Compare what each name actually resolves to, and stand aside only for a genuinely
+        // different file — which needs a case-sensitive share to happen at all.
+        let target_is_another_file = match (fs::canonicalize(&target), fs::canonicalize(&path)) {
+            (Ok(existing), Ok(source)) => existing != source,
+            _ => false,
+        };
+        if target_is_another_file {
+            continue;
+        }
+        if fs::rename(&path, &target).is_ok() {
+            renamed += 1;
+        }
+    }
+    renamed
+}
+
 /// Moves a mod folder, falling back to a copy when a plain rename cannot do it.
 ///
 /// `fs::rename` is the whole job on one volume and refuses across two, which is not exotic here:
@@ -458,6 +544,72 @@ mod tests {
         // And asking for a state the disk is already in is a no-op, not an error.
         set_mod_enabled(&db, m.id, true).unwrap();
         assert!(canonical.is_dir());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// 3DMigoto's recursive scan compares the last four characters of a filename against `.ini`
+    /// with `wcscmp`, so an uppercase extension is simply never collected. A mod shipping one
+    /// installs and reads as enabled everywhere in this app while the game ignores it.
+    #[test]
+    fn ini_extensions_are_lowercased_so_the_loader_actually_sees_them() {
+        let root = temp_dir("normalize-ini");
+        fs::create_dir_all(root.join("Variants")).unwrap();
+        fs::write(root.join("NicoleBH.INI"), b"").unwrap();
+        fs::write(root.join("Variants/Nsfw.Ini"), b"").unwrap();
+        fs::write(root.join("Nicole.ini"), b"").unwrap();
+        fs::write(root.join("ReadMe.TXT"), b"").unwrap();
+
+        let renamed = normalize_ini_extensions(&root);
+
+        assert_eq!(renamed, 2, "only the two miscased inis should have moved");
+        // Checked against the real directory listing, not `exists()`: on Windows the old spelling
+        // still "exists" after the rename, because it resolves to the very file we renamed.
+        let listed: Vec<String> = fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            listed.contains(&"NicoleBH.ini".to_string()),
+            "on-disk name should now be lowercase, got {listed:?}"
+        );
+        assert!(
+            root.join("Variants/Nsfw.ini").is_file(),
+            "a variant folder is part of the mod, so the walk has to reach it"
+        );
+        assert!(
+            root.join("Nicole.ini").is_file(),
+            "an already-lowercase ini is left exactly as it is"
+        );
+        assert!(
+            root.join("ReadMe.TXT").is_file(),
+            "nothing but the ini extension is this function's business"
+        );
+
+        // Installers call it on every install, so a second pass must find nothing left to do.
+        assert_eq!(normalize_ini_extensions(&root), 0);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Short names have no four-byte extension to split off, and a name ending in a multi-byte
+    /// character must not be split mid-character. Both would panic a naive implementation.
+    #[test]
+    fn normalizing_survives_names_too_short_or_not_on_a_character_boundary() {
+        let root = temp_dir("normalize-edge");
+        fs::write(root.join("a"), b"").unwrap();
+        fs::write(root.join("ini"), b"").unwrap();
+        fs::write(root.join("ニコ.INI"), b"").unwrap();
+        fs::write(root.join("モデル名"), b"").unwrap();
+
+        let renamed = normalize_ini_extensions(&root);
+
+        assert_eq!(renamed, 1, "only the real miscased ini should have moved");
+        assert!(root.join("ニコ.ini").is_file());
+        assert!(root.join("a").is_file());
+        assert!(root.join("ini").is_file(), "a bare `ini` is not an extension");
+        assert!(root.join("モデル名").is_file());
 
         fs::remove_dir_all(&root).unwrap();
     }

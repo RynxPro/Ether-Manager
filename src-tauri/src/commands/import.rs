@@ -329,6 +329,11 @@ fn place_mods(
                 .map_err(|e| format!("could not install {}: {e}", selection.display_name))?;
         }
 
+        // A mod shipping `Foo.INI` would otherwise install, read as enabled everywhere in the app,
+        // and never load: 3DMigoto matches the extension case-sensitively. See
+        // `fs_ops::normalize_ini_extensions`.
+        fs_ops::normalize_ini_extensions(&dest);
+
         let bundled_thumbnail = match preview {
             None => None,
             // It travelled with the folder, so it is already in place — just say where.
