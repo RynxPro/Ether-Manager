@@ -21,10 +21,18 @@ interface BookmarkGroup {
  * loose end rather than a category. */
 const UNSORTED_ID = "__unsorted__";
 
-/** Groups bookmarks under the character they are for, the same way All Mods groups installs.
- * A shortlist of thirty is a wall otherwise, and "who is this for" is most of what you are
- * scanning for when you come back to it. */
-function groupByCharacter(bookmarks: Bookmark[], characters: Character[]): BookmarkGroup[] {
+/** Counts bookmarks per character, for the filter rail.
+ *
+ * This used to lay the page out: a section and its own grid per character. Measured on a real
+ * shortlist of 23 across 9 characters, that cost 54 grid cells to show 23 cards — 57% of the
+ * page was empty, because every group pays for the remainder of its own last row and three
+ * characters had exactly one bookmark each. It gets worse as a collection grows, since the waste
+ * scales with the number of characters rather than the number of bookmarks.
+ *
+ * So "who is this for" became a filter instead of a layout. The question is still answerable at
+ * a glance — the rail lists every character with a count — but the page only pays for it when
+ * the answer is being used. */
+function countByCharacter(bookmarks: Bookmark[], characters: Character[]): BookmarkGroup[] {
   const byId = new Map(characters.map((character) => [character.id, character]));
   const groups = new Map<string, BookmarkGroup>();
 
@@ -50,6 +58,37 @@ function groupByCharacter(bookmarks: Bookmark[], characters: Character[]): Bookm
   });
 }
 
+interface FilterChipProps {
+  label: string;
+  count: number;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+/** One character in the filter rail.
+ *
+ * Small uppercase Bahnschrift is the label style here, so the chip reads as a label before it
+ * reads as a control — and the accent marks only the one that is on, which is the job the accent
+ * already has everywhere else. `aria-pressed` because this is a toggle, not navigation: it does
+ * not go anywhere, it narrows what is already on screen. */
+function FilterChip({ label, count, isSelected, onClick }: FilterChipProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={isSelected}
+      onClick={onClick}
+      className={`flex items-center gap-1.5 border px-2 py-1 font-heading text-[10px] uppercase tracking-[0.1em] transition-all ${
+        isSelected
+          ? "border-primary text-primary"
+          : "border-border text-muted-foreground hover:border-primary hover:text-foreground"
+      }`}
+    >
+      {label}
+      <span className="tabular-nums opacity-60">{count}</span>
+    </button>
+  );
+}
+
 interface BookmarksViewProps {
   /** Selecting a bookmark navigates to the shared mod detail page, owned by App. */
   onSelectMod: (mod: GbMod) => void;
@@ -67,6 +106,9 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
   // may be hard to find again — one is a switch, the other is throwing something away.
   const [pendingRemoval, setPendingRemoval] = useState<Bookmark | null>(null);
   const [query, setQuery] = useState("");
+  // `null` is "every character", which is the resting state — the rail narrows the shortlist
+  // rather than being a mode you have to leave. `UNSORTED_ID` selects the loose ends.
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const { data: characters } = useCharacters();
   // Reads the same allMods cache the library pages use, so installing something marks it here
   // without a second source of truth to keep in step.
@@ -95,7 +137,15 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
       bookmark.name.toLowerCase().includes(needle) || characterName.toLowerCase().includes(needle)
     );
   });
-  const groups = groupByCharacter(matches, characters ?? []);
+  // The rail counts what the search left, so a chip never offers a character with nothing behind
+  // it. Selecting one narrows further; the two filters stack rather than replacing each other.
+  const shelves = countByCharacter(matches, characters ?? []);
+  const visible =
+    selectedCharacter === null
+      ? matches
+      : matches.filter(
+          (bookmark) => (bookmark.character_id ?? UNSORTED_ID) === selectedCharacter,
+        );
   const count = bookmarks?.length ?? 0;
 
   return (
@@ -139,37 +189,56 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
       ) : matches.length === 0 ? (
         <p className="text-sm text-muted-foreground">No bookmarks match “{query.trim()}”.</p>
       ) : (
-        <div className="space-y-6">
-          {groups.map((group) => (
-            <section key={group.characterId} className="space-y-2">
-              <h3 className="font-heading text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                {group.label}
-                <span className="ml-2 tabular-nums text-muted-foreground/60">
-                  {group.bookmarks.length}
-                </span>
-              </h3>
-              <div className={CARD_GRID}>
-                {group.bookmarks.map((bookmark) => (
-                  <BookmarkCard
-                    key={bookmark.gamebanana_mod_id}
-                    bookmark={bookmark}
-                    installedCount={installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0}
-                    onSelect={() =>
-                      onSelectMod(
-                        placeholderGbMod({
-                          gamebananaModId: bookmark.gamebanana_mod_id,
-                          name: bookmark.name,
-                          thumbnailUrl: bookmark.thumbnail_url,
-                          dateModified: bookmark.added_at,
-                        }),
-                      )
-                    }
-                    onRemove={() => setPendingRemoval(bookmark)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="space-y-4">
+          {/* The characters, as a rail rather than as nine headings with nine grids under them.
+              Only shown once there is a choice to make: with everything saved for one character,
+              a filter that can only be on or all is noise. */}
+          {shelves.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <FilterChip
+                label="All"
+                count={matches.length}
+                isSelected={selectedCharacter === null}
+                onClick={() => setSelectedCharacter(null)}
+              />
+              {shelves.map((shelf) => (
+                <FilterChip
+                  key={shelf.characterId}
+                  label={shelf.label}
+                  count={shelf.bookmarks.length}
+                  isSelected={selectedCharacter === shelf.characterId}
+                  // Clicking the selected one clears it, so the rail never traps you in a
+                  // character you have to hunt for "All" to escape.
+                  onClick={() =>
+                    setSelectedCharacter((current) =>
+                      current === shelf.characterId ? null : shelf.characterId,
+                    )
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          <div className={CARD_GRID}>
+            {visible.map((bookmark) => (
+              <BookmarkCard
+                key={bookmark.gamebanana_mod_id}
+                bookmark={bookmark}
+                installedCount={installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0}
+                onSelect={() =>
+                  onSelectMod(
+                    placeholderGbMod({
+                      gamebananaModId: bookmark.gamebanana_mod_id,
+                      name: bookmark.name,
+                      thumbnailUrl: bookmark.thumbnail_url,
+                      dateModified: bookmark.added_at,
+                    }),
+                  )
+                }
+                onRemove={() => setPendingRemoval(bookmark)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
