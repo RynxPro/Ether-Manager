@@ -51,6 +51,20 @@ function App() {
   const [view, setView] = useState<View>("library");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
+
+  /** The character whose page an import was started from, if it was started from one.
+   *
+   * The page you are looking at is context. Importing from Nicole's page means Nicole, and the
+   * app knew that before it went looking for clues in the folder name — so a guess is only worth
+   * making when there is nothing to know. Dropping a file works everywhere as it did; where it
+   * lands just says more.
+   *
+   * Deliberately narrow: `selectedCharacter` is left standing underneath a mod detail and while
+   * browsing (see the routing note below), and neither of those is a character page. */
+  const seededCharacterId =
+    selectedMod === null && (view === "library" || view === "allmods")
+      ? (selectedCharacter?.id ?? null)
+      : null;
   // At the shell, because dropping a mod has to work on whichever page you happen to be on —
   // and because one listener and one sheet is the only arrangement where two drops cannot
   // fight over the same dialog.
@@ -248,7 +262,11 @@ function App() {
         onDismissError={imports.dismissError}
       />
       {imports.begun && (
-        <ImportModSheet begun={imports.begun} onOpenChange={() => imports.closeSheet()} />
+        <ImportModSheet
+          begun={imports.begun}
+          seededCharacterId={seededCharacterId}
+          onOpenChange={() => imports.closeSheet()}
+        />
       )}
     </div>
   );

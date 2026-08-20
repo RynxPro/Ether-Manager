@@ -21,6 +21,9 @@ const CUT_CORNER = {
 
 interface ImportModSheetProps {
   begun: BegunImport;
+  /** The character whose page this import was started from, or null when it was started from
+   * somewhere with no character to it — the Library roster, All mods, a drop onto either. */
+  seededCharacterId?: string | null;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -34,7 +37,11 @@ interface ImportModSheetProps {
  * Every way of dismissing this — Cancel, the close button, Escape, clicking outside — has to end
  * the session, or the unpacked tree sits in the temp folder until the OS sweeps it. They all run
  * through `handleClose` for that reason. */
-export function ImportModSheet({ begun, onOpenChange }: ImportModSheetProps) {
+export function ImportModSheet({
+  begun,
+  seededCharacterId = null,
+  onOpenChange,
+}: ImportModSheetProps) {
   const { candidates, suggested_character_id } = begun.plan;
 
   // Everything ticked to start: someone who dropped a file wants what is in it, and unticking
@@ -45,7 +52,13 @@ export function ImportModSheet({ begun, onOpenChange }: ImportModSheetProps) {
   const [names, setNames] = useState<Record<string, string>>(() =>
     Object.fromEntries(candidates.map((c) => [c.rel_path, c.suggested_name])),
   );
-  const [characterId, setCharacterId] = useState<string | null>(suggested_character_id);
+  // Where the import was started from wins over what the names looked like. The guess exists for
+  // the cases with no context — the Library roster, All mods, a drop onto either — not to
+  // second-guess a character page you were already standing on. Still editable either way, since
+  // a pack can turn out to be for someone else entirely.
+  const [characterId, setCharacterId] = useState<string | null>(
+    seededCharacterId ?? suggested_character_id,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const commit = useCommitImport();
@@ -208,9 +221,10 @@ export function ImportModSheet({ begun, onOpenChange }: ImportModSheetProps) {
                   onChange={setCharacterId}
                   disabled={isBusy}
                 />
-                {suggested_character_id === null && (
+                {seededCharacterId === null && suggested_character_id === null && (
                   // Silence here would read as the app having no opinion when it in fact could
-                  // not form one, which are different things.
+                  // not form one, which are different things. Not shown when the import came
+                  // from a character's page: nothing was guessed, so nothing failed to be.
                   <p className="text-[11px] text-muted-foreground">
                     The name did not say which character this is for — pick one.
                   </p>
