@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 
 use super::Db;
+use crate::fs_ops;
 
 /// `CharacterSkin` is scoped to a real character (`character_id` is one of the 60 rows from
 /// `characters::all_characters()`). `Ui`/`Misc` are scoped to the two pseudo-characters
@@ -49,8 +51,19 @@ pub struct Mod {
     pub character_id: String,
     pub slot: Slot,
     pub display_name: String,
+    /// Where the mod's files actually are *right now*, `DISABLED_` prefix and all — so anything
+    /// reading or writing those files can use it directly, including the frontend resolving
+    /// `bundled_thumbnail` against it. The database stores the canonical spelling instead (see
+    /// `fs_ops::canonical_path`); this is the resolved form, filled in by `row_to_mod`. When the
+    /// folder is missing entirely it falls back to the canonical path, so messages still name
+    /// somewhere.
     pub folder_path: String,
+    /// Whether the game will load this mod, worked out from which spelling of the folder is on
+    /// disk rather than read from a stored flag. Never persisted — see `fs_ops::Presence`.
     pub enabled: bool,
+    /// Neither spelling of the folder exists: deleted or moved outside the app. Distinguishes
+    /// "off" from "gone", which a bare `enabled: false` cannot.
+    pub files_missing: bool,
     pub thumbnail_url: Option<String>,
     pub gamebanana_mod_id: Option<i64>,
     pub gamebanana_file_id: Option<i64>,
@@ -100,13 +113,24 @@ fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
     let slot = Slot::from_str(&slot_str).ok_or_else(|| {
         rusqlite::Error::InvalidColumnType(0, "slot".to_string(), rusqlite::types::Type::Text)
     })?;
+    // The disk is asked, every read, which of the two spellings of this mod's folder is there.
+    // That is the only record of whether it is on: see `fs_ops::Presence` for why it is not also
+    // kept in a column here.
+    let stored: String = row.get("folder_path")?;
+    let (folder_path, enabled, files_missing) = match fs_ops::resolve_presence(Path::new(&stored)) {
+        fs_ops::Presence::Enabled(path) => (path.to_string_lossy().into_owned(), true, false),
+        fs_ops::Presence::Disabled(path) => (path.to_string_lossy().into_owned(), false, false),
+        fs_ops::Presence::Missing => (stored, false, true),
+    };
+
     Ok(Mod {
         id: row.get("id")?,
         character_id: row.get("character_id")?,
         slot,
         display_name: row.get("display_name")?,
-        folder_path: row.get("folder_path")?,
-        enabled: row.get::<_, i64>("enabled")? != 0,
+        folder_path,
+        enabled,
+        files_missing,
         thumbnail_url: row.get("thumbnail_url")?,
         gamebanana_mod_id: row.get("gamebanana_mod_id")?,
         gamebanana_file_id: row.get("gamebanana_file_id")?,
@@ -121,14 +145,22 @@ fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
 impl Db {
     pub fn insert_mod(&self, new: NewMod) -> rusqlite::Result<Mod> {
         let ts = now();
+        // Whatever the caller passes is stored canonical. Every installer creates the folder in
+        // its `DISABLED_` spelling — a new mod arrives switched off — and storing that spelling
+        // would smuggle the mod's on/off state back into this table, which is the thing that
+        // could then disagree with the disk. Enforced here rather than at each call site so
+        // there is one rule and no way to forget it.
+        let folder_path = fs_ops::canonical_path(Path::new(&new.folder_path))
+            .to_string_lossy()
+            .into_owned();
         self.conn.execute(
-            "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, variant_label, bundled_thumbnail, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+            "INSERT INTO mods (character_id, slot, display_name, folder_path, thumbnail_url, gamebanana_mod_id, gamebanana_file_id, gamebanana_md5, variant_label, bundled_thumbnail, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
             params![
                 new.character_id,
                 new.slot.as_str(),
                 new.display_name,
-                new.folder_path,
+                folder_path,
                 new.thumbnail_url,
                 new.gamebanana_mod_id,
                 new.gamebanana_file_id,
@@ -193,15 +225,13 @@ impl Db {
     ) -> rusqlite::Result<()> {
         self.conn.execute(
             "UPDATE mods SET character_id = ?1, slot = ?2, folder_path = ?3, updated_at = ?4 WHERE id = ?5",
-            params![character_id, slot.as_str(), folder_path, now(), id],
-        )?;
-        Ok(())
-    }
-
-    pub fn set_enabled(&self, id: i64, enabled: bool) -> rusqlite::Result<()> {
-        self.conn.execute(
-            "UPDATE mods SET enabled = ?1, updated_at = ?2 WHERE id = ?3",
-            params![enabled as i64, now(), id],
+            params![
+                character_id,
+                slot.as_str(),
+                fs_ops::canonical_path(Path::new(folder_path)).to_string_lossy(),
+                now(),
+                id
+            ],
         )?;
         Ok(())
     }
@@ -268,21 +298,46 @@ impl Db {
     /// Both counts in one pass — the Library grid shows "N mods · M on" per character, and
     /// fetching every character's mods just to count the enabled ones would be 60 queries for
     /// two numbers.
+    ///
+    /// The `enabled` tally cannot be a `SUM()` over a column any more, because whether a mod is
+    /// on is a fact about the disk rather than something stored (see `fs_ops::Presence`). So the
+    /// query narrows to the two fields the tally needs and the filesystem answers for each row.
+    /// At the few hundred mods a real library reaches that is a few hundred `exists` calls behind
+    /// one cached query — still far cheaper than the per-character queries this exists to avoid,
+    /// and the price of the counts never disagreeing with the cards they sit above.
     pub fn count_mods_by_character(&self) -> rusqlite::Result<HashMap<String, ModCounts>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT character_id, COUNT(*), COALESCE(SUM(enabled), 0) \
-             FROM mods GROUP BY character_id",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT character_id, folder_path FROM mods")?;
         let rows = stmt.query_map([], |row| {
             let character_id: String = row.get(0)?;
-            let total: i64 = row.get(1)?;
-            let enabled: i64 = row.get(2)?;
-            Ok((character_id, ModCounts { total, enabled }))
+            let folder_path: String = row.get(1)?;
+            Ok((character_id, folder_path))
         })?;
-        rows.collect()
+
+        let mut counts: HashMap<String, ModCounts> = HashMap::new();
+        for row in rows {
+            let (character_id, folder_path) = row?;
+            let entry = counts.entry(character_id).or_insert(ModCounts {
+                total: 0,
+                enabled: 0,
+            });
+            entry.total += 1;
+            if matches!(
+                fs_ops::resolve_presence(Path::new(&folder_path)),
+                fs_ops::Presence::Enabled(_)
+            ) {
+                entry.enabled += 1;
+            }
+        }
+        Ok(counts)
     }
 
+    /// Stores the canonical spelling, for the reason given on `insert_mod`.
     pub fn update_folder_path(&self, id: i64, folder_path: &str) -> rusqlite::Result<()> {
+        let folder_path = fs_ops::canonical_path(Path::new(folder_path))
+            .to_string_lossy()
+            .into_owned();
         self.conn.execute(
             "UPDATE mods SET folder_path = ?1, updated_at = ?2 WHERE id = ?3",
             params![folder_path, now(), id],
@@ -290,22 +345,6 @@ impl Db {
         Ok(())
     }
 
-    /// Combines what would otherwise be two separate writes (`set_enabled` +
-    /// `update_folder_path`) into one atomic UPDATE. Used by `fs_ops::set_single_enabled`
-    /// after a folder rename, so there's only one DB write — not two — that could be left
-    /// half-applied if the app crashes at exactly the wrong moment.
-    pub fn set_enabled_and_folder_path(
-        &self,
-        id: i64,
-        enabled: bool,
-        folder_path: &str,
-    ) -> rusqlite::Result<()> {
-        self.conn.execute(
-            "UPDATE mods SET enabled = ?1, folder_path = ?2, updated_at = ?3 WHERE id = ?4",
-            params![enabled as i64, folder_path, now(), id],
-        )?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -325,6 +364,36 @@ mod tests {
             variant_label: None,
             bundled_thumbnail: None,
         }
+    }
+
+    fn test_root(name: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!("ether-manager-mods-repo-{name}"));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    /// Inserts a mod *and* puts its folder on disk in the given state, the way an installer does.
+    /// Both halves are needed now that `enabled` is read from the folder rather than a column —
+    /// a row with no folder behind it is not "off", it is missing.
+    fn insert_mod_on_disk(
+        db: &Db,
+        root: &std::path::Path,
+        character_id: &str,
+        leaf: &str,
+        enabled: bool,
+    ) -> Mod {
+        let canonical = root.join(leaf);
+        let on_disk = if enabled {
+            canonical.clone()
+        } else {
+            fs_ops::disabled_path(&canonical)
+        };
+        std::fs::create_dir_all(&on_disk).unwrap();
+
+        let mut new = new_test_mod(character_id);
+        new.folder_path = canonical.to_string_lossy().into_owned();
+        db.insert_mod(new).unwrap()
     }
 
     #[test]
@@ -352,10 +421,10 @@ mod tests {
     #[test]
     fn count_mods_by_character_reports_total_and_enabled() {
         let db = Db::open_in_memory().unwrap();
-        let a = db.insert_mod(new_test_mod("belle")).unwrap();
-        db.insert_mod(new_test_mod("belle")).unwrap();
-        db.insert_mod(new_test_mod("anby-demara")).unwrap();
-        db.set_enabled(a.id, true).unwrap();
+        let root = test_root("counts");
+        insert_mod_on_disk(&db, &root, "belle", "on_one", true);
+        insert_mod_on_disk(&db, &root, "belle", "off_one", false);
+        insert_mod_on_disk(&db, &root, "anby-demara", "off_two", false);
 
         let counts = db.count_mods_by_character().unwrap();
 
@@ -426,34 +495,112 @@ mod tests {
     }
 
     #[test]
-    fn set_enabled_toggles_state() {
+    /// The bug this whole shape exists to make impossible: XXMI renames folders in the mods tree
+    /// on every game launch, so a mod can be switched on or off by something that is not this
+    /// app and cannot tell it. Reading the folder each time means that is simply the answer,
+    /// with nothing to reconcile and no window in which the two disagree.
+    fn enabled_follows_the_folder_even_when_another_program_renames_it() {
         let db = Db::open_in_memory().unwrap();
-        let inserted = db.insert_mod(new_test_mod("belle")).unwrap();
+        let root = test_root("external-rename");
+        let inserted = insert_mod_on_disk(&db, &root, "belle", "pinkdress", false);
         assert!(!inserted.enabled);
+        assert!(!inserted.files_missing);
 
-        db.set_enabled(inserted.id, true).unwrap();
-        assert!(db.get_mod(inserted.id).unwrap().unwrap().enabled);
+        // What XXMI's optimizer does, behind the app's back and with the app never told.
+        let canonical = root.join("pinkdress");
+        std::fs::rename(fs_ops::disabled_path(&canonical), &canonical).unwrap();
 
-        db.set_enabled(inserted.id, false).unwrap();
-        assert!(!db.get_mod(inserted.id).unwrap().unwrap().enabled);
+        let after = db.get_mod(inserted.id).unwrap().unwrap();
+        assert!(after.enabled, "the disk says on, so the mod is on");
+        assert!(!after.files_missing);
+        assert_eq!(
+            std::path::Path::new(&after.folder_path),
+            canonical,
+            "folder_path must resolve to where the files actually are"
+        );
     }
 
     #[test]
-    fn update_folder_path_persists_new_path() {
+    /// "Off" and "gone" are different answers, and the library offers a destructive recovery for
+    /// one of them — so a disabled mod must never be reported as missing.
+    fn a_folder_that_exists_in_neither_spelling_is_missing_rather_than_off() {
         let db = Db::open_in_memory().unwrap();
-        let inserted = db.insert_mod(new_test_mod("belle")).unwrap();
+        let root = test_root("missing");
+        let inserted = insert_mod_on_disk(&db, &root, "belle", "pinkdress", false);
+        assert!(!inserted.files_missing);
 
-        db.update_folder_path(
-            inserted.id,
-            "Mods/Characters/Belle/Character Skin/DISABLED_TestOutfit",
+        std::fs::remove_dir_all(fs_ops::disabled_path(&root.join("pinkdress"))).unwrap();
+
+        let after = db.get_mod(inserted.id).unwrap().unwrap();
+        assert!(after.files_missing);
+        assert!(!after.enabled);
+    }
+
+    #[test]
+    /// Installers hand over the `DISABLED_` folder they just created; the table keeps the name
+    /// that does not carry state, so the mod's on/off never gets written down in two places.
+    fn insert_stores_the_canonical_path_whatever_spelling_it_is_given() {
+        let db = Db::open_in_memory().unwrap();
+        let root = test_root("canonical-insert");
+        std::fs::create_dir_all(root.join("DISABLED_pinkdress")).unwrap();
+
+        let mut new = new_test_mod("belle");
+        new.folder_path = root
+            .join("DISABLED_pinkdress")
+            .to_string_lossy()
+            .into_owned();
+        let inserted = db.insert_mod(new).unwrap();
+
+        let stored: String = db
+            .conn
+            .query_row(
+                "SELECT folder_path FROM mods WHERE id = ?1",
+                params![inserted.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(std::path::Path::new(&stored), root.join("pinkdress"));
+        assert!(!inserted.enabled, "but it is still off, because the disk says so");
+    }
+
+    #[test]
+    fn update_folder_path_stores_the_canonical_spelling_and_still_resolves() {
+        let db = Db::open_in_memory().unwrap();
+        let root = test_root("update-path");
+        let inserted = insert_mod_on_disk(&db, &root, "belle", "pinkdress", false);
+
+        // Relocate the folder the way `settle_mod_folders` would, keeping it switched off, and
+        // tell the table about it using the path that actually exists.
+        let moved = root.join("moved");
+        std::fs::rename(
+            fs_ops::disabled_path(&root.join("pinkdress")),
+            fs_ops::disabled_path(&moved),
         )
         .unwrap();
+        db.update_folder_path(inserted.id, &fs_ops::disabled_path(&moved).to_string_lossy())
+            .unwrap();
+
+        let stored: String = db
+            .conn
+            .query_row(
+                "SELECT folder_path FROM mods WHERE id = ?1",
+                params![inserted.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            std::path::Path::new(&stored),
+            moved,
+            "the prefix is state, not identity, so it is not what gets stored"
+        );
 
         let fetched = db.get_mod(inserted.id).unwrap().unwrap();
         assert_eq!(
-            fetched.folder_path,
-            "Mods/Characters/Belle/Character Skin/DISABLED_TestOutfit"
+            std::path::Path::new(&fetched.folder_path),
+            fs_ops::disabled_path(&moved),
+            "but reads still resolve to the folder that is really there"
         );
+        assert!(!fetched.enabled, "and moving it did not switch it on");
     }
 
     #[test]

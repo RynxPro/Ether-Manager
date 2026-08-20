@@ -41,7 +41,79 @@ impl Db {
         self.migrate_mods_variant_label_column()?;
         self.migrate_mods_bundled_thumbnail_column()?;
         self.migrate_bookmarks_character_column()?;
+        self.migrate_derive_enabled_from_disk()?;
         self.migrate_legacy_slot_values()
+    }
+
+    /// `mods.enabled` used to record whether a mod was switched on — alongside a `folder_path`
+    /// that carried the very same fact in its `DISABLED_` prefix. Two copies of one fact, in two
+    /// different systems, written one after the other rather than together. They drifted in
+    /// ordinary use: XXMI renames folders in this tree every time the game launches, so a mod it
+    /// disabled left this table insisting the mod was on and still at a path nothing was at, and
+    /// the library then offered to remove the "missing" mod that was sitting right there.
+    ///
+    /// The disk is now the only record (see `fs_ops::Presence`), so the column goes and every
+    /// stored path is rewritten to its canonical spelling. Paths are rewritten *before* the drop,
+    /// so an interrupted run leaves rows that still resolve rather than a half-migrated table.
+    ///
+    /// Refuses rather than guesses if two rows would end up sharing one canonical path — that
+    /// would silently point two library entries at one folder and orphan the other's files. It is
+    /// reachable only on databases predating `fs_ops::unique_mod_dir`, which now keeps both
+    /// spellings of a name free at install time so it cannot arise again.
+    ///
+    /// Idempotent: after the first run there is no `enabled` column to find.
+    fn migrate_derive_enabled_from_disk(&self) -> rusqlite::Result<()> {
+        let has_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('mods') WHERE name = 'enabled'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_column == 0 {
+            return Ok(());
+        }
+
+        let mut rows: Vec<(i64, String)> = Vec::new();
+        {
+            let mut stmt = self.conn.prepare("SELECT id, folder_path FROM mods")?;
+            let mapped = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+            for row in mapped {
+                rows.push(row?);
+            }
+        }
+
+        let mut claimed: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+        let mut rewrites: Vec<(i64, String)> = Vec::new();
+        for (id, stored) in rows {
+            let canonical = crate::fs_ops::canonical_path(Path::new(&stored))
+                .to_string_lossy()
+                .into_owned();
+            if let Some(other) = claimed.insert(canonical.to_lowercase(), id) {
+                // SQLITE_CONSTRAINT: two rows cannot hold the same canonical folder, and this is
+                // the one situation the migration must not resolve by picking a winner.
+                return Err(rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(19),
+                    Some(format!(
+                        "mods {other} and {id} both resolve to the folder {canonical}, so enabled \
+                         state cannot be derived from disk without one of them losing its files; \
+                         rename one of the folders and restart"
+                    )),
+                ));
+            }
+            if canonical != stored {
+                rewrites.push((id, canonical));
+            }
+        }
+
+        for (id, canonical) in rewrites {
+            self.conn.execute(
+                "UPDATE mods SET folder_path = ?1 WHERE id = ?2",
+                rusqlite::params![canonical, id],
+            )?;
+        }
+
+        self.conn
+            .execute_batch("ALTER TABLE mods DROP COLUMN enabled;")?;
+        Ok(())
     }
 
     /// `downloads.etag` arrived with pause/resume — it records which version of the remote file a
@@ -219,8 +291,8 @@ mod tests {
     fn insert_raw_legacy_row(db: &Db, character_id: &str, legacy_slot: &str) -> i64 {
         db.conn
             .execute(
-                "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, created_at, updated_at)
-                 VALUES (?1, ?2, 'Legacy Mod', 'Mods/Characters/belle/x', 0, 0, 0)",
+                "INSERT INTO mods (character_id, slot, display_name, folder_path, created_at, updated_at)
+                 VALUES (?1, ?2, 'Legacy Mod', 'Mods/Characters/belle/x', 0, 0)",
                 params![character_id, legacy_slot],
             )
             .unwrap();
@@ -234,6 +306,89 @@ mod tests {
             .unwrap();
         let rows = stmt.query_map([], |row| row.get::<_, String>(0)).unwrap();
         rows.map(Result::unwrap).collect()
+    }
+
+    /// Puts a database back into the shape it had while `enabled` was a column, so the migration
+    /// off it can be exercised.
+    fn readd_enabled_column(db: &Db) {
+        db.conn
+            .execute_batch("ALTER TABLE mods ADD COLUMN enabled INTEGER NOT NULL DEFAULT 0;")
+            .unwrap();
+    }
+
+    fn insert_raw_row_with_path(db: &Db, folder_path: &str) -> i64 {
+        db.conn
+            .execute(
+                "INSERT INTO mods (character_id, slot, display_name, folder_path, enabled, created_at, updated_at)
+                 VALUES ('belle', 'Character Skin', 'Legacy Mod', ?1, 0, 0, 0)",
+                params![folder_path],
+            )
+            .unwrap();
+        db.conn.last_insert_rowid()
+    }
+
+    fn stored_path(db: &Db, id: i64) -> String {
+        db.conn
+            .query_row(
+                "SELECT folder_path FROM mods WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    /// The upgrade for databases created while on/off lived in a column as well as in the folder
+    /// name: the column goes, and every stored path drops the prefix that duplicated it.
+    #[test]
+    fn migrating_off_the_enabled_column_canonicalises_paths_and_is_idempotent() {
+        let db = Db::open_in_memory().unwrap();
+        readd_enabled_column(&db);
+        let disabled = insert_raw_row_with_path(&db, "Mods/Characters/belle/DISABLED_pinkdress");
+        let already_clean = insert_raw_row_with_path(&db, "Mods/Characters/belle/neondream");
+
+        db.migrate_derive_enabled_from_disk().unwrap();
+
+        assert!(
+            !column_names(&db).contains(&"enabled".to_string()),
+            "the column that could disagree with the disk must be gone"
+        );
+        assert_eq!(
+            Path::new(&stored_path(&db, disabled)),
+            Path::new("Mods/Characters/belle/pinkdress")
+        );
+        assert_eq!(
+            Path::new(&stored_path(&db, already_clean)),
+            Path::new("Mods/Characters/belle/neondream"),
+            "a path with no prefix is left exactly as it was"
+        );
+
+        // Runs on every startup, so a second pass must find nothing to do rather than fail.
+        db.migrate_derive_enabled_from_disk().unwrap();
+        assert_eq!(
+            Path::new(&stored_path(&db, disabled)),
+            Path::new("Mods/Characters/belle/pinkdress")
+        );
+    }
+
+    /// Two rows canonicalising onto one folder would leave both library entries pointing at the
+    /// same files and orphan the other's. Refusing is the only safe answer — the app fails to
+    /// start with a message naming the rows, rather than quietly picking a winner.
+    #[test]
+    fn migrating_refuses_when_two_mods_would_share_one_canonical_folder() {
+        let db = Db::open_in_memory().unwrap();
+        readd_enabled_column(&db);
+        insert_raw_row_with_path(&db, "Mods/Characters/belle/pinkdress");
+        insert_raw_row_with_path(&db, "Mods/Characters/belle/DISABLED_pinkdress");
+
+        let err = db.migrate_derive_enabled_from_disk().unwrap_err();
+        assert!(
+            err.to_string().contains("both resolve to the folder"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            column_names(&db).contains(&"enabled".to_string()),
+            "nothing is dropped when the migration cannot complete"
+        );
     }
 
     /// Guards the upgrade path for databases created before the rename: they still carry

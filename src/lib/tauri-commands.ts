@@ -50,8 +50,16 @@ export interface Mod {
   character_id: string;
   slot: Slot;
   display_name: string;
+  /** Where the mod's files are right now, `DISABLED_` prefix and all — so `bundled_thumbnail`
+   * resolves against it. Falls back to the un-prefixed path when the folder is missing. */
   folder_path: string;
+  /** Whether the game will load this mod. Worked out on each read from which spelling of the
+   * folder exists on disk rather than from a stored flag, so it cannot fall out of step with
+   * what 3DMigoto actually loads — including when XXMI renames a folder between launches. */
   enabled: boolean;
+  /** Neither spelling of the folder exists: deleted or moved outside the app. Tells "off" apart
+   * from "gone", which matters because only one of those should offer to remove the mod. */
+  files_missing: boolean;
   thumbnail_url: string | null;
   gamebanana_mod_id: number | null;
   gamebanana_file_id: number | null;

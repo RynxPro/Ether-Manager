@@ -4,8 +4,11 @@ CREATE TABLE IF NOT EXISTS mods (
     character_id TEXT NOT NULL,
     slot TEXT NOT NULL,
     display_name TEXT NOT NULL,
+    -- Canonical: never carries the DISABLED_ prefix, even while the folder on disk does.
+    -- Whether a mod is enabled is deliberately not a column, because it is not this app's fact
+    -- to keep -- it is which spelling of this folder exists, which is what 3DMigoto reads and
+    -- what XXMI rewrites on every game launch. See fs_ops::Presence.
     folder_path TEXT NOT NULL,
-    enabled INTEGER NOT NULL DEFAULT 0,
     thumbnail_url TEXT,
     gamebanana_mod_id INTEGER,
     gamebanana_file_id INTEGER,

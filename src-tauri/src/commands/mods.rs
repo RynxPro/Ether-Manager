@@ -154,10 +154,18 @@ pub fn move_mod(state: State<AppState>, mod_id: i64, character_id: String) -> Re
             .and_then(|n| n.to_str())
             .ok_or_else(|| format!("mod folder {} has an invalid name", current.display()))?;
         // The destination may already hold a folder of this name from a different mod, so the
-        // same de-duplication an install uses applies here.
-        let dest = unique_variant_dir(&home, leaf);
+        // same de-duplication an install uses applies here — and it has to leave *both*
+        // spellings free, since the mod being moved may be on or off.
+        let canonical_dest = fs_ops::unique_mod_dir(&home, leaf);
+        // Refiling a mod under another character must not also switch it on or off, so the
+        // folder that lands at the destination keeps the spelling it arrived with.
+        let dest = if fs_ops::is_disabled(&current) {
+            fs_ops::disabled_path(&canonical_dest)
+        } else {
+            canonical_dest.clone()
+        };
         fs_ops::move_dir(&current, &dest).map_err(|e| e.to_string())?;
-        db.set_location(mod_id, &character_id, slot, &dest.to_string_lossy())
+        db.set_location(mod_id, &character_id, slot, &canonical_dest.to_string_lossy())
             .map_err(|e| e.to_string())?;
     }
 
@@ -200,17 +208,26 @@ mod tests {
         assert_eq!(slugify_display_name(""), "mod");
     }
 
-    /// Every installer builds its destination folder name via
-    /// `fs_ops::to_disabled_name(&slugify_display_name(...))` — a GameBanana install, a
-    /// reinstall, and `commands::import::place_mods`. Pinned here because those all take a
-    /// Tauri `State` and are not unit-testable directly, and because getting it wrong means a
-    /// folder XXMI treats as active while the app shows the mod as off.
+    /// Every installer builds its destination as
+    /// `fs_ops::disabled_path(&fs_ops::unique_mod_dir(dir, &slugify_display_name(...)))` — a
+    /// GameBanana install, a reinstall, and `commands::import::place_mods`. Pinned here because
+    /// those all take a Tauri `State` and are not unit-testable directly, and because getting it
+    /// wrong means handing the game a mod nobody has asked it to load yet.
     #[test]
     fn install_folder_naming_produces_an_already_disabled_name() {
+        let root = std::env::temp_dir().join("ether-manager-commands-test-install-naming");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let canonical = fs_ops::unique_mod_dir(&root, &slugify_display_name("Pink Dress V2!"));
+        assert_eq!(canonical.file_name().unwrap(), "pink_dress_v2");
         assert_eq!(
-            fs_ops::to_disabled_name(&slugify_display_name("Pink Dress V2!")),
-            "DISABLED_pink_dress_v2"
+            fs_ops::disabled_path(&canonical).file_name().unwrap(),
+            "DISABLED_pink_dress_v2",
+            "the folder created on disk must be the one the game skips"
         );
+
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

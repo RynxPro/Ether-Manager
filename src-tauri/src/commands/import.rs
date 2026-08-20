@@ -303,10 +303,12 @@ fn place_mods(
         let character_dir = fs_ops::ensure_mod_home_dir(mods_root, &selection.character_id)
             .map_err(|e| e.to_string())?;
 
-        // A newly inserted mod always starts disabled, so the folder is created already
-        // disabled — a clean name would be one XXMI treats as active while the app shows it off.
-        let base_name = fs_ops::to_disabled_name(&slugify_display_name(&selection.display_name));
-        let dest = unique_variant_dir(&character_dir, &base_name);
+        // A mod arrives switched off, so the folder is created in its DISABLED_ spelling; a clean
+        // name would be one the game loads before anyone asked it to. `insert_mod` stores the
+        // canonical spelling of this same path.
+        let canonical_dest =
+            fs_ops::unique_mod_dir(&character_dir, &slugify_display_name(&selection.display_name));
+        let dest = fs_ops::disabled_path(&canonical_dest);
 
         // Where the preview is has to be settled before the folder moves, since it may be inside.
         let preview = selection

@@ -81,12 +81,7 @@ fn is_disabled_name(name: &str) -> bool {
     name.starts_with(DISABLED_PREFIX)
 }
 
-/// Exposed so a freshly extracted mod's folder can be created already `DISABLED_`-prefixed —
-/// `insert_mod` always starts a new row `enabled = false` (see `mods_repo`), and without this
-/// the on-disk folder would be created with a clean name (i.e. actually *active* to XXMI) while
-/// the DB and UI both say disabled, a real mismatch until the user happened to toggle it off and
-/// back on.
-pub(crate) fn to_disabled_name(name: &str) -> String {
+fn to_disabled_name(name: &str) -> String {
     if is_disabled_name(name) {
         name.to_string()
     } else {
@@ -100,15 +95,86 @@ fn to_enabled_name(name: &str) -> String {
         .to_string()
 }
 
-fn rename_leaf(path: &Path, new_name: &str) -> Result<PathBuf, FsOpsError> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| FsOpsError::InvalidPath(path.display().to_string()))?;
-    let new_path = parent.join(new_name);
-    if new_path != path {
-        fs::rename(path, &new_path)?;
+/// A mod folder's path with any `DISABLED_` stripped from its leaf: the one spelling that stands
+/// for the mod itself rather than for its current state, and so the one the database stores.
+///
+/// Idempotent, and only ever touches the leaf — a character folder that happened to start with
+/// the prefix is left alone, since the prefix means nothing there.
+pub fn canonical_path(path: &Path) -> PathBuf {
+    match (path.parent(), path.file_name().and_then(|n| n.to_str())) {
+        (Some(parent), Some(leaf)) => parent.join(to_enabled_name(leaf)),
+        _ => path.to_path_buf(),
     }
-    Ok(new_path)
+}
+
+/// Whether this path is already the `DISABLED_` spelling — i.e. the game will skip it.
+pub fn is_disabled(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(is_disabled_name)
+}
+
+/// The `DISABLED_` spelling of a mod folder's path — what the game skips.
+pub fn disabled_path(path: &Path) -> PathBuf {
+    match (path.parent(), path.file_name().and_then(|n| n.to_str())) {
+        (Some(parent), Some(leaf)) => parent.join(to_disabled_name(leaf)),
+        _ => path.to_path_buf(),
+    }
+}
+
+/// What the disk says about one mod.
+///
+/// Whether a mod is on is not recorded anywhere. It *is* the presence of an unprefixed folder,
+/// which is precisely what 3DMigoto reads: `d3dx.ini` carries `include_recursive = Mods` and
+/// `exclude_recursive = DISABLED*`, matched against each name as it walks the tree. Deriving the
+/// answer here rather than storing it alongside is what makes it impossible for the app to
+/// disagree with the game, because there is only one copy of the fact. It used to be stored too,
+/// and the two copies drifted in ordinary use: XXMI renames folders in this same tree every time
+/// the game launches, and a rename the app did not make left it insisting a mod was installed at
+/// a path nothing was at — then offering to remove the "missing" mod from the library.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Presence {
+    /// The unprefixed folder is there, so the game loads this mod.
+    Enabled(PathBuf),
+    /// Only the `DISABLED_` spelling is there: installed, deliberately not loaded.
+    Disabled(PathBuf),
+    /// Neither spelling is there — deleted or moved outside the app.
+    Missing,
+}
+
+/// Resolves a mod's stored path against the two names it can have on disk.
+///
+/// Accepts either spelling, so a caller holding a path from before it was stored canonical still
+/// gets the right answer. Enabled wins if somehow both exist, because that is what the game does.
+pub fn resolve_presence(path: &Path) -> Presence {
+    let enabled = canonical_path(path);
+    if enabled.exists() {
+        return Presence::Enabled(enabled);
+    }
+    let disabled = disabled_path(&enabled);
+    if disabled.exists() {
+        return Presence::Disabled(disabled);
+    }
+    Presence::Missing
+}
+
+/// A canonical mod-folder path under `parent` that *neither* spelling of the name is using.
+///
+/// Both have to be free, not just the one about to be written. Checking only the spelling being
+/// created would let an incoming disabled mod take `DISABLED_nicole` while an enabled `nicole`
+/// already sat beside it — two mods sharing one canonical path, which [`resolve_presence`] then
+/// cannot tell apart, and both cards would read as enabled.
+pub fn unique_mod_dir(parent: &Path, base_name: &str) -> PathBuf {
+    let base_name = to_enabled_name(base_name);
+    let taken = |candidate: &Path| candidate.exists() || disabled_path(candidate).exists();
+
+    let mut candidate = parent.join(&base_name);
+    let mut n = 1;
+    while taken(&candidate) {
+        candidate = parent.join(format!("{base_name}_{n}"));
+        n += 1;
+    }
+    candidate
 }
 
 fn leaf_name(path: &Path) -> Result<&str, FsOpsError> {
@@ -156,41 +222,38 @@ pub fn ensure_mod_home_dir(mods_root: &Path, character_id: &str) -> Result<PathB
     Ok(dir)
 }
 
-fn set_single_enabled(db: &Db, m: &Mod, enabled: bool) -> Result<(), FsOpsError> {
-    let old_path = PathBuf::from(&m.folder_path);
-    if !old_path.exists() {
-        return Err(FsOpsError::ModFolderMissing(old_path));
-    }
-    let old_leaf = leaf_name(&old_path)?;
-    let new_leaf = if enabled {
-        to_enabled_name(old_leaf)
-    } else {
-        to_disabled_name(old_leaf)
-    };
-    let new_path = rename_leaf(&old_path, &new_leaf)?;
-    db.set_enabled_and_folder_path(m.id, enabled, &new_path.to_string_lossy())?;
-    Ok(())
-}
-
-/// Enables or disables a mod on disk (leaf-folder `DISABLED_` rename) and in the DB.
+/// Turns one mod on or off, by renaming its folder into the spelling that says so.
+///
+/// The rename is the whole operation: nothing is written to the database, because the database
+/// no longer holds an opinion about which mods are on. See [`Presence`] for why that matters.
 ///
 /// Affects exactly the one mod named. Any number can be on at once, per character and per slot.
+/// Enabling one mod no longer disables its slot-mates: ZZMI will load several at once, and
+/// whether that is wise depends on what they touch — two skins for the same character usually
+/// fight over the same model, while two mods that merely share a slot may not overlap at all.
+/// That judgement belongs to whoever installed them, so the UI cautions when more than one is on
+/// instead of the app quietly switching the others off.
 pub fn set_mod_enabled(db: &Db, mod_id: i64, enabled: bool) -> Result<(), FsOpsError> {
     let target = db.get_mod(mod_id)?.ok_or(FsOpsError::NotFound(mod_id))?;
+    let canonical = canonical_path(Path::new(&target.folder_path));
 
-    // Enabling one mod no longer disables its slot-mates. ZZMI will load several at once, and
-    // whether that is wise depends on what they touch — two skins for the same character usually
-    // fight over the same model, while two mods that merely share a slot may not overlap at all.
-    // That judgement belongs to whoever installed them, so the UI cautions when more than one is
-    // on instead of the app quietly switching the others off, which is what used to happen with
-    // no mention of it anywhere.
-    if enabled && !PathBuf::from(&target.folder_path).exists() {
-        return Err(FsOpsError::ModFolderMissing(PathBuf::from(
-            &target.folder_path,
-        )));
+    let current = match resolve_presence(&canonical) {
+        Presence::Missing => return Err(FsOpsError::ModFolderMissing(canonical)),
+        Presence::Enabled(path) | Presence::Disabled(path) => path,
+    };
+
+    let desired = if enabled {
+        canonical
+    } else {
+        disabled_path(&canonical)
+    };
+
+    // Already in the spelling being asked for. Toggling a mod that some other program already
+    // toggled the same way is a no-op rather than an error — the disk is what was wanted.
+    if current != desired {
+        fs::rename(&current, &desired)?;
     }
-
-    set_single_enabled(db, &target, enabled)
+    Ok(())
 }
 
 /// Moves any mod that is not where [`mod_home_dir`] says it belongs, and reports how many moved.
@@ -231,11 +294,18 @@ pub fn settle_mod_folders(db: &Db, mods_root: &Path) -> Result<usize, FsOpsError
         // or a name that already exists at the destination. A rename that silently ate a mod
         // folder is not a risk worth carrying for the sake of a shorter function.
         fs::create_dir_all(&home)?;
-        let dest = crate::commands::mods::unique_variant_dir(&home, leaf);
+        let dest_canonical = unique_mod_dir(&home, leaf);
+        // Relocating a mod must not also switch it on or off, so the folder that lands at the
+        // destination keeps whichever spelling the source had.
+        let dest = if is_disabled_name(leaf) {
+            disabled_path(&dest_canonical)
+        } else {
+            dest_canonical.clone()
+        };
         if fs::rename(&current, &dest).is_err() {
             continue;
         }
-        db.update_folder_path(m.id, &dest.to_string_lossy())?;
+        db.update_folder_path(m.id, &dest_canonical.to_string_lossy())?;
         moved += 1;
 
         // The folder it came from has done its job. `remove_dir` rather than `remove_dir_all`,
@@ -358,6 +428,38 @@ mod tests {
             "DISABLED_pinkdress",
             "must not double-prefix an already-disabled name"
         );
+    }
+
+    /// The failure this change exists to remove. XXMI's ini optimizer disables mods by renaming
+    /// their folders, on every game launch, with no way to tell this app. The old code recorded
+    /// the mod's path in the database and checked *that* path existed, so after XXMI had renamed
+    /// it every toggle returned `ModFolderMissing` — and the library offered to remove a mod
+    /// whose files were sitting right there under the other name.
+    #[test]
+    fn toggling_still_works_after_another_program_renamed_the_folder() {
+        let root = temp_dir("external-rename");
+        let db = Db::open_in_memory().unwrap();
+        let canonical = root.join("pinkdress");
+        let m = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &canonical);
+        set_mod_enabled(&db, m.id, true).unwrap();
+        assert!(canonical.is_dir());
+
+        // XXMI switches it off behind the app's back.
+        fs::rename(&canonical, disabled_path(&canonical)).unwrap();
+        let after_rename = db.get_mod(m.id).unwrap().unwrap();
+        assert!(!after_rename.files_missing, "off is not the same as gone");
+        assert!(!after_rename.enabled);
+
+        // Turning it back on finds the folder under the name XXMI gave it.
+        set_mod_enabled(&db, m.id, true).unwrap();
+        assert!(canonical.is_dir(), "the mod is back under its enabled name");
+        assert!(db.get_mod(m.id).unwrap().unwrap().enabled);
+
+        // And asking for a state the disk is already in is a no-op, not an error.
+        set_mod_enabled(&db, m.id, true).unwrap();
+        assert!(canonical.is_dir());
+
+        fs::remove_dir_all(&root).unwrap();
     }
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);

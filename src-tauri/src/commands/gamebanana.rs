@@ -7,7 +7,7 @@ use tauri::State;
 
 use std::sync::Mutex;
 
-use crate::commands::mods::{slugify_display_name, unique_variant_dir};
+use crate::commands::mods::slugify_display_name;
 use crate::db::{Bookmark, Db, Mod, NewBookmark, NewMod, Slot};
 use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
@@ -392,11 +392,12 @@ async fn download_and_extract_gamebanana_file(
 
     let character_dir =
         fs_ops::ensure_mod_home_dir(mods_root, character_id).map_err(|e| e.to_string())?;
-    // A newly inserted mod always starts disabled (see insert_mod) — extract straight into a
-    // DISABLED_-prefixed folder so the disk matches that from the start, instead of a clean
-    // name that XXMI would actually treat as active despite the app showing it as off.
-    let base_name = fs_ops::to_disabled_name(&slugify_display_name(display_name));
-    let dest_dir = unique_variant_dir(&character_dir, &base_name);
+    // A mod arrives switched off, so it is extracted straight into the DISABLED_ spelling of its
+    // folder. A clean name would hand the mod to the game the instant the download finished,
+    // before anyone had chosen to turn it on. `insert_mod` stores the canonical spelling of this
+    // same path — the database has no opinion about which mods are on.
+    let canonical_dir = fs_ops::unique_mod_dir(&character_dir, &slugify_display_name(display_name));
+    let dest_dir = fs_ops::disabled_path(&canonical_dir);
 
     download_to_staging(
         gamebanana,

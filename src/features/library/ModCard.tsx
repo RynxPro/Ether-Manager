@@ -66,7 +66,11 @@ export function ModCard({
   // from outside the app. Resolved in one place so every surface showing a mod agrees.
   const artSrc = modArtSrc(mod);
   const hasUpdate = updateCheck?.status === "UpdateAvailable";
-  const isFolderMissing = error?.startsWith(MOD_FOLDER_MISSING_PREFIX) ?? false;
+  // Known before anything is attempted, now that the backend resolves it on every read — so the
+  // card says so straight away instead of only after a toggle has failed. The error check stays
+  // for the case where the folder disappears between a read and an action.
+  const isFolderMissing =
+    mod.files_missing || (error?.startsWith(MOD_FOLDER_MISSING_PREFIX) ?? false);
   // Only GameBanana-installed mods can be update-checked at all — a hand-added folder has no
   // remote counterpart to compare against, which is why its card shows no update control.
   const isFromGameBanana = mod.gamebanana_mod_id !== null;
@@ -310,7 +314,7 @@ export function ModCard({
         </Button>
       </div>
 
-      {error && (
+      {(error || isFolderMissing) && (
         <div className="border-t border-destructive/30 bg-destructive/10 px-2.5 py-2">
           <p className="flex items-start gap-1.5 text-[11px] text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
