@@ -25,14 +25,33 @@ interface BrowseProps {
   /** Selecting a mod navigates to its detail page, owned by App — Browse no longer hosts a
    * detail dialog of its own. */
   onSelectMod: (mod: GbMod) => void;
+  /** A GameBanana category to open on, when you arrived from a character page. Overrides the
+   * remembered filters, including the remembered search text: asking for more Nicole mods and
+   * landing on last week's search for "dress", narrowed to Nicole, is not what was asked for. */
+  seedCategoryId?: number | null;
+  /** Called once the seed has been applied, so it is spent rather than standing. Browse is
+   * unmounted every time a result is opened and remounted on the way back; without this, that
+   * return trip would re-apply the character and undo any filter changed since. */
+  onSeedConsumed?: () => void;
 }
 
-export function Browse({ onSelectMod }: BrowseProps) {
-  const [query, setQuery] = useState(lastFilters.query);
+export function Browse({ onSelectMod, seedCategoryId = null, onSeedConsumed }: BrowseProps) {
+  const isSeeded = seedCategoryId !== null;
+  const [query, setQuery] = useState(isSeeded ? "" : lastFilters.query);
   const searchRef = useSearchHotkey(() => setQuery(""));
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
-  const [categoryId, setCategoryId] = useState<number | null>(lastFilters.categoryId);
+  const [categoryId, setCategoryId] = useState<number | null>(
+    isSeeded ? seedCategoryId : lastFilters.categoryId,
+  );
   const [sort, setSort] = useState<ModSort>(lastFilters.sort);
+
+  // Spent on mount, not on every render — the state above already carries it, and leaving it
+  // standing would make it fire again on the way back from a mod's page. Running twice under
+  // StrictMode is harmless: clearing an already-cleared seed is the same as clearing it once.
+  useEffect(() => {
+    if (isSeeded) onSeedConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only, by design
+  }, []);
 
   // Remembering the position is only half of coming back to where you were: with the filters
   // reset, the feed you return to is a different one, so the saved offset is correctly refused

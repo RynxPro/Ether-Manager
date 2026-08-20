@@ -51,6 +51,12 @@ function App() {
   const [view, setView] = useState<View>("library");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
+  /** A GameBanana category for Browse to open on, set when you arrive there from a character
+   * page. Held here rather than passed straight down because Browse unmounts whenever you open
+   * a result and remounts on the way back — a plain prop would re-apply the character every
+   * time and quietly undo whatever filter you had changed to. Browse consumes it once and
+   * clears it. */
+  const [browseSeedCategoryId, setBrowseSeedCategoryId] = useState<number | null>(null);
 
   /** The character whose page an import was started from, if it was started from one.
    *
@@ -108,6 +114,14 @@ function App() {
         dateModified: mod.updated_at,
       }),
     );
+  }
+
+  /** Browse, optionally already narrowed to a character. "Browse for more" on a character page
+   * means more mods for that character, and the app knows which one — arriving at an unfiltered
+   * feed of every ZZZ mod made you set the filter it could have set for you. */
+  function goToBrowse(seedCategoryId: number | null) {
+    setBrowseSeedCategoryId(seedCategoryId);
+    goTo("browse");
   }
 
   function goTo(next: View) {
@@ -194,7 +208,11 @@ function App() {
             selectedMod ? (
               <ModDetailRoute mod={selectedMod} onBack={() => setSelectedMod(null)} />
             ) : (
-              <Browse onSelectMod={setSelectedMod} />
+              <Browse
+                onSelectMod={setSelectedMod}
+                seedCategoryId={browseSeedCategoryId}
+                onSeedConsumed={() => setBrowseSeedCategoryId(null)}
+              />
             )
           ) : view === "bookmarks" ? (
             selectedMod ? (
@@ -226,7 +244,9 @@ function App() {
               <CharacterDetail
                 character={selectedCharacter}
                 onBack={() => setSelectedCharacter(null)}
-                onBrowse={() => goTo("browse")}
+                onBrowse={() =>
+                  goToBrowse(selectedCharacter.gamebanana_category_id)
+                }
                 onOpenModDetail={openModDetail}
                 onImport={imports.importFromPicker}
               />
@@ -241,7 +261,7 @@ function App() {
             <CharacterDetail
               character={selectedCharacter}
               onBack={() => setSelectedCharacter(null)}
-              onBrowse={() => goTo("browse")}
+              onBrowse={() => goToBrowse(selectedCharacter.gamebanana_category_id)}
               onOpenModDetail={openModDetail}
               onImport={imports.importFromPicker}
             />
