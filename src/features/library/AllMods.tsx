@@ -133,10 +133,16 @@ export function AllMods({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="All mods"
-        subtitle="Everything installed, in one place"
-      >
+      <PageHeader title="All mods" subtitle="Everything installed, in one place">
+        {/* Beside the controls rather than on a line of its own below the rule, matching
+            Bookmarks — the two pages answer the same question and had it in two places. */}
+        {!isLoading && matches.length > 0 && (
+          <span className="font-heading text-[11px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground">
+            {needle
+              ? `${matches.length} of ${(allMods ?? []).length}`
+              : `${matches.length} installed · ${enabledCount} on`}
+          </span>
+        )}
         <Button type="button" variant="outline" size="sm" onClick={onImport}>
           <FilePlus2 className="h-3.5 w-3.5" />
           Import
@@ -178,12 +184,6 @@ export function AllMods({
         </p>
       ) : (
         <div className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            {needle
-              ? `${matches.length} ${matches.length === 1 ? "mod" : "mods"} matching “${query.trim()}”`
-              : `${matches.length} ${matches.length === 1 ? "mod" : "mods"} installed · ${enabledCount} on`}
-          </p>
-
           {/* The characters as a rail rather than as a section and a grid each. Measured on a
               real library — 14 mods across 5 characters — the grouping spent 30 grid cells to
               show 14 cards, and two characters with one mod each took a full six-column row

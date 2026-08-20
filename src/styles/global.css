@@ -147,4 +147,34 @@ body {
   h2 {
     @apply font-heading uppercase tracking-[0.08em];
   }
+
+  /* Scrollbars in the app's own language rather than the platform's.
+   *
+   * These were the only thing on screen still drawn by Windows: a pale rounded strip down the
+   * right of a near-black window with square corners everywhere else. Styled through
+   * `::-webkit-scrollbar` rather than the standard `scrollbar-color`, because that property
+   * hands the shape back to the engine and Chromium draws a rounded thumb — and nothing in
+   * Eridu is rounded (`--radius: 0`).
+   *
+   * Quiet on purpose. A scrollbar reports where you are; it is not something you go looking for,
+   * so it takes `--border` like every other rule in the interface and lifts only under the
+   * cursor. Deliberately never `--primary`: the accent has three jobs and this is not one of
+   * them, and a yellow bar down the edge of every long page would spend it on nothing. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+  /* Where a horizontal and a vertical bar meet, so the square is not left as a default grey. */
+  ::-webkit-scrollbar-corner {
+    background: var(--background);
+  }
 }
