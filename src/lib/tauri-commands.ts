@@ -408,6 +408,18 @@ export interface GbCreatorStats {
   medals: number;
 }
 
+/** A mod author the user follows. Name, avatar and count are copies held locally so the
+ * Bookmarks bar draws without one GameBanana request per creator. */
+export interface CreatorBookmark {
+  gamebanana_member_id: number;
+  name: string;
+  avatar_url: string | null;
+  /** Their ZZZ mod count as of the last visit to their page — refreshed on visit, never
+   * polled. Slightly stale by design; it exists to say who is prolific, not to be exact. */
+  mod_count: number;
+  added_at: number;
+}
+
 export interface Bookmark {
   gamebanana_mod_id: number;
   name: string;
@@ -504,6 +516,35 @@ export function searchGamebananaMods(
 
 export function getGamebananaModDetail(modId: number): Promise<GbModDetail> {
   return invoke("get_gamebanana_mod_detail", { modId });
+}
+
+export function listCreatorBookmarks(): Promise<CreatorBookmark[]> {
+  return invoke("list_creator_bookmarks");
+}
+
+export interface AddCreatorBookmarkInput {
+  gamebananaMemberId: number;
+  name: string;
+  avatarUrl: string | null;
+  modCount: number;
+}
+
+export function addCreatorBookmark(
+  input: AddCreatorBookmarkInput,
+): Promise<CreatorBookmark> {
+  return invoke("add_creator_bookmark", { ...input });
+}
+
+export function removeCreatorBookmark(gamebananaMemberId: number): Promise<void> {
+  return invoke("remove_creator_bookmark", { gamebananaMemberId });
+}
+
+/** Refreshes a followed creator's cached name, avatar and count. A no-op for anyone not
+ * followed, so callers need not check first. */
+export function refreshCreatorBookmark(
+  input: AddCreatorBookmarkInput,
+): Promise<void> {
+  return invoke("refresh_creator_bookmark", { ...input });
 }
 
 /** One creator’s public profile. */

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBookmark,
+  addCreatorBookmark,
   backfillBookmarkCharacters,
   enqueueDownload,
   type EnqueueDownloadInput,
@@ -9,8 +10,10 @@ import {
   getFeaturedMods,
   getGamebananaModDetail,
   listBookmarks,
+  listCreatorBookmarks,
   type ModSort,
   removeBookmark,
+  removeCreatorBookmark,
   searchGamebananaMods,
 } from "@/lib/tauri-commands";
 
@@ -63,6 +66,34 @@ export function useInfiniteGamebananaMods(
  *
  * Cached by member id and left to react-query’s defaults: a profile changes on the scale of
  * weeks, and the page is reached repeatedly while following one creator’s mods around. */
+/** The creators the user follows. Local table only, so this is cheap and always available. */
+export function useCreatorBookmarks() {
+  return useQuery({
+    queryKey: ["creatorBookmarks"],
+    queryFn: listCreatorBookmarks,
+  });
+}
+
+export function useAddCreatorBookmark() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: addCreatorBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["creatorBookmarks"] });
+    },
+  });
+}
+
+export function useRemoveCreatorBookmark() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: removeCreatorBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["creatorBookmarks"] });
+    },
+  });
+}
+
 export function useCreatorProfile(memberId: number | null) {
   return useQuery({
     queryKey: ["gbCreatorProfile", memberId],

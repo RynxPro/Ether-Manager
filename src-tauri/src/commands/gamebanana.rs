@@ -8,7 +8,9 @@ use tauri::State;
 use std::sync::Mutex;
 
 use crate::commands::mods::slugify_display_name;
-use crate::db::{Bookmark, Db, Mod, NewBookmark, NewMod, Slot};
+use crate::db::{
+    Bookmark, CreatorBookmark, Db, Mod, NewBookmark, NewCreatorBookmark, NewMod, Slot,
+};
 use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
     GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail,
@@ -193,6 +195,72 @@ pub async fn get_gamebanana_mod_detail(
         .get_mod_detail(mod_id)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// The creators the user follows, for the bar at the top of Bookmarks.
+///
+/// Reads only the local table — no GameBanana request, however many are saved. That is the
+/// whole reason name, avatar and count are cached rather than looked up (see
+/// creator_bookmarks_repo).
+#[tauri::command]
+pub fn list_creator_bookmarks(state: State<AppState>) -> Result<Vec<CreatorBookmark>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_creator_bookmarks().map_err(|e| e.to_string())
+}
+
+/// Follows a creator. `mod_count` is their ZZZ total at the moment of saving — the caller is
+/// on the creator's page and already has it, so asking GameBanana again here would be a
+/// wasted request.
+#[tauri::command]
+pub fn add_creator_bookmark(
+    state: State<AppState>,
+    gamebanana_member_id: i64,
+    name: String,
+    avatar_url: Option<String>,
+    mod_count: i64,
+) -> Result<CreatorBookmark, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.add_creator_bookmark(NewCreatorBookmark {
+        gamebanana_member_id,
+        name,
+        avatar_url,
+        mod_count,
+    })
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remove_creator_bookmark(
+    state: State<AppState>,
+    gamebanana_member_id: i64,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.remove_creator_bookmark(gamebanana_member_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Updates a followed creator's cached details from a visit to their page.
+///
+/// Safe to call for anyone: it is a no-op unless they are already saved, so the page does not
+/// need to check first. Keeps the bar's counts honest without ever polling — the only way a
+/// count goes stale is if you never look at that creator again, in which case it does not
+/// matter.
+#[tauri::command]
+pub fn refresh_creator_bookmark(
+    state: State<AppState>,
+    gamebanana_member_id: i64,
+    name: String,
+    avatar_url: Option<String>,
+    mod_count: i64,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.refresh_creator_bookmark(
+        gamebanana_member_id,
+        &name,
+        avatar_url.as_deref(),
+        mod_count,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

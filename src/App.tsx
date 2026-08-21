@@ -272,7 +272,7 @@ function App() {
             openDetail ? (
               renderDetail(openDetail)
             ) : (
-              <BookmarksView onSelectMod={openMod} />
+              <BookmarksView onSelectMod={openMod} onSelectCreator={openCreator} />
             )
           ) : view === "downloads" ? (
             <DownloadsView

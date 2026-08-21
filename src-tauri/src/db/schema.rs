@@ -34,6 +34,19 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     added_at INTEGER NOT NULL
 );
 
+-- Mod authors the user follows, shown as a bar across the top of the Bookmarks page. Its own
+-- table rather than a kind column on bookmarks: the two share only the act of saving, and every
+-- other column differs. name/avatar_url are copies so the bar renders without a network round
+-- trip per creator; mod_count is their ZZZ total as of the last visit to their page, kept for
+-- the same reason (see creator_bookmarks_repo).
+CREATE TABLE IF NOT EXISTS creator_bookmarks (
+    gamebanana_member_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    avatar_url TEXT,
+    mod_count INTEGER NOT NULL,
+    added_at INTEGER NOT NULL
+);
+
 -- One row per install the user has asked for, kept after it finishes so the Downloads page has
 -- a history. Everything needed to run the install again lives here (mod id, file id, target
 -- character, slot, display name), which is what makes Retry possible without going back to the

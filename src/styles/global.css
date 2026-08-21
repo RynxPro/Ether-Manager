@@ -173,6 +173,16 @@ body {
   ::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
+  /* The creators bar on Bookmarks scrolls sideways but draws no bar of its own. The row is
+   * about 100px tall, and a 10px strip beneath it would spend a tenth of the band restating
+   * what the edge fade and the arrows already say. Unlike a page, a one-row rail has no
+   * length worth reporting — the arrows are the visible control, and CreatorBar remaps the
+   * wheel so a wheel mouse can still reach the far end. */
+  .creator-track::-webkit-scrollbar {
+    height: 0;
+    width: 0;
+  }
+
   /* Where a horizontal and a vertical bar meet, so the square is not left as a default grey. */
   ::-webkit-scrollbar-corner {
     background: var(--background);

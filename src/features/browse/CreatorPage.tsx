@@ -1,5 +1,6 @@
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, UserPlus } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,14 +8,17 @@ import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { shouldBlur } from "@/lib/mature";
-import type { GbCreator, GbMod } from "@/lib/tauri-commands";
+import { refreshCreatorBookmark, type GbCreator, type GbMod } from "@/lib/tauri-commands";
 import { GameBananaModCard } from "./GameBananaModCard";
 import {
   useAddBookmark,
+  useAddCreatorBookmark,
   useBookmarks,
+  useCreatorBookmarks,
   useCreatorProfile,
   useInfiniteCreatorMods,
   useRemoveBookmark,
+  useRemoveCreatorBookmark,
 } from "./hooks";
 
 interface CreatorPageProps {
@@ -63,6 +67,10 @@ export function CreatorPage({
     isFetchingNextPage,
   } = useInfiniteCreatorMods(creatorId);
   const { data: bookmarks } = useBookmarks();
+  const { data: followed } = useCreatorBookmarks();
+  const addCreatorBookmark = useAddCreatorBookmark();
+  const removeCreatorBookmark = useRemoveCreatorBookmark();
+  const queryClient = useQueryClient();
   const { data: visibility } = useMatureContentVisibility();
   const installed = useInstalledFromGameBanana();
   const addBookmark = useAddBookmark();
@@ -109,6 +117,41 @@ export function CreatorPage({
 
   const name = creator?.name ?? fallbackName;
 
+  const isFollowed = (followed ?? []).some(
+    (entry) => entry.gamebanana_member_id === creatorId,
+  );
+
+  const toggleFollow = () => {
+    if (isFollowed) {
+      removeCreatorBookmark.mutate(creatorId);
+      return;
+    }
+    addCreatorBookmark.mutate({
+      gamebananaMemberId: creatorId,
+      name,
+      avatarUrl: creator?.avatar_url ?? null,
+      modCount: zzzCount,
+    });
+  };
+
+  // Keeps a followed creator's cached name, avatar and count current without ever polling:
+  // the bar's numbers are only ever as old as your last visit to that creator. Skipped
+  // entirely for anyone not followed — there is no row to update, and visiting someone is
+  // not a reason to start following them.
+  useEffect(() => {
+    if (!isFollowed || !creator || areModsLoading) return;
+    refreshCreatorBookmark({
+      gamebananaMemberId: creatorId,
+      name: creator.name,
+      avatarUrl: creator.avatar_url,
+      modCount: zzzCount,
+    })
+      .then(() => queryClient.invalidateQueries({ queryKey: ["creatorBookmarks"] }))
+      .catch(() => {
+        // A stale count in the bar is not worth interrupting anyone over.
+      });
+  }, [isFollowed, creator, areModsLoading, creatorId, zzzCount, queryClient]);
+
   return (
     <div className="space-y-6">
       <div className="-mt-2 mb-4 flex items-center gap-3">
@@ -133,6 +176,8 @@ export function CreatorPage({
         isLoading={isProfileLoading}
         zzzCount={zzzCount}
         hasMods={records.length > 0 || areModsLoading}
+        isFollowed={isFollowed}
+        onToggleFollow={toggleFollow}
       />
 
       {/* A banned or private profile is not an empty one, and must not look like it. GameBanana
@@ -213,6 +258,8 @@ interface CreatorHeaderProps {
   isLoading: boolean;
   zzzCount: number;
   hasMods: boolean;
+  isFollowed: boolean;
+  onToggleFollow: () => void;
 }
 
 /** The identity band: face, name, and the numbers worth knowing before you trust a mod.
@@ -220,7 +267,15 @@ interface CreatorHeaderProps {
  * Built as a bordered panel rather than the character page's art banner — there is no art to
  * lean on here, only a 96px avatar, and stretching that behind a full-width band would just be
  * a blurred square. */
-function CreatorHeader({ creator, name, isLoading, zzzCount, hasMods }: CreatorHeaderProps) {
+function CreatorHeader({
+  creator,
+  name,
+  isLoading,
+  zzzCount,
+  hasMods,
+  isFollowed,
+  onToggleFollow,
+}: CreatorHeaderProps) {
   const stats = creator?.core_stats;
   // GameBanana sends "Bananite" for nearly every member — a rank, not a description. It earns a
   // line only when it says something, which an honorary title always does.
@@ -264,6 +319,25 @@ function CreatorHeader({ creator, name, isLoading, zzzCount, hasMods }: CreatorH
             )}
           </p>
         </div>
+
+        {creator && (
+          // Filled accent while followed, outline while not — the same on/off language the
+          // bookmark button on a mod card uses, so the two read as the same kind of switch.
+          <Button
+            type="button"
+            variant={isFollowed ? "default" : "outline"}
+            size="sm"
+            className="shrink-0"
+            onClick={onToggleFollow}
+          >
+            {isFollowed ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <UserPlus className="h-3.5 w-3.5" />
+            )}
+            {isFollowed ? "Following" : "Follow"}
+          </Button>
+        )}
 
         {creator && (
           // The opener plugin, not an anchor: `target="_blank"` does not navigate inside a

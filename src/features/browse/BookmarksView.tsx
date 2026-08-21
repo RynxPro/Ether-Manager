@@ -11,9 +11,11 @@ import { CARD_GRID } from "@/lib/layout";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import type { Bookmark, Character, GbMod } from "@/lib/tauri-commands";
 import { BookmarkCard } from "./BookmarkCard";
+import { CreatorBar } from "./CreatorBar";
 import {
   useBackfillBookmarkCharacters,
   useBookmarks,
+  useCreatorBookmarks,
   useRemoveBookmark,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
@@ -74,13 +76,20 @@ function countByCharacter(
 interface BookmarksViewProps {
   /** Selecting a bookmark navigates to the shared mod detail page, owned by App. */
   onSelectMod: (mod: GbMod) => void;
+  /** Opens a followed creator's page. Same drill-down chain the mod detail uses, so Back
+   * comes straight back here. */
+  onSelectCreator: (id: number, name: string) => void;
 }
 
 /** The shortlist you build while browsing. It shares Browse's grid and card shape rather than
  * the roster's 3:4 posters it used to borrow — these are the same objects as Browse's results,
  * saved, so making them a different size and shape read as a different kind of thing. */
-export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
+export function BookmarksView({
+  onSelectMod,
+  onSelectCreator,
+}: BookmarksViewProps) {
   const { data: bookmarks, isLoading } = useBookmarks();
+  const { data: creators } = useCreatorBookmarks();
   const removeBookmark = useRemoveBookmark();
   // Confirmed here and not on the bookmark toggles in Browse or on a mod's page. There the
   // control shows its own state and answers immediately, so a mis-click is visible and undone
@@ -156,6 +165,12 @@ export function BookmarksView({ onSelectMod }: BookmarksViewProps) {
           </>
         )}
       </PageHeader>
+
+      {/* Above the mod list and outside every branch below it, because following creators and
+          saving mods are independent — an empty shortlist with four creators in it is a real
+          state, and the bar would vanish if it lived inside the list's success case.
+          CreatorBar renders nothing when you follow nobody. */}
+      <CreatorBar creators={creators ?? []} onSelectCreator={onSelectCreator} />
 
       {isLoading ? (
         <div className={CARD_GRID}>
