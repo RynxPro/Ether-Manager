@@ -378,6 +378,36 @@ export interface GbSearchResult {
   hidden_count: number;
 }
 
+/** A mod author, as their own page shows them. */
+export interface GbCreator {
+  id: number;
+  name: string;
+  profile_url: string;
+  /** HD where the profile has one, the small avatar otherwise, and `null` when GameBanana
+   * sends an empty string — which it does, and which would make an `<img>` re-request the
+   * page itself. */
+  avatar_url: string | null;
+  /** GameBanana’s rank word ("Bananite"), not a job title. Often empty. */
+  user_title: string;
+  /** An awarded title, above the ordinary rank. Empty for nearly everyone. */
+  honorary_title: string;
+  join_date: number;
+  subscriber_count: number;
+  is_banned: boolean;
+  is_private: boolean;
+  core_stats: GbCreatorStats;
+}
+
+/** Profile counters. Every one of these spans **all games** — the ZZZ mod count comes from
+ * the creator’s filtered mod list instead, so labelling these as ZZZ figures would be wrong. */
+export interface GbCreatorStats {
+  account_age: string;
+  submissions: number;
+  thanks_received: number;
+  featured: number;
+  medals: number;
+}
+
 export interface Bookmark {
   gamebanana_mod_id: number;
   name: string;
@@ -474,6 +504,19 @@ export function searchGamebananaMods(
 
 export function getGamebananaModDetail(modId: number): Promise<GbModDetail> {
   return invoke("get_gamebanana_mod_detail", { modId });
+}
+
+/** One creator’s public profile. */
+export function getCreatorProfile(memberId: number): Promise<GbCreator> {
+  return invoke("get_creator_profile", { memberId });
+}
+
+/** One creator’s mods, ZZZ only, newest first. Paged like the browse feed. */
+export function getCreatorMods(
+  memberId: number,
+  page: number,
+): Promise<GbSearchResult> {
+  return invoke("get_creator_mods", { memberId, page });
 }
 
 export function getFeaturedMods(): Promise<GbFeaturedMod[]> {

@@ -121,6 +121,8 @@ pub fn run() {
             commands::gamebanana::search_gamebanana_mods,
             commands::gamebanana::get_featured_mods,
             commands::gamebanana::get_gamebanana_mod_detail,
+            commands::gamebanana::get_creator_profile,
+            commands::gamebanana::get_creator_mods,
             commands::gamebanana::list_bookmarks,
             commands::gamebanana::add_bookmark,
             commands::gamebanana::backfill_bookmark_characters,

@@ -6,12 +6,15 @@ import { ModDetailPage } from "./ModDetailPage";
 interface ModDetailRouteProps {
   mod: GbMod;
   onBack: () => void;
+  /** Opens the author's page. Owned by App because the creator page is a sibling frame in
+   * the same drill-down chain, not something this route renders inside itself. */
+  onOpenCreator: (id: number, name: string) => void;
 }
 
 /** Pairs the mod detail page with its install dialog. Install stays a dialog on purpose — it's
  * a short, focused confirmation that interrupts by design, which is exactly what a modal is
  * for; only the browsing surfaces became pages. */
-export function ModDetailRoute({ mod, onBack }: ModDetailRouteProps) {
+export function ModDetailRoute({ mod, onBack, onOpenCreator }: ModDetailRouteProps) {
   const [installFile, setInstallFile] = useState<GbFile | null>(null);
   const [installDetail, setInstallDetail] = useState<GbModDetail | null>(null);
 
@@ -28,6 +31,7 @@ export function ModDetailRoute({ mod, onBack }: ModDetailRouteProps) {
         key={mod.id}
         mod={mod}
         onBack={onBack}
+        onOpenCreator={onOpenCreator}
         onInstall={(file, detail) => {
           setInstallFile(file);
           setInstallDetail(detail);

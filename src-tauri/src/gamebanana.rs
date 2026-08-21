@@ -134,6 +134,62 @@ pub struct GbSubmitter {
     pub avatar_url: Option<String>,
 }
 
+/// A mod author's public profile, from `Member/:id/ProfilePage`.
+///
+/// Only the fields the creator page actually shows. Deliberately absent: `_sLocation`, which
+/// despite the name is not a location at all but GameBanana's breadcrumb trail for the profile
+/// ("Home > Members > name") rendered as HTML — reading it as a place would print markup under
+/// a map pin.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GbCreator {
+    #[serde(rename(deserialize = "_idRow"))]
+    pub id: i64,
+    #[serde(rename(deserialize = "_sName"))]
+    pub name: String,
+    #[serde(rename(deserialize = "_sProfileUrl"))]
+    pub profile_url: String,
+    /// The HD avatar where the profile carries one, falling back to the small one — resolved in
+    /// `get_creator_profile` rather than here, since serde cannot express "prefer that field".
+    #[serde(skip_deserializing)]
+    pub avatar_url: Option<String>,
+    /// GameBanana's rank word ("Bananite"), not a job title. Empty for many members.
+    #[serde(rename(deserialize = "_sUserTitle"), default)]
+    pub user_title: String,
+    /// Awarded titles, above the ordinary rank. Empty for nearly everyone.
+    #[serde(rename(deserialize = "_sHonoraryTitle"), default)]
+    pub honorary_title: String,
+    #[serde(rename(deserialize = "_tsJoinDate"), default)]
+    pub join_date: i64,
+    #[serde(rename(deserialize = "_nSubscriberCount"), default)]
+    pub subscriber_count: i64,
+    /// True when the member is banned or the profile is private. Both are rendered as an
+    /// explanation rather than as an empty page: a creator with no mods and a creator the API
+    /// will not describe are different states and should not look alike.
+    #[serde(rename(deserialize = "_bIsBanned"), default)]
+    pub is_banned: bool,
+    #[serde(rename(deserialize = "_bIsPrivate"), default)]
+    pub is_private: bool,
+    #[serde(rename(deserialize = "_aCoreStats"), default)]
+    pub core_stats: GbCreatorStats,
+}
+
+/// The headline counters GameBanana keeps on a profile. Every one of these spans all games —
+/// this member's ZZZ mod count comes from the submitter-filtered list instead, and the two
+/// must not be confused on screen.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GbCreatorStats {
+    #[serde(rename(deserialize = "_sAccountAge"), default)]
+    pub account_age: String,
+    #[serde(rename(deserialize = "_nCurrentSubmissions"), default)]
+    pub submissions: i64,
+    #[serde(rename(deserialize = "_nThanksReceived"), default)]
+    pub thanks_received: i64,
+    #[serde(rename(deserialize = "_nSubmissionsFeatured"), default)]
+    pub featured: i64,
+    #[serde(rename(deserialize = "_nMedalsCount"), default)]
+    pub medals: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GbGameRef {
     #[serde(rename(deserialize = "_idRow"))]
@@ -892,6 +948,89 @@ impl GameBananaClient {
         if let Some(id) = category_id {
             url.push_str(&format!("&_aFilters%5BGeneric_Category%5D={id}"));
         }
+
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        let raw = parse_list_response(&body)?;
+        let records = parse_mod_records(raw.records);
+
+        Ok(GbSearchResult {
+            records,
+            record_count: raw.metadata.record_count,
+            is_complete: raw.metadata.is_complete,
+            hidden_count: 0,
+        })
+    }
+
+    /// One creator's public profile.
+    ///
+    /// The avatar is picked here rather than by serde because the choice is "HD if there is
+    /// one": GameBanana sends `_sHdAvatarUrl` only for members who uploaded a large enough
+    /// image, and the creator page shows the face at 96px where the small one is visibly soft.
+    pub async fn get_creator_profile(&self, member_id: i64) -> Result<GbCreator, GameBananaError> {
+        let url = format!("{BASE_URL}/Member/{member_id}/ProfilePage");
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        let value: serde_json::Value = serde_json::from_str(&body).map_err(|_| {
+            if let Ok(err) = serde_json::from_str::<RawApiError>(&body) {
+                GameBananaError::Api {
+                    code: err.code,
+                    body: body.clone(),
+                }
+            } else {
+                GameBananaError::UnexpectedResponse(
+                    "Member/:id/ProfilePage".to_string(),
+                )
+            }
+        })?;
+
+        let mut creator: GbCreator =
+            serde_json::from_value(value.clone()).map_err(|_| GameBananaError::UnexpectedResponse("Member/:id/ProfilePage".to_string()))?;
+
+        // An empty string is how GameBanana says "no avatar" on this endpoint, and an empty
+        // `src` makes the browser re-request the page itself — so it has to become `None` here
+        // rather than being passed through for the UI to puzzle over.
+        creator.avatar_url = ["_sHdAvatarUrl", "_sAvatarUrl"]
+            .iter()
+            .filter_map(|key| value.get(*key).and_then(|v| v.as_str()))
+            .find(|url| !url.is_empty())
+            .map(|url| url.to_string());
+
+        Ok(creator)
+    }
+
+    /// One creator's mods, ZZZ only.
+    ///
+    /// `Generic_Submitter` stacks with the game filter — confirmed live: a creator with 57
+    /// submissions in total returns 47 once ZZZ is applied, so the game filter is genuinely
+    /// narrowing rather than being ignored the way `_csvProperties` is on this endpoint.
+    ///
+    /// Sorted newest-first rather than by the browse page's remembered sort. This list answers
+    /// "what else have they made?", and their latest work is the answer that ages best.
+    pub async fn get_creator_mods(
+        &self,
+        member_id: i64,
+        page: u32,
+    ) -> Result<GbSearchResult, GameBananaError> {
+        let url = format!(
+            "{BASE_URL}/Mod/Index?_nPage={page}&_nPerpage={MOD_INDEX_PAGE_SIZE}&_sSort={}&_aFilters%5BGeneric_Game%5D={ZZZ_GAME_ID}&_aFilters%5BGeneric_Submitter%5D={member_id}",
+            ModSort::LatestUpdated.as_query_value()
+        );
 
         let body = self
             .http

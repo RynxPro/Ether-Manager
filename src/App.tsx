@@ -12,6 +12,7 @@ import { SidebarFooter } from "@/components/SidebarFooter";
 import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
+import { CreatorPage } from "@/features/browse/CreatorPage";
 import { ModDetailRoute } from "@/features/browse/ModDetailRoute";
 import { DownloadsView } from "@/features/downloads/DownloadsView";
 import { activeDownloads, useDownloads } from "@/features/downloads/hooks";
@@ -34,6 +35,14 @@ import {
 
 type View = "library" | "allmods" | "browse" | "bookmarks" | "downloads" | "settings";
 
+/** One level of drill-down inside a section.
+ *
+ * A creator frame carries the name as well as the id so the page can title itself before
+ * the profile request answers — the mod that led there already knew it. */
+type DetailFrame =
+  | { kind: "mod"; mod: GbMod }
+  | { kind: "creator"; id: number; name: string };
+
 const NAV_ITEMS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
   { id: "library", label: "Library", icon: LayoutGrid },
   { id: "allmods", label: "All mods", icon: Layers },
@@ -50,7 +59,17 @@ function App() {
   const { data: modsFolder, isLoading } = useModsFolder();
   const [view, setView] = useState<View>("library");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  const [selectedMod, setSelectedMod] = useState<GbMod | null>(null);
+  /** What is open on top of the current section, innermost last.
+   *
+   * This was a single `selectedMod` slot while a drill-down could only ever be one level
+   * deep. The creator page broke that: a mod leads to its author, whose mods lead to another
+   * mod, whose author may be someone else again. A slot cannot say where Back goes in that
+   * chain, and a pair of slots only pushes the same problem one step further out — so the
+   * chain itself is the state, and Back pops it.
+   *
+   * Empty means the section's own root is showing. Cleared when leaving a section. */
+  const [detailStack, setDetailStack] = useState<DetailFrame[]>([]);
+  const openDetail = detailStack[detailStack.length - 1] ?? null;
   /** A GameBanana category for Browse to open on, set when you arrive there from a character
    * page. Held here rather than passed straight down because Browse unmounts whenever you open
    * a result and remounts on the way back — a plain prop would re-apply the character every
@@ -68,7 +87,7 @@ function App() {
    * Deliberately narrow: `selectedCharacter` is left standing underneath a mod detail and while
    * browsing (see the routing note below), and neither of those is a character page. */
   const seededCharacterId =
-    selectedMod === null && (view === "library" || view === "allmods")
+    detailStack.length === 0 && (view === "library" || view === "allmods")
       ? (selectedCharacter?.id ?? null)
       : null;
   // At the shell, because dropping a mod has to work on whichever page you happen to be on —
@@ -106,13 +125,48 @@ function App() {
    * you reached it by browsing or by owning it — and Back returns you here, not to Browse. */
   function openModDetail(mod: Mod) {
     if (mod.gamebanana_mod_id === null) return;
-    setSelectedMod(
+    openMod(
       placeholderGbMod({
         gamebananaModId: mod.gamebanana_mod_id,
         name: mod.display_name,
         thumbnailUrl: mod.thumbnail_url,
         dateModified: mod.updated_at,
       }),
+    );
+  }
+
+  /** Opens a mod, from anywhere — a browse result, a bookmark, a creator's list. Pushes
+   * rather than replaces, so Back returns to whatever you were looking at when you clicked. */
+  function openMod(mod: GbMod) {
+    setDetailStack((stack) => [...stack, { kind: "mod", mod }]);
+  }
+
+  /** Opens a mod author's page. The name comes from the mod that led here so the heading is
+   * right before the profile request answers. */
+  function openCreator(id: number, name: string) {
+    setDetailStack((stack) => [...stack, { kind: "creator", id, name }]);
+  }
+
+  function closeDetail() {
+    setDetailStack((stack) => stack.slice(0, -1));
+  }
+
+  /** The open drill-down, whichever kind it is. Written once rather than per section: all
+   * five sections share one detail chain, and Back must behave identically in each. */
+  function renderDetail(frame: DetailFrame) {
+    if (frame.kind === "creator") {
+      return (
+        <CreatorPage
+          key={`creator-${frame.id}`}
+          creatorId={frame.id}
+          fallbackName={frame.name}
+          onBack={closeDetail}
+          onSelectMod={openMod}
+        />
+      );
+    }
+    return (
+      <ModDetailRoute mod={frame.mod} onBack={closeDetail} onOpenCreator={openCreator} />
     );
   }
 
@@ -128,7 +182,7 @@ function App() {
     setView(next);
     // Leaving a section drops its drill-down, so returning to it lands on the section root
     // rather than wherever you happened to be three clicks deep last time.
-    setSelectedMod(null);
+    setDetailStack([]);
     setSelectedCharacter(null);
   }
 
@@ -205,20 +259,20 @@ function App() {
       <main className="flex-1 overflow-y-auto p-6">
         <div>
           {view === "browse" ? (
-            selectedMod ? (
-              <ModDetailRoute mod={selectedMod} onBack={() => setSelectedMod(null)} />
+            openDetail ? (
+              renderDetail(openDetail)
             ) : (
               <Browse
-                onSelectMod={setSelectedMod}
+                onSelectMod={openMod}
                 seedCategoryId={browseSeedCategoryId}
                 onSeedConsumed={() => setBrowseSeedCategoryId(null)}
               />
             )
           ) : view === "bookmarks" ? (
-            selectedMod ? (
-              <ModDetailRoute mod={selectedMod} onBack={() => setSelectedMod(null)} />
+            openDetail ? (
+              renderDetail(openDetail)
             ) : (
-              <BookmarksView onSelectMod={setSelectedMod} />
+              <BookmarksView onSelectMod={openMod} />
             )
           ) : view === "downloads" ? (
             <DownloadsView
@@ -231,12 +285,12 @@ function App() {
             />
           ) : view === "settings" ? (
             <SettingsPage />
-          ) : selectedMod ? (
-            // Library, All mods and the character page all reach the same detail route. It is
+          ) : openDetail ? (
+            // Library, All mods and the character page all reach the same detail chain. It is
             // rendered inside whichever of them you were in rather than by switching to Browse,
             // so Back lands where you started — including on the character page, since
             // `selectedCharacter` is left standing underneath.
-            <ModDetailRoute mod={selectedMod} onBack={() => setSelectedMod(null)} />
+            renderDetail(openDetail)
           ) : view === "allmods" ? (
             // Drilling into a character from All mods lands on the character page, same as
             // from the roster — so this branch falls through to the shared detail below.

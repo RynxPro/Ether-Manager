@@ -50,6 +50,9 @@ interface ModDetailPageProps {
    * can be a placeholder when opened from Bookmarks, missing category/tag data), `detail` is
    * always a real live fetch, so the install flow's target-guessing reads from this instead. */
   onInstall: (file: GbFile, detail: GbModDetail) => void;
+  /** Opens the author's page. The submitter block is the only route to it — a mod is how you
+   * find a creator worth following. */
+  onOpenCreator: (id: number, name: string) => void;
 }
 
 /** The signature cut corner (DESIGN.md). A radius cannot express it, so it is an inline style
@@ -99,7 +102,12 @@ function youtubeEmbedUrl(url: string): string | null {
  * GameBanana description runs to eighteen thousand characters, so the one thing the page exists
  * for was a page-length scroll away. The right column carries it instead, and is pinned, so it
  * stays reachable however far down the description you are. */
-export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
+export function ModDetailPage({
+  mod,
+  onBack,
+  onInstall,
+  onOpenCreator,
+}: ModDetailPageProps) {
   const { data: detail, isLoading } = useGamebananaModDetail(mod.id);
   const { data: visibility } = useMatureContentVisibility();
   // Falls back to on at the default size for the moment before the setting arrives — the lens
@@ -511,15 +519,26 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                 </button>
               </PanelHeader>
 
-              <div className="flex items-center gap-3 border-b border-border px-3.5 py-3">
+              {/* The whole row is the way to the author's page, not just the avatar: a 36px
+                  target is a small thing to ask someone to hit, and the name beside it points
+                  at the same place. Hover lights the border and the name so it reads as a way
+                  through rather than as a caption. */}
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenCreator(detail.submitter.id, detail.submitter.name)
+                }
+                aria-label={`View ${detail.submitter.name || "this creator"}'s mods`}
+                className="group/creator flex w-full items-center gap-3 border-b border-border px-3.5 py-3 text-left"
+              >
                 {detail.submitter.avatar_url ? (
                   <img
                     src={detail.submitter.avatar_url}
                     alt=""
-                    className="h-9 w-9 shrink-0 border-2 border-border object-cover"
+                    className="h-9 w-9 shrink-0 border-2 border-border object-cover group-hover/creator:border-primary"
                   />
                 ) : (
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center border-2 border-border bg-secondary font-heading text-base text-muted-foreground">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center border-2 border-border bg-secondary font-heading text-base text-muted-foreground group-hover/creator:border-primary">
                     {(detail.submitter.name || "?").charAt(0).toUpperCase()}
                   </span>
                 )}
@@ -527,11 +546,12 @@ export function ModDetailPage({ mod, onBack, onInstall }: ModDetailPageProps) {
                   <p className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
                     Submitted by
                   </p>
-                  <p className="truncate font-heading text-base tracking-[0.02em]">
+                  <p className="truncate font-heading text-base tracking-[0.02em] group-hover/creator:text-primary">
                     {detail.submitter.name || "Unknown"}
                   </p>
                 </div>
-              </div>
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-hover/creator:text-primary" />
+              </button>
 
               <div className="grid grid-cols-3 divide-x divide-border border-b border-border bg-background">
                 <StatCell

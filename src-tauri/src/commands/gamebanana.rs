@@ -11,7 +11,8 @@ use crate::commands::mods::slugify_display_name;
 use crate::db::{Bookmark, Db, Mod, NewBookmark, NewMod, Slot};
 use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
-    GameBananaClient, GameBananaError, GbFeaturedMod, GbFile, GbModDetail, GbSearchResult, ModSort,
+    GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail,
+    GbSearchResult, ModSort,
     ResumePoint,
 };
 use crate::{archive, fs_ops, AppState};
@@ -136,6 +137,50 @@ pub async fn get_featured_mods(state: State<'_, AppState>) -> Result<Vec<GbFeatu
         .get_featured_mods(visibility_pref == MatureVisibility::Hide)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// One creator's public profile, for the creator page.
+///
+/// No mature-content filtering here: a profile is a person, not a submission, and there is
+/// nothing on it to hide. Their mod list below is filtered, by `get_creator_mods`.
+#[tauri::command]
+pub async fn get_creator_profile(
+    state: State<'_, AppState>,
+    member_id: i64,
+) -> Result<GbCreator, String> {
+    state
+        .gamebanana
+        .get_creator_profile(member_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// One creator's ZZZ mods, one page at a time.
+///
+/// Runs the same mature-content preference as browsing, through the same helper — a creator
+/// page must not become the one place in the app where a hidden mod shows up.
+#[tauri::command]
+pub async fn get_creator_mods(
+    state: State<'_, AppState>,
+    member_id: i64,
+    page: u32,
+) -> Result<GbSearchResult, String> {
+    let visibility_pref = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_mature_content_visibility()
+            .map_err(|e| e.to_string())?
+    };
+
+    let result = state
+        .gamebanana
+        .get_creator_mods(member_id, page)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(crate::content_rating::apply_visibility(
+        result,
+        visibility_pref,
+    ))
 }
 
 #[tauri::command]

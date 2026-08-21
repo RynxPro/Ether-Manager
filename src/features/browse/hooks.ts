@@ -3,13 +3,15 @@ import {
   addBookmark,
   backfillBookmarkCharacters,
   enqueueDownload,
+  type EnqueueDownloadInput,
+  getCreatorMods,
+  getCreatorProfile,
   getFeaturedMods,
   getGamebananaModDetail,
   listBookmarks,
+  type ModSort,
   removeBookmark,
   searchGamebananaMods,
-  type EnqueueDownloadInput,
-  type ModSort,
 } from "@/lib/tauri-commands";
 
 /** The banner's six ranking windows. Costs two GameBanana requests, and the answer only moves
@@ -54,6 +56,31 @@ export function useInfiniteGamebananaMods(
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) =>
       lastPage.is_complete ? undefined : allPages.length + 1,
+  });
+}
+
+/** One creator’s public profile.
+ *
+ * Cached by member id and left to react-query’s defaults: a profile changes on the scale of
+ * weeks, and the page is reached repeatedly while following one creator’s mods around. */
+export function useCreatorProfile(memberId: number | null) {
+  return useQuery({
+    queryKey: ["gbCreatorProfile", memberId],
+    queryFn: () => getCreatorProfile(memberId as number),
+    enabled: memberId !== null,
+  });
+}
+
+/** One creator’s ZZZ mods, paged the same way the browse feed is — `is_complete` is
+ * GameBanana’s only end-of-results signal, so it is what stops the list. */
+export function useInfiniteCreatorMods(memberId: number | null) {
+  return useInfiniteQuery({
+    queryKey: ["gbCreatorMods", memberId],
+    queryFn: ({ pageParam }) => getCreatorMods(memberId as number, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.is_complete ? undefined : allPages.length + 1,
+    enabled: memberId !== null,
   });
 }
 
