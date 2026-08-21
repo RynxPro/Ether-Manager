@@ -44,3 +44,23 @@ tauri-plugin-window-state = "2.4.1"
 # way to test that a stalled download can still be stopped.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 
+# Cargo's defaults for release are opt-level 3 but `codegen-units = 16` and no LTO, which leaves
+# cross-crate inlining on the table — and this app spends its time inside dependencies (bundled
+# SQLite, the three archive crates, reqwest) rather than in our own code, which is exactly what
+# LTO can see across.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+# Aborting rather than unwinding is smaller and marginally faster, but it is a behaviour change:
+# a panic anywhere — including inside a spawned task — takes the whole app down instead of
+# surfacing as a failed command. Accepted deliberately; this line alone reverts it.
+panic = "abort"
+strip = true
+
+# Dependencies are built unoptimized in dev, which makes `tauri dev` useless for measuring
+# anything that runs through SQLite or an archive crate — the numbers would be the debug build's,
+# not the app's. This optimizes dependency code only, so incremental rebuilds of our own crate
+# stay fast.
+[profile.dev.package."*"]
+opt-level = 2
+
