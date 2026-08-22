@@ -108,7 +108,18 @@ fn now() -> i64 {
         .as_secs() as i64
 }
 
+/// One row, for a caller looking up a single mod. Asks the disk directly, which for one row is
+/// cheaper than listing its directory — see `fs_ops::PresenceIndex`.
 fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
+    build_mod(row, fs_ops::resolve_presence)
+}
+
+/// Builds a `Mod` from a row, with presence resolved by whichever strategy the caller passes.
+///
+/// The split exists because the right way to ask the disk depends on how many rows are being
+/// read: one mod wants two `exists` calls, three hundred want one `read_dir`. Both produce the
+/// same `Presence`, so everything below this line is shared.
+fn build_mod(row: &Row, resolve: impl FnOnce(&Path) -> fs_ops::Presence) -> rusqlite::Result<Mod> {
     let slot_str: String = row.get("slot")?;
     let slot = Slot::from_str(&slot_str).ok_or_else(|| {
         rusqlite::Error::InvalidColumnType(0, "slot".to_string(), rusqlite::types::Type::Text)
@@ -117,7 +128,7 @@ fn row_to_mod(row: &Row) -> rusqlite::Result<Mod> {
     // That is the only record of whether it is on: see `fs_ops::Presence` for why it is not also
     // kept in a column here.
     let stored: String = row.get("folder_path")?;
-    let (folder_path, enabled, files_missing) = match fs_ops::resolve_presence(Path::new(&stored)) {
+    let (folder_path, enabled, files_missing) = match resolve(Path::new(&stored)) {
         fs_ops::Presence::Enabled(path) => (path.to_string_lossy().into_owned(), true, false),
         fs_ops::Presence::Disabled(path) => (path.to_string_lossy().into_owned(), false, false),
         fs_ops::Presence::Missing => (stored, false, true),
@@ -185,7 +196,12 @@ impl Db {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM mods WHERE character_id = ?1 ORDER BY slot, display_name")?;
-        let rows = stmt.query_map(params![character_id], row_to_mod)?;
+        // One directory read answers for every mod in this character's folder — see
+        // `fs_ops::PresenceIndex`. The index lives exactly as long as this query.
+        let mut presence = fs_ops::PresenceIndex::new();
+        let rows = stmt.query_map(params![character_id], |row| {
+            build_mod(row, |path| presence.resolve(path))
+        })?;
         rows.collect()
     }
 
@@ -197,7 +213,8 @@ impl Db {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM mods ORDER BY character_id, slot, display_name")?;
-        let rows = stmt.query_map([], row_to_mod)?;
+        let mut presence = fs_ops::PresenceIndex::new();
+        let rows = stmt.query_map([], |row| build_mod(row, |path| presence.resolve(path)))?;
         rows.collect()
     }
 
@@ -263,7 +280,8 @@ impl Db {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM mods WHERE gamebanana_mod_id IS NOT NULL ORDER BY id")?;
-        let rows = stmt.query_map([], row_to_mod)?;
+        let mut presence = fs_ops::PresenceIndex::new();
+        let rows = stmt.query_map([], |row| build_mod(row, |path| presence.resolve(path)))?;
         rows.collect()
     }
 
@@ -316,6 +334,10 @@ impl Db {
         })?;
 
         let mut counts: HashMap<String, ModCounts> = HashMap::new();
+        // The roster grid asks for this on every Library render, so it is one of the passes that
+        // made the per-mod form expensive. One read per character folder now covers every mod
+        // filed under it.
+        let mut presence = fs_ops::PresenceIndex::new();
         for row in rows {
             let (character_id, folder_path) = row?;
             let entry = counts.entry(character_id).or_insert(ModCounts {
@@ -324,7 +346,7 @@ impl Db {
             });
             entry.total += 1;
             if matches!(
-                fs_ops::resolve_presence(Path::new(&folder_path)),
+                presence.resolve(Path::new(&folder_path)),
                 fs_ops::Presence::Enabled(_)
             ) {
                 entry.enabled += 1;
@@ -534,6 +556,75 @@ mod tests {
             canonical,
             "folder_path must resolve to where the files actually are"
         );
+    }
+
+    #[test]
+    /// The list queries resolve presence through `fs_ops::PresenceIndex` rather than one
+    /// `exists` pair per row, and this is the test that says the faster route gives the same
+    /// answers. Every other end-to-end check of on/off/missing goes through `get_mod`, which
+    /// takes the single-row route — so without this one the batch route would be covered only
+    /// by the index's own unit tests, never as the library actually reads it.
+    fn list_all_mods_reports_on_off_and_missing_the_same_as_get_mod() {
+        let db = Db::open_in_memory().unwrap();
+        let root = test_root("list-presence");
+        let on = insert_mod_on_disk(&db, &root, "belle", "pinkdress", true);
+        let off = insert_mod_on_disk(&db, &root, "belle", "bluedress", false);
+        let gone = insert_mod_on_disk(&db, &root, "nicole", "goneaway", true);
+        std::fs::remove_dir_all(root.join("goneaway")).unwrap();
+
+        let listed = db.list_all_mods().unwrap();
+        let by_id = |id: i64| listed.iter().find(|m| m.id == id).unwrap();
+
+        assert!(by_id(on.id).enabled && !by_id(on.id).files_missing);
+        assert!(!by_id(off.id).enabled && !by_id(off.id).files_missing);
+        assert!(by_id(gone.id).files_missing && !by_id(gone.id).enabled);
+
+        // And the two routes agree row for row, which is the actual claim being made.
+        for listed_mod in &listed {
+            let fetched = db.get_mod(listed_mod.id).unwrap().unwrap();
+            assert_eq!(
+                (listed_mod.enabled, listed_mod.files_missing, &listed_mod.folder_path),
+                (fetched.enabled, fetched.files_missing, &fetched.folder_path),
+                "batch and single-row presence disagreed for mod {}",
+                listed_mod.id
+            );
+        }
+    }
+
+    #[test]
+    /// The roster grid's counts come from the batch route too, and an `enabled` tally that
+    /// disagreed with the cards below it is exactly the drift `Presence` exists to prevent.
+    fn count_mods_by_character_tallies_enabled_from_the_disk() {
+        let db = Db::open_in_memory().unwrap();
+        let root = test_root("list-counts");
+        insert_mod_on_disk(&db, &root, "belle", "pinkdress", true);
+        insert_mod_on_disk(&db, &root, "belle", "bluedress", false);
+        insert_mod_on_disk(&db, &root, "belle", "greendress", true);
+        insert_mod_on_disk(&db, &root, "nicole", "hoodie", false);
+
+        let counts = db.count_mods_by_character().unwrap();
+        assert_eq!(counts["belle"].total, 3);
+        assert_eq!(counts["belle"].enabled, 2);
+        assert_eq!(counts["nicole"].total, 1);
+        assert_eq!(counts["nicole"].enabled, 0);
+    }
+
+    #[test]
+    /// The batch route must follow a rename made behind the app's back, same as `get_mod` does —
+    /// XXMI renames folders in this tree every time the game launches.
+    fn list_mods_for_character_follows_an_external_rename() {
+        let db = Db::open_in_memory().unwrap();
+        let root = test_root("list-external-rename");
+        let inserted = insert_mod_on_disk(&db, &root, "belle", "pinkdress", false);
+        assert!(!inserted.enabled);
+
+        let canonical = root.join("pinkdress");
+        std::fs::rename(fs_ops::disabled_path(&canonical), &canonical).unwrap();
+
+        let listed = db.list_mods_for_character("belle").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].enabled, "the disk says on, so the list must too");
+        assert_eq!(std::path::Path::new(&listed[0].folder_path), canonical);
     }
 
     #[test]

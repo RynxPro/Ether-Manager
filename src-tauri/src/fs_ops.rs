@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -157,6 +158,89 @@ pub fn resolve_presence(path: &Path) -> Presence {
         return Presence::Disabled(disabled);
     }
     Presence::Missing
+}
+
+/// Answers [`resolve_presence`] for many mods with one `read_dir` per directory, instead of one
+/// or two `exists` calls per mod.
+///
+/// The saving is per pass, not once: a library list runs three to five times on the launch path
+/// and two to three times per mutation, because every mod mutation invalidates the mods, allMods
+/// and modCounts queries. Measured on a synthetic 300-mod tree with Defender live, the per-mod
+/// form costs 19.9ms a pass against 0.14ms for one `read_dir` — 146x, or about 80ms of a launch.
+///
+/// Deliberately **not** used for single-mod lookups. For one mod, two `exists` calls beat
+/// listing a directory of three hundred entries, so `get_mod` still calls `resolve_presence`
+/// directly. This is a batch tool and using it for one row would be slower, not faster.
+///
+/// Still a genuine read of the disk every time one is constructed — nothing is cached between
+/// calls, so the app cannot start disagreeing with the game about what is installed. The
+/// lifetime of an index is one query.
+pub struct PresenceIndex {
+    /// Directory contents, lowercased. `None` records a directory that could not be read —
+    /// missing, or permission denied — and is cached like any other answer so an unreadable
+    /// directory costs one failed `read_dir` rather than one per mod beneath it.
+    dirs: HashMap<PathBuf, Option<HashSet<String>>>,
+}
+
+impl PresenceIndex {
+    pub fn new() -> Self {
+        Self {
+            dirs: HashMap::new(),
+        }
+    }
+
+    /// The same answer [`resolve_presence`] gives, from the cached listing.
+    ///
+    /// Names are compared **case-insensitively**, and that is not a nicety: this replaces
+    /// `Path::exists`, which on Windows matches without regard to case, so a set compared with
+    /// `==` would call a mod missing whenever its folder differed only in capitalisation from
+    /// the path stored for it. The app is Windows-only, so matching the platform is right here.
+    pub fn resolve(&mut self, path: &Path) -> Presence {
+        let enabled = canonical_path(path);
+        let (Some(parent), Some(leaf)) = (
+            enabled.parent(),
+            enabled.file_name().and_then(|n| n.to_str()),
+        ) else {
+            // No parent, or a leaf that is not UTF-8. Rare enough not to be worth a second code
+            // path — ask the disk directly and get the identical answer, just unbatched.
+            return resolve_presence(path);
+        };
+
+        let Some(names) = self.entries(parent) else {
+            // The parent is gone or unreadable, so nothing beneath it is loadable — which is
+            // exactly what two failing `exists` calls would have concluded.
+            return Presence::Missing;
+        };
+
+        if names.contains(&leaf.to_lowercase()) {
+            return Presence::Enabled(enabled);
+        }
+        if names.contains(&to_disabled_name(leaf).to_lowercase()) {
+            return Presence::Disabled(disabled_path(&enabled));
+        }
+        Presence::Missing
+    }
+
+    fn entries(&mut self, dir: &Path) -> Option<&HashSet<String>> {
+        self.dirs
+            .entry(dir.to_path_buf())
+            .or_insert_with(|| {
+                fs::read_dir(dir).ok().map(|entries| {
+                    entries
+                        .filter_map(|entry| entry.ok())
+                        .filter_map(|entry| entry.file_name().into_string().ok())
+                        .map(|name| name.to_lowercase())
+                        .collect()
+                })
+            })
+            .as_ref()
+    }
+}
+
+impl Default for PresenceIndex {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// A canonical mod-folder path under `parent` that *neither* spelling of the name is using.
@@ -742,6 +826,180 @@ mod tests {
         assert!(!is_transient(&std::io::Error::from(
             std::io::ErrorKind::InvalidInput
         )));
+    }
+
+    // --- PresenceIndex ---------------------------------------------------------------------
+    //
+    // The index exists only to give `resolve_presence`'s answer more cheaply, so most of these
+    // assert the two agree rather than asserting the index's answer in isolation. A faster
+    // function that answers differently is not an optimisation, it is a bug.
+
+    #[test]
+    fn index_agrees_with_resolve_presence_across_all_three_states() {
+        let root = temp_dir("index-agrees");
+        let enabled = root.join("pinkdress");
+        let disabled = root.join("DISABLED_bluedress");
+        fs::create_dir_all(&enabled).unwrap();
+        fs::create_dir_all(&disabled).unwrap();
+        let missing = root.join("goneaway");
+
+        let mut index = PresenceIndex::new();
+        // Queried by the *canonical* path in every case, which is what the database stores.
+        for probe in [&enabled, &root.join("bluedress"), &missing] {
+            assert_eq!(
+                index.resolve(probe),
+                resolve_presence(probe),
+                "index disagreed with the disk for {}",
+                probe.display()
+            );
+        }
+
+        // And the three states really are all covered, or the agreement above proves little.
+        assert_eq!(
+            index.resolve(&enabled),
+            Presence::Enabled(enabled.clone()),
+            "an unprefixed folder is what the game loads"
+        );
+        assert_eq!(
+            index.resolve(&root.join("bluedress")),
+            Presence::Disabled(disabled.clone()),
+            "only the DISABLED_ spelling is present"
+        );
+        assert_eq!(index.resolve(&missing), Presence::Missing);
+    }
+
+    #[test]
+    fn index_matches_folder_names_case_insensitively() {
+        // The trap this guards: the index replaces `Path::exists`, which on Windows ignores
+        // case. A set compared with `==` would call this mod missing because the stored path
+        // says "PinkDress" and the folder says "pinkdress" — and it would look exactly like a
+        // mod the user had deleted, offering to remove it from the library.
+        let root = temp_dir("index-case");
+        fs::create_dir_all(root.join("pinkdress")).unwrap();
+        fs::create_dir_all(root.join("disabled_bluedress")).unwrap();
+
+        let mut index = PresenceIndex::new();
+        assert!(
+            matches!(index.resolve(&root.join("PinkDress")), Presence::Enabled(_)),
+            "differing only in case must still be found"
+        );
+        assert!(
+            matches!(
+                index.resolve(&root.join("BlueDress")),
+                Presence::Disabled(_)
+            ),
+            "the DISABLED_ prefix must match case-insensitively too"
+        );
+    }
+
+    #[test]
+    fn index_reports_missing_for_an_unreadable_directory() {
+        // Two failing `exists` calls conclude Missing; so must one failing `read_dir`.
+        let root = temp_dir("index-nodir");
+        let absent = root.join("no-such-character").join("pinkdress");
+
+        let mut index = PresenceIndex::new();
+        assert_eq!(index.resolve(&absent), Presence::Missing);
+        assert_eq!(index.resolve(&absent), resolve_presence(&absent));
+    }
+
+    #[test]
+    fn index_accepts_either_spelling_of_the_queried_path() {
+        // `resolve_presence` takes a path in either spelling, because a caller may hold one from
+        // before it was stored canonical. The index must not be fussier than what it replaces.
+        let root = temp_dir("index-either");
+        fs::create_dir_all(root.join("DISABLED_pinkdress")).unwrap();
+
+        let mut index = PresenceIndex::new();
+        let asked_disabled = index.resolve(&root.join("DISABLED_pinkdress"));
+        let asked_canonical = index.resolve(&root.join("pinkdress"));
+        assert_eq!(asked_disabled, asked_canonical);
+        assert!(matches!(asked_disabled, Presence::Disabled(_)));
+    }
+
+    #[test]
+    fn index_prefers_enabled_when_both_spellings_exist() {
+        // Same tie-break as `resolve_presence`, for the same reason: it is what the game does.
+        let root = temp_dir("index-both");
+        fs::create_dir_all(root.join("pinkdress")).unwrap();
+        fs::create_dir_all(root.join("DISABLED_pinkdress")).unwrap();
+
+        let mut index = PresenceIndex::new();
+        let probe = root.join("pinkdress");
+        assert_eq!(index.resolve(&probe), resolve_presence(&probe));
+        assert!(matches!(index.resolve(&probe), Presence::Enabled(_)));
+    }
+
+    #[test]
+    fn index_sees_a_directory_as_it_was_when_first_read() {
+        // Documents the one real consequence of batching: an index is a snapshot, so a folder
+        // renamed mid-query is not noticed. That is why an index's lifetime is one query and
+        // nothing caches it between calls — a longer-lived one could let the app disagree with
+        // the game about what is installed, which is the whole thing `Presence` exists to stop.
+        let root = temp_dir("index-snapshot");
+        let mod_dir = root.join("pinkdress");
+        fs::create_dir_all(&mod_dir).unwrap();
+
+        let mut index = PresenceIndex::new();
+        assert!(matches!(index.resolve(&mod_dir), Presence::Enabled(_)));
+
+        fs::rename(&mod_dir, root.join("DISABLED_pinkdress")).unwrap();
+        assert!(
+            matches!(index.resolve(&mod_dir), Presence::Enabled(_)),
+            "the stale index still says enabled"
+        );
+        assert!(
+            matches!(resolve_presence(&mod_dir), Presence::Disabled(_)),
+            "while the disk has already moved on — hence one index per query"
+        );
+    }
+
+    /// Not a test — a measurement, run by hand:
+    ///   cargo test --release measure_presence_cost -- --ignored --nocapture
+    /// Asserts nothing, so it can never fail the suite on a slow machine.
+    #[test]
+    #[ignore]
+    fn measure_presence_cost() {
+        let root = temp_dir("measure");
+        const MODS: usize = 300;
+        let mut probes = Vec::new();
+        for i in 0..MODS {
+            let name = format!("mod-{i}");
+            // Half disabled, which is the two-stat path and the common case for a real library.
+            let on_disk = if i % 2 == 0 {
+                name.clone()
+            } else {
+                format!("DISABLED_{name}")
+            };
+            fs::create_dir_all(root.join(&on_disk)).unwrap();
+            probes.push(root.join(&name));
+        }
+
+        let passes = 10;
+        let direct = Instant::now();
+        for _ in 0..passes {
+            for probe in &probes {
+                std::hint::black_box(resolve_presence(probe));
+            }
+        }
+        let direct = direct.elapsed() / passes;
+
+        let indexed = Instant::now();
+        for _ in 0..passes {
+            let mut index = PresenceIndex::new();
+            for probe in &probes {
+                std::hint::black_box(index.resolve(probe));
+            }
+        }
+        let indexed = indexed.elapsed() / passes;
+
+        println!(
+            "{MODS} mods, per pass: resolve_presence {:?}, PresenceIndex {:?} ({:.0}x)",
+            direct,
+            indexed,
+            direct.as_secs_f64() / indexed.as_secs_f64().max(f64::EPSILON)
+        );
+        fs::remove_dir_all(&root).ok();
     }
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
