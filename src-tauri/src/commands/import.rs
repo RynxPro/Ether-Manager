@@ -84,7 +84,7 @@ struct PlacedMod {
 /// A command rather than the dialog plugin's JS binding, matching `pick_mods_folder` — the
 /// frontend has no `@tauri-apps/plugin-dialog` dependency and does not need one for this.
 #[tauri::command]
-pub fn pick_mod_archive(app: AppHandle) -> Option<String> {
+pub async fn pick_mod_archive(app: AppHandle) -> Option<String> {
     app.dialog()
         .file()
         .add_filter("Mod archives", &ARCHIVE_EXTENSIONS)

@@ -318,7 +318,35 @@ pub fn ensure_mod_home_dir(mods_root: &Path, character_id: &str) -> Result<PathB
 /// fight over the same model, while two mods that merely share a slot may not overlap at all.
 /// That judgement belongs to whoever installed them, so the UI cautions when more than one is on
 /// instead of the app quietly switching the others off.
+/// Test-only, and deliberately so: `toggle_mod` composes the same two halves itself, with the
+/// slow one on a worker thread and the database lock released in between. Production cannot call
+/// this because it would put the wait back on the thread that draws the window — the exact thing
+/// the split exists to prevent.
+///
+/// Kept because the composition is what the behaviour tests are about (does toggling rename the
+/// right folder, is a missing folder an error, does an already-correct spelling no-op). None of
+/// that is affected by which thread the rename happens on, so testing it here rather than
+/// through an async command keeps those tests direct.
+#[cfg(test)]
 pub fn set_mod_enabled(db: &Db, mod_id: i64, enabled: bool) -> Result<(), FsOpsError> {
+    if let Some((from, to)) = plan_mod_enabled(db, mod_id, enabled)? {
+        apply_mod_rename(&from, &to)?;
+    }
+    Ok(())
+}
+
+/// Works out which rename a toggle needs, without performing it. `None` means none is needed.
+///
+/// Split from [`apply_mod_rename`] so the command can let go of the database lock before the
+/// slow half runs. The rename can wait up to [`RETRY_BUDGET`] for Windows to release a folder,
+/// and holding a lock — or worse, a thread that draws the window — for two seconds is the
+/// difference between an app that is briefly busy and one that looks hung. Everything here is
+/// database and string work: cheap, and nothing to wait on.
+pub fn plan_mod_enabled(
+    db: &Db,
+    mod_id: i64,
+    enabled: bool,
+) -> Result<Option<(PathBuf, PathBuf)>, FsOpsError> {
     let target = db.get_mod(mod_id)?.ok_or(FsOpsError::NotFound(mod_id))?;
     let canonical = canonical_path(Path::new(&target.folder_path));
 
@@ -335,9 +363,16 @@ pub fn set_mod_enabled(db: &Db, mod_id: i64, enabled: bool) -> Result<(), FsOpsE
 
     // Already in the spelling being asked for. Toggling a mod that some other program already
     // toggled the same way is a no-op rather than an error — the disk is what was wanted.
-    if current != desired {
-        retrying(|| fs::rename(&current, &desired))?;
+    if current == desired {
+        return Ok(None);
     }
+    Ok(Some((current, desired)))
+}
+
+/// The slow half of a toggle: the rename itself, with the retry budget. Touches no database, so
+/// it can be handed to a worker thread.
+pub fn apply_mod_rename(from: &Path, to: &Path) -> Result<(), FsOpsError> {
+    retrying(|| fs::rename(from, to))?;
     Ok(())
 }
 
