@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { SidebarFooter } from "@/components/SidebarFooter";
 import { TitleBar } from "@/components/TitleBar";
-import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
 import { CreatorPage } from "@/features/browse/CreatorPage";
@@ -48,13 +47,45 @@ type View =
 type DetailFrame =
   { kind: "mod"; mod: GbMod } | { kind: "creator"; id: number; name: string };
 
-const NAV_ITEMS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
-  { id: "library", label: "Library", icon: LayoutGrid },
-  { id: "allmods", label: "All mods", icon: Layers },
-  { id: "browse", label: "Browse", icon: Compass },
-  { id: "bookmarks", label: "Bookmarks", icon: Bookmark },
-  { id: "downloads", label: "Downloads", icon: Download },
-  { id: "settings", label: "Settings", icon: SettingsIcon },
+/** The bottom-right chamfer every card in the app is cut with. The sidebar used to be the one
+ * surface that never wore it, which is most of why it read as furniture from a different app. */
+const CUT_CORNER = {
+  clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)",
+};
+
+/** The six destinations, in three groups.
+ *
+ * Six flat entries claimed all six were the same kind of thing, and they are not: two are what
+ * you own, two are somebody else's catalogue, two are the machinery. The grouping is the point
+ * of the labels — at six items nobody needs help *finding* Settings, they need telling that
+ * Browse and Bookmarks are about a place that is not their disk.
+ *
+ * Order is unchanged from the flat list, so muscle memory survives. */
+const NAV_GROUPS: {
+  label: string;
+  items: { id: View; label: string; icon: typeof LayoutGrid }[];
+}[] = [
+  {
+    label: "Yours",
+    items: [
+      { id: "library", label: "Library", icon: LayoutGrid },
+      { id: "allmods", label: "All mods", icon: Layers },
+    ],
+  },
+  {
+    label: "Discover",
+    items: [
+      { id: "browse", label: "Browse", icon: Compass },
+      { id: "bookmarks", label: "Bookmarks", icon: Bookmark },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { id: "downloads", label: "Downloads", icon: Download },
+      { id: "settings", label: "Settings", icon: SettingsIcon },
+    ],
+  },
 ];
 
 /** Navigation is exactly two levels deep — a sidebar destination, then at most one drill-down
@@ -247,54 +278,102 @@ function App() {
         </div>
       ) : (
         <>
-          <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar p-4">
-            <div className="px-2 pt-2 pb-6">
-              <h1 className="font-heading text-lg font-bold uppercase tracking-[0.08em] text-primary">
-                Ether Manager
-              </h1>
-              <p className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground/70">
-                Zenless Zone Zero mods
-              </p>
-            </div>
-
-            <nav className="flex flex-col gap-0.5" aria-label="Main">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = view === item.id;
-                // The active destination takes the full accent rather than a grey fill — in a
-                // near-black shell a subtle tint reads as "slightly different", not "you are here".
-                return (
-                  <Button
-                    key={item.id}
-                    type="button"
-                    variant="ghost"
-                    aria-current={isActive ? "page" : undefined}
-                    className={`justify-start gap-2 font-heading text-sm uppercase tracking-[0.08em] ${
-                      isActive
-                        ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
-                        : "text-sidebar-foreground hover:text-foreground"
-                    }`}
-                    onClick={() => goTo(item.id)}
+          {/* No wordmark. The title bar says the app's name 32px above this, and repeating it
+              here cost 60px to tell you something you had just read. Padding is vertical only —
+              the rows run edge to edge so the active block's fill reaches the panel's border,
+              which is what makes it read as a marker rather than a floating button. */}
+          <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar pb-3 pt-3.5">
+            <nav aria-label="Main">
+              {NAV_GROUPS.map((group, groupIndex) => (
+                <div
+                  key={group.label}
+                  role="group"
+                  aria-labelledby={`nav-group-${group.label}`}
+                  className={groupIndex > 0 ? "mt-4" : undefined}
+                >
+                  {/* The rule runs from the end of the label to the panel edge — a caption with
+                      a line trailing off it, the way a bulkhead is stencilled. */}
+                  <p
+                    id={`nav-group-${group.label}`}
+                    className="mb-2 flex items-center gap-2 px-4 font-heading text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50"
                   >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                    {/* Only on Downloads, and only while something is actually running — a badge
-                    that is always there stops being a signal. On the active item it inverts, so
-                    it stays legible against the full accent fill. */}
-                    {item.id === "downloads" && activeCount > 0 && (
-                      <span
-                        className={`ml-auto px-1.5 py-px font-heading text-[10px] tabular-nums ${
-                          isActive
-                            ? "bg-primary-foreground text-primary"
-                            : "bg-primary text-primary-foreground"
-                        }`}
-                      >
-                        {activeCount}
-                      </span>
-                    )}
-                  </Button>
-                );
-              })}
+                    {group.label}
+                    <span aria-hidden className="h-px flex-1 bg-sidebar-border" />
+                  </p>
+
+                  {group.items.map((item, itemIndex) => {
+                    const Icon = item.icon;
+                    const isActive = view === item.id;
+                    const index =
+                      NAV_GROUPS.slice(0, groupIndex).reduce(
+                        (n, g) => n + g.items.length,
+                        0,
+                      ) +
+                      itemIndex +
+                      1;
+                    // The active destination takes the full accent rather than a grey fill — in
+                    // a near-black shell a subtle tint reads as "slightly different", not "you
+                    // are here".
+                    return (
+                      <div key={item.id}>
+                        {/* Between rows inside a group only, never above the first: the group's
+                            own caption already divides it from what came before. */}
+                        {itemIndex > 0 && (
+                          <div aria-hidden className="mx-4 h-px bg-sidebar-border" />
+                        )}
+                        <button
+                          type="button"
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={() => goTo(item.id)}
+                          style={isActive ? CUT_CORNER : undefined}
+                          className={`group relative flex h-[38px] w-full items-center gap-2.5 px-4 font-heading text-[13.5px] uppercase tracking-[0.09em] outline-none focus-visible:ring-1 focus-visible:ring-primary ${
+                            isActive
+                              ? "bg-primary font-semibold text-primary-foreground"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                          }`}
+                        >
+                          {/* A tick on the leading edge rather than a shifted row: hover must not
+                              move the thing being pointed at, or a slow hand chases it. */}
+                          {!isActive && (
+                            <span
+                              aria-hidden
+                              className="absolute inset-y-2 left-0 w-[2px] scale-y-0 bg-primary transition-transform group-hover:scale-y-100"
+                            />
+                          )}
+                          {/* The index is decoration with a job: six near-identical rows gain a
+                              fixed left-hand column, so the eye has a ruler to run down. */}
+                          <span
+                            aria-hidden
+                            className={`w-3.5 shrink-0 text-left text-[9.5px] tracking-[0.1em] tabular-nums ${
+                              isActive
+                                ? "text-primary-foreground/45"
+                                : "text-muted-foreground/40"
+                            }`}
+                          >
+                            {String(index).padStart(2, "0")}
+                          </span>
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                          {/* Only on Downloads, and only while something is actually running — a
+                              badge that is always there stops being a signal. On the active item
+                              it inverts, so it stays legible against the full accent fill. */}
+                          {item.id === "downloads" && activeCount > 0 && (
+                            <span
+                              className={`shrink-0 px-1.5 py-px font-heading text-[10px] tabular-nums ${
+                                isActive
+                                  ? "bg-primary-foreground text-primary"
+                                  : "bg-primary text-primary-foreground"
+                              }`}
+                            >
+                              {activeCount}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
 
             <SidebarFooter
