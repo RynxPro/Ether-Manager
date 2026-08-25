@@ -51,7 +51,21 @@ pub fn run() {
         // Remembers window size, position and maximized state between launches — the
         // `tauri.conf.json` width/height become first-run defaults rather than a reset on every
         // start. Desktop apps are expected to reopen where you left them.
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        //
+        // Everything except whether the window has a frame. The plugin defaults to `all()`,
+        // which includes `DECORATIONS`, so it had been restoring `decorated: true` from a state
+        // file written back when the window still had a native title bar — silently undoing
+        // `"decorations": false` on every launch and leaving the app with two title bars, ours
+        // and Windows'. Decoration is not something anyone toggles at runtime here; it is a
+        // decision the config makes once, so remembering it can only ever contradict that.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        .difference(tauri_plugin_window_state::StateFlags::DECORATIONS),
+                )
+                .build(),
+        )
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;

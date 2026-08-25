@@ -9,6 +9,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import { SidebarFooter } from "@/components/SidebarFooter";
+import { TitleBar } from "@/components/TitleBar";
 import { Button } from "@/components/ui/button";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
@@ -37,15 +38,15 @@ import {
   type Mod,
 } from "@/lib/tauri-commands";
 
-type View = "library" | "allmods" | "browse" | "bookmarks" | "downloads" | "settings";
+type View =
+  "library" | "allmods" | "browse" | "bookmarks" | "downloads" | "settings";
 
 /** One level of drill-down inside a section.
  *
  * A creator frame carries the name as well as the id so the page can title itself before
  * the profile request answers — the mod that led there already knew it. */
 type DetailFrame =
-  | { kind: "mod"; mod: GbMod }
-  | { kind: "creator"; id: number; name: string };
+  { kind: "mod"; mod: GbMod } | { kind: "creator"; id: number; name: string };
 
 const NAV_ITEMS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
   { id: "library", label: "Library", icon: LayoutGrid },
@@ -62,7 +63,9 @@ const NAV_ITEMS: { id: View; label: string; icon: typeof LayoutGrid }[] = [
 function App() {
   const { data: modsFolder, isLoading } = useModsFolder();
   const [view, setView] = useState<View>("library");
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(
+    null,
+  );
   /** What is open on top of the current section, innermost last.
    *
    * This was a single `selectedMod` slot while a drill-down could only ever be one level
@@ -79,12 +82,16 @@ function App() {
    * a result and remounts on the way back — a plain prop would re-apply the character every
    * time and quietly undo whatever filter you had changed to. Browse consumes it once and
    * clears it. */
-  const [browseSeedCategoryId, setBrowseSeedCategoryId] = useState<number | null>(null);
+  const [browseSeedCategoryId, setBrowseSeedCategoryId] = useState<
+    number | null
+  >(null);
   /** A Library tab to open on, set when arriving from a UI or Misc download. Consumed once for
    * the same reason as `browseSeedCategoryId`: Library unmounts whenever a character page opens
    * and remounts on the way back, so a standing prop would drag you back to the UI tab every
    * time you returned from a character. */
-  const [librarySeedTab, setLibrarySeedTab] = useState<"ui" | "misc" | null>(null);
+  const [librarySeedTab, setLibrarySeedTab] = useState<"ui" | "misc" | null>(
+    null,
+  );
 
   /** The character whose page an import was started from, if it was started from one.
    *
@@ -201,7 +208,11 @@ function App() {
       );
     }
     return (
-      <ModDetailRoute mod={frame.mod} onBack={closeDetail} onOpenCreator={openCreator} />
+      <ModDetailRoute
+        mod={frame.mod}
+        onBack={closeDetail}
+        onOpenCreator={openCreator}
+      />
     );
   }
 
@@ -221,162 +232,174 @@ function App() {
     setSelectedCharacter(null);
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
-
-  if (!modsFolder) {
-    return <FirstRunSetup />;
-  }
-
+  // The window has no native frame, so the title bar has to be outside whatever the app is
+  // currently showing — including the two states that used to return early. A first run that
+  // could not be moved off a second monitor, or closed while it waited, would be a trap.
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar p-4">
-        <div className="px-2 pt-2 pb-6">
-          <h1 className="font-heading text-lg font-bold uppercase tracking-[0.08em] text-primary">
-            Ether Manager
-          </h1>
-          <p className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground/70">
-            Zenless Zone Zero mods
-          </p>
+    <Shell>
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center text-muted-foreground">
+          Loading…
         </div>
+      ) : !modsFolder ? (
+        <div className="flex-1 overflow-y-auto">
+          <FirstRunSetup />
+        </div>
+      ) : (
+        <>
+          <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar p-4">
+            <div className="px-2 pt-2 pb-6">
+              <h1 className="font-heading text-lg font-bold uppercase tracking-[0.08em] text-primary">
+                Ether Manager
+              </h1>
+              <p className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground/70">
+                Zenless Zone Zero mods
+              </p>
+            </div>
 
-        <nav className="flex flex-col gap-0.5" aria-label="Main">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = view === item.id;
-            // The active destination takes the full accent rather than a grey fill — in a
-            // near-black shell a subtle tint reads as "slightly different", not "you are here".
-            return (
-              <Button
-                key={item.id}
-                type="button"
-                variant="ghost"
-                aria-current={isActive ? "page" : undefined}
-                className={`justify-start gap-2 font-heading text-sm uppercase tracking-[0.08em] ${
-                  isActive
-                    ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
-                    : "text-sidebar-foreground hover:text-foreground"
-                }`}
-                onClick={() => goTo(item.id)}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-                {/* Only on Downloads, and only while something is actually running — a badge
+            <nav className="flex flex-col gap-0.5" aria-label="Main">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = view === item.id;
+                // The active destination takes the full accent rather than a grey fill — in a
+                // near-black shell a subtle tint reads as "slightly different", not "you are here".
+                return (
+                  <Button
+                    key={item.id}
+                    type="button"
+                    variant="ghost"
+                    aria-current={isActive ? "page" : undefined}
+                    className={`justify-start gap-2 font-heading text-sm uppercase tracking-[0.08em] ${
+                      isActive
+                        ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                        : "text-sidebar-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => goTo(item.id)}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                    {/* Only on Downloads, and only while something is actually running — a badge
                     that is always there stops being a signal. On the active item it inverts, so
                     it stays legible against the full accent fill. */}
-                {item.id === "downloads" && activeCount > 0 && (
-                  <span
-                    className={`ml-auto px-1.5 py-px font-heading text-[10px] tabular-nums ${
-                      isActive
-                        ? "bg-primary-foreground text-primary"
-                        : "bg-primary text-primary-foreground"
-                    }`}
-                  >
-                    {activeCount}
-                  </span>
-                )}
-              </Button>
-            );
-          })}
-        </nav>
+                    {item.id === "downloads" && activeCount > 0 && (
+                      <span
+                        className={`ml-auto px-1.5 py-px font-heading text-[10px] tabular-nums ${
+                          isActive
+                            ? "bg-primary-foreground text-primary"
+                            : "bg-primary text-primary-foreground"
+                        }`}
+                      >
+                        {activeCount}
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
+            </nav>
 
-        <SidebarFooter trailing={<NotificationBell onOpenMod={openFeedItem} />} />
-      </aside>
+            <SidebarFooter
+              trailing={<NotificationBell onOpenMod={openFeedItem} />}
+            />
+          </aside>
 
-      {/* No centered max-width container: this is a desktop window, so content fills whatever
+          {/* No centered max-width container: this is a desktop window, so content fills whatever
           width the user gives it. Individual pages cap themselves only where line length
           actually matters for reading (Settings, the mod description). */}
-      <main className="flex-1 overflow-y-auto p-6">
-        <div>
-          {view === "browse" ? (
-            openDetail ? (
-              renderDetail(openDetail)
-            ) : (
-              <Browse
-                onSelectMod={openMod}
-                seedCategoryId={browseSeedCategoryId}
-                onSeedConsumed={() => setBrowseSeedCategoryId(null)}
-              />
-            )
-          ) : view === "bookmarks" ? (
-            openDetail ? (
-              renderDetail(openDetail)
-            ) : (
-              <BookmarksView onSelectMod={openMod} onSelectCreator={openCreator} />
-            )
-          ) : view === "downloads" ? (
-            <DownloadsView
-              onOpenCharacter={(characterId) => {
-                // UI and Misc are categories, not roster members — they have no character page.
-                // `listCharacters` returns them alongside real characters, so opening one blindly
-                // rendered a character page for something that is not a character. Their mods
-                // live in Library's own UI and Misc tabs, which is where this goes instead.
-                if (
-                  characterId === UI_CHARACTER_ID ||
-                  characterId === MISC_CHARACTER_ID
-                ) {
-                  setLibrarySeedTab(characterId);
-                  goTo("library");
-                  return;
-                }
-                const character = (characters ?? []).find((c) => c.id === characterId);
-                if (!character) return;
-                setView("library");
-                setSelectedCharacter(character);
-              }}
-            />
-          ) : view === "settings" ? (
-            <SettingsPage />
-          ) : openDetail ? (
-            // Library, All mods and the character page all reach the same detail chain. It is
-            // rendered inside whichever of them you were in rather than by switching to Browse,
-            // so Back lands where you started — including on the character page, since
-            // `selectedCharacter` is left standing underneath.
-            renderDetail(openDetail)
-          ) : view === "allmods" ? (
-            // Drilling into a character from All mods lands on the character page, same as
-            // from the roster — so this branch falls through to the shared detail below.
-            selectedCharacter ? (
-              <CharacterDetail
-                character={selectedCharacter}
-                onBack={() => setSelectedCharacter(null)}
-                onBrowse={() =>
-                  goToBrowse(selectedCharacter.gamebanana_category_id)
-                }
-                onOpenModDetail={openModDetail}
-                onImport={imports.importFromPicker}
-              />
-            ) : (
-              <AllMods
-                onSelectCharacter={setSelectedCharacter}
-                onOpenModDetail={openModDetail}
-                onImport={imports.importFromPicker}
-              />
-            )
-          ) : selectedCharacter ? (
-            <CharacterDetail
-              character={selectedCharacter}
-              onBack={() => setSelectedCharacter(null)}
-              onBrowse={() => goToBrowse(selectedCharacter.gamebanana_category_id)}
-              onOpenModDetail={openModDetail}
-              onImport={imports.importFromPicker}
-            />
-          ) : (
-            <Library
-              onSelectCharacter={setSelectedCharacter}
-              onOpenModDetail={openModDetail}
-              onImport={imports.importFromPicker}
-              seedTab={librarySeedTab}
-              onSeedConsumed={() => setLibrarySeedTab(null)}
-            />
-          )}
-        </div>
-      </main>
+          <main className="flex-1 overflow-y-auto p-6">
+            <div>
+              {view === "browse" ? (
+                openDetail ? (
+                  renderDetail(openDetail)
+                ) : (
+                  <Browse
+                    onSelectMod={openMod}
+                    seedCategoryId={browseSeedCategoryId}
+                    onSeedConsumed={() => setBrowseSeedCategoryId(null)}
+                  />
+                )
+              ) : view === "bookmarks" ? (
+                openDetail ? (
+                  renderDetail(openDetail)
+                ) : (
+                  <BookmarksView
+                    onSelectMod={openMod}
+                    onSelectCreator={openCreator}
+                  />
+                )
+              ) : view === "downloads" ? (
+                <DownloadsView
+                  onOpenCharacter={(characterId) => {
+                    // UI and Misc are categories, not roster members — they have no character page.
+                    // `listCharacters` returns them alongside real characters, so opening one blindly
+                    // rendered a character page for something that is not a character. Their mods
+                    // live in Library's own UI and Misc tabs, which is where this goes instead.
+                    if (
+                      characterId === UI_CHARACTER_ID ||
+                      characterId === MISC_CHARACTER_ID
+                    ) {
+                      setLibrarySeedTab(characterId);
+                      goTo("library");
+                      return;
+                    }
+                    const character = (characters ?? []).find(
+                      (c) => c.id === characterId,
+                    );
+                    if (!character) return;
+                    setView("library");
+                    setSelectedCharacter(character);
+                  }}
+                />
+              ) : view === "settings" ? (
+                <SettingsPage />
+              ) : openDetail ? (
+                // Library, All mods and the character page all reach the same detail chain. It is
+                // rendered inside whichever of them you were in rather than by switching to Browse,
+                // so Back lands where you started — including on the character page, since
+                // `selectedCharacter` is left standing underneath.
+                renderDetail(openDetail)
+              ) : view === "allmods" ? (
+                // Drilling into a character from All mods lands on the character page, same as
+                // from the roster — so this branch falls through to the shared detail below.
+                selectedCharacter ? (
+                  <CharacterDetail
+                    character={selectedCharacter}
+                    onBack={() => setSelectedCharacter(null)}
+                    onBrowse={() =>
+                      goToBrowse(selectedCharacter.gamebanana_category_id)
+                    }
+                    onOpenModDetail={openModDetail}
+                    onImport={imports.importFromPicker}
+                  />
+                ) : (
+                  <AllMods
+                    onSelectCharacter={setSelectedCharacter}
+                    onOpenModDetail={openModDetail}
+                    onImport={imports.importFromPicker}
+                  />
+                )
+              ) : selectedCharacter ? (
+                <CharacterDetail
+                  character={selectedCharacter}
+                  onBack={() => setSelectedCharacter(null)}
+                  onBrowse={() =>
+                    goToBrowse(selectedCharacter.gamebanana_category_id)
+                  }
+                  onOpenModDetail={openModDetail}
+                  onImport={imports.importFromPicker}
+                />
+              ) : (
+                <Library
+                  onSelectCharacter={setSelectedCharacter}
+                  onOpenModDetail={openModDetail}
+                  onImport={imports.importFromPicker}
+                  seedTab={librarySeedTab}
+                  onSeedConsumed={() => setLibrarySeedTab(null)}
+                />
+              )}
+            </div>
+          </main>
+        </>
+      )}
 
       <ImportDropOverlay
         isDragging={imports.isDragging}
@@ -391,6 +414,22 @@ function App() {
           onOpenChange={() => imports.closeSheet()}
         />
       )}
+    </Shell>
+  );
+}
+
+/** The window itself: the title bar, and everything else under it.
+ *
+ * A column rather than the row the app used to be, because the bar spans the full width above
+ * the sidebar as well as the content. `min-h-0` on the lower half is what keeps the row inside
+ * it from growing past the window — a flex child defaults to a minimum size of its content, and
+ * without this a long mod list would push the layout taller than the screen instead of
+ * scrolling inside it. */
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">{children}</div>
     </div>
   );
 }
