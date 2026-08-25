@@ -187,12 +187,9 @@ export function CharacterDetail({
         </div>
       ) : (
         <SlotSection
-          slot="CharacterSkin"
           mods={skins}
           updateChecksByModId={updateChecksByModId}
           onOpenModDetail={onOpenModDetail}
-          showHeader={false}
-          onImport={onImport}
         />
       )}
     </div>

@@ -192,21 +192,17 @@ export function Library({
 
       {tab === "ui" && (
         <SlotSection
-          slot="Ui"
           mods={uiMods ?? []}
           updateChecksByModId={updateChecksByModId}
           onOpenModDetail={onOpenModDetail}
-          onImport={onImport}
         />
       )}
 
       {tab === "misc" && (
         <SlotSection
-          slot="Misc"
           mods={miscMods ?? []}
           updateChecksByModId={updateChecksByModId}
           onOpenModDetail={onOpenModDetail}
-          onImport={onImport}
         />
       )}
     </div>
