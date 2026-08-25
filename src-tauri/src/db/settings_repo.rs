@@ -8,6 +8,7 @@ use crate::content_rating::MatureVisibility;
 const MATURE_CONTENT_VISIBILITY_KEY: &str = "mature_content_visibility";
 const MAGNIFIER_ENABLED_KEY: &str = "magnifier_enabled";
 const MAGNIFIER_SIZE_KEY: &str = "magnifier_size";
+const CONFLICT_WARNINGS_KEY: &str = "conflict_warnings";
 
 /// How the preview magnifier behaves, if at all.
 ///
@@ -85,6 +86,37 @@ impl Db {
         self.set_setting(MATURE_CONTENT_VISIBILITY_KEY, value.as_str())
     }
 
+    /// Whether to point out that a character has more than one mod switched on.
+    ///
+    /// On by default, and on is the right default: the warning describes something ZZMI really
+    /// does, and someone who has not hit a model conflict yet has no way to know it is coming.
+    /// It is a preference rather than a fact about the library, though — stacking mods that
+    /// touch different parts of a character is a legitimate thing to do on purpose, and for
+    /// anyone doing it deliberately the mark sits on half the roster saying nothing they do not
+    /// already know.
+    ///
+    /// An unparseable stored value errors rather than defaulting, the same reasoning as
+    /// `get_mature_content_visibility`: this string is entirely our own, so garbage in it means
+    /// real corruption rather than the drift you would expect from someone else's API. The
+    /// argument is stronger here — quietly reading a damaged value as `false` would turn a
+    /// safety notice off without anyone asking for that.
+    pub fn get_conflict_warnings_enabled(&self) -> rusqlite::Result<bool> {
+        match self.get_setting(CONFLICT_WARNINGS_KEY)? {
+            None => Ok(true),
+            Some(value) => value.parse::<bool>().map_err(|_| {
+                rusqlite::Error::InvalidColumnType(
+                    0,
+                    CONFLICT_WARNINGS_KEY.to_string(),
+                    rusqlite::types::Type::Text,
+                )
+            }),
+        }
+    }
+
+    pub fn set_conflict_warnings_enabled(&self, value: bool) -> rusqlite::Result<()> {
+        self.set_setting(CONFLICT_WARNINGS_KEY, &value.to_string())
+    }
+
     /// Both halves fall back independently: a database written by an older build has neither
     /// key, and a half-written one should still produce a usable lens rather than an error.
     pub fn get_magnifier_settings(&self) -> rusqlite::Result<MagnifierSettings> {
@@ -123,6 +155,36 @@ mod tests {
 
         let value = db.get_setting("mods_folder").unwrap();
         assert_eq!(value, Some("D:/Games/ZZZ/Mods".to_string()));
+    }
+
+    /// The default matters more than the round trip: every database written before this key
+    /// existed has no row for it, and those users must keep the warning rather than silently
+    /// lose it.
+    #[test]
+    fn conflict_warnings_default_to_on_when_never_set() {
+        let db = Db::open_in_memory().unwrap();
+        assert!(db.get_conflict_warnings_enabled().unwrap());
+    }
+
+    #[test]
+    fn conflict_warnings_round_trip_both_ways() {
+        let db = Db::open_in_memory().unwrap();
+
+        db.set_conflict_warnings_enabled(false).unwrap();
+        assert!(!db.get_conflict_warnings_enabled().unwrap());
+
+        db.set_conflict_warnings_enabled(true).unwrap();
+        assert!(db.get_conflict_warnings_enabled().unwrap());
+    }
+
+    /// Refuses rather than reading as `false`. Turning a safety notice off is a decision, and a
+    /// corrupted row is not somebody making it.
+    #[test]
+    fn a_damaged_conflict_warnings_value_errors_rather_than_switching_it_off() {
+        let db = Db::open_in_memory().unwrap();
+        db.set_setting("conflict_warnings", "yes").unwrap();
+
+        assert!(db.get_conflict_warnings_enabled().is_err());
     }
 
     #[test]

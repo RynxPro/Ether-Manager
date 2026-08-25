@@ -11,8 +11,10 @@ import {
 import { MAGNIFIER_MAX_SIZE, MAGNIFIER_MIN_SIZE } from "@/lib/magnifier";
 import type { MagnifierSettings, MatureVisibility } from "@/lib/tauri-commands";
 import {
+  useConflictWarnings,
   useMagnifierSettings,
   useMatureContentVisibility,
+  useSetConflictWarnings,
   useSetMagnifierSettings,
   useSetMatureContentVisibility,
 } from "./hooks";
@@ -65,6 +67,9 @@ export function SettingsPage() {
   // must never be unusable.
   const { data: visibility, isError } = useMatureContentVisibility();
   const setVisibility = useSetMatureContentVisibility();
+
+  const { data: conflictWarnings } = useConflictWarnings();
+  const saveConflictWarnings = useSetConflictWarnings();
 
   const { data: storedMagnifier } = useMagnifierSettings();
   const saveMagnifierSettings = useSetMagnifierSettings();
@@ -150,6 +155,40 @@ export function SettingsPage() {
             <p className="flex items-center gap-1.5 text-xs text-destructive">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {String(setVisibility.error)}
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-3 border-t border-border pt-6">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <h3
+                id="conflict-warnings-heading"
+                className="text-sm font-medium text-foreground"
+              >
+                Warn about stacked mods
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Flags a character with more than one mod switched on — a mark
+                on their card and a note on their page. ZZMI loads them all,
+                and two mods that alter the same model usually fight over it.
+                Turn this off if you stack mods deliberately; nothing about how
+                mods load changes either way.
+              </p>
+            </div>
+            {/* Undefined while the first read is in flight reads as on, matching what the
+                roster and the character pages show meanwhile. */}
+            <Switch
+              checked={conflictWarnings !== false}
+              onCheckedChange={(enabled) => saveConflictWarnings.mutate(enabled)}
+              aria-labelledby="conflict-warnings-heading"
+            />
+          </div>
+
+          {saveConflictWarnings.isError && (
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {String(saveConflictWarnings.error)}
             </p>
           )}
         </section>

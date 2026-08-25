@@ -94,6 +94,21 @@ pub fn get_mature_content_visibility(state: State<AppState>) -> Result<MatureVis
         .map_err(|e| e.to_string())
 }
 
+/// Whether the "more than one mod is enabled" notice is shown, on the roster and on a
+/// character's page. On unless turned off; see `get_conflict_warnings_enabled`.
+#[tauri::command]
+pub fn get_conflict_warnings(state: State<AppState>) -> Result<bool, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_conflict_warnings_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_conflict_warnings(state: State<AppState>, value: bool) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.set_conflict_warnings_enabled(value)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn get_magnifier_settings(state: State<AppState>) -> Result<MagnifierSettings, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;

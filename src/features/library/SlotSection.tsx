@@ -1,4 +1,5 @@
 import { TriangleAlert } from "lucide-react";
+import { useConflictWarnings } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { ModCard } from "./ModCard";
@@ -26,6 +27,9 @@ export function SlotSection({
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
   const { checkUpdate, confirmedModId, runCheck } = useCheckModUpdateWithConfirmation();
+  // Undefined while the preference is still being read, and that counts as on — a notice that
+  // appeared a moment after the page did would be worse than one that was simply there.
+  const { data: showConflictWarning } = useConflictWarnings();
   const enabledCount = mods.filter((mod) => mod.enabled).length;
 
   return (
@@ -34,7 +38,7 @@ export function SlotSection({
           of the way — no dialog on the toggle, which would nag on every deliberate change. It
           shows only while more than one is actually on, so it reports a live condition rather
           than warning about something hypothetical. */}
-      {enabledCount > 1 && (
+      {showConflictWarning !== false && enabledCount > 1 && (
         <p className="flex items-start gap-2 border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
           <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0 text-primary" />
           <span>

@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getConflictWarnings,
   getMagnifierSettings,
   getMatureContentVisibility,
+  setConflictWarnings,
   setMagnifierSettings,
   setMatureContentVisibility,
   type MagnifierSettings,
@@ -29,6 +31,32 @@ export function useSetMatureContentVisibility() {
       // applied only under Blur. Anything added later that filters server-side belongs here.
       queryClient.invalidateQueries({ queryKey: ["gbSearch"] });
       queryClient.invalidateQueries({ queryKey: ["gbFeatured"] });
+    },
+  });
+}
+
+/** Whether to flag characters with more than one mod enabled.
+ *
+ * Read by every card on a sixty-card roster as well as by each character page, so it is held
+ * indefinitely rather than refetched — react-query dedupes the key, and nothing changes it
+ * except the settings page, which invalidates it itself. Same arrangement as the magnifier.
+ *
+ * Undefined while the first read is in flight. Callers treat that as *on*, so the notice never
+ * flickers away and back on a page that is still loading. */
+export function useConflictWarnings() {
+  return useQuery({
+    queryKey: ["conflictWarnings"],
+    queryFn: getConflictWarnings,
+    staleTime: Infinity,
+  });
+}
+
+export function useSetConflictWarnings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: boolean) => setConflictWarnings(value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conflictWarnings"] });
     },
   });
 }

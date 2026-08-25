@@ -118,6 +118,8 @@ pub fn run() {
             commands::settings::set_mature_content_visibility,
             commands::settings::get_magnifier_settings,
             commands::settings::set_magnifier_settings,
+            commands::settings::get_conflict_warnings,
+            commands::settings::set_conflict_warnings,
             commands::gamebanana::check_gamebanana_api,
             commands::gamebanana::search_gamebanana_mods,
             commands::gamebanana::get_featured_mods,

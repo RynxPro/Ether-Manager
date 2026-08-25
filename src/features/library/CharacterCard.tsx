@@ -11,6 +11,9 @@ interface CharacterCardProps {
   /** True when any mod filed under this character has an update waiting — including one that
    * is currently disabled, since enabling it later would still bring the stale version. */
   hasUpdate: boolean;
+  /** Whether to mark a character with more than one mod on. Passed in rather than read here:
+   * this renders sixty times, and the preference is one answer for the whole roster. */
+  showConflictWarning: boolean;
   onSelect: () => void;
 }
 
@@ -23,6 +26,7 @@ export function CharacterCard({
   counts,
   enabledModName,
   hasUpdate,
+  showConflictWarning,
   onSelect,
 }: CharacterCardProps) {
   const hasMods = counts.total > 0;
@@ -30,8 +34,9 @@ export function CharacterCard({
   // The same condition the character's own page warns about: ZZMI loads every enabled mod, and
   // two that touch the same model fight over it. Surfaced on the roster so the character worth
   // opening is visible without opening all sixty — otherwise the warning only exists somewhere
-  // you have to already suspect.
-  const hasConflictRisk = counts.enabled > 1;
+  // you have to already suspect. Suppressible, because stacking mods that touch different parts
+  // of a character is a real thing to do on purpose, and then this marks half the roster.
+  const hasConflictRisk = showConflictWarning && counts.enabled > 1;
 
   let secondLine: string;
   if (!hasMods) {

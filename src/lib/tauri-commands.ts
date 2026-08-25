@@ -804,3 +804,13 @@ export function getMagnifierSettings(): Promise<MagnifierSettings> {
 export function setMagnifierSettings(value: MagnifierSettings): Promise<void> {
   return invoke("set_magnifier_settings", { value });
 }
+
+/** Whether to flag a character with more than one mod switched on — the mark on the roster card
+ * and the notice on the character's own page. `true` unless deliberately turned off. */
+export function getConflictWarnings(): Promise<boolean> {
+  return invoke("get_conflict_warnings");
+}
+
+export function setConflictWarnings(value: boolean): Promise<void> {
+  return invoke("set_conflict_warnings", { value });
+}

@@ -6,6 +6,7 @@ import {
   type Character,
   type ModCounts,
 } from "@/lib/tauri-commands";
+import { useConflictWarnings } from "@/features/settings/hooks";
 import { CharacterCard } from "./CharacterCard";
 import { useAllMods, useCharacters, useModCounts, useUpdateChecks } from "./hooks";
 
@@ -26,6 +27,10 @@ export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
   // no additional round trip.
   const { data: allMods } = useAllMods();
   const { data: updateChecks } = useUpdateChecks();
+  // Read once for the whole roster rather than in each of the sixty cards. Undefined while the
+  // first read is in flight counts as on, so the marks do not appear a beat after the grid.
+  const { data: conflictWarnings } = useConflictWarnings();
+  const showConflictWarning = conflictWarnings !== false;
 
   if (isLoadingCharacters) {
     return (
@@ -85,6 +90,7 @@ export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
           counts={counts}
           enabledModName={enabledModNames.get(character.id) ?? null}
           hasUpdate={charactersWithUpdate.has(character.id)}
+          showConflictWarning={showConflictWarning}
           onSelect={() => onSelect(character)}
         />
       ))}
