@@ -413,7 +413,8 @@
   {
     "id": "sigrid-de-lazur",
     "name": "Sigrid de L'Azur",
-    "portrait": null,
+    "portrait": "/characters/sigrid-de-lazur.webp",
+    "banner": "/banners/sigrid-de-lazur.webp",
     "gamebanana_category_id": 47715
   }
 ]
