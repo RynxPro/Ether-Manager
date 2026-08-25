@@ -35,7 +35,11 @@ interface BrowseProps {
   onSeedConsumed?: () => void;
 }
 
-export function Browse({ onSelectMod, seedCategoryId = null, onSeedConsumed }: BrowseProps) {
+export function Browse({
+  onSelectMod,
+  seedCategoryId = null,
+  onSeedConsumed,
+}: BrowseProps) {
   const isSeeded = seedCategoryId !== null;
   const [query, setQuery] = useState(isSeeded ? "" : lastFilters.query);
   const searchRef = useSearchHotkey(() => setQuery(""));
@@ -72,13 +76,18 @@ export function Browse({ onSelectMod, seedCategoryId = null, onSeedConsumed }: B
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
-    const observer = new IntersectionObserver(([entry]) => setIsHeaderOnScreen(entry.isIntersecting));
+    const observer = new IntersectionObserver(([entry]) =>
+      setIsHeaderOnScreen(entry.isIntersecting),
+    );
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
 
   const scrollToTop = () => {
-    findScrollParent(headerRef.current)?.scrollTo({ top: 0, behavior: "smooth" });
+    findScrollParent(headerRef.current)?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   // Changing a filter deep in the feed used to leave you at the same depth in a different list —
@@ -146,7 +155,11 @@ export function Browse({ onSelectMod, seedCategoryId = null, onSeedConsumed }: B
             The panel keeps the featured band and the controls together, which is what it was
             for: what is being shown off, and how you narrow it. The title was never part of
             that pairing. */}
-        <PageHeader title="Browse" subtitle="GameBanana · Zenless Zone Zero" />
+        <PageHeader
+          title="Browse"
+          subtitle="GameBanana · Zenless Zone Zero"
+          pinned={false}
+        />
 
         <div className="border-2 border-border">
           <FeaturedBanner onSelectMod={onSelectMod} />

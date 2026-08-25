@@ -21,7 +21,10 @@ import {
   useInstalledFromGameBanana,
   useReinstallMod,
 } from "@/features/library/hooks";
-import { useMagnifierSettings, useMatureContentVisibility } from "@/features/settings/hooks";
+import {
+  useMagnifierSettings,
+  useMatureContentVisibility,
+} from "@/features/settings/hooks";
 import { executablesIn, fileScan } from "@/lib/fileScan";
 import { shouldBlur } from "@/lib/mature";
 import { exactDate, updatedLabel } from "@/lib/time";
@@ -69,7 +72,12 @@ const FALLBACK_RATIO = 1.6;
 
 /** Queue states where the work is still coming. Everything else — installed, failed, cancelled —
  * is history the Downloads page keeps, and says nothing about what this button should do now. */
-const UNFINISHED_STATUSES = new Set(["Queued", "Downloading", "Extracting", "Paused"]);
+const UNFINISHED_STATUSES = new Set([
+  "Queued",
+  "Downloading",
+  "Extracting",
+  "Paused",
+]);
 
 /** The right column's width, shared by the panel and the skeleton that stands in for it while
  * the fetch is in flight. Two places that have to agree. */
@@ -112,7 +120,8 @@ export function ModDetailPage({
   const { data: visibility } = useMatureContentVisibility();
   // Falls back to on at the default size for the moment before the setting arrives — the lens
   // only appears on hover, so a wrong guess for one frame is invisible.
-  const { data: magnifier = { enabled: true, size: 120 } } = useMagnifierSettings();
+  const { data: magnifier = { enabled: true, size: 120 } } =
+    useMagnifierSettings();
   const { data: bookmarks } = useBookmarks();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
@@ -164,7 +173,8 @@ export function ModDetailPage({
     if (download.status === "Paused") return "Paused";
 
     const live = liveProgress[download.id];
-    if (download.status === "Extracting" || live?.isExtracting) return "Unpacking…";
+    if (download.status === "Extracting" || live?.isExtracting)
+      return "Unpacking…";
 
     const downloaded = live?.downloaded ?? download.downloaded_bytes;
     const total = live?.total ?? download.total_bytes;
@@ -258,46 +268,37 @@ export function ModDetailPage({
           header's own bottom border, so it is the full width of the page at every scroll
           position by construction rather than by two elements matching.
 
-          `-mt-6 pt-6` so the band paints right up to the top of the window while its contents
-          keep the same 24px gutter the page has everywhere else — without it the title's caps
-          sit against the window edge the moment it pins. Paired with `-top-6` (sticky measures
-          from the scrolling element's content box, and the page's scroller carries `p-6`) the
-          pinned position is pixel-for-pixel where the band already was, so it never appears to
-          move at all. The background is what the content passing underneath is hidden behind.
-
-          `z-40` rather than `z-30`, and the gap matters: the gallery's arrows are `z-30` so they
-          can clear the mature shield, and at an equal z-index the winner is whichever comes
-          later in the DOM — which is the arrows. They rode over this bar on the way past. The
-          bar has to outrank everything it is meant to hide, not merely tie with it. */}
-      <div className="sticky -top-6 z-40 -mt-6 bg-background pt-6">
-        <PageHeader
-          leading={
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={onBack}
-              aria-label="Back"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          }
-          title={detail?.name ?? mod.name}
-          subtitle={categoryName ? `Mod / ${categoryName}` : "Mod"}
-        >
-          {/* Up here rather than down with the files, because it changes what this page is for:
+          The pinning itself now lives in `PageHeader`, which every page gets: this page wanted
+          it first and carried its own wrapper for a while, but "which page am I on, and how do I
+          leave it" is not a question only a mod page has. The mechanics, and why the gallery's
+          arrows have to lose the z-index fight, are documented there. */}
+      <PageHeader
+        leading={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onBack}
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        }
+        title={detail?.name ?? mod.name}
+        subtitle={categoryName ? `Mod / ${categoryName}` : "Mod"}
+      >
+        {/* Up here rather than down with the files, because it changes what this page is for:
               you came to decide whether to install something you already have. Which file you
               have is a separate question, answered in the list itself. */}
-          {installedCount > 0 && (
-            <p className="flex items-center gap-1.5 text-[11px] text-success">
-              <Check className="h-3.5 w-3.5 shrink-0" />
-              {installedCount > 1
-                ? `In your library — ${installedCount} variants installed`
-                : "In your library"}
-            </p>
-          )}
-        </PageHeader>
-      </div>
+        {installedCount > 0 && (
+          <p className="flex items-center gap-1.5 text-[11px] text-success">
+            <Check className="h-3.5 w-3.5 shrink-0" />
+            {installedCount > 1
+              ? `In your library — ${installedCount} variants installed`
+              : "In your library"}
+          </p>
+        )}
+      </PageHeader>
 
       {isLoading || !detail ? (
         <div className="flex items-start gap-6">
@@ -351,7 +352,9 @@ export function ModDetailPage({
                         <MagnifiedImage
                           src={imageUrl(activeImage, true)}
                           alt={detail.name}
-                          disabled={(isMature && !revealed) || !magnifier.enabled}
+                          disabled={
+                            (isMature && !revealed) || !magnifier.enabled
+                          }
                           size={magnifier.size}
                           onLoad={(event) =>
                             setHeroRatio(
@@ -769,7 +772,9 @@ export function ModDetailPage({
                             gamebananaFileId: file.id,
                             modName: detail.name,
                             fileName: file.file_name,
-                            thumbnailUrl: images[0] ? imageUrl(images[0], true) : null,
+                            thumbnailUrl: images[0]
+                              ? imageUrl(images[0], true)
+                              : null,
                             characterId: action.target.character_id,
                             slot: action.target.slot,
                             displayName: action.target.display_name,
