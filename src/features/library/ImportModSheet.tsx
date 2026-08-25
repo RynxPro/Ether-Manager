@@ -1,4 +1,4 @@
-import { Check, ImageOff, ImagePlus, XIcon } from "lucide-react";
+import { Check, Image as ImageIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,13 +106,20 @@ export function ImportModSheet({
   const setPicture = useSetModThumbnail();
   const isBusy = commit.isPending || cancel.isPending;
 
+  // Which row has the file picker open, so only that row says "Choosing…" — the mutation's own
+  // pending flag is shared by every row and would light all of them at once.
+  const [pickingFor, setPickingFor] = useState<string | null>(null);
+
   async function handlePickPicture(relPath: string) {
+    setPickingFor(relPath);
     try {
       const bytes = await pickPicture.mutateAsync();
       // `null` is the picker being dismissed, which is not an error and not a change.
       if (bytes) stagePicture(relPath, new Uint8Array(bytes));
     } catch (caught) {
       setError(String(caught));
+    } finally {
+      setPickingFor(null);
     }
   }
 
@@ -241,7 +248,7 @@ export function ImportModSheet({
                     return (
                       <div
                         key={candidate.rel_path}
-                        className="flex items-center gap-2.5 border-b border-border p-2 last:border-b-0"
+                        className="flex items-start gap-2.5 border-b border-border p-2 last:border-b-0"
                       >
                         {/* A square that fills, rather than a checkbox primitive: this design
                             language has no rounded controls, and one control does not justify
@@ -263,28 +270,35 @@ export function ImportModSheet({
                           {isChosen && <Check className="h-3 w-3" />}
                         </button>
 
-                        <CandidatePreview
-                          sessionId={begun.session_id}
-                          relPath={candidate.preview_rel_path}
-                          name={names[candidate.rel_path] ?? candidate.suggested_name}
-                          stagedUrl={pictures[candidate.rel_path]?.url ?? null}
-                          onPick={() => void handlePickPicture(candidate.rel_path)}
-                          onPasteImage={(bytes) => stagePicture(candidate.rel_path, bytes)}
-                          disabled={isBusy}
-                        />
+                        <div className="grid min-w-0 flex-1 gap-1.5">
+                          <Input
+                            value={names[candidate.rel_path] ?? ""}
+                            onChange={(event) =>
+                              setNames((current) => ({
+                                ...current,
+                                [candidate.rel_path]: event.target.value,
+                              }))
+                            }
+                            disabled={isBusy || !isChosen}
+                            aria-label={`Name for ${candidate.suggested_name}`}
+                            className="h-8"
+                          />
 
-                        <Input
-                          value={names[candidate.rel_path] ?? ""}
-                          onChange={(event) =>
-                            setNames((current) => ({
-                              ...current,
-                              [candidate.rel_path]: event.target.value,
-                            }))
-                          }
-                          disabled={isBusy || !isChosen}
-                          aria-label={`Name for ${candidate.suggested_name}`}
-                          className="h-8 flex-1"
-                        />
+                          <CandidatePicture
+                            sessionId={begun.session_id}
+                            relPath={candidate.preview_rel_path}
+                            name={candidate.suggested_name}
+                            stagedUrl={pictures[candidate.rel_path]?.url ?? null}
+                            onPasteImage={(bytes) =>
+                              stagePicture(candidate.rel_path, bytes)
+                            }
+                            onChooseFile={() =>
+                              void handlePickPicture(candidate.rel_path)
+                            }
+                            isPicking={pickingFor === candidate.rel_path}
+                            disabled={isBusy || !isChosen}
+                          />
+                        </div>
                       </div>
                     );
                   })}
@@ -347,26 +361,26 @@ export function ImportModSheet({
   );
 }
 
-/** The picture a candidate will be installed with — and the control for changing it.
+/** The picture a candidate will be installed with, and how to change it.
  *
- * The frame that shows the picture is the thing you click to set one, because that is what
- * anybody would try first. Edit's control cannot be reused here: it is a large paste target with
- * its own buttons, and this dialog can be listing ten mods at once.
+ * Deliberately the same control as the Edit dialog's, down to the dashed frame and the wording:
+ * a focusable paste target that does *not* open anything when clicked, with the file picker as a
+ * separate button beside it. An earlier attempt here folded both into the small preview square,
+ * and that cannot work — if clicking opens the picker, there is no click left over for focusing
+ * the thing you then paste into. Two jobs need two controls.
  *
- * Shows the archive's own picture until overridden, so the common case — a pack that shipped art
- * — needs no interaction at all. There is deliberately no "revert to the archive's picture":
- * choosing again replaces, and Edit can undo it properly after installing. A clear button does
- * not fit in 56x36 and would crowd the one thing this control is for.
- *
- * A fixed frame either way, so rows line up whether or not there is art — a list that jogs left
- * and right down its own length is harder to read than one with a few empty squares in it. */
-function CandidatePreview({
+ * Shows the archive's own picture until overridden, so a pack that shipped art needs no
+ * interaction at all. No Remove button: Edit has one because a mod can already carry a picture
+ * worth dropping, whereas here "remove" would mean reverting to the archive's own — which
+ * choosing again already does, and which Edit can do properly once the mod exists. */
+function CandidatePicture({
   sessionId,
   relPath,
   name,
   stagedUrl,
-  onPick,
   onPasteImage,
+  onChooseFile,
+  isPicking,
   disabled,
 }: {
   sessionId: number;
@@ -374,17 +388,18 @@ function CandidatePreview({
   name: string;
   /** An object URL for bytes staged in this dialog, or null to show the archive's own picture. */
   stagedUrl: string | null;
-  onPick: () => void;
   onPasteImage: (bytes: Uint8Array) => void;
+  onChooseFile: () => void;
+  isPicking: boolean;
   disabled: boolean;
 }) {
   const { data } = useImportPreview(sessionId, relPath);
   const shown = stagedUrl ?? data;
 
-  /** Takes the first image on the clipboard. Same shape as the Edit dialog's paste handler: the
-   * webview normalises a screenshot, a Discord attachment and a copied file into an image item,
-   * and what it really is gets decided in Rust from the bytes' own header. */
-  function handlePaste(event: React.ClipboardEvent<HTMLButtonElement>) {
+  /** The first image on the clipboard. The webview normalises a screenshot, a Discord attachment
+   * and a copied file into one image item; what it really is gets decided in Rust on save, from
+   * the bytes' own header. */
+  function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
     const image = [...event.clipboardData.items].find(
       (item) => item.kind === "file" && item.type.startsWith("image/"),
     );
@@ -395,29 +410,50 @@ function CandidatePreview({
   }
 
   return (
-    <button
-      type="button"
-      onClick={onPick}
-      onPaste={handlePaste}
-      disabled={disabled}
-      title={`Set a picture for ${name} — click to choose a file, or press Ctrl+V to paste one`}
-      aria-label={`Set a picture for ${name}`}
-      className={`group/pic relative flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden border bg-secondary transition-colors hover:border-primary focus-visible:border-primary disabled:opacity-60 ${
-        stagedUrl ? "border-primary" : "border-border"
-      }`}
-    >
-      {shown ? (
-        <img src={shown} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <ImageOff className="h-3.5 w-3.5 text-muted-foreground/50" />
-      )}
-      {/* Only on hover, and only over art — an icon sitting permanently on every row would read
-          as part of the picture rather than as something to press. */}
-      {shown && (
-        <span className="absolute inset-0 hidden items-center justify-center bg-background/70 group-hover/pic:flex">
-          <ImagePlus className="h-3.5 w-3.5 text-primary" />
-        </span>
-      )}
-    </button>
+    <div className="grid gap-1.5">
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        onPaste={handlePaste}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onChooseFile();
+          }
+        }}
+        aria-label={`Picture for ${name}`}
+        className={`flex items-center gap-3 border border-dashed p-2 text-left focus:outline-none focus:ring-1 focus:ring-primary ${
+          disabled ? "opacity-60" : ""
+        } ${stagedUrl ? "border-primary" : "border-border"}`}
+      >
+        <div className="h-[42px] w-[56px] shrink-0 overflow-hidden border border-border bg-secondary">
+          {shown ? (
+            <img src={shown} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground/50">
+              None
+            </span>
+          )}
+        </div>
+        <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+          {isPicking
+            ? "Choosing…"
+            : stagedUrl
+              ? "Staged — press Install to apply."
+              : "Click here and press Ctrl+V to paste an image, or choose a file."}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="font-normal"
+        disabled={disabled || isPicking}
+        onClick={onChooseFile}
+      >
+        <ImageIcon className="h-3.5 w-3.5" />
+        Choose file
+      </Button>
+    </div>
   );
 }
