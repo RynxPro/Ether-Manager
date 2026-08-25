@@ -81,12 +81,17 @@ impl Db {
         )
     }
 
+    /// Unfollowing also drops whatever they had waiting in the notification bell. The bell is
+    /// defined as news from people you follow, so leaving their entries — and their contribution
+    /// to the unread badge — behind would have it reporting on someone you have just said you
+    /// are not interested in. Done here rather than at the call site so a second caller later
+    /// cannot miss the invariant.
     pub fn remove_creator_bookmark(&self, gamebanana_member_id: i64) -> rusqlite::Result<()> {
         self.conn.execute(
             "DELETE FROM creator_bookmarks WHERE gamebanana_member_id = ?1",
             params![gamebanana_member_id],
         )?;
-        Ok(())
+        self.clear_creator_feed_for(gamebanana_member_id)
     }
 
     /// Newest first, matching `list_bookmarks` — the creator saved most recently is the one most

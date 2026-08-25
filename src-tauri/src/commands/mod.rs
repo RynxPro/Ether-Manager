@@ -1,4 +1,5 @@
 pub mod characters;
+pub mod creator_feed;
 pub mod downloads;
 pub mod gamebanana;
 pub mod import;

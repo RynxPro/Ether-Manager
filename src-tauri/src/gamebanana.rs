@@ -263,6 +263,17 @@ pub struct GbMod {
     pub name: String,
     #[serde(rename(deserialize = "_sProfileUrl"))]
     pub profile_url: String,
+    /// When the submission first appeared, as opposed to when it was last touched.
+    ///
+    /// Defaulted rather than required, though both list endpoints do send it (confirmed live
+    /// 2026-08-25 on `Mod/Index` and `Util/Search/Results`). A missing field on a required
+    /// timestamp would make `parse_mod_records` drop the whole record — the `_nPostCount` trap
+    /// described below, which cost a page of thirty cards arriving as twenty-seven. Reading as
+    /// epoch 0 is the safe direction for the only consumer that cares: `creator_feed` treats
+    /// anything older than the follow date as already seen, so an absent value costs one missed
+    /// notification rather than producing a false one.
+    #[serde(rename(deserialize = "_tsDateAdded"), default)]
+    pub date_added: i64,
     #[serde(rename(deserialize = "_tsDateModified"))]
     pub date_modified: i64,
     #[serde(rename(deserialize = "_bHasFiles"))]
@@ -670,6 +681,11 @@ fn featured_mod_from(top: &RawTopSub, fields: RawFeaturedFields) -> GbMod {
         id: fields.id,
         name: fields.name,
         profile_url: fields.profile_url,
+        // Unknown, and left that way rather than borrowed from `date_modified`. The banner's
+        // `Mod/Multi` request names the properties it wants and does not ask for `_tsDateAdded`;
+        // nothing downstream of the banner reads it, since the notification feed is built from
+        // `Mod/Index`. Epoch 0 is the same "not known" this field defaults to on deserialize.
+        date_added: 0,
         date_modified: fields.date_modified,
         has_files: true,
         tags: Vec::new(),
@@ -1050,6 +1066,37 @@ impl GameBananaClient {
             is_complete: raw.metadata.is_complete,
             hidden_count: 0,
         })
+    }
+
+    /// One page of the newest ZZZ submissions, most recently added first.
+    ///
+    /// This is how the notification bell finds new work by the creators you follow, and it is
+    /// deliberately *not* one request per followed creator. `_aFilters[Generic_Submitter]`
+    /// accepts exactly one member id — a comma list and a repeated `[]` parameter were both
+    /// tried live (2026-08-25) and both answered `INVALID_FILTER_VALUE` — so per-creator polling
+    /// would cost one request for every creator on the list, every launch. Reading the whole
+    /// game's arrivals instead and matching submitters locally costs one request no matter how
+    /// many people you follow. ZZZ takes about nine new submissions a day, so a fifty-record
+    /// page reaches roughly five days back; `creator_feed::PAGE_BUDGET` covers a longer absence.
+    ///
+    /// Unlike `search_mods` this skips `fill_download_counts`. A bell row shows a name, a
+    /// thumbnail and a date, so the extra `Mod/Multi` call would buy nothing.
+    pub async fn get_newest_mods(&self, page: u32) -> Result<Vec<GbMod>, GameBananaError> {
+        let url = format!(
+            "{BASE_URL}/Mod/Index?_nPage={page}&_nPerpage={MOD_INDEX_PAGE_SIZE}&_sSort={}&_aFilters%5BGeneric_Game%5D={ZZZ_GAME_ID}",
+            ModSort::Newest.as_query_value()
+        );
+
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        Ok(parse_mod_records(parse_list_response(&body)?.records))
     }
 
     /// The six mods that top GameBanana's own ranking windows — best today, this week, this
@@ -1607,6 +1654,7 @@ mod tests {
             id,
             name: "Test Mod".to_string(),
             profile_url: "https://gamebanana.com/mods/1".to_string(),
+            date_added: 0,
             date_modified: 0,
             has_files: true,
             tags: vec![],

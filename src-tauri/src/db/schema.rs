@@ -77,6 +77,32 @@ CREATE TABLE IF NOT EXISTS downloads (
 
 CREATE INDEX IF NOT EXISTS idx_downloads_created ON downloads(created_at DESC);
 
+-- What the notification bell has found: one row per mod a followed creator posted after you
+-- started following them. Rows rather than a diff recomputed on demand, so the badge survives a
+-- restart without another GameBanana request, and so an entry stays readable after the mod has
+-- scrolled off the roughly five-day window one feed request can see.
+--
+-- creator_name/mod_name/thumbnail_url are copies for the same reason they are on `downloads`:
+-- the dropdown has to render without a network round trip per row, and an entry must stay
+-- legible even if the mod is later withdrawn. `seen_at` NULL is the unread state and is what the
+-- badge counts; it is set for every row at once when the dropdown is opened, because that is
+-- what opening a bell means everywhere else. `is_mature` rides along so the list can honour the
+-- Hide preference without re-fetching each mod.
+CREATE TABLE IF NOT EXISTS creator_feed (
+    gamebanana_mod_id INTEGER PRIMARY KEY,
+    gamebanana_member_id INTEGER NOT NULL,
+    creator_name TEXT NOT NULL,
+    creator_avatar_url TEXT,
+    mod_name TEXT NOT NULL,
+    thumbnail_url TEXT,
+    is_mature INTEGER NOT NULL DEFAULT 0,
+    date_added INTEGER NOT NULL,
+    discovered_at INTEGER NOT NULL,
+    seen_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_creator_feed_date ON creator_feed(date_added DESC);
+
 CREATE TABLE IF NOT EXISTS mod_update_checks (
     mod_id INTEGER PRIMARY KEY,
     status TEXT NOT NULL,

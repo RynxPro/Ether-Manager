@@ -27,6 +27,10 @@ export function placeholderGbMod(seed: PlaceholderSeed): GbMod {
     id: seed.gamebananaModId,
     name: seed.name,
     profile_url: "",
+    // The seeds this builds from are local rows that never recorded a submission date,
+    // so 0 — "not known" — is the honest value, and the live fetch overwrites it. See
+    // `GbMod.date_added`; nothing on the detail page reads it.
+    date_added: 0,
     date_modified: seed.dateModified,
     has_files: true,
     tags: [],

@@ -2,6 +2,7 @@ mod archive;
 mod characters;
 mod commands;
 mod content_rating;
+mod creator_feed;
 mod db;
 mod fs_ops;
 mod gamebanana;
@@ -128,6 +129,9 @@ pub fn run() {
             commands::gamebanana::add_creator_bookmark,
             commands::gamebanana::remove_creator_bookmark,
             commands::gamebanana::refresh_creator_bookmark,
+            commands::creator_feed::list_creator_feed,
+            commands::creator_feed::check_creator_feed,
+            commands::creator_feed::mark_creator_feed_seen,
             commands::gamebanana::add_bookmark,
             commands::gamebanana::backfill_bookmark_characters,
             commands::gamebanana::remove_bookmark,

@@ -17,10 +17,21 @@ const SIGNAL: Record<ApiHealth, { bars: number; color: string; word: string }> =
 
 const BAR_HEIGHTS = ["h-1", "h-2", "h-3"];
 
+interface SidebarFooterProps {
+  /** Pinned to the right-hand end of the status row. The notification bell, in practice: it
+   * belongs with the ambient readouts rather than beside the wordmark, which has no room for it
+   * — a 32px control left the title 135px of the 161px it needs and broke it across two lines.
+   *
+   * A slot rather than the bell itself, so this component keeps knowing only about the three
+   * things it reports on. Same arrangement as `PageHeader`'s `leading`. */
+  trailing?: React.ReactNode;
+}
+
 /** The sidebar's resting state: what the app is attached to, what version it is, and whether
- * GameBanana is answering. All three are things you check rather than operate, so none of them
- * is a control — the signal's only interaction is a hover that explains what it measures. */
-export function SidebarFooter() {
+ * GameBanana is answering. Those three are things you check rather than operate, so none of
+ * them is a control — the signal's only interaction is a hover that explains what it measures.
+ * Anything in `trailing` is the exception and sits apart from them, at the end of the row. */
+export function SidebarFooter({ trailing }: SidebarFooterProps) {
   const { data: version } = useQuery({
     queryKey: ["appVersion"],
     queryFn: getVersion,
@@ -88,6 +99,10 @@ export function SidebarFooter() {
             />
           ))}
         </span>
+
+        {/* `-my-1` so a control taller than an 11px line of text does not stretch the row and
+            push the readouts off the baseline they share. */}
+        {trailing && <span className="-my-1 ml-1 shrink-0">{trailing}</span>}
       </div>
     </div>
   );

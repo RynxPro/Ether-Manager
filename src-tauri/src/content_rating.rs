@@ -143,6 +143,7 @@ mod tests {
             id,
             name: format!("Mod {id}"),
             profile_url: "https://gamebanana.com/mods/1".to_string(),
+            date_added: 0,
             date_modified: 0,
             has_files: true,
             tags: vec![],

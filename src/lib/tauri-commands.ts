@@ -283,6 +283,10 @@ export interface GbMod {
   id: number;
   name: string;
   profile_url: string;
+  /** When the submission first went up. `date_modified` says when it last changed — a mod
+   * updated today may have been posted a year ago, which is the distinction the notification
+   * bell turns on. 0 means GameBanana did not send it; see the Rust field's note. */
+  date_added: number;
   date_modified: number;
   has_files: boolean;
   tags: string[];
@@ -558,6 +562,46 @@ export function getCreatorMods(
   page: number,
 ): Promise<GbSearchResult> {
   return invoke("get_creator_mods", { memberId, page });
+}
+
+/** One mod a followed creator posted, as the notification bell lists it. */
+export interface CreatorFeedItem {
+  gamebanana_mod_id: number;
+  gamebanana_member_id: number;
+  creator_name: string;
+  creator_avatar_url: string | null;
+  mod_name: string;
+  thumbnail_url: string | null;
+  is_mature: boolean;
+  /** When the creator posted it — what the row's relative time is measured from. */
+  date_added: number;
+  /** When this app first saw it, which may be much later if the app was closed. */
+  discovered_at: number;
+  /** `null` while unread. `unseen` below counts exactly these. */
+  seen_at: number | null;
+}
+
+/** The bell's whole state: the rows and the badge, together so they cannot disagree. */
+export interface CreatorFeed {
+  items: CreatorFeedItem[];
+  unseen: number;
+}
+
+/** Reads the bell from the local table. No network — whatever the last check found. */
+export function listCreatorFeed(): Promise<CreatorFeed> {
+  return invoke("list_creator_feed");
+}
+
+/** Asks GameBanana what followed creators have posted since, files anything new, and answers
+ * with the bell's updated contents. One request in the ordinary case, however many creators
+ * are followed — see the Rust `get_newest_mods`. */
+export function checkCreatorFeed(): Promise<CreatorFeed> {
+  return invoke("check_creator_feed");
+}
+
+/** Marks every entry read, which is what opening the dropdown means. Rows stay in the list. */
+export function markCreatorFeedSeen(): Promise<CreatorFeed> {
+  return invoke("mark_creator_feed_seen");
 }
 
 export function getFeaturedMods(): Promise<GbFeaturedMod[]> {

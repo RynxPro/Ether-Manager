@@ -22,6 +22,7 @@ import { ImportDropOverlay } from "@/features/library/ImportDropOverlay";
 import { ImportModSheet } from "@/features/library/ImportModSheet";
 import { Library } from "@/features/library/Library";
 import { useModImport } from "@/features/library/useModImport";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { useCharacters, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -31,6 +32,7 @@ import {
   MISC_CHARACTER_ID,
   UI_CHARACTER_ID,
   type Character,
+  type CreatorFeedItem,
   type GbMod,
   type Mod,
 } from "@/lib/tauri-commands";
@@ -140,6 +142,32 @@ function App() {
         dateModified: mod.updated_at,
       }),
     );
+  }
+
+  /** Opens the mod a notification-bell row names.
+   *
+   * Goes through Browse rather than opening the detail on top of whichever section happens to
+   * be showing: the bell is reachable from every section, and a mod page stacked over Settings
+   * or Downloads would leave Back returning somewhere unrelated to what you just clicked.
+   *
+   * The stored row is enough to start rendering — `placeholderGbMod` fills the rest, and the
+   * live fetch replaces it a moment later. `date_added` stands in for `dateModified` because
+   * this is a new upload: the two are the same instant until someone edits it. */
+  function openFeedItem(item: CreatorFeedItem) {
+    setBrowseSeedCategoryId(null);
+    setView("browse");
+    setSelectedCharacter(null);
+    setDetailStack([
+      {
+        kind: "mod",
+        mod: placeholderGbMod({
+          gamebananaModId: item.gamebanana_mod_id,
+          name: item.mod_name,
+          thumbnailUrl: item.thumbnail_url,
+          dateModified: item.date_added,
+        }),
+      },
+    ]);
   }
 
   /** Opens a mod, from anywhere — a browse result, a bookmark, a creator's list. Pushes
@@ -257,7 +285,7 @@ function App() {
           })}
         </nav>
 
-        <SidebarFooter />
+        <SidebarFooter trailing={<NotificationBell onOpenMod={openFeedItem} />} />
       </aside>
 
       {/* No centered max-width container: this is a desktop window, so content fills whatever
