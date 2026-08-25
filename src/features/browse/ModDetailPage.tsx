@@ -263,8 +263,13 @@ export function ModDetailPage({
           sit against the window edge the moment it pins. Paired with `-top-6` (sticky measures
           from the scrolling element's content box, and the page's scroller carries `p-6`) the
           pinned position is pixel-for-pixel where the band already was, so it never appears to
-          move at all. The background is what the content passing underneath is hidden behind. */}
-      <div className="sticky -top-6 z-30 -mt-6 bg-background pt-6">
+          move at all. The background is what the content passing underneath is hidden behind.
+
+          `z-40` rather than `z-30`, and the gap matters: the gallery's arrows are `z-30` so they
+          can clear the mature shield, and at an equal z-index the winner is whichever comes
+          later in the DOM — which is the arrows. They rode over this bar on the way past. The
+          bar has to outrank everything it is meant to hide, not merely tie with it. */}
+      <div className="sticky -top-6 z-40 -mt-6 bg-background pt-6">
         <PageHeader
           leading={
             <Button

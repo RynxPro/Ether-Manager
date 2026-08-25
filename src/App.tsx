@@ -28,6 +28,8 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import {
   backfillModThumbnails,
+  MISC_CHARACTER_ID,
+  UI_CHARACTER_ID,
   type Character,
   type GbMod,
   type Mod,
@@ -76,6 +78,11 @@ function App() {
    * time and quietly undo whatever filter you had changed to. Browse consumes it once and
    * clears it. */
   const [browseSeedCategoryId, setBrowseSeedCategoryId] = useState<number | null>(null);
+  /** A Library tab to open on, set when arriving from a UI or Misc download. Consumed once for
+   * the same reason as `browseSeedCategoryId`: Library unmounts whenever a character page opens
+   * and remounts on the way back, so a standing prop would drag you back to the UI tab every
+   * time you returned from a character. */
+  const [librarySeedTab, setLibrarySeedTab] = useState<"ui" | "misc" | null>(null);
 
   /** The character whose page an import was started from, if it was started from one.
    *
@@ -277,6 +284,18 @@ function App() {
           ) : view === "downloads" ? (
             <DownloadsView
               onOpenCharacter={(characterId) => {
+                // UI and Misc are categories, not roster members — they have no character page.
+                // `listCharacters` returns them alongside real characters, so opening one blindly
+                // rendered a character page for something that is not a character. Their mods
+                // live in Library's own UI and Misc tabs, which is where this goes instead.
+                if (
+                  characterId === UI_CHARACTER_ID ||
+                  characterId === MISC_CHARACTER_ID
+                ) {
+                  setLibrarySeedTab(characterId);
+                  goTo("library");
+                  return;
+                }
                 const character = (characters ?? []).find((c) => c.id === characterId);
                 if (!character) return;
                 setView("library");
@@ -324,6 +343,8 @@ function App() {
               onSelectCharacter={setSelectedCharacter}
               onOpenModDetail={openModDetail}
               onImport={imports.importFromPicker}
+              seedTab={librarySeedTab}
+              onSeedConsumed={() => setLibrarySeedTab(null)}
             />
           )}
         </div>

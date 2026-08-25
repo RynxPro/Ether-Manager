@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FilePlus2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,13 @@ interface LibraryProps {
   /** Opens the file picker and starts an import. Dropping a file on the window does the same
    * thing and is the faster path; this is here for anyone who does not think to drag. */
   onImport: () => void;
+  /** A tab to open on, when arriving from somewhere that already knows which one — opening a
+   * finished UI or Misc download from the Downloads page. `null` is the ordinary arrival. */
+  seedTab?: LibraryTab | null;
+  /** Called once the seed has been applied, so it is spent rather than standing. Library
+   * unmounts whenever a character page opens; without this, coming back would drag you to the
+   * seeded tab again instead of leaving you where you were. */
+  onSeedConsumed?: () => void;
 }
 
 type LibraryTab = "characters" | "ui" | "misc";
@@ -61,8 +68,21 @@ type LibraryTab = "characters" | "ui" | "misc";
  *
  * Search filters the roster by character name only, and so belongs to the Characters tab alone.
  * Finding a specific mod is the All Mods page's job — one search box, one behaviour each. */
-export function Library({ onSelectCharacter, onOpenModDetail, onImport }: LibraryProps) {
-  const [tab, setTab] = useState<LibraryTab>("characters");
+export function Library({
+  onSelectCharacter,
+  onOpenModDetail,
+  onImport,
+  seedTab = null,
+  onSeedConsumed,
+}: LibraryProps) {
+  const [tab, setTab] = useState<LibraryTab>(seedTab ?? "characters");
+  // Spent on mount, not on every render: the state above already carries it, and leaving it
+  // standing would re-select the tab every time you came back from a character page. Running
+  // twice under StrictMode is harmless — clearing an already-cleared seed changes nothing.
+  useEffect(() => {
+    if (seedTab) onSeedConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only, by design
+  }, []);
   const [query, setQuery] = useState("");
   const searchRef = useSearchHotkey(() => setQuery(""));
   const { data: characters } = useCharacters();
