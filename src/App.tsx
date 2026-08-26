@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
@@ -47,10 +47,30 @@ type View =
 type DetailFrame =
   { kind: "mod"; mod: GbMod } | { kind: "creator"; id: number; name: string };
 
+/** Somewhere you can be in the app: which section, which character page inside it, and how far
+ * into the mod/creator chain on top of that.
+ *
+ * One value rather than three pieces of state, because back and forward have to restore all
+ * three together or they land you somewhere that never existed — a mod detail belonging to a
+ * section you are no longer in. */
+interface Location {
+  view: View;
+  character: Character | null;
+  detailStack: DetailFrame[];
+}
+
+const HOME: Location = { view: "library", character: null, detailStack: [] };
+
+/** How far back the mouse can reach. Each entry holds a whole `GbMod` for every open detail, so
+ * an unbounded trail would keep every mod ever looked at alive for the session. Fifty is well
+ * past the point anyone is still retracing a path. */
+const MAX_HISTORY = 50;
+
 /** The bottom-right chamfer every card in the app is cut with. The sidebar used to be the one
  * surface that never wore it, which is most of why it read as furniture from a different app. */
 const CUT_CORNER = {
-  clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)",
+  clipPath:
+    "polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)",
 };
 
 /** The six destinations, in three groups.
@@ -93,10 +113,49 @@ const NAV_GROUPS: {
  * than dialogs; only short confirmations (add, update, install) stayed modal. */
 function App() {
   const { data: modsFolder, isLoading } = useModsFolder();
-  const [view, setView] = useState<View>("library");
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(
-    null,
-  );
+  /** Everywhere you have been, and where in that trail you currently are.
+   *
+   * A trail rather than a single spot because the mouse's back and forward buttons ask for one:
+   * they were dead in the app until now, since navigating was three `setState` calls that threw
+   * the previous place away. Each entry is a whole `Location`, so stepping through them cannot
+   * produce a combination that was never real.
+   *
+   * Not persisted. A trail restored from a previous run would offer to go "back" to a page from
+   * days ago, which is not what anyone means by back. */
+  const [history, setHistory] = useState<Location[]>([HOME]);
+  const [cursor, setCursor] = useState(0);
+  const here = history[cursor];
+  const view = here.view;
+  const selectedCharacter = here.character;
+
+  // Read by `goForward`, which needs the trail's current length from inside an event listener
+  // registered once. Reading `history` there directly would see whatever it was when the
+  // listener was created.
+  const historyRef = useRef(history);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  /** Moves somewhere new, which discards anything that was ahead — the same thing a browser
+   * does when you go back and then follow a different link. */
+  function navigate(next: Location) {
+    setHistory((past) => {
+      const trail = [...past.slice(0, cursor + 1), next];
+      return trail.length > MAX_HISTORY
+        ? trail.slice(trail.length - MAX_HISTORY)
+        : trail;
+    });
+    setCursor((c) => Math.min(c + 1, MAX_HISTORY - 1));
+  }
+
+  function goBack() {
+    setCursor((c) => Math.max(0, c - 1));
+  }
+
+  function goForward() {
+    setCursor((c) => Math.min(historyRef.current.length - 1, c + 1));
+  }
+
   /** What is open on top of the current section, innermost last.
    *
    * This was a single `selectedMod` slot while a drill-down could only ever be one level
@@ -106,8 +165,43 @@ function App() {
    * chain itself is the state, and Back pops it.
    *
    * Empty means the section's own root is showing. Cleared when leaving a section. */
-  const [detailStack, setDetailStack] = useState<DetailFrame[]>([]);
+  const detailStack = here.detailStack;
   const openDetail = detailStack[detailStack.length - 1] ?? null;
+
+  /** The mouse's fourth and fifth buttons, which every other Windows app treats as back and
+   * forward and which did nothing here at all.
+   *
+   * Handled on `mouseup` so a press that began outside the window does not count, and the two
+   * companion events are swallowed because Chromium fires `auxclick` after them and would
+   * otherwise try its own history navigation on top of this one. Registered on `window` in the
+   * capture phase so it works wherever the pointer happens to be — these buttons are not aimed
+   * at anything the way a click is. */
+  useEffect(() => {
+    const isNavButton = (event: MouseEvent) =>
+      event.button === 3 || event.button === 4;
+
+    const onMouseUp = (event: MouseEvent) => {
+      if (!isNavButton(event)) return;
+      event.preventDefault();
+      if (event.button === 3) goBack();
+      else goForward();
+    };
+    const swallow = (event: MouseEvent) => {
+      if (isNavButton(event)) event.preventDefault();
+    };
+
+    window.addEventListener("mouseup", onMouseUp, true);
+    window.addEventListener("mousedown", swallow, true);
+    window.addEventListener("auxclick", swallow, true);
+    return () => {
+      window.removeEventListener("mouseup", onMouseUp, true);
+      window.removeEventListener("mousedown", swallow, true);
+      window.removeEventListener("auxclick", swallow, true);
+    };
+    // Registered once for the app's lifetime, and safe to be: `goBack`/`goForward` only ever
+    // call `setCursor` with an updater and read the trail through a ref, so neither can close
+    // over a stale value.
+  }, []);
   /** A GameBanana category for Browse to open on, set when you arrive there from a character
    * page. Held here rather than passed straight down because Browse unmounts whenever you open
    * a result and remounts on the way back — a plain prop would re-apply the character every
@@ -193,35 +287,54 @@ function App() {
    * this is a new upload: the two are the same instant until someone edits it. */
   function openFeedItem(item: CreatorFeedItem) {
     setBrowseSeedCategoryId(null);
-    setView("browse");
-    setSelectedCharacter(null);
-    setDetailStack([
-      {
-        kind: "mod",
-        mod: placeholderGbMod({
-          gamebananaModId: item.gamebanana_mod_id,
-          name: item.mod_name,
-          thumbnailUrl: item.thumbnail_url,
-          dateModified: item.date_added,
-        }),
-      },
-    ]);
+    navigate({
+      view: "browse",
+      character: null,
+      detailStack: [
+        {
+          kind: "mod",
+          mod: placeholderGbMod({
+            gamebananaModId: item.gamebanana_mod_id,
+            name: item.mod_name,
+            thumbnailUrl: item.thumbnail_url,
+            dateModified: item.date_added,
+          }),
+        },
+      ],
+    });
   }
 
   /** Opens a mod, from anywhere — a browse result, a bookmark, a creator's list. Pushes
    * rather than replaces, so Back returns to whatever you were looking at when you clicked. */
   function openMod(mod: GbMod) {
-    setDetailStack((stack) => [...stack, { kind: "mod", mod }]);
+    navigate({ ...here, detailStack: [...detailStack, { kind: "mod", mod }] });
   }
 
   /** Opens a mod author's page. The name comes from the mod that led here so the heading is
    * right before the profile request answers. */
   function openCreator(id: number, name: string) {
-    setDetailStack((stack) => [...stack, { kind: "creator", id, name }]);
+    navigate({
+      ...here,
+      detailStack: [...detailStack, { kind: "creator", id, name }],
+    });
   }
 
+  /** Leaving a drill-down is a step back, not a step somewhere new, so it moves along the trail
+   * instead of extending it — otherwise pressing Back on screen and then Back on the mouse would
+   * send you forwards into the page you had just left.
+   *
+   * The fallback covers the one path with no previous entry to return to: a detail opened from
+   * the notification bell on a freshly started app. Popping directly still lands on the section
+   * root. */
   function closeDetail() {
-    setDetailStack((stack) => stack.slice(0, -1));
+    if (cursor > 0) goBack();
+    else navigate({ ...here, detailStack: detailStack.slice(0, -1) });
+  }
+
+  /** Back out of a character's page, by the same reasoning as `closeDetail`. */
+  function closeCharacter() {
+    if (cursor > 0) goBack();
+    else navigate({ ...here, character: null });
   }
 
   /** The open drill-down, whichever kind it is. Written once rather than per section: all
@@ -256,11 +369,9 @@ function App() {
   }
 
   function goTo(next: View) {
-    setView(next);
     // Leaving a section drops its drill-down, so returning to it lands on the section root
     // rather than wherever you happened to be three clicks deep last time.
-    setDetailStack([]);
-    setSelectedCharacter(null);
+    navigate({ view: next, character: null, detailStack: [] });
   }
 
   // The window has no native frame, so the title bar has to be outside whatever the app is
@@ -298,7 +409,10 @@ function App() {
                     className="mb-2 flex items-center gap-2 px-4 font-heading text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50"
                   >
                     {group.label}
-                    <span aria-hidden className="h-px flex-1 bg-sidebar-border" />
+                    <span
+                      aria-hidden
+                      className="h-px flex-1 bg-sidebar-border"
+                    />
                   </p>
 
                   {group.items.map((item, itemIndex) => {
@@ -319,7 +433,10 @@ function App() {
                         {/* Between rows inside a group only, never above the first: the group's
                             own caption already divides it from what came before. */}
                         {itemIndex > 0 && (
-                          <div aria-hidden className="mx-4 h-px bg-sidebar-border" />
+                          <div
+                            aria-hidden
+                            className="mx-4 h-px bg-sidebar-border"
+                          />
                         )}
                         <button
                           type="button"
@@ -353,7 +470,9 @@ function App() {
                             {String(index).padStart(2, "0")}
                           </span>
                           <Icon className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                          <span className="min-w-0 flex-1 truncate text-left">
+                            {item.label}
+                          </span>
                           {/* Only on Downloads, and only while something is actually running — a
                               badge that is always there stops being a signal. On the active item
                               it inverts, so it stays legible against the full accent fill. */}
@@ -424,8 +543,7 @@ function App() {
                       (c) => c.id === characterId,
                     );
                     if (!character) return;
-                    setView("library");
-                    setSelectedCharacter(character);
+                    navigate({ view: "library", character, detailStack: [] });
                   }}
                 />
               ) : view === "settings" ? (
@@ -442,7 +560,7 @@ function App() {
                 selectedCharacter ? (
                   <CharacterDetail
                     character={selectedCharacter}
-                    onBack={() => setSelectedCharacter(null)}
+                    onBack={closeCharacter}
                     onBrowse={() =>
                       goToBrowse(selectedCharacter.gamebanana_category_id)
                     }
@@ -451,7 +569,9 @@ function App() {
                   />
                 ) : (
                   <AllMods
-                    onSelectCharacter={setSelectedCharacter}
+                    onSelectCharacter={(character) =>
+                      navigate({ ...here, character, detailStack: [] })
+                    }
                     onOpenModDetail={openModDetail}
                     onImport={imports.importFromPicker}
                   />
@@ -459,7 +579,7 @@ function App() {
               ) : selectedCharacter ? (
                 <CharacterDetail
                   character={selectedCharacter}
-                  onBack={() => setSelectedCharacter(null)}
+                  onBack={closeCharacter}
                   onBrowse={() =>
                     goToBrowse(selectedCharacter.gamebanana_category_id)
                   }
@@ -468,7 +588,9 @@ function App() {
                 />
               ) : (
                 <Library
-                  onSelectCharacter={setSelectedCharacter}
+                  onSelectCharacter={(character) =>
+                    navigate({ ...here, character, detailStack: [] })
+                  }
                   onOpenModDetail={openModDetail}
                   onImport={imports.importFromPicker}
                   seedTab={librarySeedTab}
