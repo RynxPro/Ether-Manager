@@ -1,5 +1,5 @@
 import { Check, Image as ImageIcon, XIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { BegunImport, ImportSelection } from "@/lib/tauri-commands";
+import type { BegunImport, ImportCandidate, ImportSelection } from "@/lib/tauri-commands";
 import { CharacterPicker } from "./CharacterPicker";
 import {
   useCancelImport,
@@ -24,6 +24,43 @@ import {
 const CUT_CORNER = {
   clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
 } as const;
+
+/** The deepest folder that contains every one of `paths`, as a `/`-separated relative path.
+ *
+ * `["robot", "human"]` share nothing above them, so the answer is `""` — the tree's own root,
+ * which is exactly what an archive with no wrapper folder already reports. `["Aria/robot",
+ * "Aria/human"]` answers `"Aria"`. Compared segment by segment rather than by string prefix, or
+ * `"Aria"` and `"Arial"` would look like they shared a folder. */
+function commonAncestor(paths: string[]): string {
+  if (paths.length === 0) return "";
+  const split = paths.map((p) => p.split("/").filter(Boolean));
+  const shared: string[] = [];
+  for (let i = 0; i < split[0].length; i++) {
+    const segment = split[0][i];
+    if (!split.every((parts) => parts[i] === segment)) break;
+    shared.push(segment);
+  }
+  // Never the whole of a path: if one folder contains the others, the mod is still the folder
+  // above them, not one of the parts.
+  if (split.some((parts) => parts.length === shared.length)) shared.pop();
+  return shared.join("/");
+}
+
+/** A title from the name of the file or folder that was dragged in.
+ *
+ * Only ever a starting point — the field is editable — so this stays deliberately dumb:
+ * separators become spaces and an archive extension is dropped. The backend's own
+ * `prettify_folder_name` is cleverer, but it is not reachable from here and a wrong-looking
+ * default someone retypes is a smaller cost than a second implementation of it drifting. */
+function prettifySourceLabel(label: string): string {
+  return (
+    label
+      .replace(/\.(zip|rar|7z)$/i, "")
+      .replace(/[_\-.]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || label
+  );
+}
 
 interface ImportModSheetProps {
   begun: BegunImport;
@@ -48,7 +85,36 @@ export function ImportModSheet({
   seededCharacterId = null,
   onOpenChange,
 }: ImportModSheetProps) {
-  const { candidates, suggested_character_id } = begun.plan;
+  const { suggested_character_id } = begun.plan;
+
+  /** Whether the folders found inside are parts of one mod rather than alternatives.
+   *
+   * Off by default, because most multi-folder downloads really are packs of alternatives and
+   * that is the reading the scan already assumes. But the two are indistinguishable from the
+   * directory layout alone — `Pack/Red` + `Pack/Blue` (pick one) and `Aria/robot` + `Aria/human`
+   * (a character with two forms, use both) are the same shape — so the only thing that can tell
+   * them apart is the person who downloaded it. */
+  const [asOneMod, setAsOneMod] = useState(false);
+
+  /** The folders, collapsed into the single folder that holds them all.
+   *
+   * `place_mods` copies whatever `rel_path` points at, and an empty path already means "the
+   * tree's own root is the mod", so installing the shared parent needs nothing new underneath —
+   * one entry with the common ancestor as its path is a whole mod as far as the backend is
+   * concerned. Named after the thing that was actually picked, since the folder holding both
+   * parts is what the user thinks of as the mod; the parts are called things like "human". */
+  const combined: ImportCandidate = useMemo(
+    () => ({
+      rel_path: commonAncestor(begun.plan.candidates.map((c) => c.rel_path)),
+      suggested_name: prettifySourceLabel(begun.source_label),
+      // Whichever part shipped art. They are the same mod, so either picture stands for it.
+      preview_rel_path:
+        begun.plan.candidates.find((c) => c.preview_rel_path !== null)?.preview_rel_path ?? null,
+    }),
+    [begun.plan.candidates, begun.source_label],
+  );
+
+  const candidates = asOneMod ? [combined] : begun.plan.candidates;
 
   // Everything ticked to start: someone who dropped a file wants what is in it, and unticking
   // the one variant you do not want is less work than ticking the four you do.
@@ -58,6 +124,20 @@ export function ImportModSheet({
   const [names, setNames] = useState<Record<string, string>>(() =>
     Object.fromEntries(candidates.map((c) => [c.rel_path, c.suggested_name])),
   );
+
+  /** Switches between the two readings, re-seeding the rows for whichever is now showing.
+   *
+   * Names already edited are kept — flipping the switch to see what it does should not throw
+   * away typing — and each list keeps its own, since "Human" and "Aria de la Fontaine" are
+   * answers to different questions. */
+  function setOneMod(next: boolean) {
+    const rows = next ? [combined] : begun.plan.candidates;
+    setAsOneMod(next);
+    setSelected(new Set(rows.map((c) => c.rel_path)));
+    setNames((current) =>
+      Object.fromEntries(rows.map((c) => [c.rel_path, current[c.rel_path] ?? c.suggested_name])),
+    );
+  }
   // Where the import was started from wins over what the names looked like. The guess exists for
   // the cases with no context — the Library roster, All mods, a drop onto either — not to
   // second-guess a character page you were already standing on. Still editable either way, since
@@ -238,6 +318,32 @@ export function ImportModSheet({
             </p>
           ) : (
             <>
+              {/* Only when there is actually something to decide. One folder is one mod and
+                  there is nothing to combine it with; the question would be noise. */}
+              {begun.plan.candidates.length > 1 && (
+                <div className="grid gap-1.5">
+                  <Label className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+                    {begun.plan.candidates.length} folders inside
+                  </Label>
+                  <div className="flex border border-border bg-background p-1">
+                    <ModeButton
+                      isActive={!asOneMod}
+                      disabled={isBusy}
+                      onClick={() => setOneMod(false)}
+                      label="Separate mods"
+                      hint="Alternatives — install some, skip the rest"
+                    />
+                    <ModeButton
+                      isActive={asOneMod}
+                      disabled={isBusy}
+                      onClick={() => setOneMod(true)}
+                      label="One mod"
+                      hint="Parts that belong together, on and off as one"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-1.5">
                 <Label className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
                   {found === 1 ? "Name" : "What to install"}
@@ -373,6 +479,48 @@ export function ImportModSheet({
  * interaction at all. No Remove button: Edit has one because a mod can already carry a picture
  * worth dropping, whereas here "remove" would mean reverting to the archive's own — which
  * choosing again already does, and which Edit can do properly once the mod exists. */
+/** One half of the separate-mods / one-mod switch.
+ *
+ * Two buttons rather than a checkbox, because neither reading is the "off" state of the other —
+ * a pack of alternatives and a mod in parts are both ordinary things to be handed, and a
+ * checkbox would make one of them the exception. The hint under each label is what actually
+ * decides it: the folder names rarely say which kind you have. */
+function ModeButton({
+  isActive,
+  disabled,
+  onClick,
+  label,
+  hint,
+}: {
+  isActive: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={isActive}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex-1 px-2.5 py-1.5 text-left transition-colors disabled:opacity-60 ${
+        isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+      }`}
+    >
+      <span className="block font-heading text-[11px] uppercase tracking-[0.08em]">{label}</span>
+      <span
+        className={`block text-[10px] leading-tight ${
+          isActive ? "text-primary-foreground/70" : "text-muted-foreground/70"
+        }`}
+      >
+        {hint}
+      </span>
+    </button>
+  );
+}
+
 function CandidatePicture({
   sessionId,
   relPath,
