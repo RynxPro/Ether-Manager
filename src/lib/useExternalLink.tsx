@@ -10,6 +10,38 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
  * been anywhere near a check. */
 export type LinkSource = "app" | "author";
 
+/** GameBanana's numeric id for Zenless Zone Zero. Mirrors `gamebanana::ZZZ_GAME_ID`; the two
+ * are the same fact and would be a bug apart, but a constant in each half is cheaper than a
+ * command that exists only to hand over a number that has never changed. */
+export const ZZZ_GAME_ID = 19567;
+
+/** The mod id, if `url` is a GameBanana mod page. `null` for everything else.
+ *
+ * Exact host equality, and that is the entire security question here. The tempting version —
+ * `url.includes("gamebanana.com")` — also matches `gamebanana.com.example.invalid` and
+ * `notgamebanana.com`, and the string being tested was typed by a mod author. A substring check
+ * would turn "GameBanana links open in the app" into "any address an author likes opens in the
+ * app", which is the one outcome worth ruling out by construction.
+ *
+ * The id is matched as digits only, since it goes on to be a number handed to this app's own
+ * `get_gamebanana_mod_detail`. Anything else — a tool page, a forum thread, a member profile —
+ * is not a mod page and is left to the browser. */
+export function gameBananaModId(url: string): number | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return null;
+    if (parsed.host !== "gamebanana.com" && parsed.host !== "www.gamebanana.com") return null;
+
+    const match = /^\/mods\/(\d+)$/.exec(parsed.pathname);
+    if (!match) return null;
+
+    const id = Number(match[1]);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Schemes worth handing to the operating system.
  *
  * An allow-list, not a block-list. `openUrl` passes the string to the shell, so a scheme nobody

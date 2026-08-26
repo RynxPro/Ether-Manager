@@ -533,6 +533,14 @@ pub struct GbModDetail {
     pub date_added: i64,
     #[serde(rename(deserialize = "_bIsNsfw"))]
     pub is_nsfw: bool,
+    /// Which game this mod is for.
+    ///
+    /// `Mod/:id` answers for every game on the site, so an id taken from a link in someone's
+    /// description can perfectly well be a Skyrim mod. The app opens GameBanana links to ZZZ
+    /// mods in its own pages, and this is what it checks before doing so — everything else goes
+    /// out to the browser instead. `@gbprofile` already carries it, so it costs no request.
+    #[serde(rename(deserialize = "_aGame"))]
+    pub game: GbGameRef,
     /// What the author says has to be in place first — the loader, a tool, or a game setting.
     ///
     /// Worth having because it is not only the loader, which is what it looked like at a glance:

@@ -356,6 +356,7 @@ function App() {
         mod={frame.mod}
         onBack={closeDetail}
         onOpenCreator={openCreator}
+        onOpenMod={openMod}
       />
     );
   }

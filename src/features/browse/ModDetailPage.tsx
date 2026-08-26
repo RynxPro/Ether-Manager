@@ -26,16 +26,23 @@ import {
 } from "@/features/settings/hooks";
 import { executablesIn, fileScan } from "@/lib/fileScan";
 import { shouldBlur } from "@/lib/mature";
-import { useExternalLink } from "@/lib/useExternalLink";
+import {
+  gameBananaModId,
+  useExternalLink,
+  ZZZ_GAME_ID,
+} from "@/lib/useExternalLink";
+import { placeholderGbMod } from "@/lib/placeholderGbMod";
+import { useQueryClient } from "@tanstack/react-query";
 import { exactDate, updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type {
-  Download,
-  GbFile,
-  GbMod,
-  GbModDetail,
-  GbPreviewImage,
-  Mod,
+import {
+  getGamebananaModDetail,
+  type Download,
+  type GbFile,
+  type GbMod,
+  type GbModDetail,
+  type GbPreviewImage,
+  type Mod,
 } from "@/lib/tauri-commands";
 import { ImageLightbox } from "./ImageLightbox";
 import { MagnifiedImage } from "./MagnifiedImage";
@@ -56,6 +63,8 @@ interface ModDetailPageProps {
   /** Opens the author's page. The submitter block is the only route to it — a mod is how you
    * find a creator worth following. */
   onOpenCreator: (id: number, name: string) => void;
+  /** Opens another mod, for the GameBanana links authors put in their descriptions. */
+  onOpenMod: (mod: GbMod) => void;
 }
 
 /** Attribute a description's links are parked in once their `href` is taken away. */
@@ -155,9 +164,57 @@ export function ModDetailPage({
   onBack,
   onInstall,
   onOpenCreator,
+  onOpenMod,
 }: ModDetailPageProps) {
   const { data: detail, isLoading } = useGamebananaModDetail(mod.id);
   const externalLink = useExternalLink();
+  const queryClient = useQueryClient();
+
+  /** Follows a link out of a mod's description.
+   *
+   * A GameBanana link to a ZZZ mod opens that mod's page here instead of in a browser — authors
+   * point at each other constantly ("pairs with this hair", "needs my other mod"), and sending
+   * you out to a website to read something this app renders better was always the wrong answer.
+   *
+   * The game has to be checked first, because `Mod/:id` answers for every game on the site and
+   * the id came out of somebody's description. Anything that is not ZZZ, and anything that is
+   * not a mod page at all, falls through to the browser confirmation untouched.
+   *
+   * `fetchQuery` rather than a bare fetch, on the same key the detail page reads: the check and
+   * the page it leads to are the same request, so the page opens against a warm cache instead of
+   * asking twice. */
+  async function followDescriptionLink(url: string) {
+    const modId = gameBananaModId(url);
+    if (modId === null) {
+      externalLink.requestOpen(url, "author");
+      return;
+    }
+
+    try {
+      const linked = await queryClient.fetchQuery({
+        queryKey: ["gbModDetail", modId],
+        queryFn: () => getGamebananaModDetail(modId),
+      });
+      if (linked.game.id !== ZZZ_GAME_ID) {
+        externalLink.requestOpen(url, "author");
+        return;
+      }
+      onOpenMod(
+        placeholderGbMod({
+          gamebananaModId: linked.id,
+          name: linked.name,
+          thumbnailUrl: linked.preview_media.images[0]
+            ? imageUrl(linked.preview_media.images[0], true)
+            : null,
+          dateModified: linked.date_modified,
+        }),
+      );
+    } catch {
+      // The lookup failed, so nothing is known about the mod — including whether it is ZZZ.
+      // Falling back to the browser is the honest outcome; the link itself is still good.
+      externalLink.requestOpen(url, "author");
+    }
+  }
   const { data: visibility } = useMatureContentVisibility();
   // Falls back to on at the default size for the moment before the setting arrives — the lens
   // only appears on hover, so a wrong guess for one frame is invisible.
@@ -544,9 +601,8 @@ export function ModDetailPage({
                     );
                     if (!anchor) return;
                     event.preventDefault();
-                    externalLink.requestOpen(
+                    void followDescriptionLink(
                       anchor.getAttribute(EXTERNAL_HREF_ATTR) ?? "",
-                      "author",
                     );
                   }}
                   // Enter and Space too: the anchors keep `role="link"` and a tab stop, so they
@@ -558,9 +614,8 @@ export function ModDetailPage({
                     );
                     if (!anchor) return;
                     event.preventDefault();
-                    externalLink.requestOpen(
+                    void followDescriptionLink(
                       anchor.getAttribute(EXTERNAL_HREF_ATTR) ?? "",
-                      "author",
                     );
                   }}
                   // Sanitized above via DOMPurify — GameBanana descriptions are third-party

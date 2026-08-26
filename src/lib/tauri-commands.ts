@@ -361,6 +361,9 @@ export interface GbModDetail {
   /** When the mod page first went up — `date_modified` says when it last changed. */
   date_added: number;
   is_nsfw: boolean;
+  /** Which game this mod is for. `Mod/:id` answers for every game on the site, so an id lifted
+   * from a link in someone's description can perfectly well be for another game entirely. */
+  game: GbGameRef;
   /** What the author says has to be in place before this mod will work. Empty for most mods,
    * but far from all: of the thirty most-downloaded ZZZ mods, seventeen declare something, and
    * several name an in-game setting like "Character Quality -> High" that makes the mod
