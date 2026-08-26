@@ -13,7 +13,7 @@ pub use creator_feed_repo::{CreatorFeedItem, NewCreatorFeedItem};
 pub use downloads_repo::{Download, DownloadStatus, NewDownload};
 pub use mods_repo::{Mod, ModCounts, NewMod, Slot};
 pub use settings_repo::MagnifierSettings;
-pub use update_checks_repo::UpdateCheck;
+pub use update_checks_repo::{ModStanding, UpdateCheck};
 
 use rusqlite::Connection;
 use std::path::Path;
@@ -45,6 +45,7 @@ impl Db {
         self.migrate_mods_variant_label_column()?;
         self.migrate_mods_bundled_thumbnail_column()?;
         self.migrate_bookmarks_character_column()?;
+        self.migrate_update_check_standing_columns()?;
         self.migrate_derive_enabled_from_disk()?;
         self.migrate_legacy_slot_values()
     }
@@ -240,6 +241,37 @@ impl Db {
         Ok(())
     }
 
+    /// Adds the columns that say whether a mod is still one anyone should be installing.
+    ///
+    /// `CREATE TABLE IF NOT EXISTS` leaves an existing table alone, so a database written before
+    /// these existed has the old six columns and would fail every read the moment the repo asks
+    /// for the new ones. Added one at a time and guarded individually rather than as a set: an
+    /// interrupted run must be able to finish on the next launch, and `ALTER TABLE ADD COLUMN`
+    /// has no `IF NOT EXISTS`.
+    ///
+    /// Existing rows default to "in good standing" rather than "unknown". A stale zero here
+    /// costs a notice that appears one sweep later than it could have; the alternative — a third
+    /// state the UI has to render — buys nothing, since the next check overwrites it anyway.
+    fn migrate_update_check_standing_columns(&self) -> rusqlite::Result<()> {
+        for (column, definition) in [
+            ("is_obsolete", "INTEGER NOT NULL DEFAULT 0"),
+            ("is_withdrawn", "INTEGER NOT NULL DEFAULT 0"),
+            ("withdrawal_notice", "TEXT"),
+        ] {
+            let exists: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('mod_update_checks') WHERE name = ?1",
+                [column],
+                |row| row.get(0),
+            )?;
+            if exists == 0 {
+                self.conn.execute_batch(&format!(
+                    "ALTER TABLE mod_update_checks ADD COLUMN {column} {definition};"
+                ))?;
+            }
+        }
+        Ok(())
+    }
+
     /// `thumbnail_path` became `thumbnail_url`: mod previews are remote GameBanana images, not
     /// local files, and the old name described something the app never stored. `CREATE TABLE IF
     /// NOT EXISTS` leaves an existing table alone, so a database created before this rename
@@ -291,6 +323,51 @@ impl Db {
 mod tests {
     use super::*;
     use rusqlite::params;
+
+    /// The case the migration exists for: a database written before mods could be known to be
+    /// retired. Its `mod_update_checks` has the original eight columns, and every read would
+    /// fail on a missing column without this.
+    #[test]
+    fn adds_the_standing_columns_to_a_pre_existing_update_check_table() {
+        let db = Db::open_in_memory().unwrap();
+
+        // Rebuild the table as it was before the columns existed, with a row already in it.
+        db.conn
+            .execute_batch(
+                "DROP TABLE mod_update_checks;
+                 CREATE TABLE mod_update_checks (
+                     mod_id INTEGER PRIMARY KEY,
+                     status TEXT NOT NULL,
+                     reason TEXT,
+                     suggested_file_id INTEGER,
+                     suggested_file_name TEXT,
+                     is_ambiguous INTEGER NOT NULL DEFAULT 0,
+                     error TEXT,
+                     checked_at INTEGER NOT NULL
+                 );
+                 INSERT INTO mod_update_checks (mod_id, status, is_ambiguous, checked_at)
+                 VALUES (1, 'UpToDate', 0, 1787000000);",
+            )
+            .unwrap();
+
+        db.migrate_update_check_standing_columns().unwrap();
+        // Twice, because an interrupted first run has to be able to finish on the next launch.
+        db.migrate_update_check_standing_columns().unwrap();
+
+        let (obsolete, withdrawn, notice): (i64, i64, Option<String>) = db
+            .conn
+            .query_row(
+                "SELECT is_obsolete, is_withdrawn, withdrawal_notice
+                 FROM mod_update_checks WHERE mod_id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+
+        assert_eq!(obsolete, 0, "an existing row must read as in good standing");
+        assert_eq!(withdrawn, 0);
+        assert_eq!(notice, None);
+    }
 
     fn insert_raw_legacy_row(db: &Db, character_id: &str, legacy_slot: &str) -> i64 {
         db.conn

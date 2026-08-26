@@ -22,7 +22,12 @@ import { PageHeader } from "@/components/PageHeader";
 
 /** Says what a completed sweep actually found. Counts rather than a bare "done", because the
  * only outcome that changes the page is an update being available — every other result looks
- * exactly like nothing having happened. */
+ * exactly like nothing having happened.
+ *
+ * "Retired" is counted alongside rather than inside the others, because a mod's standing on
+ * GameBanana and whether its files are current are independent facts: something can be both
+ * retired and out of date, and reporting only one of those would be reporting the wrong one
+ * half the time. */
 function summariseUpdateSweep(checks: UpdateCheck[]): string {
   if (checks.length === 0) return "No GameBanana mods to check";
 
@@ -33,8 +38,13 @@ function summariseUpdateSweep(checks: UpdateCheck[]): string {
     (check) => check.status === "Unavailable" || check.error !== null,
   ).length;
 
+  // Counted separately from `available` rather than instead of it: the two are independent, and
+  // a mod can honestly be both retired and out of date.
+  const retired = checks.filter((check) => check.is_obsolete || check.is_withdrawn).length;
+
   const parts: string[] = [];
   if (available > 0) parts.push(`${available} update${available === 1 ? "" : "s"} available`);
+  if (retired > 0) parts.push(`${retired} retired`);
   const settled = checks.length - available - unknown;
   if (settled > 0) parts.push(`${settled} up to date`);
   if (unknown > 0) parts.push(`${unknown} couldn't be checked`);

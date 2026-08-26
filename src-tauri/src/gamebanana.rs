@@ -324,6 +324,47 @@ pub struct GbMod {
     pub is_mature: bool,
 }
 
+/// A mod's files, and whether the mod is still one anyone should be installing.
+///
+/// The two travel together because they come from one request, and because the update sweep
+/// wants both at once: "is there a newer file" and "is this thing still a going concern" are the
+/// two questions worth asking about something already on disk.
+///
+/// Every field defaults. A missing key must not fail the whole check — that is the `_nPostCount`
+/// trap, which once turned a page of thirty records into twenty-seven — and defaulting to
+/// "fine" is the safe direction here: the app stays quiet rather than declaring a healthy mod
+/// dead because GameBanana changed a property name.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GbModListing {
+    #[serde(rename(deserialize = "_aFiles"), default)]
+    pub files: Vec<GbFile>,
+    /// The author has retired it. Not the same as broken — usually there is a successor, and
+    /// `obsolescence_notice` is where they say so.
+    #[serde(rename(deserialize = "_bIsObsolete"), default)]
+    pub is_obsolete: bool,
+    /// Moderators have binned it. Still fetchable for now; on its way to being gone.
+    #[serde(rename(deserialize = "_bIsTrashed"), default)]
+    pub is_trashed: bool,
+    /// Hidden pending review. Same practical effect as trashed for someone who has it installed.
+    #[serde(rename(deserialize = "_bIsWithheld"), default)]
+    pub is_withheld: bool,
+    /// The author's own words about the retirement, shown verbatim — it is usually a pointer to
+    /// whatever replaced the mod, which is the one thing the app could never work out itself.
+    #[serde(rename(deserialize = "_sObsolescenceNotice"), default)]
+    pub obsolescence_notice: Option<String>,
+}
+
+impl GbModListing {
+    /// Whether GameBanana has taken the mod down, as opposed to the author retiring it.
+    ///
+    /// The two moderator states are folded into one because nothing the app or the user can do
+    /// differs between them, and "trashed" versus "withheld" is GameBanana's internal
+    /// housekeeping rather than anything a mod's owner needs explained.
+    pub fn is_withdrawn(&self) -> bool {
+        self.is_trashed || self.is_withheld
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GbFile {
     #[serde(rename(deserialize = "_idRow"))]
@@ -1230,19 +1271,29 @@ impl GameBananaClient {
         Ok(detail)
     }
 
-    /// Fetches just a mod's file list — one lightweight request, unlike `get_mod_detail`
-    /// (which costs two: `@gbprofile` plus a separate text-fields call). Used by update
-    /// detection, which needs to check many mods and has no use for the description body.
-    /// Confirmed live: `Mod/:id?_csvProperties=_aFiles` returns `{"_aFiles": [...]}` directly,
-    /// not the `_aMetadata`/`_aRecords` envelope `parse_list_response` handles.
+    /// Fetches just a mod's file list. Kept as the plain answer for the callers that only ever
+    /// wanted files; the request underneath brings back the mod's standing too.
     pub async fn get_mod_files(&self, mod_id: i64) -> Result<Vec<GbFile>, GameBananaError> {
-        #[derive(Debug, Deserialize)]
-        struct FilesOnly {
-            #[serde(rename(deserialize = "_aFiles"), default)]
-            files: Vec<GbFile>,
-        }
+        Ok(self.get_mod_listing(mod_id).await?.files)
+    }
 
-        let url = format!("{BASE_URL}/Mod/{mod_id}?_csvProperties=_aFiles");
+    /// A mod's files together with whether it is still something anyone should be installing —
+    /// one lightweight request, unlike `get_mod_detail` (which costs two: `@gbprofile` plus a
+    /// separate text-fields call). Used by update detection, which needs to check many mods and
+    /// has no use for the description body.
+    ///
+    /// Confirmed live: `Mod/:id?_csvProperties=_aFiles` returns `{"_aFiles": [...]}` directly,
+    /// not the `_aMetadata`/`_aRecords` envelope `parse_list_response` handles — and the four
+    /// standing fields ride along in that same response once added to the property list
+    /// (verified 2026-08-26). So learning that a mod has been retired costs no request the
+    /// update sweep was not already making.
+    ///
+    /// Deliberately not `_nStatus`, which comes back as the string `"0"` with no documented
+    /// domain. The booleans say what they mean.
+    pub async fn get_mod_listing(&self, mod_id: i64) -> Result<GbModListing, GameBananaError> {
+        let url = format!(
+            "{BASE_URL}/Mod/{mod_id}?_csvProperties=_aFiles,_bIsObsolete,_bIsTrashed,_bIsWithheld,_sObsolescenceNotice"
+        );
         let body = self
             .http
             .get(&url)
@@ -1253,7 +1304,7 @@ impl GameBananaClient {
             .text()
             .await?;
 
-        // Checked first, deliberately: `FilesOnly::files` is `default`-annotated so a mod with
+        // Checked first, deliberately: `GbModListing::files` is `default`-annotated so a mod with
         // genuinely zero files parses cleanly, but that same leniency means an API error body
         // (`{"_sErrorCode": ..., ...}`, e.g. a deleted/nonexistent mod id) would otherwise
         // silently deserialize as an empty file list instead of surfacing as an error.
@@ -1264,10 +1315,8 @@ impl GameBananaClient {
             });
         }
 
-        let parsed: FilesOnly = serde_json::from_str(&body)
-            .map_err(|_| GameBananaError::UnexpectedResponse(body.chars().take(500).collect()))?;
-
-        Ok(parsed.files)
+        serde_json::from_str(&body)
+            .map_err(|_| GameBananaError::UnexpectedResponse(body.chars().take(500).collect()))
     }
 
     /// Streams `url` into `dest_path` rather than buffering it — mod archives run to tens of
@@ -1962,6 +2011,52 @@ mod tests {
         let with_video = client.get_mod_detail(MOD_WITH_VIDEO_ID).await.unwrap();
         assert!(!with_video.embedded_media.is_empty());
         assert!(with_video.embedded_media[0].contains("youtube.com"));
+    }
+
+    /// The whole point of the standing fields is that they cost nothing: they ride along in the
+    /// request the update sweep was already making. That only holds while GameBanana keeps
+    /// honouring them in `_csvProperties` alongside `_aFiles`.
+    ///
+    /// A live assertion rather than a fixture, because the failure this guards against is
+    /// silent. If the API stopped returning these keys they would deserialize to their defaults
+    /// — false, false, None — every mod would read as being in perfect health, and every unit
+    /// test would still pass. Retirement is rare enough (zero of forty sampled ZZZ mods) that
+    /// nobody would notice the feature had quietly stopped working.
+    ///
+    /// Asserts the keys are *present*, not that any particular mod is retired: the sample mod is
+    /// expected to be in good standing, and would be a poor test if it ever were not.
+    #[tokio::test]
+    async fn a_mod_listing_carries_standing_alongside_its_files() {
+        let client = GameBananaClient::new();
+        let raw: serde_json::Value = client
+            .http
+            .get(format!(
+                "{BASE_URL}/Mod/{SAMPLE_MOD_ID}?_csvProperties=_aFiles,_bIsObsolete,_bIsTrashed,_bIsWithheld,_sObsolescenceNotice"
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        for key in [
+            "_aFiles",
+            "_bIsObsolete",
+            "_bIsTrashed",
+            "_bIsWithheld",
+            "_sObsolescenceNotice",
+        ] {
+            assert!(
+                raw.get(key).is_some(),
+                "{key} is missing — the update sweep would silently report every mod as healthy"
+            );
+        }
+
+        // And the typed path agrees with the raw one.
+        let listing = client.get_mod_listing(SAMPLE_MOD_ID).await.unwrap();
+        assert!(!listing.files.is_empty());
+        assert!(!listing.is_withdrawn());
     }
 
     /// `get_mod_files` must return the same files (by id/md5) as `get_mod_detail`'s `files`

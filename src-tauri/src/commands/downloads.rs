@@ -95,6 +95,10 @@ async fn reinstall_over_existing_mod(
             suggested_file_name: None,
             is_ambiguous: false,
         },
+        // An install that just finished says nothing about whether GameBanana still stands
+        // behind the mod, so whatever the last real check learned is left alone rather than
+        // being overwritten with a guess.
+        crate::db::ModStanding::UNKNOWN,
         None,
     )
     .map_err(|e| e.to_string())?;

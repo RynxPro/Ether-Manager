@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  Archive,
   Check,
   ExternalLink,
   Folder,
@@ -66,6 +67,10 @@ export function ModCard({
   // from outside the app. Resolved in one place so every surface showing a mod agrees.
   const artSrc = modArtSrc(mod);
   const hasUpdate = updateCheck?.status === "UpdateAvailable";
+  // Retired by its author, or taken down by GameBanana. Independent of `hasUpdate` — a mod can
+  // be both — and deliberately not shown as a problem with the mod itself, because it is not
+  // one: what is on disk goes on working exactly as it did.
+  const isRetired = updateCheck?.is_obsolete === true || updateCheck?.is_withdrawn === true;
   // Known before anything is attempted, now that the backend resolves it on every read — so the
   // card says so straight away instead of only after a toggle has failed. The error check stays
   // for the case where the folder disappears between a read and an action.
@@ -242,6 +247,28 @@ export function ModCard({
           }}
           onOpenChange={setIsConfirmingDelete}
         />
+      )}
+
+      {/* Sits above the action row rather than in it, because it is not an action. Nothing to
+          click, nothing to dismiss: the mod still works, and the only thing the app can usefully
+          do is pass on what the author said. Muted rather than accented — the hazard yellow is
+          for things that want doing, and this wants only knowing. */}
+      {isRetired && updateCheck && (
+        <p className="flex items-start gap-1.5 border-t border-border px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+          <Archive className="mt-px h-3.5 w-3.5 shrink-0" />
+          <span>
+            <span className="text-foreground">
+              {updateCheck.is_withdrawn
+                ? "Removed from GameBanana."
+                : "Retired by its author."}
+            </span>{" "}
+            {/* Verbatim, and truncated rather than reflowed: it is the author's sentence, and
+                usually points at whatever replaced this mod. */}
+            {updateCheck.withdrawal_notice?.trim()
+              ? updateCheck.withdrawal_notice.trim()
+              : "Still installed and still working — it just will not be updated again."}
+          </span>
+        </p>
       )}
 
       {/* Update on the left, delete pushed to the far right and ghosted until hovered. They are

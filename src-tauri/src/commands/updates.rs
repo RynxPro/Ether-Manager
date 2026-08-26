@@ -5,8 +5,8 @@ use futures_util::{stream, StreamExt};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
-use crate::db::UpdateCheck;
-use crate::gamebanana::GbFile;
+use crate::db::{ModStanding, UpdateCheck};
+use crate::gamebanana::{GbFile, GbModListing};
 use crate::updates::{compare_installed_file, UpdateOutcome, UpdateStatus};
 use crate::AppState;
 
@@ -77,19 +77,26 @@ pub async fn check_mod_update(
         )
     };
 
-    let files_result = state.gamebanana.get_mod_files(gamebanana_mod_id).await;
+    let listing_result = state.gamebanana.get_mod_listing(gamebanana_mod_id).await;
 
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    match files_result {
-        Ok(files) => {
+    match listing_result {
+        Ok(listing) => {
             let outcome =
-                compare_installed_file(installed_file_id, installed_md5.as_deref(), &files);
-            db.upsert_update_check(mod_id, &outcome, None)
+                compare_installed_file(installed_file_id, installed_md5.as_deref(), &listing.files);
+            db.upsert_update_check(mod_id, &outcome, standing_of(&listing), None)
                 .map_err(|e| e.to_string())?;
         }
         Err(e) => {
-            db.upsert_update_check(mod_id, &unavailable_outcome(), Some(&e.to_string()))
-                .map_err(|e| e.to_string())?;
+            // A failed fetch has learned nothing about the mod's standing, so it must not
+            // overwrite what the last successful check knew.
+            db.upsert_update_check(
+                mod_id,
+                &unavailable_outcome(),
+                ModStanding::UNKNOWN,
+                Some(&e.to_string()),
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
 
@@ -143,26 +150,35 @@ fn build_candidates(db: &crate::db::Db, force: bool) -> Result<Vec<Candidate>, S
             }),
             None => {
                 let message = format!("mod {} has no tracked GameBanana file", m.id);
-                db.upsert_update_check(m.id, &unavailable_outcome(), Some(&message))
-                    .map_err(|e| e.to_string())?;
+                db.upsert_update_check(
+                    m.id,
+                    &unavailable_outcome(),
+                    ModStanding::UNKNOWN,
+                    Some(&message),
+                )
+                .map_err(|e| e.to_string())?;
             }
         }
     }
     Ok(candidates)
 }
 
-/// Fetches every distinct GameBanana mod's current file list with bounded concurrency,
-/// emitting throttled progress events as results come back.
-async fn fetch_all_files(
+/// Fetches every distinct GameBanana mod's current files *and standing* with bounded
+/// concurrency, emitting throttled progress events as results come back.
+///
+/// The standing rides along in the same request the file list was already costing — see
+/// `GameBananaClient::get_mod_listing` — so learning that a mod has been retired adds no
+/// traffic to a sweep that may already be a hundred requests wide.
+async fn fetch_all_listings(
     gamebanana: &crate::gamebanana::GameBananaClient,
     gb_mod_ids: Vec<i64>,
     app: &AppHandle,
-) -> HashMap<i64, Result<Vec<GbFile>, String>> {
+) -> HashMap<i64, Result<GbModListing, String>> {
     let total = gb_mod_ids.len();
     let mut fetch_stream = stream::iter(gb_mod_ids)
         .map(|gb_mod_id| async move {
             let result = gamebanana
-                .get_mod_files(gb_mod_id)
+                .get_mod_listing(gb_mod_id)
                 .await
                 .map_err(|e| e.to_string());
             (gb_mod_id, result)
@@ -193,7 +209,7 @@ async fn fetch_all_files(
 fn record_results(
     db: &crate::db::Db,
     candidates_by_gb_mod: HashMap<i64, Vec<Candidate>>,
-    fetched: &HashMap<i64, Result<Vec<GbFile>, String>>,
+    fetched: &HashMap<i64, Result<GbModListing, String>>,
 ) -> Result<(), String> {
     for (gb_mod_id, rows) in candidates_by_gb_mod {
         let result = fetched
@@ -201,23 +217,41 @@ fn record_results(
             .expect("every gamebanana_mod_id in candidates_by_gb_mod was fetched above");
         for row in rows {
             match result {
-                Ok(files) => {
+                Ok(listing) => {
                     let outcome = compare_installed_file(
                         row.installed_file_id,
                         row.installed_md5.as_deref(),
-                        files,
+                        &listing.files,
                     );
-                    db.upsert_update_check(row.mod_id, &outcome, None)
+                    db.upsert_update_check(row.mod_id, &outcome, standing_of(listing), None)
                         .map_err(|e| e.to_string())?;
                 }
                 Err(message) => {
-                    db.upsert_update_check(row.mod_id, &unavailable_outcome(), Some(message))
-                        .map_err(|e| e.to_string())?;
+                    // Nothing was learned about standing, so nothing is claimed about it.
+                    db.upsert_update_check(
+                        row.mod_id,
+                        &unavailable_outcome(),
+                        ModStanding::UNKNOWN,
+                        Some(message),
+                    )
+                    .map_err(|e| e.to_string())?;
                 }
             }
         }
     }
     Ok(())
+}
+
+/// What one fetched listing says about whether the mod is still worth having.
+///
+/// The notice is only carried for a retirement the author explained. GameBanana writes it as
+/// prose meant for a human, so it is passed through untouched rather than parsed for meaning.
+fn standing_of(listing: &GbModListing) -> ModStanding {
+    ModStanding {
+        is_obsolete: listing.is_obsolete,
+        is_withdrawn: listing.is_withdrawn(),
+        withdrawal_notice: listing.obsolescence_notice.clone(),
+    }
 }
 
 /// Checks every GameBanana-installed mod. `force: false` (the automatic launch check) skips
@@ -245,7 +279,7 @@ pub async fn check_all_mod_updates(
     }
     let unique_gb_mod_ids: Vec<i64> = candidates_by_gb_mod.keys().copied().collect();
 
-    let fetched = fetch_all_files(&state.gamebanana, unique_gb_mod_ids, &app).await;
+    let fetched = fetch_all_listings(&state.gamebanana, unique_gb_mod_ids, &app).await;
 
     let db = state.db.lock().map_err(|e| e.to_string())?;
     record_results(&db, candidates_by_gb_mod, &fetched)?;
@@ -467,7 +501,7 @@ pub async fn update_installed_mod(
         suggested_file_name: None,
         is_ambiguous: false,
     };
-    db.upsert_update_check(mod_id, &up_to_date, None)
+    db.upsert_update_check(mod_id, &up_to_date, ModStanding::UNKNOWN, None)
         .map_err(|e| e.to_string())?;
     db.get_mod(mod_id)
         .map_err(|e| e.to_string())?
@@ -512,15 +546,22 @@ mod tests {
         installed_file_id: i64,
         installed_md5: Option<&str>,
     ) -> UpdateCheck {
-        let files_result = gamebanana.get_mod_files(gamebanana_mod_id).await;
-        match files_result {
-            Ok(files) => {
-                let outcome = compare_installed_file(installed_file_id, installed_md5, &files);
-                db.upsert_update_check(mod_id, &outcome, None).unwrap();
+        let listing_result = gamebanana.get_mod_listing(gamebanana_mod_id).await;
+        match listing_result {
+            Ok(listing) => {
+                let outcome =
+                    compare_installed_file(installed_file_id, installed_md5, &listing.files);
+                db.upsert_update_check(mod_id, &outcome, standing_of(&listing), None)
+                    .unwrap();
             }
             Err(e) => {
-                db.upsert_update_check(mod_id, &unavailable_outcome(), Some(&e.to_string()))
-                    .unwrap();
+                db.upsert_update_check(
+                    mod_id,
+                    &unavailable_outcome(),
+                    ModStanding::UNKNOWN,
+                    Some(&e.to_string()),
+                )
+                .unwrap();
             }
         }
         db.list_update_checks()

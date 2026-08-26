@@ -739,6 +739,18 @@ export interface UpdateCheck {
   is_ambiguous: boolean;
   error: string | null;
   checked_at: number;
+  /** The author has retired this mod on GameBanana.
+   *
+   * Independent of `status`, not a variant of it — a retired mod can still have a newer file
+   * waiting. Retired is also not broken: what is installed goes on working exactly as before,
+   * so this is something to know, never something to act on automatically. */
+  is_obsolete: boolean;
+  /** GameBanana has taken it down. Also the explanation for update checks that quietly began
+   * failing against this mod. */
+  is_withdrawn: boolean;
+  /** The author's own note about the retirement, shown verbatim. Usually names whatever
+   * replaced the mod — the one thing the app could never work out for itself. */
+  withdrawal_notice: string | null;
 }
 
 /** Payload of the `update-check-progress` event emitted during `checkAllModUpdates`. */

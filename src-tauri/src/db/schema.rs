@@ -103,6 +103,11 @@ CREATE TABLE IF NOT EXISTS creator_feed (
 
 CREATE INDEX IF NOT EXISTS idx_creator_feed_date ON creator_feed(date_added DESC);
 
+-- `is_obsolete` and `is_withdrawn` sit alongside `status` rather than inside it, because they
+-- are independent of it: a mod can perfectly well have an update waiting *and* have been retired
+-- by its author, and one slot could only report whichever was checked last. Both default to 0,
+-- so every row written before these columns existed reads as a mod in good standing — which is
+-- the safe direction, and true of nearly every mod either way.
 CREATE TABLE IF NOT EXISTS mod_update_checks (
     mod_id INTEGER PRIMARY KEY,
     status TEXT NOT NULL,
@@ -111,6 +116,9 @@ CREATE TABLE IF NOT EXISTS mod_update_checks (
     suggested_file_name TEXT,
     is_ambiguous INTEGER NOT NULL DEFAULT 0,
     error TEXT,
-    checked_at INTEGER NOT NULL
+    checked_at INTEGER NOT NULL,
+    is_obsolete INTEGER NOT NULL DEFAULT 0,
+    is_withdrawn INTEGER NOT NULL DEFAULT 0,
+    withdrawal_notice TEXT
 );
 ";
