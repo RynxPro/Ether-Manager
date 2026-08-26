@@ -375,6 +375,9 @@ export interface GbModDetail {
   download_count: number;
   view_count: number;
   like_count: number;
+  /** How many comments the mod has, from the detail rather than the list record — a mod opened
+   * from a link carries a placeholder whose counts are all zero. */
+  post_count: number;
   category: GbCategoryDetail;
   submitter: GbSubmitter;
   description: string;
@@ -617,6 +620,33 @@ export function checkCreatorFeed(): Promise<CreatorFeed> {
 /** Marks every entry read, which is what opening the dropdown means. Rows stay in the list. */
 export function markCreatorFeedSeen(): Promise<CreatorFeed> {
   return invoke("mark_creator_feed_seen");
+}
+
+/** One comment on a mod's page. Read-only: every write path on GameBanana's API needs a
+ * session, and the app has none — replying means going to GameBanana. */
+export interface GbPost {
+  id: number;
+  /** The comment body, as HTML. Third-party and untrusted in exactly the way a description is,
+   * so it goes through `sanitizeUserHtml` before it is rendered. */
+  text_html: string;
+  poster: GbSubmitter;
+  date_added: number;
+  /** How many replies hang off it. The replies themselves are a request each, so the app
+   * reports the number and leaves the thread on GameBanana. */
+  reply_count: number;
+  /** Non-zero when the author pinned it — usually the "read this first" post. */
+  pin_level: number;
+}
+
+export interface GbPostPage {
+  records: GbPost[];
+  record_count: number;
+  is_complete: boolean;
+}
+
+/** One page of a mod's comments, fifteen at a time (GameBanana's own page size). */
+export function getModPosts(modId: number, page: number): Promise<GbPostPage> {
+  return invoke("get_mod_posts", { modId, page });
 }
 
 export function getFeaturedMods(): Promise<GbFeaturedMod[]> {

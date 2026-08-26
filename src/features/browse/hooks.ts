@@ -9,6 +9,7 @@ import {
   getCreatorProfile,
   getFeaturedMods,
   getGamebananaModDetail,
+  getModPosts,
   listBookmarks,
   listCreatorBookmarks,
   type ModSort,
@@ -112,6 +113,25 @@ export function useInfiniteCreatorMods(memberId: number | null) {
     getNextPageParam: (lastPage, allPages) =>
       lastPage.is_complete ? undefined : allPages.length + 1,
     enabled: memberId !== null,
+  });
+}
+
+/** A mod's comments, a page at a time.
+ *
+ * Infinite rather than paged, and not loaded until asked for: a mod can carry five hundred
+ * comments and nobody opens a mod page to read them. The section that uses this is collapsed by
+ * default, and `enabled` keeps the request from going out until it is opened.
+ *
+ * `staleTime` is generous because comments are a conversation happening elsewhere — refetching
+ * them on every glance would spend requests to move text nobody is watching. */
+export function useModPosts(modId: number, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ["gbModPosts", modId],
+    queryFn: ({ pageParam }) => getModPosts(modId, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last, pages) => (last.is_complete ? undefined : pages.length + 1),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

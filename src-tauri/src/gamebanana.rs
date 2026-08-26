@@ -573,6 +573,11 @@ pub struct GbModDetail {
     pub download_count: i64,
     #[serde(rename(deserialize = "_nViewCount"), default)]
     pub view_count: i64,
+    /// How many comments the mod has. Taken from the detail rather than the list record it was
+    /// opened from, because a mod reached by a link carries a placeholder record whose counts
+    /// are all zero — the comments section would never appear for those.
+    #[serde(rename(deserialize = "_nPostCount"), default)]
+    pub post_count: i64,
     #[serde(rename(deserialize = "_nLikeCount"), default)]
     pub like_count: i64,
     #[serde(rename(deserialize = "_aCategory"))]
@@ -629,6 +634,42 @@ struct GbDescriptionFields {
 struct RawApiError {
     #[serde(rename(deserialize = "_sErrorCode"))]
     code: String,
+}
+
+/// One comment on a mod's page.
+///
+/// `_aPoster` has the same shape as a mod's `_aSubmitter`, so it reuses `GbSubmitter` rather
+/// than getting a near-identical twin — the app already knows how to render one of those.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GbPost {
+    #[serde(rename(deserialize = "_idRow"))]
+    pub id: i64,
+    /// The comment body, as HTML. Third-party and untrusted in exactly the way a mod's
+    /// description is, and handled the same way on the other side — sanitised, with its links
+    /// stripped of `href` so none of them can navigate the window.
+    #[serde(rename(deserialize = "_sText"), default)]
+    pub text_html: String,
+    #[serde(rename(deserialize = "_aPoster"))]
+    pub poster: GbSubmitter,
+    #[serde(rename(deserialize = "_tsDateAdded"))]
+    pub date_added: i64,
+    /// How many replies hang off this comment. The replies themselves are not in the response
+    /// and would be a request each, so the app reports the number and leaves the thread on
+    /// GameBanana.
+    #[serde(rename(deserialize = "_nReplyCount"), default)]
+    pub reply_count: i64,
+    /// Non-zero when the author has pinned it — usually the "read this first" post.
+    #[serde(rename(deserialize = "_iPinLevel"), default)]
+    pub pin_level: i64,
+}
+
+/// One page of a mod's comments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GbPostPage {
+    pub records: Vec<GbPost>,
+    pub record_count: i64,
+    /// `true` once every comment has been returned across the pages fetched so far.
+    pub is_complete: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1178,6 +1219,48 @@ impl GameBananaClient {
         })
     }
 
+    /// One page of a mod's comments, newest first as GameBanana orders them.
+    ///
+    /// `Mod/:id/Posts` returns the same `_aMetadata`/`_aRecords` envelope the list endpoints
+    /// use, so it goes through the same parsing. Fifteen per page is GameBanana's own default
+    /// and is left alone: a mod can have five hundred comments, and nobody opened a mod page to
+    /// read them all.
+    ///
+    /// Read-only, necessarily. Every write path on this API needs a session and the app has
+    /// none — replying means going to GameBanana.
+    pub async fn get_mod_posts(
+        &self,
+        mod_id: i64,
+        page: u32,
+    ) -> Result<GbPostPage, GameBananaError> {
+        let url = format!("{BASE_URL}/Mod/{mod_id}/Posts?_nPage={page}");
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        let raw = parse_list_response(&body)?;
+        // A comment that will not parse is dropped rather than failing the page. They are
+        // user-submitted and there are hundreds of them; losing one to an unexpected shape is a
+        // far better outcome than a mod page that cannot show any.
+        let records = raw
+            .records
+            .into_iter()
+            .filter_map(|record| serde_json::from_value::<GbPost>(record).ok())
+            .collect();
+
+        Ok(GbPostPage {
+            records,
+            record_count: raw.metadata.record_count,
+            is_complete: raw.metadata.is_complete,
+        })
+    }
+
     /// One page of the newest ZZZ submissions, most recently added first.
     ///
     /// This is how the notification bell finds new work by the creators you follow, and it is
@@ -1566,6 +1649,8 @@ mod tests {
     const BELLE_CATEGORY_ID: i64 = 30334;
     /// A real, small ZZZ mod used as a stable fixture for live API tests.
     const SAMPLE_MOD_ID: i64 = 608561;
+    /// "All Lady&Girl NPC mod for ZZZ" — 500+ comments, so a page of them is never empty.
+    const POPULAR_MOD_WITH_POSTS: i64 = 537466;
 
     #[test]
     fn urlencoding_encode_escapes_spaces_and_punctuation() {
@@ -2080,6 +2165,29 @@ mod tests {
         let with_video = client.get_mod_detail(MOD_WITH_VIDEO_ID).await.unwrap();
         assert!(!with_video.embedded_media.is_empty());
         assert!(with_video.embedded_media[0].contains("youtube.com"));
+    }
+
+    /// `Mod/:id/Posts` is not documented anywhere the app can point at, so this pins the shape
+    /// it was found in: the standard list envelope, with each record carrying a body, a poster
+    /// and a date. A mod with hundreds of comments is used deliberately — the failure worth
+    /// catching is the page coming back parseable but empty.
+    #[tokio::test]
+    async fn a_mods_comments_come_back_with_bodies_and_posters() {
+        let client = GameBananaClient::new();
+        let page = client.get_mod_posts(POPULAR_MOD_WITH_POSTS, 1).await.unwrap();
+
+        assert!(page.record_count > 0, "the mod is known to have comments");
+        assert!(!page.records.is_empty(), "a page of them parsed to nothing");
+        for post in &page.records {
+            assert!(post.id > 0);
+            assert!(post.poster.id > 0, "every comment has an author");
+            assert!(!post.poster.name.trim().is_empty());
+            assert!(post.date_added > 0);
+        }
+        assert!(
+            page.records.iter().any(|p| !p.text_html.trim().is_empty()),
+            "every comment on the page was empty, which means _sText moved"
+        );
     }
 
     /// Every shape `_aRequirements` actually arrives in, held down at once: the ordinary pair,

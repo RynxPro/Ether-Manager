@@ -13,7 +13,7 @@ use crate::db::{
 };
 use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
-    GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail,
+    GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail, GbPostPage,
     GbSearchResult, ModSort,
     ResumePoint,
 };
@@ -183,6 +183,24 @@ pub async fn get_creator_mods(
         result,
         visibility_pref,
     ))
+}
+
+/// One page of a mod's comments.
+///
+/// No mature-content filtering: these are words, not previews, and the shield the app applies
+/// elsewhere covers images. A comment's `_aPreviewMedia` is deliberately not parsed, so nothing
+/// pictorial reaches the page from here at all.
+#[tauri::command]
+pub async fn get_mod_posts(
+    state: State<'_, AppState>,
+    mod_id: i64,
+    page: u32,
+) -> Result<GbPostPage, String> {
+    state
+        .gamebanana
+        .get_mod_posts(mod_id, page)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

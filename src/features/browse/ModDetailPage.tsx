@@ -1,4 +1,3 @@
-import DOMPurify from "dompurify";
 import {
   ArrowLeft,
   Bookmark,
@@ -32,6 +31,7 @@ import {
   ZZZ_GAME_ID,
 } from "@/lib/useExternalLink";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
+import { parkedHrefFrom, sanitizeUserHtml } from "@/lib/userHtml";
 import { useQueryClient } from "@tanstack/react-query";
 import { exactDate, updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ import {
   type Mod,
 } from "@/lib/tauri-commands";
 import { ImageLightbox } from "./ImageLightbox";
+import { ModComments } from "./ModComments";
 import { MagnifiedImage } from "./MagnifiedImage";
 import {
   useAddBookmark,
@@ -65,46 +66,6 @@ interface ModDetailPageProps {
   onOpenCreator: (id: number, name: string) => void;
   /** Opens another mod, for the GameBanana links authors put in their descriptions. */
   onOpenMod: (mod: GbMod) => void;
-}
-
-/** Attribute a description's links are parked in once their `href` is taken away. */
-const EXTERNAL_HREF_ATTR = "data-external-href";
-
-/** Cleans a mod's description and makes every link in it unable to go anywhere by itself.
- *
- * Sanitising alone was not enough, and the gap was not theoretical: a link in a real mod's
- * description navigated the *webview* to x.com. The app was simply replaced by the website —
- * and with the native title bar gone there was no browser chrome, no Back, and no way out short
- * of killing the window.
- *
- * DOMPurify's job is to remove what can execute. It keeps links, correctly: a description
- * without them would be useless. So the second step removes `href` outright and parks the
- * address in a data attribute. An anchor with no `href` is inert — it cannot navigate however it
- * is clicked, middle-clicked or activated — which makes the handler on the container the only
- * way any of them can be followed, rather than merely the intended way. A handler racing the
- * browser would be a bug waiting for the one case it missed.
- *
- * `form` and `base` go too: a form post navigates, and a `<base>` would silently retarget every
- * relative URL on the page. */
-function sanitizeDescription(html: string): string {
-  const clean = DOMPurify.sanitize(html, { FORBID_TAGS: ["form", "base"] });
-  const doc = new DOMParser().parseFromString(clean, "text/html");
-
-  for (const anchor of doc.querySelectorAll("a[href]")) {
-    const href = anchor.getAttribute("href") ?? "";
-    anchor.removeAttribute("href");
-    // `target` and `rel` mean nothing without an href, and leaving them invites the next reader
-    // to think this is still an ordinary link.
-    anchor.removeAttribute("target");
-    anchor.removeAttribute("rel");
-    anchor.setAttribute(EXTERNAL_HREF_ATTR, href);
-    // Keeps it a link to anything reading the page rather than clicking it, since taking the
-    // href away also took away what made it one.
-    anchor.setAttribute("role", "link");
-    anchor.setAttribute("tabindex", "0");
-  }
-
-  return doc.body.innerHTML;
 }
 
 /** The signature cut corner (DESIGN.md). A radius cannot express it, so it is an inline style
@@ -234,7 +195,7 @@ export function ModDetailPage({
   const images = detail?.preview_media.images ?? [];
   const activeImage = images[activeImageIndex] ?? images[0];
   const sanitizedDescription = detail?.description_html
-    ? sanitizeDescription(detail.description_html)
+    ? sanitizeUserHtml(detail.description_html)
     : "";
   const installed = useInstalledFromGameBanana();
   const installedCount = installed.countByModId.get(mod.id) ?? 0;
@@ -591,38 +552,40 @@ export function ModDetailPage({
                   // with none at all, so an eighteen-thousand-character body rendered as one
                   // undifferentiated wall.
                   className="max-w-[900px] overflow-x-hidden text-sm leading-relaxed break-words text-foreground/85 [&_:is(h1,h2,h3,h4)]:mt-6 [&_:is(h1,h2,h3,h4)]:mb-2 [&_:is(h1,h2,h3,h4)]:font-heading [&_:is(h1,h2,h3,h4)]:uppercase [&_:is(h1,h2,h3,h4)]:tracking-[0.04em] [&_:is(h1,h2,h3,h4)]:text-foreground [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-sm [&_p]:mb-3 [&_:is(ul,ol)]:mb-3 [&_:is(ul,ol)]:pl-5 [&_ul]:list-disc [&_ol]:list-decimal [&_a]:text-primary [&_a]:underline [&_a]:cursor-pointer [&_:is(strong,b)]:text-foreground [&_hr]:my-5 [&_hr]:border-t-2 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:border-2 [&_img]:border-border [&_code]:bg-secondary [&_code]:px-1 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-border [&_pre]:bg-secondary [&_pre]:p-3 [&_table]:block [&_table]:overflow-x-auto"
-                  // The links inside have had their `href` removed by `sanitizeDescription`,
+                  // The links inside have had their `href` removed by `sanitizeUserHtml`,
                   // so following one is only possible through here. Delegated from the
                   // container rather than bound per anchor, because this markup is set as a
                   // string and there are no React elements to attach handlers to.
                   onClick={(event) => {
-                    const anchor = (event.target as HTMLElement).closest(
-                      `[${EXTERNAL_HREF_ATTR}]`,
-                    );
-                    if (!anchor) return;
+                    const href = parkedHrefFrom(event.target);
+                    if (href === null) return;
                     event.preventDefault();
-                    void followDescriptionLink(
-                      anchor.getAttribute(EXTERNAL_HREF_ATTR) ?? "",
-                    );
+                    void followDescriptionLink(href);
                   }}
                   // Enter and Space too: the anchors keep `role="link"` and a tab stop, so they
                   // are still reachable without a mouse and have to answer to it.
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return;
-                    const anchor = (event.target as HTMLElement).closest(
-                      `[${EXTERNAL_HREF_ATTR}]`,
-                    );
-                    if (!anchor) return;
+                    const href = parkedHrefFrom(event.target);
+                    if (href === null) return;
                     event.preventDefault();
-                    void followDescriptionLink(
-                      anchor.getAttribute(EXTERNAL_HREF_ATTR) ?? "",
-                    );
+                    void followDescriptionLink(href);
                   }}
                   // Sanitized above via DOMPurify — GameBanana descriptions are third-party
                   // user-submitted HTML and must never be rendered unsanitized.
                   dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
                 />
               </section>
+            )}
+
+            {/* Under the description on purpose: what the author says about a mod comes before
+                what everyone else says about it. Renders nothing when there are none. */}
+            {detail && (
+              <ModComments
+                modId={detail.id}
+                postCount={detail.post_count}
+                onFollowLink={(url) => void followDescriptionLink(url)}
+              />
             )}
           </div>
 
