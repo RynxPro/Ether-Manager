@@ -346,6 +346,13 @@ export interface GbCategoryDetail {
   name: string;
 }
 
+/** One prerequisite from a mod's page. `url` is null where the author gave no link — a game
+ * setting has nowhere to point at. */
+export interface GbRequirement {
+  name: string;
+  url: string | null;
+}
+
 export interface GbModDetail {
   id: number;
   name: string;
@@ -354,6 +361,11 @@ export interface GbModDetail {
   /** When the mod page first went up — `date_modified` says when it last changed. */
   date_added: number;
   is_nsfw: boolean;
+  /** What the author says has to be in place before this mod will work. Empty for most mods,
+   * but far from all: of the thirty most-downloaded ZZZ mods, seventeen declare something, and
+   * several name an in-game setting like "Character Quality -> High" that makes the mod
+   * silently do nothing when it is wrong. Free text — display only, never matched. */
+  requirements: GbRequirement[];
   preview_media: GbPreviewMedia;
   /** Showcase video URLs (YouTube) — separate from `preview_media`'s static screenshots. */
   embedded_media: string[];

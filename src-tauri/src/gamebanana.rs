@@ -221,6 +221,52 @@ fn default_initial_visibility() -> String {
 /// `"_aEmbeddedMedia": null` explicitly on mods with no showcase video (confirmed live), which
 /// still fails to deserialize into a bare `Vec<String>` (`null` isn't a sequence). This treats
 /// both "missing" and "present but null" as empty.
+/// Something that has to be true before a mod will work — the loader, a tool, or a game setting.
+///
+/// Free text, and that is the whole design constraint. Across the thirty most-downloaded ZZZ
+/// mods the same requirement appears as `XXMI`, `xxmi` and `XXMI Launcher`, so this is only ever
+/// shown to a person and never matched against anything. Anything trying to verify these
+/// automatically would be wrong most of the time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GbRequirement {
+    pub name: String,
+    /// Where to get it, when the author bothered. Often absent — a game setting like
+    /// "Character Quality -> High" has nowhere to link to.
+    pub url: Option<String>,
+}
+
+/// Turns GameBanana's `[["XXMI", "https://..."], ["Character Quality -> High", ""]]` into
+/// something with field names.
+///
+/// It arrives as an array of arrays, and as `null` on the thirteen of thirty sampled mods that
+/// declare none. Read defensively: an entry with no name is dropped rather than rendered blank,
+/// an empty URL becomes `None` rather than a link to nowhere, and an entry with more than two
+/// elements keeps its first two instead of failing the whole detail fetch.
+fn deserialize_requirements<'de, D>(deserializer: D) -> Result<Vec<GbRequirement>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw: Option<Vec<Vec<String>>> = Option::deserialize(deserializer)?;
+    Ok(raw
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|parts| {
+            let name = parts.first()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+            Some(GbRequirement {
+                name: name.to_string(),
+                url: parts
+                    .get(1)
+                    .map(|url| url.trim())
+                    .filter(|url| !url.is_empty())
+                    .map(str::to_string),
+            })
+        })
+        .collect())
+}
+
 fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -487,6 +533,21 @@ pub struct GbModDetail {
     pub date_added: i64,
     #[serde(rename(deserialize = "_bIsNsfw"))]
     pub is_nsfw: bool,
+    /// What the author says has to be in place first — the loader, a tool, or a game setting.
+    ///
+    /// Worth having because it is not only the loader, which is what it looked like at a glance:
+    /// of the thirty most-downloaded ZZZ mods, seventeen declare requirements and several name
+    /// an in-game graphics setting such as "Character Quality -> High". Get that wrong and the
+    /// mod silently does nothing, with no error and nothing to search for — which is exactly the
+    /// failure worth catching before install rather than after.
+    ///
+    /// `@gbprofile` already carries it, so this costs no extra request.
+    #[serde(
+        rename(deserialize = "_aRequirements"),
+        default,
+        deserialize_with = "deserialize_requirements"
+    )]
+    pub requirements: Vec<GbRequirement>,
     #[serde(rename(deserialize = "_aPreviewMedia"), default)]
     pub preview_media: GbPreviewMedia,
     /// Showcase video URLs (YouTube, confirmed live) — separate from `preview_media`'s static
@@ -2011,6 +2072,80 @@ mod tests {
         let with_video = client.get_mod_detail(MOD_WITH_VIDEO_ID).await.unwrap();
         assert!(!with_video.embedded_media.is_empty());
         assert!(with_video.embedded_media[0].contains("youtube.com"));
+    }
+
+    /// Every shape `_aRequirements` actually arrives in, held down at once: the ordinary pair,
+    /// a requirement with nowhere to link to, `null` for the many mods that declare none, and
+    /// the two malformed cases that must be dropped rather than rendered blank.
+    #[test]
+    fn requirements_read_defensively() {
+        #[derive(Deserialize)]
+        struct Holder {
+            #[serde(
+                rename(deserialize = "_aRequirements"),
+                default,
+                deserialize_with = "deserialize_requirements"
+            )]
+            requirements: Vec<GbRequirement>,
+        }
+
+        let parse = |json: &str| serde_json::from_str::<Holder>(json).unwrap().requirements;
+
+        assert!(parse(r#"{"_aRequirements": null}"#).is_empty(), "null");
+        assert!(parse(r#"{}"#).is_empty(), "absent key");
+
+        let ordinary = parse(r#"{"_aRequirements": [["XXMI", "https://example.invalid/xxmi"]]}"#);
+        assert_eq!(ordinary.len(), 1);
+        assert_eq!(ordinary[0].name, "XXMI");
+        assert_eq!(ordinary[0].url.as_deref(), Some("https://example.invalid/xxmi"));
+
+        // A game setting has nowhere to link to, and GameBanana sends "" rather than omitting it.
+        let setting = parse(r#"{"_aRequirements": [["Character Quality -> High", ""]]}"#);
+        assert_eq!(setting[0].name, "Character Quality -> High");
+        assert_eq!(setting[0].url, None, "an empty URL must not become a dead link");
+
+        // Malformed entries are dropped, never shown as an empty row.
+        assert!(parse(r#"{"_aRequirements": [[]]}"#).is_empty(), "no name at all");
+        assert!(parse(r#"{"_aRequirements": [["   ", "x"]]}"#).is_empty(), "blank name");
+
+        // More elements than expected must not fail the whole detail fetch.
+        let extra = parse(r#"{"_aRequirements": [["slotfix", "https://example.invalid", "extra"]]}"#);
+        assert_eq!(extra.len(), 1);
+        assert_eq!(extra[0].name, "slotfix");
+    }
+
+    /// Requirements are only worth showing if real mods carry them, and if they are more than
+    /// "you need the mod loader" — which is what makes this worth a live check rather than only
+    /// fixtures. Measured before building: 17 of the 30 most-downloaded ZZZ mods declare some.
+    ///
+    /// Asserts against a page rather than one mod id, so a single author editing their page
+    /// cannot break it.
+    #[tokio::test]
+    async fn some_real_zzz_mods_declare_requirements() {
+        let client = GameBananaClient::new();
+        let page = client.search_mods(None, None, ModSort::MostDownloaded, 1).await.unwrap();
+
+        let mut checked = 0usize;
+        let mut with_requirements = 0usize;
+        for record in page.records.iter().take(8) {
+            let Ok(detail) = client.get_mod_detail(record.id).await else {
+                continue;
+            };
+            checked += 1;
+            if !detail.requirements.is_empty() {
+                with_requirements += 1;
+                assert!(
+                    detail.requirements.iter().all(|r| !r.name.trim().is_empty()),
+                    "a requirement with a blank name would render as an empty row"
+                );
+            }
+        }
+
+        assert!(checked > 0, "no mod details could be fetched at all");
+        assert!(
+            with_requirements > 0,
+            "none of {checked} popular ZZZ mods declared requirements — either the field moved              or this feature is showing nothing to anybody"
+        );
     }
 
     /// The whole point of the standing fields is that they cost nothing: they ride along in the

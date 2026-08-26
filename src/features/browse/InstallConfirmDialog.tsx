@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useExternalLink } from "@/lib/useExternalLink";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, FileWarning, XIcon } from "lucide-react";
 import {
@@ -37,7 +38,8 @@ import { useEnqueueDownload } from "./hooks";
 
 /** Eridu's signature corner. Inline because a clip path cannot come from a border radius. */
 const CUT_CORNER = {
-  clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
+  clipPath:
+    "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
 } as const;
 
 /** GameBanana's scan result, but only when it is worth saying. Printing "clean" on every
@@ -75,10 +77,16 @@ function slotForTarget(characterId: string): Slot {
  * name for mods filed under "Character Skins" (which always has one). One check covers all
  * three cases, from data that's always live-fetched regardless of whether this dialog was
  * opened from Browse or Bookmarks. */
-function guessInstallTarget(detail: GbModDetail, realCharacters: Character[]): string {
+function guessInstallTarget(
+  detail: GbModDetail,
+  realCharacters: Character[],
+): string {
   if (detail.category.name === "UI") return UI_CHARACTER_ID;
   if (detail.category.name === "Other/Misc") return MISC_CHARACTER_ID;
-  return realCharacters.find((character) => character.name === detail.category.name)?.id ?? "";
+  return (
+    realCharacters.find((character) => character.name === detail.category.name)
+      ?.id ?? ""
+  );
 }
 
 export function InstallConfirmDialog({
@@ -88,8 +96,10 @@ export function InstallConfirmDialog({
   onInstalled,
 }: InstallConfirmDialogProps) {
   const { data: characters } = useCharacters();
+  const externalLink = useExternalLink();
   const realCharacters = (characters ?? []).filter(
-    (character) => character.id !== UI_CHARACTER_ID && character.id !== MISC_CHARACTER_ID,
+    (character) =>
+      character.id !== UI_CHARACTER_ID && character.id !== MISC_CHARACTER_ID,
   );
   const guessedCharacterId = guessInstallTarget(detail, realCharacters);
 
@@ -108,7 +118,9 @@ export function InstallConfirmDialog({
   // Where it lands, in the library's own words rather than as a filesystem path: the folder the
   // installer actually creates is slugged and de-duplicated backend-side, so a path printed here
   // would eventually be a confident lie. Character plus slot is the decision being made anyway.
-  const target = (characters ?? []).find((character) => character.id === characterId);
+  const target = (characters ?? []).find(
+    (character) => character.id === characterId,
+  );
   const destination = target
     ? target.id === UI_CHARACTER_ID || target.id === MISC_CHARACTER_ID
       ? SLOT_LABELS[slotForTarget(target.id)]
@@ -140,6 +152,10 @@ export function InstallConfirmDialog({
 
   return (
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
+      {/* Nested inside this dialog on purpose: a requirement's link is reached from in here,
+          and sending the confirmation somewhere else in the tree would close this one to ask
+          about a link you have not decided to follow yet. */}
+      {externalLink.dialog}
       <DialogContent
         showCloseButton={false}
         // Eridu's panel shape rather than shadcn's default card: 2px border, square, cut corner,
@@ -173,7 +189,11 @@ export function InstallConfirmDialog({
               {/* Not shielded, matching Bookmarks: reaching the install dialog is an active,
                   already-informed choice, and a reveal button in a 72px box helps nobody. */}
               {thumbnailUrl ? (
-                <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={thumbnailUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="flex h-full w-full items-center justify-center font-heading text-lg text-muted-foreground/40">
                   {detail.name.charAt(0)}
@@ -207,7 +227,10 @@ export function InstallConfirmDialog({
               File
             </p>
             <div className="flex items-baseline justify-between gap-3">
-              <p className="truncate text-xs text-foreground" title={file.file_name}>
+              <p
+                className="truncate text-xs text-foreground"
+                title={file.file_name}
+              >
                 {file.file_name}
               </p>
               <span className="flex shrink-0 items-center gap-2 text-[11px] tabular-nums text-muted-foreground">
@@ -225,6 +248,49 @@ export function InstallConfirmDialog({
               </p>
             )}
           </div>
+
+          {/* Before the install, not after, because that is the only moment it can save you
+              anything. The app cannot check any of these — the same requirement is written
+              "XXMI", "xxmi" and "XXMI Launcher" across three mods — so this passes on the
+              author's own words and gets out of the way.
+
+              Not styled as a warning. Most entries are the loader you already have, and colouring
+              the routine case red teaches people to ignore it by the third install. What it is
+              really for is the other kind: "Character Quality -> High" is a graphics setting
+              that makes a mod silently do nothing when it is wrong, with no error anywhere and
+              nothing to search for. */}
+          {detail.requirements.length > 0 && (
+            <div className="border-b border-border px-4 py-3">
+              <p className="mb-1.5 font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+                The author says you need
+              </p>
+              <ul className="space-y-1">
+                {detail.requirements.map(({ name, url }) => (
+                  <li
+                    key={name}
+                    className="flex items-baseline gap-2 text-[11px] text-foreground"
+                  >
+                    <span
+                      aria-hidden
+                      className="mt-1 size-1 shrink-0 bg-muted-foreground"
+                    />
+                    <span className="min-w-0 flex-1">{name}</span>
+                    {/* The opener plugin, not an anchor: `target="_blank"` does not navigate
+                        inside a WebView2, so a plain link here would simply do nothing. */}
+                    {url && (
+                      <button
+                        type="button"
+                        onClick={() => externalLink.requestOpen(url, "author")}
+                        className="shrink-0 text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      >
+                        Get it
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* A mod is data — meshes, textures, .ini files — so a program inside one is worth
               stopping on even when it is legitimate, and sometimes it is: a few mods ship a
@@ -254,9 +320,11 @@ export function InstallConfirmDialog({
                 ))}
               </ul>
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Installing only unpacks {executables.length === 1 ? "it" : "them"} into your mods
-                folder — nothing is run. Mods do not normally need to, so open{" "}
-                {executables.length === 1 ? "it" : "them"} only if you know what it does.
+                Installing only unpacks{" "}
+                {executables.length === 1 ? "it" : "them"} into your mods folder
+                — nothing is run. Mods do not normally need to, so open{" "}
+                {executables.length === 1 ? "it" : "them"} only if you know what
+                it does.
               </p>
             </div>
           )}
@@ -316,8 +384,10 @@ export function InstallConfirmDialog({
               <p className="text-[11px] text-muted-foreground">
                 {destination ? (
                   <>
-                    Files under <span className="text-foreground">{destination}</span>. Guessed
-                    from the mod&apos;s category — change it if that is wrong.
+                    Files under{" "}
+                    <span className="text-foreground">{destination}</span>.
+                    Guessed from the mod&apos;s category — change it if that is
+                    wrong.
                   </>
                 ) : (
                   "Pick a character, or UI / Misc."
@@ -329,7 +399,11 @@ export function InstallConfirmDialog({
                 progress inside a box the user is about to close would be claiming that closing
                 matters — it does not, and the Downloads page is where a running install actually
                 lives. This error is only about failing to *queue* one. */}
-            {enqueue.isError && <p className="text-sm text-destructive">{String(enqueue.error)}</p>}
+            {enqueue.isError && (
+              <p className="text-sm text-destructive">
+                {String(enqueue.error)}
+              </p>
+            )}
           </div>
 
           {/* `mx-0 mb-0` cancels the base footer's `-mx-4 -mb-4`, which exists to bleed into
