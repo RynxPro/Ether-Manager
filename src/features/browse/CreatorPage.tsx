@@ -1,13 +1,13 @@
 import { ArrowLeft, Check, ExternalLink, UserPlus } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { shouldBlur } from "@/lib/mature";
+import { useExternalLink } from "@/lib/useExternalLink";
 import { refreshCreatorBookmark, type GbCreator, type GbMod } from "@/lib/tauri-commands";
 import { GameBananaModCard } from "./GameBananaModCard";
 import {
@@ -276,6 +276,7 @@ function CreatorHeader({
   isFollowed,
   onToggleFollow,
 }: CreatorHeaderProps) {
+  const externalLink = useExternalLink();
   const stats = creator?.core_stats;
   // GameBanana sends "Bananite" for nearly every member — a rank, not a description. It earns a
   // line only when it says something, which an honorary title always does.
@@ -283,6 +284,7 @@ function CreatorHeader({
 
   return (
     <div className="border-2 border-border bg-card">
+      {externalLink.dialog}
       <div className="flex items-center gap-4 px-4 py-4">
         {creator?.avatar_url ? (
           <img
@@ -347,7 +349,7 @@ function CreatorHeader({
             variant="outline"
             size="sm"
             className="shrink-0"
-            onClick={() => void openUrl(creator.profile_url)}
+            onClick={() => externalLink.requestOpen(creator.profile_url)}
           >
             <ExternalLink className="h-3.5 w-3.5" />
             GameBanana

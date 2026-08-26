@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import DOMPurify from "dompurify";
 import {
   ArrowLeft,
@@ -27,6 +26,7 @@ import {
 } from "@/features/settings/hooks";
 import { executablesIn, fileScan } from "@/lib/fileScan";
 import { shouldBlur } from "@/lib/mature";
+import { useExternalLink } from "@/lib/useExternalLink";
 import { exactDate, updatedLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type {
@@ -56,6 +56,46 @@ interface ModDetailPageProps {
   /** Opens the author's page. The submitter block is the only route to it — a mod is how you
    * find a creator worth following. */
   onOpenCreator: (id: number, name: string) => void;
+}
+
+/** Attribute a description's links are parked in once their `href` is taken away. */
+const EXTERNAL_HREF_ATTR = "data-external-href";
+
+/** Cleans a mod's description and makes every link in it unable to go anywhere by itself.
+ *
+ * Sanitising alone was not enough, and the gap was not theoretical: a link in a real mod's
+ * description navigated the *webview* to x.com. The app was simply replaced by the website —
+ * and with the native title bar gone there was no browser chrome, no Back, and no way out short
+ * of killing the window.
+ *
+ * DOMPurify's job is to remove what can execute. It keeps links, correctly: a description
+ * without them would be useless. So the second step removes `href` outright and parks the
+ * address in a data attribute. An anchor with no `href` is inert — it cannot navigate however it
+ * is clicked, middle-clicked or activated — which makes the handler on the container the only
+ * way any of them can be followed, rather than merely the intended way. A handler racing the
+ * browser would be a bug waiting for the one case it missed.
+ *
+ * `form` and `base` go too: a form post navigates, and a `<base>` would silently retarget every
+ * relative URL on the page. */
+function sanitizeDescription(html: string): string {
+  const clean = DOMPurify.sanitize(html, { FORBID_TAGS: ["form", "base"] });
+  const doc = new DOMParser().parseFromString(clean, "text/html");
+
+  for (const anchor of doc.querySelectorAll("a[href]")) {
+    const href = anchor.getAttribute("href") ?? "";
+    anchor.removeAttribute("href");
+    // `target` and `rel` mean nothing without an href, and leaving them invites the next reader
+    // to think this is still an ordinary link.
+    anchor.removeAttribute("target");
+    anchor.removeAttribute("rel");
+    anchor.setAttribute(EXTERNAL_HREF_ATTR, href);
+    // Keeps it a link to anything reading the page rather than clicking it, since taking the
+    // href away also took away what made it one.
+    anchor.setAttribute("role", "link");
+    anchor.setAttribute("tabindex", "0");
+  }
+
+  return doc.body.innerHTML;
 }
 
 /** The signature cut corner (DESIGN.md). A radius cannot express it, so it is an inline style
@@ -117,6 +157,7 @@ export function ModDetailPage({
   onOpenCreator,
 }: ModDetailPageProps) {
   const { data: detail, isLoading } = useGamebananaModDetail(mod.id);
+  const externalLink = useExternalLink();
   const { data: visibility } = useMatureContentVisibility();
   // Falls back to on at the default size for the moment before the setting arrives — the lens
   // only appears on hover, so a wrong guess for one frame is invisible.
@@ -136,7 +177,7 @@ export function ModDetailPage({
   const images = detail?.preview_media.images ?? [];
   const activeImage = images[activeImageIndex] ?? images[0];
   const sanitizedDescription = detail?.description_html
-    ? DOMPurify.sanitize(detail.description_html)
+    ? sanitizeDescription(detail.description_html)
     : "";
   const installed = useInstalledFromGameBanana();
   const installedCount = installed.countByModId.get(mod.id) ?? 0;
@@ -251,6 +292,7 @@ export function ModDetailPage({
 
   return (
     <div className="space-y-5">
+      {externalLink.dialog}
       {/* One header, always here, pinned to the top of the page.
           It used to be two: a tall band that scrolled away and a slim bar that faded in to
           replace it once an observer decided the first was gone. Three rounds of bugs came out
@@ -465,7 +507,7 @@ export function ModDetailPage({
                     <button
                       key={url}
                       type="button"
-                      onClick={() => void openUrl(url)}
+                      onClick={() => externalLink.requestOpen(url)}
                       className="text-sm text-primary underline"
                     >
                       Watch showcase video
@@ -478,6 +520,12 @@ export function ModDetailPage({
             {sanitizedDescription && (
               <section>
                 <SectionLabel left="Description" />
+                {/* The handlers below delegate for the anchors inside, which carry `role="link"`
+                    and a tab stop of their own — this container is not itself interactive and
+                    must not claim to be. jsx-a11y cannot see that from here: it sees handlers on
+                    a div. Binding per anchor is not available, since this markup arrives as a
+                    string rather than as elements. */}
+                {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                 <div
                   // Third-party HTML: real GameBanana descriptions ship <pre> blocks, wide
                   // tables and full-size images that otherwise push the whole window sideways.
@@ -485,7 +533,36 @@ export function ModDetailPage({
                   // The rest gives this markup the app's own typography — until now it arrived
                   // with none at all, so an eighteen-thousand-character body rendered as one
                   // undifferentiated wall.
-                  className="max-w-[900px] overflow-x-hidden text-sm leading-relaxed break-words text-foreground/85 [&_:is(h1,h2,h3,h4)]:mt-6 [&_:is(h1,h2,h3,h4)]:mb-2 [&_:is(h1,h2,h3,h4)]:font-heading [&_:is(h1,h2,h3,h4)]:uppercase [&_:is(h1,h2,h3,h4)]:tracking-[0.04em] [&_:is(h1,h2,h3,h4)]:text-foreground [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-sm [&_p]:mb-3 [&_:is(ul,ol)]:mb-3 [&_:is(ul,ol)]:pl-5 [&_ul]:list-disc [&_ol]:list-decimal [&_a]:text-primary [&_a]:underline [&_:is(strong,b)]:text-foreground [&_hr]:my-5 [&_hr]:border-t-2 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:border-2 [&_img]:border-border [&_code]:bg-secondary [&_code]:px-1 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-border [&_pre]:bg-secondary [&_pre]:p-3 [&_table]:block [&_table]:overflow-x-auto"
+                  className="max-w-[900px] overflow-x-hidden text-sm leading-relaxed break-words text-foreground/85 [&_:is(h1,h2,h3,h4)]:mt-6 [&_:is(h1,h2,h3,h4)]:mb-2 [&_:is(h1,h2,h3,h4)]:font-heading [&_:is(h1,h2,h3,h4)]:uppercase [&_:is(h1,h2,h3,h4)]:tracking-[0.04em] [&_:is(h1,h2,h3,h4)]:text-foreground [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-sm [&_p]:mb-3 [&_:is(ul,ol)]:mb-3 [&_:is(ul,ol)]:pl-5 [&_ul]:list-disc [&_ol]:list-decimal [&_a]:text-primary [&_a]:underline [&_a]:cursor-pointer [&_:is(strong,b)]:text-foreground [&_hr]:my-5 [&_hr]:border-t-2 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:border-2 [&_img]:border-border [&_code]:bg-secondary [&_code]:px-1 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-border [&_pre]:bg-secondary [&_pre]:p-3 [&_table]:block [&_table]:overflow-x-auto"
+                  // The links inside have had their `href` removed by `sanitizeDescription`,
+                  // so following one is only possible through here. Delegated from the
+                  // container rather than bound per anchor, because this markup is set as a
+                  // string and there are no React elements to attach handlers to.
+                  onClick={(event) => {
+                    const anchor = (event.target as HTMLElement).closest(
+                      `[${EXTERNAL_HREF_ATTR}]`,
+                    );
+                    if (!anchor) return;
+                    event.preventDefault();
+                    externalLink.requestOpen(
+                      anchor.getAttribute(EXTERNAL_HREF_ATTR) ?? "",
+                      "author",
+                    );
+                  }}
+                  // Enter and Space too: the anchors keep `role="link"` and a tab stop, so they
+                  // are still reachable without a mouse and have to answer to it.
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    const anchor = (event.target as HTMLElement).closest(
+                      `[${EXTERNAL_HREF_ATTR}]`,
+                    );
+                    if (!anchor) return;
+                    event.preventDefault();
+                    externalLink.requestOpen(
+                      anchor.getAttribute(EXTERNAL_HREF_ATTR) ?? "",
+                      "author",
+                    );
+                  }}
                   // Sanitized above via DOMPurify — GameBanana descriptions are third-party
                   // user-submitted HTML and must never be rendered unsanitized.
                   dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
@@ -519,7 +596,7 @@ export function ModDetailPage({
                     a WebView2, so a plain link here would simply do nothing. */}
                 <button
                   type="button"
-                  onClick={() => void openUrl(detail.profile_url)}
+                  onClick={() => externalLink.requestOpen(detail.profile_url)}
                   className="flex items-center gap-1 border-b border-primary-foreground/40 tracking-[0.1em]"
                 >
                   Open
