@@ -88,12 +88,10 @@ export function ModCard({
 
   return (
     <div
-      // The cut corner is Eridu's signature and cannot come from a border-radius, so it is a
-      // clip-path rather than a utility class — same shape as the character cards.
-      style={{
-        clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-      }}
-      className={`group/card flex flex-col border-2 bg-card transition-all hover:-translate-y-0.5 hover:border-primary ${
+      // Printed board stuck to the wall — the same object as the character cards, which is why
+      // the cut corner went: a surface is identified by its hard offset shadow now. The border
+      // stays because here it is load-bearing, marking a mod with an update waiting.
+      className={`group/card flex flex-col border-2 bg-card shadow-slap-lift transition-all hover:-translate-y-0.5 hover:border-primary ${
         hasUpdate ? "border-primary" : "border-border"
       }`}
     >

@@ -9,6 +9,47 @@ const MATURE_CONTENT_VISIBILITY_KEY: &str = "mature_content_visibility";
 const MAGNIFIER_ENABLED_KEY: &str = "magnifier_enabled";
 const MAGNIFIER_SIZE_KEY: &str = "magnifier_size";
 const CONFLICT_WARNINGS_KEY: &str = "conflict_warnings";
+const THEME_KEY: &str = "theme";
+
+/// Which of the two looks the app wears.
+///
+/// The names are the design's own rather than `Light`/`Dark`: the two are one wall seen at two
+/// times of day, and calling them light and dark invites someone to treat them as a generic pair
+/// and start tuning one without the other.
+///
+/// Three variants rather than a bool because "follow Windows" is a real preference rather than
+/// the absence of one — someone who switches their desktop at sunset wants the app to come with
+/// them, and that cannot be expressed by storing either fixed value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Theme {
+    Daylight,
+    Night,
+    System,
+}
+
+impl Theme {
+    /// Follow Windows. A modding tool sits alongside a game and a browser rather than being
+    /// looked at on its own, so matching whatever else is on screen is a better opening guess
+    /// than either look chosen on merit — and anyone who disagrees is one click from saying so.
+    pub const DEFAULT: Theme = Theme::System;
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Theme::Daylight => "Daylight",
+            Theme::Night => "Night",
+            Theme::System => "System",
+        }
+    }
+
+    pub(crate) fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "Daylight" => Some(Theme::Daylight),
+            "Night" => Some(Theme::Night),
+            "System" => Some(Theme::System),
+            _ => None,
+        }
+    }
+}
 
 /// How the preview magnifier behaves, if at all.
 ///
@@ -115,6 +156,34 @@ impl Db {
 
     pub fn set_conflict_warnings_enabled(&self, value: bool) -> rusqlite::Result<()> {
         self.set_setting(CONFLICT_WARNINGS_KEY, &value.to_string())
+    }
+
+    /// The stored theme preference, or `Theme::DEFAULT` on a database that predates this key.
+    ///
+    /// This is the source of truth, but deliberately not the *fast* path: reaching it costs an
+    /// IPC round trip, and a theme that is only known after one round trip is a theme the window
+    /// paints wrong first. The frontend therefore mirrors this value into `localStorage` and
+    /// reads that synchronously before React mounts — see `src/lib/theme.ts`. This row is what
+    /// that cache is rebuilt from, so a cleared cache costs one frame, not the preference.
+    ///
+    /// An unparseable value errors rather than defaulting, matching the two settings above: the
+    /// string is entirely our own, so garbage in it means real corruption rather than the drift
+    /// you would expect from somebody else's API.
+    pub fn get_theme(&self) -> rusqlite::Result<Theme> {
+        match self.get_setting(THEME_KEY)? {
+            None => Ok(Theme::DEFAULT),
+            Some(value) => Theme::from_str(&value).ok_or_else(|| {
+                rusqlite::Error::InvalidColumnType(
+                    0,
+                    THEME_KEY.to_string(),
+                    rusqlite::types::Type::Text,
+                )
+            }),
+        }
+    }
+
+    pub fn set_theme(&self, value: Theme) -> rusqlite::Result<()> {
+        self.set_setting(THEME_KEY, value.as_str())
     }
 
     /// Both halves fall back independently: a database written by an older build has neither

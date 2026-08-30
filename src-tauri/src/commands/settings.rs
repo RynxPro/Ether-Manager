@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::content_rating::MatureVisibility;
-use crate::db::MagnifierSettings;
+use crate::db::{MagnifierSettings, Theme};
 use crate::AppState;
 
 /// Opens a native folder-picker dialog and returns the chosen path, or `None` if the
@@ -107,6 +107,24 @@ pub fn set_conflict_warnings(state: State<AppState>, value: bool) -> Result<(), 
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.set_conflict_warnings_enabled(value)
         .map_err(|e| e.to_string())
+}
+
+/// Which look the app wears, or `System` to follow Windows.
+///
+/// The frontend keeps a `localStorage` mirror of this and reads that before first paint, because
+/// an IPC round trip cannot finish in time to stop the window painting the wrong theme first.
+/// This command is what that mirror is rebuilt from, so it stays the source of truth even though
+/// it is never the first reader.
+#[tauri::command]
+pub fn get_theme(state: State<AppState>) -> Result<Theme, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_theme().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_theme(state: State<AppState>, value: Theme) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.set_theme(value).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

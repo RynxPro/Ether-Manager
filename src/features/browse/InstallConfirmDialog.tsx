@@ -36,12 +36,6 @@ import {
 } from "@/lib/tauri-commands";
 import { useEnqueueDownload } from "./hooks";
 
-/** Eridu's signature corner. Inline because a clip path cannot come from a border radius. */
-const CUT_CORNER = {
-  clipPath:
-    "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-} as const;
-
 /** GameBanana's scan result, but only when it is worth saying. Printing "clean" on every
  * install would be noise nobody reads, which is exactly how a real warning gets missed.
  *
@@ -162,8 +156,7 @@ export function InstallConfirmDialog({
         // and no padding of its own so each band can reach the edges the way the mod detail
         // page's panels do. Wider than `max-w-sm` because this now confirms a file as well as
         // asking a question.
-        style={CUT_CORNER}
-        className="gap-0 border-2 border-border bg-card p-0 sm:max-w-[460px]"
+        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[460px]"
       >
         <form onSubmit={handleSubmit}>
           {/* A solid accent bar, matching the DETAILS and FILES panels this dialog opens from —

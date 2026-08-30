@@ -1,14 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   getConflictWarnings,
   getMagnifierSettings,
   getMatureContentVisibility,
+  getTheme,
   setConflictWarnings,
   setMagnifierSettings,
   setMatureContentVisibility,
+  setTheme,
   type MagnifierSettings,
   type MatureVisibility,
+  type Theme,
 } from "@/lib/tauri-commands";
+import { applyTheme, readCachedTheme, subscribeToSystemTheme } from "@/lib/theme";
 
 export function useMatureContentVisibility() {
   return useQuery({
@@ -59,6 +64,54 @@ export function useSetConflictWarnings() {
       queryClient.invalidateQueries({ queryKey: ["conflictWarnings"] });
     },
   });
+}
+
+/** The stored theme preference. Held indefinitely: nothing changes it but the settings page,
+ * which invalidates it itself, and it is read on every render of the app shell. */
+export function useTheme() {
+  return useQuery({
+    queryKey: ["theme"],
+    queryFn: getTheme,
+    staleTime: Infinity,
+  });
+}
+
+export function useSetTheme() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: Theme) => setTheme(value),
+    // Painted on the way in rather than on success. This is a preference about how the app
+    // looks, so the one thing it must do is look different the instant you choose it — waiting
+    // for a database round trip to repaint makes the control feel broken even when it worked.
+    onMutate: (value: Theme) => {
+      applyTheme(value);
+    },
+    // Covers both outcomes. On success this is a no-op refetch of what we already painted; on
+    // failure it pulls back the value that is really stored, and `useThemeSync` repaints from
+    // it — so a write that did not land cannot leave the window showing a theme nothing agrees
+    // was chosen.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["theme"] });
+    },
+  });
+}
+
+/** Keeps the window painted in whatever is currently preferred. Call once, high in the tree.
+ *
+ * Falls back to the `localStorage` mirror while the first read is in flight, so the theme the
+ * boot script already painted is the one that stays up rather than flickering through a default
+ * on the way to the stored answer.
+ *
+ * The system listener is what makes `"System"` mean "follow Windows" continuously rather than
+ * only at launch — switching the desktop at sunset moves the app with it. */
+export function useThemeSync(): void {
+  const { data } = useTheme();
+  const theme = data ?? readCachedTheme();
+
+  useEffect(() => {
+    applyTheme(theme);
+    return subscribeToSystemTheme(() => applyTheme(theme));
+  }, [theme]);
 }
 
 /** Read by the mod detail page on every visit, so it is worth keeping rather than refetching:

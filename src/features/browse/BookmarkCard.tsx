@@ -32,11 +32,10 @@ export function BookmarkCard({
 }: BookmarkCardProps) {
   return (
     <div
-      // The cut corner is Eridu's signature and cannot come from a border-radius.
-      style={{
-        clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-      }}
-      className="group relative flex flex-col border-2 border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary"
+      // Printed board stuck to the wall, like every other card. The cut corner was Eridu's
+      // signature and means nothing in this language, where a surface is identified by its hard
+      // offset shadow instead. The border stays: it still carries the hover state.
+      className="group relative flex flex-col border-2 border-border bg-card text-left shadow-slap-lift transition-all hover:-translate-y-0.5 hover:border-primary"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-secondary">
         <button

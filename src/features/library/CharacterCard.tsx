@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react";
+import type { CSSProperties } from "react";
 import type { Character, ModCounts } from "@/lib/tauri-commands";
 
 interface CharacterCardProps {
@@ -17,10 +18,56 @@ interface CharacterCardProps {
   onSelect: () => void;
 }
 
-/** Shows the enabled mod's name rather than "is anything on?", because in a real library almost
+/** How far off true a slap can sit, in degrees either way. Small on purpose: sixty cards at
+ * the ±1.7° the mockups used is charming for one screen and tiring in a grid you scroll every
+ * day. The tilt is seasoning, not the dish — the paper surface and the hard shadow carry the
+ * look, and this could go to zero without the style collapsing. */
+const MAX_TILT_DEG = 1.4;
+const TILT_STEPS = 15;
+
+/** A stable tilt for a given character.
+ *
+ * Derived from the id rather than the grid index for two reasons: a card keeps its own angle
+ * when the roster is filtered or reordered, so nothing swivels as you type in a search box; and
+ * the component never needs to know where it sits, which keeps `CharacterGrid` from passing a
+ * position it otherwise has no reason to care about.
+ *
+ * Deterministic, so it survives a remount — `Math.random()` here would make every card twitch
+ * on each render. */
+function tiltFor(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  const step = Math.abs(hash) % TILT_STEPS;
+  const half = (TILT_STEPS - 1) / 2;
+  // Rounded because this lands in a CSS custom property that shows up in devtools: the raw
+  // division produces values like `-0.19999999999999998deg`, which is correct, renders
+  // identically, and looks like a bug to anyone who inspects a card.
+  return Math.round(((step - half) / half) * MAX_TILT_DEG * 100) / 100;
+}
+
+/** A character as a slap: a die-cut sticker of printed board with the art on it, stuck to the
+ * wall slightly off true and casting a hard offset shadow.
+ *
+ * Shows the enabled mod's name rather than "is anything on?", because in a real library almost
  * every character has something enabled — so the yes/no answer is identical on nearly every card
- * and tells you nothing. The counts stay, right-aligned beside the look so the name can use the
- * full width and the numbers still form a scannable column. */
+ * and tells you nothing. The counts stay, right-aligned beside the name so it can use the full
+ * width while the numbers still form a scannable column.
+ *
+ * Two deliberate departures from the card this replaces:
+ *
+ * The portraits are 480×640 transparent cutouts, which is exactly the 3:4 of the frame — so
+ * `object-cover` and `object-contain` did the identical thing and no crop happened at all. Every
+ * card rendered a whole standing figure about 150px wide, putting each face at roughly twelve
+ * pixels, which is why sixty different characters read as one texture. The scale below crops into
+ * the art so each card shows a face: one blind rule for the whole roster, since the official art
+ * places heads within a few percent of each other.
+ *
+ * And characters with nothing installed are no longer greyed out. Desaturating the empty majority
+ * made the grid look switched off rather than idle — the art is the reason this screen exists.
+ * "Not in play" is carried by the recessed surface and the absent accent ring, both of which read
+ * at a glance without spending the artwork to say it. */
 export function CharacterCard({
   character,
   counts,
@@ -47,80 +94,65 @@ export function CharacterCard({
     secondLine = "Nothing enabled";
   }
 
+  // The accent ring marks the card under the cursor, not the ones that are switched on.
+  //
+  // It was state at first, which repeated the mistake the second line already avoids: in a library
+  // anyone actually uses, nearly every character has something enabled — so a ring on "enabled"
+  // lands on nearly every card, and a mark that is almost everywhere marks nothing. It also spent
+  // the app's one loud colour on the resting state of a sixty-card grid.
+  //
+  // Enabled stays perfectly legible without it: the mod's name below is *stamped* in the accent
+  // rather than merely coloured by it, which reads across a full grid without ringing the artwork.
+  const style = {
+    "--tilt": `${tiltFor(character.id)}deg`,
+  } as CSSProperties;
+
   return (
     <button
       type="button"
       onClick={onSelect}
-      // The cut corner is Eridu's signature and cannot come from a border-radius, so it is a
-      // clip-path rather than a utility class. Yellow marks the hovered card and anything with
-      // an update — nothing else, which is what keeps it findable.
-      style={{
-        clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-      }}
-      // The surface dims too, not just the art. Portraits are transparent around the figure, so
-      // the card colour shows through behind them, and an empty character should sink into the
-      // grid rather than sit on a lit panel. Reuses `--sidebar`, the app's existing recessed
-      // surface, instead of inventing another dark value.
-      className={`group relative flex w-full flex-col overflow-hidden border-2 text-left transition-all hover:-translate-y-0.5 hover:border-primary ${
-        hasUpdate ? "border-primary" : "border-border"
-      } ${hasMods ? "bg-card" : "bg-sidebar hover:bg-card"}`}
+      style={style}
+      // Hover straightens the card and lifts it — the gesture of peeling a sticker off a wall
+      // rather than a generic UI highlight. `rotate` and `translate` are separate properties in
+      // Tailwind v4, so the two compose instead of overwriting one another.
+      className={`group relative flex w-full rotate-[var(--tilt)] flex-col p-[5px] pb-0 text-left shadow-slap-lift outline-none transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:ring-[3px] hover:ring-primary focus-visible:ring-[3px] focus-visible:ring-primary ${
+        hasMods ? "bg-card" : "bg-muted"
+      }`}
     >
-      <span className="relative block aspect-[3/4] w-full overflow-hidden">
+      <span className="relative block aspect-[3/4] w-full overflow-hidden bg-art">
         {character.portrait ? (
           <img
             src={character.portrait}
             alt=""
-            // Characters with nothing installed grey out, the same way a disabled mod card does,
-            // so the two screens mark "not in play" identically. Greyscale rather than opacity:
-            // fading the art washed the whole grid out, where desaturation keeps it crisp and
-            // still reads as inactive at a glance. Colour returns on hover so the roster stays
-            // browsable.
-            className={`absolute inset-0 h-full w-full object-cover object-top transition-[filter] ${
-              hasMods ? "" : "brightness-75 grayscale group-hover:brightness-100 group-hover:grayscale-0"
-            }`}
+            // 2.05× anchored just above and right of centre lands on the head for essentially the
+            // whole roster; the official art is composed consistently enough that a single focal
+            // point beats per-character tuning, which would be sixty hand-checked numbers and two
+            // new fields on `Character` for a gain you have to hunt for.
+            className="absolute inset-0 h-full w-full origin-[55%_14%] scale-[2.05] object-cover transition-transform duration-300 group-hover:scale-[2.14]"
           />
         ) : (
           // 7 of the 60 characters ship without a portrait — a permanent state, not a load
           // failure, so this initial is the designed representation rather than a placeholder.
-          // It sits on the secondary surface, not the muted one, so a character that owns mods
-          // still reads as present rather than blending into the dimmed empty cards.
-          <span
-            className={`absolute inset-0 flex items-center justify-center bg-secondary font-heading text-3xl font-semibold transition-colors ${
-              hasMods ? "text-muted-foreground/50" : "text-muted-foreground/25 group-hover:text-muted-foreground/50"
-            }`}
-          >
+          <span className="absolute inset-0 flex items-center justify-center font-heading text-5xl text-card-foreground/15">
             {character.name.charAt(0)}
           </span>
         )}
 
-        {/* No scanlines or foot gradient here — sixty pieces of character art are the whole
-            point of this grid, and a texture laid over all of them only obscured what the user
-            came to look at. The greyscale above carries the "nothing installed" state instead. */}
-
         {hasUpdate && (
-          <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+          <span className="absolute right-0 top-0 bg-primary px-1.5 py-px font-sign text-[15px] uppercase tracking-wider text-primary-foreground">
             Update
           </span>
         )}
       </span>
 
-      <span
-        className={`relative block border-t-2 px-2.5 pb-3 pt-1.5 ${
-          hasUpdate ? "border-t-primary" : "border-t-border"
-        } ${hasMods ? "bg-background" : "bg-sidebar"} group-hover:border-t-primary`}
-      >
-        <span className="flex items-center justify-between gap-2">
-          <span
-            className={`min-w-0 flex-1 truncate font-heading text-sm font-semibold uppercase tracking-wide ${
-              hasMods ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-            }`}
-          >
+      <span className="relative block px-0.5 pb-1.5 pt-1">
+        <span className="flex items-center justify-between gap-1.5">
+          <span className="min-w-0 flex-1 truncate font-heading text-[18px] uppercase leading-none text-card-foreground">
             {character.name}
           </span>
-          {/* In the caption rather than over the art, at the end of the name line and so directly
-              above the counts — the mark and the number it is about form one right-hand column.
-              A mark rather than a word: the card has no room for a sentence, and the page it
-              leads to explains the conflict properly. */}
+          {/* At the end of the name line and so directly above the counts — the mark and the
+              number it is about form one right-hand column. A mark rather than a sentence: the
+              card has no room for one, and the page it leads to explains the conflict properly. */}
           {hasConflictRisk && (
             <span
               title={`${counts.enabled} mods enabled at once — they may conflict`}
@@ -130,16 +162,19 @@ export function CharacterCard({
             </span>
           )}
         </span>
-        <span className="flex items-baseline justify-between gap-2">
+        <span className="mt-1 flex items-baseline justify-between gap-1.5">
+          {/* The live mod's name is stamped in the accent rather than merely tinted by it, so a
+              character actually doing something reads across a full grid without being searched
+              for. Everything idle stays quiet — the accent means exactly one thing here. */}
           <span
-            className={`min-w-0 flex-1 truncate text-[11px] ${
-              hasEnabled ? "text-muted-foreground" : "italic text-muted-foreground/60"
+            className={`min-w-0 truncate font-mono text-[11px] font-bold uppercase tracking-wide ${
+              hasEnabled ? "bg-primary px-1 py-px text-primary-foreground" : "text-card-foreground/45"
             }`}
           >
             {secondLine}
           </span>
           {hasMods && (
-            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/60">
+            <span className="shrink-0 font-mono text-[11px] font-bold tabular-nums text-card-foreground/40">
               {counts.total}·{counts.enabled}
             </span>
           )}

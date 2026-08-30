@@ -871,3 +871,20 @@ export function getConflictWarnings(): Promise<boolean> {
 export function setConflictWarnings(value: boolean): Promise<void> {
   return invoke("set_conflict_warnings", { value });
 }
+
+/** Which of the two looks the app wears. `"System"` follows Windows rather than storing a fixed
+ * choice, which is why this is three values and not a boolean. */
+export type Theme = "Daylight" | "Night" | "System";
+
+/** The stored preference, defaulting to `"System"` on a database that predates the setting.
+ *
+ * The source of truth, but never the first reader: an IPC round trip cannot finish before the
+ * window paints, so `src/lib/theme.ts` keeps a `localStorage` mirror and reads that
+ * synchronously at boot. Call this to reconcile the mirror, not to decide what to paint. */
+export function getTheme(): Promise<Theme> {
+  return invoke("get_theme");
+}
+
+export function setTheme(value: Theme): Promise<void> {
+  return invoke("set_theme", { value });
+}

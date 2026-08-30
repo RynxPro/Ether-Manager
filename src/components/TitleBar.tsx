@@ -14,7 +14,38 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  * Snapping by dragging to an edge and the Win+Arrow shortcuts are unaffected, since those belong
  * to the window rather than to its buttons.
  */
-export function TitleBar() {
+interface TitleBarProps {
+  /** Navigation, hoisted out of the page and into the window's own chrome.
+   *
+   * It lived in the page header before, which forced every long page to pin that header — the way
+   * out of a mod's detail page cannot be something you have to scroll back up to find. Pinning it
+   * meant a tall band frozen over the content, cards sliced at its lower edge, and the header
+   * unable to be the thing the design wanted it to be.
+   *
+   * The title bar solves it by already being the answer: it never scrolls, it is always visible,
+   * it is where every browser and file manager puts these two, and its middle was empty. With back
+   * and forward living here, no page needs a pinned header at all.
+   *
+   * Optional, because the bar is mounted above the loading and first-run states too, where there
+   * is no history to move through yet. */
+  onBack?: () => void;
+  onForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  /** The ambient readouts — what the app is attached to, whether GameBanana is answering, the
+   * version, the notification bell. They sat under the sidebar before; they are facts about the
+   * window rather than about a destination, so they belong in the window's own strip. Passed in
+   * rather than rendered here so this component stays presentational and does no data fetching. */
+  status?: React.ReactNode;
+}
+
+export function TitleBar({
+  onBack,
+  onForward,
+  canGoBack = false,
+  canGoForward = false,
+  status,
+}: TitleBarProps = {}) {
   const appWindow = getCurrentWindow();
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -62,7 +93,26 @@ export function TitleBar() {
         Ether Manager
       </span>
 
-      <div className="ml-auto flex h-full">
+      {onBack && onForward && (
+        // Left, next to the wordmark, rather than centred: this is where the eye already goes for
+        // it, and a control you reach for constantly should not be hunted for in the middle of an
+        // otherwise draggable strip.
+        <div className="ml-4 flex h-full">
+          <NavButton label="Back" onClick={onBack} disabled={!canGoBack}>
+            <path d="M6.5 1 2.5 5l4 4" />
+          </NavButton>
+          <NavButton label="Forward" onClick={onForward} disabled={!canGoForward}>
+            <path d="M3.5 1 7.5 5l-4 4" />
+          </NavButton>
+        </div>
+      )}
+
+      {/* Right-aligned but held clear of the window controls: close is the one button in the app
+          whose misfire cannot be undone, and readouts crowding it would put a hover target next
+          to it. The gap is the safety margin. */}
+      {status && <div className="ml-auto pr-4">{status}</div>}
+
+      <div className={`flex h-full ${status ? "" : "ml-auto"}`}>
         <ControlButton
           label="Minimize"
           onClick={() => void appWindow.minimize()}
@@ -96,6 +146,51 @@ export function TitleBar() {
         </ControlButton>
       </div>
     </div>
+  );
+}
+
+/** Back or forward.
+ *
+ * Narrower than the window controls at 34px, and deliberately so: those three are a Windows
+ * convention measured in muscle memory, and matching their 46px here would make navigation look
+ * like a fourth and fifth window control. These belong to the app, not to the frame.
+ *
+ * Disabled rather than hidden at the ends of the trail — a control that vanishes moves the one
+ * beside it, and a back button that jumps under the cursor is worse than one that is greyed. */
+function NavButton({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-full w-[34px] items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+    >
+      <svg
+        width="10"
+        height="10"
+        viewBox="0 0 10 10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        {children}
+      </svg>
+    </button>
   );
 }
 

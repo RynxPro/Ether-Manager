@@ -23,12 +23,6 @@ import {
   useClearModThumbnail,
 } from "./hooks";
 
-/** Eridu's signature corner. Inline because a clip path cannot come from a border radius. */
-const CUT_CORNER = {
-  clipPath:
-    "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-} as const;
-
 interface EditModDialogProps {
   mod: Mod;
   onOpenChange: (open: boolean) => void;
@@ -172,8 +166,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
       <DialogContent
         showCloseButton={false}
-        style={CUT_CORNER}
-        className="gap-0 border-2 border-border bg-card p-0 sm:max-w-[440px]"
+        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[440px]"
       >
         <DialogHeader className="flex-row items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
           <DialogTitle className="font-heading text-[11px] font-semibold uppercase tracking-[0.16em]">

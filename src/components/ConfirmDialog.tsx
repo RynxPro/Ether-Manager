@@ -9,11 +9,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/** Eridu's signature corner. Inline because a clip path cannot come from a border radius. */
-const CUT_CORNER = {
-  clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-} as const;
-
 interface ConfirmDialogProps {
   title: string;
   /** What is about to happen, in the terms the user thinks in — what goes, and whether it can
@@ -49,8 +44,7 @@ export function ConfirmDialog({
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
       <DialogContent
         showCloseButton={false}
-        style={CUT_CORNER}
-        className="gap-0 border-2 border-border bg-card p-0 sm:max-w-[400px]"
+        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[400px]"
       >
         <DialogHeader
           className={`flex-row items-center justify-between px-4 py-2.5 ${

@@ -12,7 +12,7 @@ pub use creator_bookmarks_repo::{CreatorBookmark, NewCreatorBookmark};
 pub use creator_feed_repo::{CreatorFeedItem, NewCreatorFeedItem};
 pub use downloads_repo::{Download, DownloadStatus, NewDownload};
 pub use mods_repo::{Mod, ModCounts, NewMod, Slot};
-pub use settings_repo::MagnifierSettings;
+pub use settings_repo::{MagnifierSettings, Theme};
 pub use update_checks_repo::{ModStanding, UpdateCheck};
 
 use rusqlite::Connection;

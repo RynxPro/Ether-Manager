@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+/* Street has four voices and each one has exactly one job — see `@theme inline` below for
+ * which. Bundled rather than pulled from Google's CDN: this is a desktop app, and a typeface
+ * that needs the network is a typeface that is missing when the network is. Same reasoning as
+ * Geist above. */
+@import "@fontsource/anton";
+@import "@fontsource/bebas-neue";
+@import "@fontsource/permanent-marker";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -9,69 +16,189 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* "New Eridu" — hazard yellow on near-black, borrowing ZZZ's own industrial signage
- * palette. This is a single committed look, not a light/dark pair: both selectors point
- * at the same tokens so the app cannot end up half-themed if `.dark` is ever applied.
+/* "Sixth Street" — the app as a wall with things stuck to it.
  *
- * The accent is deliberately scarce. It marks only two things — the card under the
- * cursor, and anything needing action — so it never becomes a background colour. */
-:root,
+ * Two themes, one set of names. Daylight (`:root`) is a pasted-over surface in the sun;
+ * Night (`.dark`) is the same wall after dark. Neither is a separate design: a component
+ * names the role, the theme supplies the value, and no component ever asks which theme it
+ * is in. That is what makes shipping both roughly free rather than double the work.
+ *
+ * The material rule the whole look rests on: **if you can interact with it, it is paper
+ * stuck on the wall** — `--card`, always carrying `--shadow-slap` beneath it. **If it is
+ * decoration, it is sprayed on the wall** — `--primary` at low opacity, directly on
+ * `--background`. Nothing floats in between, and that single rule is what stops the app
+ * reading as two designs arguing.
+ *
+ * One accent, not two. `--primary` is the only colour meaning "live, active, selected,
+ * committing", and it is never decoration. The previous look split that job between hazard
+ * yellow and a red, which is precisely why neither read as anything in particular.
+ *
+ * `--destructive` is deliberately *dark* rather than a second bright red. With the accent
+ * now red, hue alone can no longer separate "this is switched on" from "this deletes your
+ * mod", so the two are told apart by value instead — which also survives colour blindness,
+ * where a red/red pair does not. Revisit when destructive buttons get their street
+ * treatment; the fill-vs-outline question is still open. */
+:root {
+  color-scheme: light;
+  --background: #d6d0c3;
+  --foreground: #1a1714;
+  --card: #f6f3ec;
+  --card-foreground: #1a1714;
+  --popover: #f6f3ec;
+  --popover-foreground: #1a1714;
+  --primary: #e02b12;
+  --primary-foreground: #ffffff;
+  --secondary: #c8c1b2;
+  --secondary-foreground: #1a1714;
+  --muted: #cdc6b7;
+  --muted-foreground: #6d6659;
+  /* shadcn's `--accent` is the quiet hover surface, not the brand accent. Naming collision
+   * inherited from the library — the brand accent is `--primary`, and always was. */
+  --accent: #cbc4b4;
+  --accent-foreground: #1a1714;
+  --destructive: #7f1d1d;
+  /* The one green in the app, and it still earns its place: the sidebar's API signal is a
+   * three-step reading, and its top step cannot be `--primary` because that already means
+   * "switched on" everywhere else — a healthy connection would look like a lit control.
+   * The signal is also positional (one, two or three bars), so the reading never depends on
+   * telling this apart from the accent by colour alone. */
+  --success: #1f7a3d;
+  --border: #b8b1a1;
+  --input: #b8b1a1;
+  --ring: #e02b12;
+  --chart-1: #e02b12;
+  --chart-2: #a8543a;
+  --chart-3: #6d6659;
+  --chart-4: #a49d8e;
+  --chart-5: #c8c1b2;
+  /* Square by design, in both looks. Slaps are rectangles of printed board; the old cut
+   * corner was Eridu's signature and does not belong here, so every derived --radius-*
+   * below still resolves to 0. */
+  --radius: 0rem;
+  --sidebar: #c8c1b2;
+  --sidebar-foreground: #6d6659;
+  --sidebar-primary: #e02b12;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #bcb5a6;
+  --sidebar-accent-foreground: #1a1714;
+  --sidebar-border: #b0a898;
+  --sidebar-ring: #e02b12;
+
+  /* ---- street materials ---- */
+  /* What sits behind a character cutout. The portraits are transparent PNGs, so this is the
+   * colour actually visible around the figure — a shade off `--card` so the art reads as
+   * printed onto the board rather than floating over it. */
+  --art: #e4e0d6;
+  /* The LED strip: the one lit object in either theme, and the only place a glow is allowed. */
+  --sign: #1a1714;
+  --sign-foreground: #f6f3ec;
+  --sign-glow: none;
+  /* Hard offset shadow — a printed thing sitting proud of the wall, not a soft UI elevation.
+   * `--slap-lift` is the ambient half, used together with the hard one on cards and never
+   * on its own. */
+  --slap-shadow: 2px 3px 0 rgb(26 23 20 / 0.34);
+  --slap-lift: 0 8px 15px rgb(26 23 20 / 0.16);
+  /* Concrete. One inline SVG turbulence rather than an image file: no request, no seams at
+   * any window size, and it costs nothing to theme. Applied once on `body::after`. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+  --grain-blend: multiply;
+  --grain-opacity: 0.1;
+  /* Uneven light across the wall, so the ground is never one flat fill. Sits on `body` as a
+   * background-image beneath the background colour's own children, which means any surface
+   * painted on top of it correctly hides it. */
+  --wall-light: radial-gradient(ellipse 110% 80% at 26% 0%, rgb(255 255 255 / 0.34), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 92% 100%, rgb(0 0 0 / 0.14), transparent 70%);
+}
+
 .dark {
   color-scheme: dark;
-  --background: #0a0a0c;
-  --foreground: #f0f0f2;
-  --card: #101014;
-  --card-foreground: #f0f0f2;
-  --popover: #101014;
-  --popover-foreground: #f0f0f2;
-  --primary: #ffd400;
-  --primary-foreground: #0a0a0c;
-  --secondary: #16161b;
-  --secondary-foreground: #f0f0f2;
-  --muted: #16161b;
-  --muted-foreground: #8a8a94;
-  --accent: #23232a;
-  --accent-foreground: #f0f0f2;
-  --destructive: #e5484d;
-  /* The one green in the app, and it earns its place: the sidebar's signal is a three-step
-   * reading, and without it the top step would have to be yellow — which already means
-   * "active" everywhere else, so a healthy connection would look like a highlighted control.
-   * Radix dark green 9, the exact sibling of the red above (Radix dark red 9), so the two
-   * carry the same weight against this background. Reserved for "nothing is wrong"; it is
-   * never an accent, and --primary stays the only colour that marks action. */
+  --background: #16161a;
+  --foreground: #f0ede6;
+  --card: #22222a;
+  --card-foreground: #f0ede6;
+  --popover: #22222a;
+  --popover-foreground: #f0ede6;
+  --primary: #ff3b21;
+  --primary-foreground: #12100e;
+  --secondary: #1c1c22;
+  --secondary-foreground: #f0ede6;
+  --muted: #1c1c22;
+  --muted-foreground: #8a8695;
+  --accent: #2b2b34;
+  --accent-foreground: #f0ede6;
+  --destructive: #8f2018;
   --success: #30a46c;
-  --border: #23232a;
-  --input: #26262d;
-  --ring: #ffd400;
-  --chart-1: #ffd400;
-  --chart-2: #b39400;
-  --chart-3: #6f6f79;
-  --chart-4: #3d3d45;
-  --chart-5: #23232a;
-  /* Square by design — Eridu's edges are cut, not rounded. Cards take a clipped corner
-   * instead of a radius, so every derived --radius-* below resolves to 0 as well. */
-  --radius: 0rem;
-  --sidebar: #08080a;
-  --sidebar-foreground: #7c7c86;
-  --sidebar-primary: #ffd400;
-  --sidebar-primary-foreground: #0a0a0c;
-  --sidebar-accent: #16161b;
-  --sidebar-accent-foreground: #f0f0f2;
-  --sidebar-border: #1c1c21;
-  --sidebar-ring: #ffd400;
+  --border: #2e2e37;
+  --input: #33333d;
+  --ring: #ff3b21;
+  --chart-1: #ff3b21;
+  --chart-2: #b3281a;
+  --chart-3: #8a8695;
+  --chart-4: #4e4b57;
+  --chart-5: #2b2b34;
+  --sidebar: #111114;
+  --sidebar-foreground: #7d7986;
+  --sidebar-primary: #ff3b21;
+  --sidebar-primary-foreground: #12100e;
+  --sidebar-accent: #1c1c22;
+  --sidebar-accent-foreground: #f0ede6;
+  --sidebar-border: #26262e;
+  --sidebar-ring: #ff3b21;
+
+  /* At night the surface stops being paper and becomes a painted panel — same role, same
+   * token, different material. This is the pair's whole trick. */
+  --art: #101014;
+  --sign: #08080a;
+  --sign-foreground: #ff5a44;
+  --sign-glow: 0 0 8px rgb(255 59 33 / 0.6);
+  --slap-shadow: 2px 3px 0 rgb(0 0 0 / 0.7);
+  --slap-lift: 0 9px 18px rgb(0 0 0 / 0.5);
+  /* Overlay rather than multiply: on a dark ground, multiplying noise darkens toward black
+   * and disappears, where overlay lifts and sinks either side of the mid-point and reads as
+   * texture. The opacity is higher for the same reason. */
+  --grain-blend: overlay;
+  --grain-opacity: 0.18;
+  --wall-light: radial-gradient(ellipse 110% 80% at 26% 0%, rgb(255 255 255 / 0.07), transparent 58%),
+    radial-gradient(ellipse 80% 60% at 92% 100%, rgb(0 0 0 / 0.6), transparent 70%);
 }
 
 body {
   margin: 0;
+  /* The wall's uneven light. `background-color` comes from `@apply bg-background` in the base
+   * layer below; this sits over it and under everything the app paints, so any surface with a
+   * fill of its own correctly covers it. */
+  background-image: var(--wall-light);
+  background-attachment: fixed;
 }
 
 @theme inline {
-  /* Bahnschrift is the condensed industrial face Eridu's signage look is built on. It ships
-   * with Windows, and this app is Windows-only (ZZZ modding is), so it always resolves —
-   * Arial Narrow is a shape-compatible fallback rather than a realistic one. Body text stays
-   * on bundled Geist so the running copy never depends on a system font. */
-  --font-heading: Bahnschrift, 'Arial Narrow', sans-serif;
+  /* Four voices, one job each, and they never trade places. The discipline matters more than
+   * the choices: the previous street mockups used the same faces with no assigned roles and
+   * read as four unrelated designs.
+   *
+   *   heading — Anton. Poster display. Page titles and card names. Nothing else.
+   *   sign    — Bebas Neue. Signage. Every control: nav, buttons, tabs, the LED strip.
+   *   hand    — Permanent Marker. Annotation ONLY: section scrawls, wall tags, the mascot's
+   *             name. It never carries data, because handwriting you cannot verify is worse
+   *             than no styling at all.
+   *   mono    — Courier. Whatever the machine knows: counts, indices, byte sizes, URLs.
+   *   sans    — Geist. Body copy, and only body copy. Street type is unreadable in
+   *             paragraphs, so the style deliberately stops at the paragraph edge.
+   *
+   * Impact and Arial Narrow are shape-compatible fallbacks rather than realistic ones — all
+   * three street faces are bundled, so they always resolve. */
+  --font-heading: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  --font-sign: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+  --font-hand: 'Permanent Marker', 'Segoe Script', cursive;
   --font-sans: 'Geist Variable', sans-serif;
+  --font-mono: ui-monospace, 'Courier New', monospace;
+  --color-art: var(--art);
+  --color-sign: var(--sign);
+  --color-sign-foreground: var(--sign-foreground);
+  /* Always used as a pair on anything stuck to the wall — the hard offset says "printed
+   * object", the ambient lift stops it looking pasted onto a flat image. */
+  --shadow-slap: var(--slap-shadow);
+  --shadow-slap-lift: var(--slap-shadow), var(--slap-lift);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -120,6 +247,53 @@ body {
  * `scaleX` rather than `width` so it runs on the compositor; the element carries
  * `origin-left`. Declared here rather than inline because a keyframe rule cannot live in a
  * style attribute. */
+/* The sidebar's edge strip. Runs the app's name up the outer margin of the window, the way a
+ * hoarding carries a printed band down its side — the one place the wordmark appears, since the
+ * title bar already says it and the nav has no room to.
+ *
+ * Translating exactly -50% means the content must be repeated an even number of times, so the
+ * halfway point is identical to the start and the loop has no seam. `will-change` is deliberately
+ * absent: this is a small strip of text and promoting it to its own layer costs more than the
+ * repaint does. */
+@keyframes edge-ticker {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.edge-ticker {
+  animation: edge-ticker 40s linear infinite;
+}
+
+/* The horizontal twin, for the LED strip. Same -50% wrap, so the content must be repeated an
+ * even number of times or the loop shows a seam at the halfway point. */
+@keyframes edge-ticker-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.edge-ticker-x {
+  animation: edge-ticker-x 34s linear infinite;
+}
+
+
+/* Anything ambient enough to run forever has to answer to this. The strip is decoration that
+ * carries no information the app needs you to read, so it simply stops rather than degrading to
+ * something slower. */
+@media (prefers-reduced-motion: reduce) {
+  .edge-ticker,
+  .edge-ticker-x {
+    animation: none;
+  }
+}
+
 @keyframes featured-progress {
   from {
     transform: scaleX(0);
@@ -139,13 +313,37 @@ body {
   html {
     @apply font-sans;
   }
-  /* Every page-level heading in Eridu is condensed uppercase signage — stated once here
-   * rather than repeated across the seven screens that each render one, so a screen added
-   * later inherits it instead of quietly shipping the body font. Section-level headings
-   * (h3+) deliberately stay on the body face so the contrast means something. */
+  /* Every page-level heading is uppercase poster display — stated once here rather than
+   * repeated across the seven screens that each render one, so a screen added later inherits
+   * it instead of quietly shipping the body font. Section-level headings (h3+) deliberately
+   * stay on the body face so the contrast means something.
+   *
+   * Tracking is near-zero because Anton is already a tight condensed face; the 0.08em that
+   * Bahnschrift needed pulls it apart into loose letters and loses the poster weight, which
+   * is the only reason to use it. */
   h1,
   h2 {
-    @apply font-heading uppercase tracking-[0.08em];
+    @apply font-heading uppercase tracking-[0.005em];
+  }
+
+  /* The concrete, laid over the whole window.
+   *
+   * One fixed overlay rather than a texture per surface: a wall does not stop at a component
+   * boundary, and doing it per-screen would mean every new screen has to remember. It sits
+   * above everything so dialogs share the same room as the page behind them, and
+   * `pointer-events: none` keeps it out of every hit test.
+   *
+   * Kept deliberately faint. Grain over small text is the fastest way to make an interface
+   * feel dirty rather than textured, and this app is mostly small text. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background-image: var(--grain);
+    mix-blend-mode: var(--grain-blend);
+    opacity: var(--grain-opacity);
   }
 
   /* Scrollbars in the app's own language rather than the platform's.

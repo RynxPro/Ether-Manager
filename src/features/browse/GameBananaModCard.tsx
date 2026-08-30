@@ -39,11 +39,9 @@ export function GameBananaModCard({
 
   return (
     <div
-      // The cut corner is Eridu's signature and cannot come from a border-radius.
-      style={{
-        clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-      }}
-      className="group relative flex flex-col border-2 border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary"
+      // Printed board stuck to the wall, like every other card — the cut corner was Eridu's and
+      // has no job here, where a surface is identified by its hard offset shadow.
+      className="group relative flex flex-col border-2 border-border bg-card text-left shadow-slap-lift transition-all hover:-translate-y-0.5 hover:border-primary"
     >
       {/* 4:3, not the roster's 3:4. GameBanana previews are landscape without exception, and a
           portrait frame was discarding most of every one of them — on the surface where the

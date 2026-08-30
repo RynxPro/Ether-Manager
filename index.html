@@ -5,6 +5,33 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tauri + React + Typescript</title>
+    <!--
+      Paints the theme before anything else runs.
+
+      The preference lives in SQLite with every other setting, but that is only reachable over
+      async IPC — so by the time the real value arrives the window has already painted, and the
+      user sees a white flash on the way into Night or the reverse. This reads the mirror that
+      `src/lib/theme.ts` keeps in localStorage, which is synchronous and therefore in time.
+
+      Deliberately duplicates a few lines of that module rather than importing it: a module
+      cannot run before the bundle loads, which is the entire problem being solved here. Kept to
+      the minimum that avoids the flash, and wrapped so a locked-down or full storage costs one
+      frame rather than a blank window.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("ether-manager.theme");
+          var night =
+            stored === "Night" ||
+            ((stored === "System" || stored === null) &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (night) document.documentElement.classList.add("dark");
+        } catch (e) {
+          /* No cache to read. The app applies the stored preference once it loads. */
+        }
+      })();
+    </script>
   </head>
 
   <body>

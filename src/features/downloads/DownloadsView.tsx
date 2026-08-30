@@ -16,11 +16,6 @@ import {
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
 
-/** Eridu's signature corner. Inline because a clip path cannot come from a border radius. */
-const CUT_CORNER = {
-  clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-} as const;
-
 /** What each state is called on screen, and whether it reads as a problem.
  *
  * `Failed` is the only one that takes `--destructive`. A cancelled download is not an error —
@@ -222,7 +217,7 @@ function ActiveDownloadHero({
   const eta = formatEta(downloaded, total, speed);
 
   return (
-    <div style={CUT_CORNER} className="flex gap-4 border-2 border-primary bg-card p-3.5">
+    <div className="flex gap-4 border-2 border-primary bg-card p-3.5 shadow-slap-lift">
       <div className="h-[105px] w-[168px] shrink-0 overflow-hidden border border-border bg-secondary">
         {download.thumbnail_url ? (
           <img src={download.thumbnail_url} alt="" className="h-full w-full object-cover" />
@@ -348,8 +343,7 @@ function DownloadRow({
 
   return (
     <div
-      style={CUT_CORNER}
-      className={`flex items-center gap-3 border-2 bg-card px-3 py-2.5 transition-colors ${
+      className={`flex items-center gap-3 border-2 bg-card px-3 py-2.5 shadow-slap-lift transition-colors ${
         // Yellow marks the one actually running, which is this app's rule for "on".
         isRunning ? "border-primary" : "border-border"
       }`}

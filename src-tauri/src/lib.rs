@@ -134,6 +134,8 @@ pub fn run() {
             commands::settings::set_magnifier_settings,
             commands::settings::get_conflict_warnings,
             commands::settings::set_conflict_warnings,
+            commands::settings::get_theme,
+            commands::settings::set_theme,
             commands::gamebanana::check_gamebanana_api,
             commands::gamebanana::search_gamebanana_mods,
             commands::gamebanana::get_featured_mods,

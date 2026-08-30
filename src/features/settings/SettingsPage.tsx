@@ -9,7 +9,11 @@ import {
   useSetModsFolder,
 } from "@/features/library/hooks";
 import { MAGNIFIER_MAX_SIZE, MAGNIFIER_MIN_SIZE } from "@/lib/magnifier";
-import type { MagnifierSettings, MatureVisibility } from "@/lib/tauri-commands";
+import type {
+  MagnifierSettings,
+  MatureVisibility,
+  Theme,
+} from "@/lib/tauri-commands";
 import {
   useConflictWarnings,
   useMagnifierSettings,
@@ -17,12 +21,35 @@ import {
   useSetConflictWarnings,
   useSetMagnifierSettings,
   useSetMatureContentVisibility,
+  useSetTheme,
+  useTheme,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
 
 /** Shown for the moment before the stored settings arrive. Matches the Rust default so the
  * controls do not visibly jump into place on load. */
 const MAGNIFIER_FALLBACK: MagnifierSettings = { enabled: true, size: 120 };
+
+/** The two looks are one wall at two times of day, so the copy describes the place rather than
+ * the brightness — "Light"/"Dark" would invite treating them as a generic pair. */
+const THEME_OPTIONS: { value: Theme; label: string; description: string }[] = [
+  {
+    value: "Daylight",
+    label: "Daylight",
+    description: "Paper in the sun. Pale wall, printed cards, ink type.",
+  },
+  {
+    value: "Night",
+    label: "Night",
+    description: "The same wall after dark. Painted panels, lit signage.",
+  },
+  {
+    value: "System",
+    label: "Match Windows",
+    description:
+      "Follow whatever Windows is set to, and switch when it does.",
+  },
+];
 
 const OPTIONS: {
   value: MatureVisibility;
@@ -68,6 +95,11 @@ export function SettingsPage() {
   const { data: visibility, isError } = useMatureContentVisibility();
   const setVisibility = useSetMatureContentVisibility();
 
+  // No error branch of its own: an unreadable stored theme still leaves every option pickable,
+  // and choosing one writes a fresh valid value — the same recovery path as mature content.
+  const { data: theme } = useTheme();
+  const saveTheme = useSetTheme();
+
   const { data: conflictWarnings } = useConflictWarnings();
   const saveConflictWarnings = useSetConflictWarnings();
 
@@ -92,6 +124,68 @@ export function SettingsPage() {
 
       <div className="max-w-2xl space-y-8">
         <section className="space-y-3">
+          <div>
+            <h3 id="theme-heading" className="text-sm font-medium text-foreground">
+              Look
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Two versions of the same wall. Everything moves together — nothing
+              is only styled for one of them.
+            </p>
+          </div>
+
+          <div
+            role="radiogroup"
+            aria-labelledby="theme-heading"
+            className="grid gap-2"
+          >
+            {THEME_OPTIONS.map((option) => {
+              // Undefined while the first read is in flight. Nothing is marked selected in that
+              // window rather than guessing, because guessing wrong makes the row visibly jump
+              // — and the theme itself is already painted correctly from the cache regardless.
+              const selected = theme === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={saveTheme.isPending}
+                  onClick={() => saveTheme.mutate(option.value)}
+                  className={`flex items-start justify-between gap-2 rounded-lg border p-3 text-left transition-colors ${
+                    selected
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-background hover:bg-muted"
+                  }`}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {option.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {option.description}
+                    </p>
+                  </div>
+                  {selected && (
+                    <Check
+                      className="h-4 w-4 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {saveTheme.isError && (
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {String(saveTheme.error)}
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-3 border-t border-border pt-6">
           <div>
             <h3
               id="mature-content-heading"

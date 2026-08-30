@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
@@ -8,7 +8,7 @@ import {
   LayoutGrid,
   Settings as SettingsIcon,
 } from "lucide-react";
-import { SidebarFooter } from "@/components/SidebarFooter";
+import { WindowStatus } from "@/components/WindowStatus";
 import { TitleBar } from "@/components/TitleBar";
 import { BookmarksView } from "@/features/browse/BookmarksView";
 import { Browse } from "@/features/browse/Browse";
@@ -26,6 +26,7 @@ import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { useCharacters, useModsFolder } from "@/features/library/hooks";
 import { FirstRunSetup } from "@/features/settings/FirstRunSetup";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { useThemeSync } from "@/features/settings/hooks";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import {
   backfillModThumbnails,
@@ -66,12 +67,11 @@ const HOME: Location = { view: "library", character: null, detailStack: [] };
  * past the point anyone is still retracing a path. */
 const MAX_HISTORY = 50;
 
-/** The bottom-right chamfer every card in the app is cut with. The sidebar used to be the one
- * surface that never wore it, which is most of why it read as furniture from a different app. */
-const CUT_CORNER = {
-  clipPath:
-    "polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)",
-};
+/** How far off true each nav sign sits. Alternating rather than random: six signs in a column
+ * want to look hand-placed, not scattered, and a repeating pair reads as the former. Half the
+ * tilt the character cards get — these are read in sequence rather than scanned, and text at an
+ * angle costs more when you are following a list down than when you are sweeping a grid. */
+const NAV_TILT = ["-0.6deg", "0.5deg"];
 
 /** The six destinations, in three groups.
  *
@@ -112,6 +112,9 @@ const NAV_GROUPS: {
  * (character → its mods, or a browse result → its detail). Both drill-downs are pages rather
  * than dialogs; only short confirmations (add, update, install) stayed modal. */
 function App() {
+  // The highest point in the tree that always renders, first-run and loading states included —
+  // so the theme is right on the setup screen too, not only once a library exists.
+  useThemeSync();
   const { data: modsFolder, isLoading } = useModsFolder();
   /** Everywhere you have been, and where in that trail you currently are.
    *
@@ -379,7 +382,13 @@ function App() {
   // currently showing — including the two states that used to return early. A first run that
   // could not be moved off a second monitor, or closed while it waited, would be a trap.
   return (
-    <Shell>
+    <Shell
+      onBack={goBack}
+      onForward={goForward}
+      canGoBack={cursor > 0}
+      canGoForward={cursor < history.length - 1}
+      status={<WindowStatus trailing={<NotificationBell onOpenMod={openFeedItem} />} />}
+    >
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center text-muted-foreground">
           Loading…
@@ -390,11 +399,30 @@ function App() {
         </div>
       ) : (
         <>
-          {/* No wordmark. The title bar says the app's name 32px above this, and repeating it
-              here cost 60px to tell you something you had just read. Padding is vertical only —
-              the rows run edge to edge so the active block's fill reaches the panel's border,
-              which is what makes it read as a marker rather than a floating button. */}
-          <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar pb-3 pt-3.5">
+          {/* Signs nailed to the wall, not a panel bolted to the side of one.
+
+              No background and no dividing border: the sidebar shares the content's ground, which
+              is the whole point of the material rule — a thing you can press is a slip of board
+              stuck on the wall, and everything else is just wall. The old full-width rows on
+              their own dark panel were the last piece of furniture from a different app.
+
+              Rows size to their own text, so the right edge comes out ragged. That is doing the
+              work the tilt used to strain at: a column of differently-sized signs reads as
+              hand-placed even at zero degrees, where six identical rectangles never will. */}
+          <aside className="relative flex w-[200px] shrink-0 flex-col pb-3 pl-5 pt-4">
+            {/* The wordmark, finally somewhere it fits. It went missing when the sidebar lost its
+                header — the title bar says it, but only in the chrome. Running it up the outer
+                margin costs 14px of a column that was empty anyway, and puts the app's name on
+                the one edge nothing else wants. Decorative, so it is hidden from the reader. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-5 overflow-hidden bg-sidebar"
+            >
+              <span className="edge-ticker absolute whitespace-nowrap font-sign text-[12px] tracking-[0.34em] text-muted-foreground/35 [writing-mode:vertical-rl]">
+                {"ETHER MANAGER / SIXTH STREET / ".repeat(8)}
+              </span>
+            </span>
+
             <nav aria-label="Main">
               {NAV_GROUPS.map((group, groupIndex) => (
                 <div
@@ -403,17 +431,15 @@ function App() {
                   aria-labelledby={`nav-group-${group.label}`}
                   className={groupIndex > 0 ? "mt-4" : undefined}
                 >
-                  {/* The rule runs from the end of the label to the panel edge — a caption with
-                      a line trailing off it, the way a bulkhead is stencilled. */}
+                  {/* Handwriting, and the only handwriting on the screen. These are the one thing
+                      in the sidebar a person would actually have scrawled — they name nothing the
+                      app knows, they just divide six links into three ideas. Lower case for the
+                      same reason: a marker note is not signage. */}
                   <p
                     id={`nav-group-${group.label}`}
-                    className="mb-2 flex items-center gap-2 px-4 font-heading text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50"
+                    className="mb-2 px-1 font-hand text-[14px] lowercase text-muted-foreground/60"
                   >
                     {group.label}
-                    <span
-                      aria-hidden
-                      className="h-px flex-1 bg-sidebar-border"
-                    />
                   </p>
 
                   {group.items.map((item, itemIndex) => {
@@ -426,60 +452,52 @@ function App() {
                       ) +
                       itemIndex +
                       1;
-                    // The active destination takes the full accent rather than a grey fill — in
-                    // a near-black shell a subtle tint reads as "slightly different", not "you
-                    // are here".
                     return (
                       <div key={item.id}>
-                        {/* Between rows inside a group only, never above the first: the group's
-                            own caption already divides it from what came before. */}
-                        {itemIndex > 0 && (
-                          <div
-                            aria-hidden
-                            className="mx-4 h-px bg-sidebar-border"
-                          />
-                        )}
                         <button
                           type="button"
                           aria-current={isActive ? "page" : undefined}
                           onClick={() => goTo(item.id)}
-                          style={isActive ? CUT_CORNER : undefined}
-                          className={`group relative flex h-[38px] w-full items-center gap-2.5 px-4 font-heading text-[13.5px] uppercase tracking-[0.09em] outline-none focus-visible:ring-1 focus-visible:ring-primary ${
+                          style={{
+                            "--tilt": NAV_TILT[index % NAV_TILT.length],
+                            boxShadow: "var(--slap-shadow)",
+                          } as CSSProperties}
+                          // Straightens and lifts under the cursor, the same gesture the character
+                          // cards use — one motion vocabulary across everything stuck to the wall.
+                          // `min-w` rather than `w-full`: the signs still size to their own text,
+                          // so "Bookmarks" comes out longer than "Library" and the right edge
+                          // stays ragged — but they start near the panel's width now instead of
+                          // leaving a third of the sidebar empty. Stretching them to full width
+                          // would turn them back into rows, which is the thing this layout
+                          // replaced.
+                          className={`group relative mb-1.5 inline-flex h-[38px] max-w-full rotate-[var(--tilt)] items-center gap-2.5 px-5 font-sign text-[19px] uppercase tracking-[0.08em] outline-none transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:ring-2 focus-visible:ring-primary ${
                             isActive
-                              ? "bg-primary font-semibold text-primary-foreground"
-                              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-card text-card-foreground/65 hover:text-card-foreground"
                           }`}
                         >
-                          {/* A tick on the leading edge rather than a shifted row: hover must not
-                              move the thing being pointed at, or a slow hand chases it. */}
-                          {!isActive && (
-                            <span
-                              aria-hidden
-                              className="absolute inset-y-2 left-0 w-[2px] scale-y-0 bg-primary transition-transform group-hover:scale-y-100"
-                            />
-                          )}
-                          {/* The index is decoration with a job: six near-identical rows gain a
+                          {/* The index is decoration with a job: six near-identical signs gain a
                               fixed left-hand column, so the eye has a ruler to run down. */}
                           <span
                             aria-hidden
-                            className={`w-3.5 shrink-0 text-left text-[9.5px] tracking-[0.1em] tabular-nums ${
+                            className={`shrink-0 font-mono text-[11px] font-bold tabular-nums ${
                               isActive
-                                ? "text-primary-foreground/45"
-                                : "text-muted-foreground/40"
+                                ? "text-primary-foreground/55"
+                                : "text-card-foreground/35"
                             }`}
                           >
                             {String(index).padStart(2, "0")}
                           </span>
                           <Icon className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-left">
+                          <span className="min-w-0 truncate text-left">
                             {item.label}
                           </span>
                           {/* Only on Downloads, and only while something is actually running — a
-                              badge that is always there stops being a signal. On the active item
+                              badge that is always there stops being a signal. On the active sign
                               it inverts, so it stays legible against the full accent fill. */}
                           {item.id === "downloads" && activeCount > 0 && (
                             <span
-                              className={`shrink-0 px-1.5 py-px font-heading text-[10px] tabular-nums ${
+                              className={`shrink-0 px-1.5 font-mono text-[14px] font-bold tabular-nums ${
                                 isActive
                                   ? "bg-primary-foreground text-primary"
                                   : "bg-primary text-primary-foreground"
@@ -496,9 +514,6 @@ function App() {
               ))}
             </nav>
 
-            <SidebarFooter
-              trailing={<NotificationBell onOpenMod={openFeedItem} />}
-            />
           </aside>
 
           {/* No centered max-width container: this is a desktop window, so content fills whatever
@@ -627,10 +642,23 @@ function App() {
  * it from growing past the window — a flex child defaults to a minimum size of its content, and
  * without this a long mod list would push the layout taller than the screen instead of
  * scrolling inside it. */
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({
+  children,
+  ...nav
+}: {
+  children: React.ReactNode;
+  onBack?: () => void;
+  onForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  status?: React.ReactNode;
+}) {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <TitleBar />
+      {/* Navigation rides in the window chrome rather than in the page. That is what lets every
+          page header stop pinning: the way back is always on screen without a band frozen over
+          the content to hold it. The mouse's side buttons drive the same two functions. */}
+      <TitleBar {...nav} />
       <div className="flex min-h-0 flex-1">{children}</div>
     </div>
   );

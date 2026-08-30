@@ -68,13 +68,6 @@ interface ModDetailPageProps {
   onOpenMod: (mod: GbMod) => void;
 }
 
-/** The signature cut corner (DESIGN.md). A radius cannot express it, so it is an inline style
- * rather than a utility. */
-const CUT_CORNER = {
-  clipPath:
-    "polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%)",
-} as const;
-
 /** The shape the hero falls back to for the moment between mount and the image reporting its
  * real dimensions. Only ever visible on a cold load; after that the browser cache answers
  * immediately. */
@@ -388,7 +381,7 @@ export function ModDetailPage({
                 <div className="relative flex justify-center">
                   <div
                     className="h-[400px] max-w-full overflow-hidden border-2 border-border bg-sidebar"
-                    style={{ ...CUT_CORNER, aspectRatio: heroRatio }}
+                    style={{ aspectRatio: heroRatio }}
                   >
                     <MatureContentShield
                       isBlurred={isMature}
@@ -486,7 +479,6 @@ export function ModDetailPage({
                               ? "border-primary"
                               : "border-border hover:border-muted-foreground",
                           )}
-                          style={CUT_CORNER}
                         >
                           <img
                             src={imageUrl(image, false)}
@@ -607,7 +599,6 @@ export function ModDetailPage({
           >
             <div
               className="shrink-0 border-2 border-border bg-card"
-              style={CUT_CORNER}
             >
               <PanelHeader label="Details">
                 {/* The opener plugin, not an anchor: `target="_blank"` does not navigate inside
@@ -728,7 +719,6 @@ export function ModDetailPage({
 
             <div
               className="flex min-h-0 flex-col border-2 border-border bg-card"
-              style={CUT_CORNER}
             >
               <PanelHeader label="Files">
                 <span className="tabular-nums">{detail.files.length}</span>
