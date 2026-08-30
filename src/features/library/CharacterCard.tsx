@@ -163,12 +163,18 @@ export function CharacterCard({
           )}
         </span>
         <span className="mt-1 flex items-baseline justify-between gap-1.5">
-          {/* The live mod's name is stamped in the accent rather than merely tinted by it, so a
-              character actually doing something reads across a full grid without being searched
-              for. Everything idle stays quiet — the accent means exactly one thing here. */}
+          {/* Not stamped in the accent, and for the same reason the ring is not: in a library
+              anyone actually uses most characters have something enabled, so an accent fill here
+              lands on most of the grid. Eight of twelve cards carried a solid red block — loud on
+              a dark card, overwhelming on a light one, and meaningless either way once it is
+              everywhere.
+
+              The name alone is the signal. This line shows the enabled mod's name, or says nothing
+              is enabled — so reading it *as a name* already tells you the state, and the idle
+              cases stay dimmed. No colour has to carry it. */}
           <span
             className={`min-w-0 truncate font-mono text-[11px] font-bold uppercase tracking-wide ${
-              hasEnabled ? "bg-primary px-1 py-px text-primary-foreground" : "text-card-foreground/45"
+              hasEnabled ? "text-card-foreground/80" : "text-card-foreground/40"
             }`}
           >
             {secondLine}

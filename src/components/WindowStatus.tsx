@@ -15,7 +15,7 @@ const SIGNAL: Record<ApiHealth, { bars: number; color: string; word: string }> =
   Poor: { bars: 1, color: "bg-destructive", word: "Barely responding" },
 };
 
-const BAR_HEIGHTS = ["h-1", "h-2", "h-3"];
+const BAR_HEIGHTS = ["h-1.5", "h-2.5", "h-3.5"];
 
 interface WindowStatusProps {
   /** Pinned to the right-hand end of the row. The notification bell, in practice: it belongs with
@@ -64,11 +64,15 @@ export function WindowStatus({ trailing }: WindowStatusProps) {
   const latency = api?.latency_ms;
 
   return (
-    <div className="flex items-center gap-2.5 font-mono text-[11px] text-muted-foreground">
-      <span className="flex items-center gap-1.5">
+    // Uppercase Courier with slash separators, which is deliberately the LED sign's own grammar:
+    // both are strips of machine-known readings, so they punctuate the same way. That is what
+    // makes this read as part of the app rather than as leftover status text — hairline dividers
+    // said "toolbar", and a toolbar is the one thing this design does not have.
+    <div className="flex items-center gap-2 font-mono text-[13px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+      <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className={`size-1.5 shrink-0 ${isLinked === false ? "bg-destructive" : "bg-success"}`}
+          className={`size-2 shrink-0 ${isLinked === false ? "bg-destructive" : "bg-success"}`}
         />
         <span className={isLinked === false ? "text-destructive" : undefined}>
           {isLinked === false ? "Folder missing" : "ZZMI"}
@@ -98,7 +102,7 @@ export function WindowStatus({ trailing }: WindowStatusProps) {
         {BAR_HEIGHTS.map((height, index) => (
           <span
             key={height}
-            className={`w-[3px] ${height} ${
+            className={`w-[3.5px] ${height} ${
               signal && index < signal.bars ? signal.color : "bg-accent"
             }`}
           />
@@ -109,14 +113,22 @@ export function WindowStatus({ trailing }: WindowStatusProps) {
 
       <span className="tabular-nums">{version ? `v${version}` : ""}</span>
 
-      {/* `-my-1` so a control taller than an 11px line of text does not stretch the row and push
+      {/* `-my-1` so a control taller than a 13px line of text does not stretch the row and push
           the readouts off the baseline they share. */}
       {trailing && <span className="-my-1 shrink-0">{trailing}</span>}
     </div>
   );
 }
 
-/** A hairline between readouts. Three unrelated facts run together at this size without one. */
+/** The separator, and it is a slash rather than a rule on purpose.
+ *
+ * A hairline is a toolbar's punctuation — it divides controls. These are not controls, they are a
+ * printed line of readings, and the LED sign a few pixels below already joins its readings with
+ * exactly this character. Using the same one makes the two obviously the same kind of thing. */
 function Divider() {
-  return <span aria-hidden className="h-3 w-px shrink-0 bg-border" />;
+  return (
+    <span aria-hidden className="shrink-0 text-muted-foreground/40">
+      /
+    </span>
+  );
 }

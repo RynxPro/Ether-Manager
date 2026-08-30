@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { shouldBlur } from "@/lib/mature";
@@ -7,23 +7,29 @@ import { updatedLabel } from "@/lib/time";
 import type { CreatorFeedItem } from "@/lib/tauri-commands";
 import { useCreatorFeed, useMarkCreatorFeedSeen } from "./hooks";
 
+/** How far off true each slip sits. A short repeating pair rather than anything random: three
+ * rows want to look hand-placed, not scattered, and half a nav sign's tilt because the panel is
+ * only 336px wide — the same angle that reads as casual across a card grid reads as broken in a
+ * narrow column. */
+const ROW_TILT = ["-0.8deg", "0.6deg", "-0.5deg"];
+
 interface NotificationBellProps {
   /** Opens the mod the row names. Owned by App, which owns the detail route — a bell row goes
    * to the same mod page as everything else rather than to a second one of its own. */
   onOpenMod: (item: CreatorFeedItem) => void;
 }
 
-/** The bell in the sidebar's status row: how many mods the creators you follow have posted
+/** The bell in the title bar's status row: how many mods the creators you follow have posted
  * since you last looked, and what they are.
  *
- * It lives in the sidebar because the sidebar is this app's chrome — there is no top bar, and
- * the Downloads count already sets the precedent that ambient numbers belong on this rail. Down
- * with the other readouts rather than beside the wordmark, which cannot spare the width: a 32px
- * control there left the title 135px of the 161px it needs and split it across two lines.
+ * It sits with the other ambient readouts rather than in the page, because what it reports is a
+ * fact about the app rather than about wherever you have navigated to. It spent a while at the
+ * foot of the sidebar for the same reason, and moved up with them.
  *
- * The panel opens across the main content rather than down the 224px sidebar, since a mod name
- * and a thumbnail need more width than the rail has, and it grows *upward* from the button —
- * anchored at the bottom of the window, a panel hung downwards would fall out of the view.
+ * The panel hangs down and to the left. That direction is not cosmetic: anchored to the top-right
+ * of the window, a panel growing up and to the right — which is what it did in the sidebar — goes
+ * straight off the screen. Anchoring right also means it cannot overflow the window edge however
+ * wide it gets.
  *
  * Opening it marks everything read, which is what opening a bell means. The rows that *were*
  * unread stay marked while the panel is open, from a snapshot taken on the way in — clearing
@@ -90,11 +96,11 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
             : "What's new from creators you follow"
         }
         onClick={() => (isOpen ? setIsOpen(false) : open())}
-        className={`relative flex h-6 w-6 items-center justify-center transition-colors ${
+        className={`relative flex h-7 w-7 items-center justify-center transition-colors ${
           unseen > 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"
         }`}
       >
-        <Bell className="h-3.5 w-3.5" />
+        <Bell className="h-[18px] w-[18px]" />
         {/* The same chip as the Downloads badge, and only while there is something to report —
             a number that is always there stops being a signal. Capped so a fortnight away
             cannot widen the sidebar. */}
@@ -110,20 +116,38 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
           ref={panelRef}
           role="dialog"
           aria-label="What's new"
-          className="absolute bottom-0 left-full z-50 ml-3 flex max-h-[70vh] w-[360px] flex-col border-2 border-border bg-popover shadow-xl"
+          // Hangs down and to the left of the bell, because the bell is in the title bar now.
+          //
+          // It was `bottom-0 left-full`, which grows *up and to the right* — correct while this
+          // lived at the bottom-left of the sidebar, and completely wrong once it moved: from the
+          // top-right of the window the panel flew off the screen entirely. Anchoring right means
+          // it cannot run past the window edge however wide it gets.
+          className="absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-[380px] flex-col border-2 border-border bg-card p-2.5 shadow-slap-lift"
         >
-          <p className="shrink-0 border-b border-border px-3 py-2 font-heading text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-            What&apos;s new
-          </p>
+          <div className="flex shrink-0 items-baseline gap-2 px-0.5 pb-2.5">
+            <h2 className="font-heading text-[19px] uppercase leading-none text-foreground">
+              What&apos;s new
+            </h2>
+            {/* The count belongs up here rather than on each row: it answers "is this worth
+                opening" from the bell, and repeating it per row would say the same thing three
+                times. Accent because unread is a state, and state is what the accent marks. */}
+            {wasUnread.size > 0 && (
+              <span className="ml-auto font-mono text-[11px] font-bold text-primary">
+                {wasUnread.size} NEW
+              </span>
+            )}
+          </div>
 
           {items.length === 0 ? (
-            <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
               Nothing new from the creators you follow. Follow someone from their page and their
               next upload turns up here.
             </p>
           ) : (
-            <ul className="min-h-0 flex-1 overflow-y-auto">
-              {items.map((item) => (
+            // `-mx-0.5 px-0.5` so a slip's hard shadow and its hover lift are not clipped by the
+            // scroll container an instant before you see them.
+            <ul className="-mx-0.5 min-h-0 flex-1 space-y-2 overflow-y-auto px-0.5 pb-0.5">
+              {items.map((item, index) => (
                 <li key={item.gamebanana_mod_id}>
                   <button
                     type="button"
@@ -131,11 +155,12 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
                       setIsOpen(false);
                       onOpenMod(item);
                     }}
-                    className={`flex w-full items-center gap-3 border-l-2 px-3 py-2 text-left transition-colors hover:bg-accent ${
-                      wasUnread.has(item.gamebanana_mod_id)
-                        ? "border-l-primary"
-                        : "border-l-transparent"
-                    }`}
+                    style={{ "--tilt": ROW_TILT[index % ROW_TILT.length] } as CSSProperties}
+                    // Each row is its own slip on the panel's ground — the same object as a nav
+                    // sign or a character card, so the panel stops being the one surface in the
+                    // app that could belong to any other program. Hover straightens and lifts it,
+                    // which is the gesture every other pressable thing here uses.
+                    className="flex w-full rotate-[var(--tilt)] items-center gap-3 bg-background p-1.5 text-left shadow-slap outline-none transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <MatureContentShield
                       isBlurred={shouldBlur(visibility, item.is_mature)}
@@ -150,20 +175,30 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <span className="flex h-full w-full items-center justify-center text-[9px] uppercase text-muted-foreground">
+                        <span className="flex h-full w-full items-center justify-center font-mono text-[9px] uppercase text-muted-foreground">
                           No art
                         </span>
                       )}
                     </MatureContentShield>
 
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs text-foreground">
+                    <span className="min-w-0 flex-1 pr-1">
+                      <span className="block truncate font-sign text-[16px] leading-tight tracking-[0.04em] text-foreground">
                         {item.mod_name}
                       </span>
                       {/* The creator is the reason this row exists, so it is named here rather
                           than left to the mod page — "who posted it" is the notification. */}
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {item.creator_name} · {updatedLabel(item.date_added)}
+                      <span className="mt-0.5 flex items-center gap-1.5 truncate font-mono text-[10px] font-bold uppercase text-muted-foreground">
+                        {/* Stamped rather than an edge marker. A 2px rule down the left of a row
+                            is invisible sitting beside a thumbnail — this has to survive being
+                            next to artwork. */}
+                        {wasUnread.has(item.gamebanana_mod_id) && (
+                          <span className="shrink-0 bg-primary px-1 text-primary-foreground">
+                            New
+                          </span>
+                        )}
+                        <span className="truncate">
+                          {item.creator_name} / {updatedLabel(item.date_added)}
+                        </span>
                       </span>
                     </span>
                   </button>

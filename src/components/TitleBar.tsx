@@ -177,13 +177,17 @@ function NavButton({
       disabled={disabled}
       className="flex h-full w-[34px] items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
     >
+      {/* 16px on the same 10-unit grid, so the chevrons carry the weight of a control pressed
+          constantly rather than reading as hairlines. The window controls stay at 10px on purpose:
+          those are a Windows convention drawn at an exact size, and matching them here would make
+          navigation look like two more of them. */}
       <svg
-        width="10"
-        height="10"
+        width="16"
+        height="16"
         viewBox="0 0 10 10"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden

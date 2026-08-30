@@ -40,7 +40,12 @@
  * treatment; the fill-vs-outline question is still open. */
 :root {
   color-scheme: light;
-  --background: #d6d0c3;
+  /* Darker than it looks like it should be, because `--wall-light` below adds white on top: the
+   * wall you actually see is this value lifted by that gradient, not this value. It sat at
+   * #d6d0c3 under a 34% white overlay, which rendered at ~223 — close enough to the card at 242,
+   * and to the art well at 232, that a card had no visible edge in the lit part of the window.
+   * Judging this token on its own is what hid the problem; the pair has to be read together. */
+  --background: #bdb5a5;
   --foreground: #1a1714;
   --card: #f6f3ec;
   --card-foreground: #1a1714;
@@ -48,13 +53,16 @@
   --popover-foreground: #1a1714;
   --primary: #e02b12;
   --primary-foreground: #ffffff;
-  --secondary: #c8c1b2;
+  --secondary: #b5ad9c;
   --secondary-foreground: #1a1714;
-  --muted: #cdc6b7;
+  /* Lifted with the wall rather than left behind it. This is the surface an *empty* character
+   * card takes, so it has to stay clearly above `--background` or a character with no mods reads
+   * as a hole in the grid — the exact failure the wall change was fixing. */
+  --muted: #ded8cc;
   --muted-foreground: #6d6659;
   /* shadcn's `--accent` is the quiet hover surface, not the brand accent. Naming collision
    * inherited from the library — the brand accent is `--primary`, and always was. */
-  --accent: #cbc4b4;
+  --accent: #b8b0a0;
   --accent-foreground: #1a1714;
   --destructive: #7f1d1d;
   /* The one green in the app, and it still earns its place: the sidebar's API signal is a
@@ -63,7 +71,7 @@
    * The signal is also positional (one, two or three bars), so the reading never depends on
    * telling this apart from the accent by colour alone. */
   --success: #1f7a3d;
-  --border: #b8b1a1;
+  --border: #a49b89;
   --input: #b8b1a1;
   --ring: #e02b12;
   --chart-1: #e02b12;
@@ -75,20 +83,25 @@
    * corner was Eridu's signature and does not belong here, so every derived --radius-*
    * below still resolves to 0. */
   --radius: 0rem;
-  --sidebar: #c8c1b2;
+  --sidebar: #b5ad9c;
   --sidebar-foreground: #6d6659;
   --sidebar-primary: #e02b12;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #bcb5a6;
   --sidebar-accent-foreground: #1a1714;
-  --sidebar-border: #b0a898;
+  --sidebar-border: #9c9382;
   --sidebar-ring: #e02b12;
 
   /* ---- street materials ---- */
-  /* What sits behind a character cutout. The portraits are transparent PNGs, so this is the
-   * colour actually visible around the figure — a shade off `--card` so the art reads as
-   * printed onto the board rather than floating over it. */
-  --art: #e4e0d6;
+  /* What sits behind a character cutout, and it has to be told apart from `--background`, not
+   * merely from `--card`.
+   *
+   * The portraits are transparent, so this colour is most of what a card actually shows. It sat
+   * at #e4e0d6 — only 16 steps above the wall, against the card body's 36 — which meant the bulk
+   * of every card was near enough the wall's own value to read as a hole punched in it rather
+   * than an object placed on it. Night never had the problem: there the well is *darker* than
+   * the wall and reads as a recess. This keeps it clearly lighter instead. */
+  --art: #efeade;
   /* The LED strip: the one lit object in either theme, and the only place a glow is allowed. */
   --sign: #1a1714;
   --sign-foreground: #f6f3ec;
@@ -96,8 +109,8 @@
   /* Hard offset shadow — a printed thing sitting proud of the wall, not a soft UI elevation.
    * `--slap-lift` is the ambient half, used together with the hard one on cards and never
    * on its own. */
-  --slap-shadow: 2px 3px 0 rgb(26 23 20 / 0.34);
-  --slap-lift: 0 8px 15px rgb(26 23 20 / 0.16);
+  --slap-shadow: 2px 3px 0 rgb(26 23 20 / 0.46);
+  --slap-lift: 0 8px 15px rgb(26 23 20 / 0.2);
   /* Concrete. One inline SVG turbulence rather than an image file: no request, no seams at
    * any window size, and it costs nothing to theme. Applied once on `body::after`. */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
@@ -106,8 +119,8 @@
   /* Uneven light across the wall, so the ground is never one flat fill. Sits on `body` as a
    * background-image beneath the background colour's own children, which means any surface
    * painted on top of it correctly hides it. */
-  --wall-light: radial-gradient(ellipse 110% 80% at 26% 0%, rgb(255 255 255 / 0.34), transparent 60%),
-    radial-gradient(ellipse 80% 60% at 92% 100%, rgb(0 0 0 / 0.14), transparent 70%);
+  --wall-light: radial-gradient(ellipse 110% 80% at 26% 0%, rgb(255 255 255 / 0.12), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 92% 100%, rgb(0 0 0 / 0.10), transparent 70%);
 }
 
 .dark {
