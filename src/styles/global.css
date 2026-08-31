@@ -45,7 +45,7 @@
    * #d6d0c3 under a 34% white overlay, which rendered at ~223 — close enough to the card at 242,
    * and to the art well at 232, that a card had no visible edge in the lit part of the window.
    * Judging this token on its own is what hid the problem; the pair has to be read together. */
-  --background: #bdb5a5;
+  --background: #d6d0c3;
   --foreground: #1a1714;
   --card: #f6f3ec;
   --card-foreground: #1a1714;
@@ -53,16 +53,16 @@
   --popover-foreground: #1a1714;
   --primary: #e02b12;
   --primary-foreground: #ffffff;
-  --secondary: #b5ad9c;
+  --secondary: #c8c1b2;
   --secondary-foreground: #1a1714;
   /* Lifted with the wall rather than left behind it. This is the surface an *empty* character
    * card takes, so it has to stay clearly above `--background` or a character with no mods reads
    * as a hole in the grid — the exact failure the wall change was fixing. */
-  --muted: #ded8cc;
+  --muted: #cdc6b7;
   --muted-foreground: #6d6659;
   /* shadcn's `--accent` is the quiet hover surface, not the brand accent. Naming collision
    * inherited from the library — the brand accent is `--primary`, and always was. */
-  --accent: #b8b0a0;
+  --accent: #cbc4b4;
   --accent-foreground: #1a1714;
   --destructive: #7f1d1d;
   /* The one green in the app, and it still earns its place: the sidebar's API signal is a
@@ -71,7 +71,7 @@
    * The signal is also positional (one, two or three bars), so the reading never depends on
    * telling this apart from the accent by colour alone. */
   --success: #1f7a3d;
-  --border: #a49b89;
+  --border: #b8b1a1;
   --input: #b8b1a1;
   --ring: #e02b12;
   --chart-1: #e02b12;
@@ -83,13 +83,13 @@
    * corner was Eridu's signature and does not belong here, so every derived --radius-*
    * below still resolves to 0. */
   --radius: 0rem;
-  --sidebar: #b5ad9c;
+  --sidebar: #c8c1b2;
   --sidebar-foreground: #6d6659;
   --sidebar-primary: #e02b12;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #bcb5a6;
   --sidebar-accent-foreground: #1a1714;
-  --sidebar-border: #9c9382;
+  --sidebar-border: #b0a898;
   --sidebar-ring: #e02b12;
 
   /* ---- street materials ---- */
@@ -101,7 +101,7 @@
    * of every card was near enough the wall's own value to read as a hole punched in it rather
    * than an object placed on it. Night never had the problem: there the well is *darker* than
    * the wall and reads as a recess. This keeps it clearly lighter instead. */
-  --art: #efeade;
+  --art: #f2efe7;
   /* The LED strip: the one lit object in either theme, and the only place a glow is allowed. */
   --sign: #1a1714;
   --sign-foreground: #f6f3ec;
@@ -119,8 +119,8 @@
   /* Uneven light across the wall, so the ground is never one flat fill. Sits on `body` as a
    * background-image beneath the background colour's own children, which means any surface
    * painted on top of it correctly hides it. */
-  --wall-light: radial-gradient(ellipse 110% 80% at 26% 0%, rgb(255 255 255 / 0.12), transparent 60%),
-    radial-gradient(ellipse 80% 60% at 92% 100%, rgb(0 0 0 / 0.10), transparent 70%);
+  --wall-light: radial-gradient(ellipse 110% 80% at 26% 0%, rgb(255 255 255 / 0.34), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 92% 100%, rgb(0 0 0 / 0.14), transparent 70%);
 }
 
 .dark {
