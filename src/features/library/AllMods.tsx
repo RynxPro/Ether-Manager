@@ -1,4 +1,4 @@
-import { FilePlus2 } from "lucide-react";
+import { FilePlus2, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/FilterChip";
@@ -22,6 +22,7 @@ import {
   useUpdateChecks,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
+import { SignStrip } from "@/components/SignStrip";
 
 interface AllModsProps {
   onSelectCharacter: (character: Character) => void;
@@ -130,58 +131,106 @@ export function AllMods({
   );
   const visible = selectedShelf ? selectedShelf.mods : matches;
   const enabledCount = matches.filter((mod) => mod.enabled).length;
+  const updatesWaiting = matches.filter(
+    (mod) => updateChecksByModId.get(mod.id)?.status === "UpdateAvailable",
+  ).length;
+
+  // What the page can say about itself in numbers, for the strip under the header. Skips
+  // everything while the first read is in flight rather than printing zeroes — a sign reading
+  // "0 INSTALLED" for a moment on every open is worse than one that arrives a beat late.
+  // Ordered most- to least-changeable, since the strip only shows part of itself at a time.
+  const signItems = isLoading
+    ? []
+    : [
+        needle
+          ? `${matches.length} OF ${(allMods ?? []).length} MATCH`
+          : `${matches.length} INSTALLED`,
+        `${enabledCount} ON`,
+        updatesWaiting > 0 ? `${updatesWaiting} WAITING` : "NOTHING TO UPDATE",
+      ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="All mods" subtitle="Everything installed, in one place">
-        {/* Beside the controls rather than on a line of its own below the rule, matching
-            Bookmarks — the two pages answer the same question and had it in two places. */}
-        {!isLoading && matches.length > 0 && (
-          <span className="font-heading text-[11px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground">
-            {needle
-              ? `${matches.length} of ${(allMods ?? []).length}`
-              : `${matches.length} installed · ${enabledCount} on`}
-          </span>
-        )}
-        <Button type="button" variant="outline" size="sm" onClick={onImport}>
+      <PageHeader
+        title="All mods"
+        // The section name sprayed on the wall behind the title, as every other top-level page
+        // does. This page had the band but never the tag, which left it the one destination that
+        // arrived quieter than the rest.
+        tag="All mods"
+        subtitle="Everything installed, in one place"
+        // Unpinned, like the Library. Pinning and the wall tag are in tension by design: the tag
+        // is deliberately taller than the band it sits in, so a pinned header has to clip it, and
+        // a clipped tag is the sprayed word cut in half with a rule under it — which is exactly
+        // the old top bar this pass exists to remove. The page is a flat grid with a filter rail
+        // rather than a feed, so the title scrolling away costs nothing worth that.
+        pinned={false}
+      >
+        {/* Paper, like every control in the app. Import was shadcn's `outline` variant and the
+            search was its default input — a bordered pill and a bordered box, in a language with
+            neither. Tilted opposite ways so they read as two placed objects rather than a skewed
+            row, and search sits to Import's left in the same order the Library uses, so the two
+            pages that carry both controls do not disagree about where they go. */}
+        <div className="relative rotate-[0.6deg]">
+          {/* The icon is the label. A visible text label is the rule for form fields and the
+              right call almost everywhere, but a magnifier in a field is the one convention
+              strong enough to stand in for one — and the accessible name is still on the input
+              for anyone not looking at it. */}
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-card-foreground/40"
+          />
+          <Input
+            ref={searchRef}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find a mod…"
+            aria-label="Search your installed mods"
+            className="h-[38px] w-60 border-0 bg-card pl-10 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap placeholder:text-card-foreground/40 focus-visible:ring-2 focus-visible:ring-primary md:text-[17px]"
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onImport}
+          className="h-[38px] rotate-[0.7deg] border-0 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 hover:bg-card"
+        >
           <FilePlus2 className="h-3.5 w-3.5" />
           Import
         </Button>
-        <Input
-          ref={searchRef}
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search your mods…"
-          aria-label="Search your installed mods"
-          className="w-full sm:w-64"
-        />
       </PageHeader>
 
+      {/* The counts moved off the header rail and onto the sign, where the Library keeps its
+          own. They are live readings about the page, which is the one thing the strip is for,
+          and it leaves the header holding only the two things you can act on. */}
+      {signItems.length > 0 && <SignStrip items={signItems} />}
+
       {isLoading ? (
-        <div className="max-w-3xl space-y-2">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-20 w-full rounded-lg" />
+        <div className={CARD_GRID}>
+          {/* Card-shaped, and in the grid the cards actually land in. These were full-width 80px
+              rows in a narrow column — the shape this page had before it used cards — so the
+              layout jumped from a list to a grid the moment the data arrived. */}
+          {Array.from({ length: 8 }).map((_, index) => (
+            <Skeleton key={index} className="aspect-[16/10] w-full" />
           ))}
         </div>
       ) : matches.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {needle ? (
-            <>
-              No installed mods match “{query.trim()}”.{" "}
-              <span className="text-muted-foreground/80">
-                Try Browse to find new ones.
-              </span>
-            </>
-          ) : (
-            <>
-              No mods installed yet.{" "}
-              <span className="text-muted-foreground/80">
-                Head to Browse to install your first one.
-              </span>
-            </>
-          )}
-        </p>
+        // Sized to what it says rather than to the window. Stretched across the full grid width,
+        // one sentence on a 1600px board reads as a layout that lost its contents; at this width
+        // it reads as a note left on the wall.
+        <div className="max-w-lg -rotate-[0.4deg] border-2 border-border bg-card p-7 shadow-slap-lift">
+          {/* Board on the wall rather than a loose sentence. An empty page is still a page, and a
+              line of grey text floating on the concrete reads as something that failed to load
+              rather than as an answer. */}
+          <p className="font-heading text-[22px] uppercase leading-none text-card-foreground">
+            {needle ? "Nothing matches that" : "Nothing installed yet"}
+          </p>
+          <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-card-foreground/50">
+            {needle
+              ? `No installed mod matches “${query.trim()}” — try Browse for new ones`
+              : "Head to Browse, or drop an archive anywhere on this window"}
+          </p>
+        </div>
       ) : (
         <div className="space-y-6">
           {/* The characters as a rail rather than as a section and a grid each. Measured on a
@@ -219,9 +268,9 @@ export function AllMods({
                   onClick={() =>
                     onSelectCharacter(selectedShelf.character as Character)
                   }
-                  className="ml-1 font-heading text-[10px] uppercase tracking-[0.1em] text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+                  className="ml-2 inline-flex h-[30px] items-center px-3 font-sign text-[15px] uppercase tracking-[0.1em] text-primary transition-[translate] duration-200 hover:-translate-y-px"
                 >
-                  Open {selectedShelf.label}
+                  Open {selectedShelf.label} →
                 </button>
               )}
             </div>

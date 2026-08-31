@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { FilePlus2, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
+import { tiltFor } from "@/lib/tilt";
 import {
   MISC_CHARACTER_ID,
   UI_CHARACTER_ID,
@@ -140,6 +141,36 @@ export function Library({
         subtitle="Your roster and what it is wearing"
         pinned={false}
       >
+        {/* Search first, so it sits to Import's left.
+
+            It lived down in the tab row on the argument that it filters the list below it while
+            Import acts on the library — true, but it left the page opening with one lonely
+            control in the header band and a second row of controls underneath doing similar
+            work. Finding something and adding something are both things you do to the library
+            from the top of the page, and the two pages that carry both now put them in the same
+            place in the same order. Still only on Characters, because that is the only tab it
+            filters. */}
+        {tab === "characters" && (
+          <div className="relative rotate-[0.6deg]">
+            {/* The icon is the label. A visible text label is the rule for form fields, and the
+                right call almost everywhere — but a magnifier in a field is the one convention
+                strong enough to stand in for one, and the accessible name is still on the input
+                itself for anyone not looking at it. */}
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-card-foreground/40"
+            />
+            <Input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Find a character…"
+              aria-label="Find a character"
+              className="h-[38px] w-60 border-0 bg-card pl-10 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap placeholder:text-card-foreground/40 focus-visible:ring-2 focus-visible:ring-primary md:text-[17px]"
+            />
+          </div>
+        )}
         <Button
           type="button"
           size="sm"
@@ -171,18 +202,25 @@ export function Library({
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => setTab(item.id)}
-                // Paper when selected, bare wall when not — the same rule the cards and the nav
-                // follow, so "chosen" looks identical everywhere in the app. The selected one is
-                // the only tab with a surface, which is a louder signal than a coloured underline
-                // and costs no extra colour to say.
-                // Same object as a nav sign, so the same scale and height — they were 21px against
-                // the nav's 19px, which is the kind of near-miss that reads as sloppiness rather
+                style={{ "--tilt": `${tiltFor(item.id)}deg` } as CSSProperties}
+                // Every tab is paper, and the accent marks the live one — the same model the
+                // character filter rail uses, so the two rows of choices in this app behave
+                // identically rather than each having its own idea of "chosen".
+                //
+                // It used to be paper only when selected and bare wall otherwise. That reads
+                // fine for one object among two absences, but it made "chosen" mean *has a
+                // surface* here while meaning *is filled red* in the sidebar directly to the
+                // left, which is two answers to one question on a single screen. Filling it
+                // instead spends the one colour the app has on the one thing it means.
+                //
+                // Same object as a nav sign, so the same scale and height — they were 21px
+                // against the nav's 19px, the kind of near-miss that reads as sloppiness rather
                 // than hierarchy. The row's controls sit two steps down at 17px, and that gap is
                 // the hierarchy.
-                className={`inline-flex h-[38px] items-center px-4 font-sign text-[19px] uppercase tracking-[0.1em] transition-[rotate,translate] duration-200 ${
+                className={`inline-flex h-[38px] rotate-[var(--tilt)] items-center px-4 font-sign text-[19px] uppercase tracking-[0.1em] shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 ${
                   isActive
-                    ? "-rotate-[0.8deg] bg-card text-card-foreground shadow-slap"
-                    : "text-muted-foreground hover:-translate-y-px hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-card-foreground/70 hover:text-card-foreground"
                 }`}
               >
                 {item.label}
@@ -201,38 +239,6 @@ export function Library({
             and the tabs. It cannot go with the search above, which only renders on Characters,
             because this has to stay reachable from all three. */}
         <div className="flex items-center gap-3 pb-1.5">
-          {/* Moved down from the header band, where it sat beside Import as though the two were
-              the same kind of control. They are not: Import acts on the library, this filters the
-              list directly below it — and it only exists on the Characters tab, so it belongs to
-              the tab row rather than to the page.
-
-              Styled as paper, like every other thing here you can touch. It was the last shadcn
-              default left on the page: a rounded, bordered box in a language with no rounded
-              boxes. */}
-          {tab === "characters" && (
-            // Tilted the opposite way to the active tab at the far end of the row, so the two ends
-            // lean apart rather than in parallel — parallel tilts read as a skewed layout, opposed
-            // ones read as separately placed objects.
-            <div className="relative rotate-[0.6deg]">
-              {/* The icon is the label. A visible text label is the rule for form fields, and the
-                  right call almost everywhere — but a magnifier in a field is the one convention
-                  strong enough to stand in for one, and the accessible name is still on the input
-                  itself for anyone not looking at it. */}
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-card-foreground/40"
-              />
-              <Input
-                ref={searchRef}
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Find a character…"
-                aria-label="Find a character"
-                className="h-[38px] w-60 border-0 bg-card pl-10 font-sign text-[17px] md:text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap placeholder:text-card-foreground/40 focus-visible:ring-2 focus-visible:ring-primary"
-              />
-            </div>
-          )}
           {/* A sweep that finds nothing changes nothing on screen, which is indistinguishable
               from the button not having worked — and finding nothing is the usual outcome. The
               result stays until the next check rather than fading, because it is a fact about
