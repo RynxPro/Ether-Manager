@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import type { CSSProperties } from "react";
+import { tiltFor } from "@/lib/tilt";
 import type { Character, ModCounts } from "@/lib/tauri-commands";
 
 interface CharacterCardProps {
@@ -16,35 +17,6 @@ interface CharacterCardProps {
    * this renders sixty times, and the preference is one answer for the whole roster. */
   showConflictWarning: boolean;
   onSelect: () => void;
-}
-
-/** How far off true a slap can sit, in degrees either way. Small on purpose: sixty cards at
- * the ±1.7° the mockups used is charming for one screen and tiring in a grid you scroll every
- * day. The tilt is seasoning, not the dish — the paper surface and the hard shadow carry the
- * look, and this could go to zero without the style collapsing. */
-const MAX_TILT_DEG = 1.4;
-const TILT_STEPS = 15;
-
-/** A stable tilt for a given character.
- *
- * Derived from the id rather than the grid index for two reasons: a card keeps its own angle
- * when the roster is filtered or reordered, so nothing swivels as you type in a search box; and
- * the component never needs to know where it sits, which keeps `CharacterGrid` from passing a
- * position it otherwise has no reason to care about.
- *
- * Deterministic, so it survives a remount — `Math.random()` here would make every card twitch
- * on each render. */
-function tiltFor(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  }
-  const step = Math.abs(hash) % TILT_STEPS;
-  const half = (TILT_STEPS - 1) / 2;
-  // Rounded because this lands in a CSS custom property that shows up in devtools: the raw
-  // division produces values like `-0.19999999999999998deg`, which is correct, renders
-  // identically, and looks like a bug to anyone who inspects a card.
-  return Math.round(((step - half) / half) * MAX_TILT_DEG * 100) / 100;
 }
 
 /** A character as a slap: a die-cut sticker of printed board with the art on it, stuck to the
@@ -115,7 +87,16 @@ export function CharacterCard({
       // Hover straightens the card and lifts it — the gesture of peeling a sticker off a wall
       // rather than a generic UI highlight. `rotate` and `translate` are separate properties in
       // Tailwind v4, so the two compose instead of overwriting one another.
-      className={`group relative flex w-full rotate-[var(--tilt)] flex-col p-[5px] pb-0 text-left shadow-slap-lift outline-none transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:ring-[3px] hover:ring-primary focus-visible:ring-[3px] focus-visible:ring-primary ${
+      // The border is what gives the card an edge, and it is also the consistency fix: `ModCard`,
+      // `BookmarkCard` and `GameBananaModCard` all carry `border-2 border-border`, and this was
+      // the one card in the app without it.
+      //
+      // It earns its place rather than just matching. The portraits are transparent cutouts, so
+      // the art well is most of what a card shows — and in Daylight that well sat within a step
+      // or two of the wall behind it, which made a card read as a hole punched in the wall rather
+      // than an object placed on it. A drawn edge settles that at any wall value, which is the
+      // point: the fix belongs on the card, not in the theme's brightness.
+      className={`group relative flex w-full rotate-[var(--tilt)] flex-col border-2 border-border p-[5px] pb-0 text-left shadow-slap-lift outline-none transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-[3px] hover:ring-primary focus-visible:ring-[3px] focus-visible:ring-primary ${
         hasMods ? "bg-card" : "bg-muted"
       }`}
     >

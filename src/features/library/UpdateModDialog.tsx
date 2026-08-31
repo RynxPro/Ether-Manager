@@ -66,9 +66,17 @@ export function UpdateModDialog({ mod, updateCheck }: UpdateModDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        {/* A slap, like the tools it now sits beside on the card's art — not the shadcn outline
+            it used to be. It is the only control in that group carrying a word rather than a
+            glyph, and an outlined pill among three squares of paper read as a foreign object.
+            Filled in the accent because it is the one thing on the card actually asking to be
+            pressed. */}
+        <button
+          type="button"
+          className="flex h-8 rotate-1 items-center bg-primary px-3 font-sign text-[15px] uppercase tracking-[0.08em] text-primary-foreground shadow-slap"
+        >
           Update
-        </Button>
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

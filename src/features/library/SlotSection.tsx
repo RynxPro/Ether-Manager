@@ -11,6 +11,13 @@ interface SlotSectionProps {
   /** Opens an installed mod's GameBanana page. Threaded from App, which owns the detail
    * route — the same page Browse uses, so there is one mod page rather than two. */
   onOpenModDetail: (mod: Mod) => void;
+  /** What turning a mod on and off is called here. Forwarded untouched to every card; the
+   * character page says "Wear this" because a character wears one look at a time, and the
+   * Library's UI and Misc tabs leave it alone because a HUD skin is not worn. */
+  verbs?: { enable: string; disable: string };
+  /** Forwarded to every card. True only where exactly one mod can sensibly be on — a character
+   * wears one look — so the accent ring stays rare enough to mean something. */
+  emphasiseEnabled?: boolean;
 }
 
 /** The cards for one slot's mods.
@@ -23,6 +30,8 @@ export function SlotSection({
   mods,
   updateChecksByModId,
   onOpenModDetail,
+  verbs,
+  emphasiseEnabled,
 }: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
@@ -85,6 +94,8 @@ export function SlotSection({
                 error={error}
                 onToggle={(enabled) => toggleMod.mutate({ modId: mod.id, enabled })}
                 isEditable
+                verbs={verbs}
+                emphasiseEnabled={emphasiseEnabled}
                 onDelete={() => deleteMod.mutate(mod.id)}
                 onOpenDetail={
                   mod.gamebanana_mod_id === null ? undefined : () => onOpenModDetail(mod)

@@ -334,12 +334,6 @@ function App() {
     else navigate({ ...here, detailStack: detailStack.slice(0, -1) });
   }
 
-  /** Back out of a character's page, by the same reasoning as `closeDetail`. */
-  function closeCharacter() {
-    if (cursor > 0) goBack();
-    else navigate({ ...here, character: null });
-  }
-
   /** The open drill-down, whichever kind it is. Written once rather than per section: all
    * five sections share one detail chain, and Back must behave identically in each. */
   function renderDetail(frame: DetailFrame) {
@@ -576,7 +570,6 @@ function App() {
                 selectedCharacter ? (
                   <CharacterDetail
                     character={selectedCharacter}
-                    onBack={closeCharacter}
                     onBrowse={() =>
                       goToBrowse(selectedCharacter.gamebanana_category_id)
                     }
@@ -595,7 +588,6 @@ function App() {
               ) : selectedCharacter ? (
                 <CharacterDetail
                   character={selectedCharacter}
-                  onBack={closeCharacter}
                   onBrowse={() =>
                     goToBrowse(selectedCharacter.gamebanana_category_id)
                   }

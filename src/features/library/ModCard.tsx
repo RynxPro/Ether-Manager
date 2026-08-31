@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   Archive,
   Check,
-  ExternalLink,
   Folder,
   ImageOff,
   Package,
@@ -10,11 +9,11 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MiddleTruncate } from "@/components/MiddleTruncate";
-import { Button } from "@/components/ui/button";
 import { modArtSrc } from "@/lib/modArt";
+import { tiltFor } from "@/lib/tilt";
 import { MOD_FOLDER_MISSING_PREFIX, type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { EditModDialog } from "./EditModDialog";
 import { UpdateModDialog } from "./UpdateModDialog";
@@ -40,15 +39,60 @@ interface ModCardProps {
   error?: string;
   /** Offers the edit dialog — name, where it is filed, and a way to its folder. */
   isEditable?: boolean;
+  /** What turning this mod on and off is called, on the surface rendering the card.
+   *
+   * A character wears one look at a time, so on a character page the verb is "Wear this" / "Take it
+   * off"; a UI skin or a global tweak is not worn, so everywhere else it stays Enable/Disable.
+   * Passed in rather than derived from the slot because it is the *page* that knows which
+   * sentence it is in the middle of, not the mod. */
+  verbs?: { enable: string; disable: string };
+  /** Whether being switched on is worth marking loudly — the card straightening to true, taking
+   * the accent ring, and holding its verb open instead of waiting for the cursor.
+   *
+   * Off by default, and the default is the important half. `CharacterCard` tried exactly this
+   * ring for enabled and dropped it, because in a real library nearly every character has
+   * something on, so the mark landed on nearly every card and marked nothing. The same trap
+   * catches any surface that pools mods from more than one character: All Mods here shows 11 of
+   * 23 on, which is half a grid of ringed cards.
+   *
+   * A character page is the one place the mark is rare — a character wears one look, so one card
+   * in the shelf is on — and rare is the whole condition. Everywhere else, colour against grey
+   * already answers "what is on?" without spending the app's one loud colour on it. */
+  emphasiseEnabled?: boolean;
 }
 
-/** A mod as a card rather than a row: preview on top, then the name, then the controls, so a
- * slot reads as a rack of looks you can compare instead of a stack of full-width strips whose
- * buttons sat a window's width away from the name they acted on.
+const DEFAULT_VERBS = { enable: "Enable", disable: "Disable" } as const;
+
+/** A mod as a slap: printed board stuck to the wall slightly off true, a sunk well with the
+ * preview in it, and the name printed on the stock below.
+ *
+ * Built from the same parts as `CharacterCard`, deliberately and part by part — the 2px edge,
+ * the 5px print margin, the recessed `bg-art` well, the id-derived tilt, and the hover that
+ * straightens the card and rings it in the accent. The two never share a grid, so the well is
+ * 16:10 here rather than 3:4, because GameBanana previews are landscape without exception.
+ * Everything else about the object is the same object.
+ *
+ * What this replaces is the reason it is worth reading. The card used to be a stack of bands
+ * with a rule between each: preview, then a name band, then a full-width enable bar, then a row
+ * of icon buttons, then a notice, then an error. Six horizontal strips, each announcing itself
+ * with a border — which is a HUD panel, and it was the last piece of the pre-street look still
+ * standing while the Library around it had moved on.
+ *
+ * So the bands are gone. The bottom of the card is `CharacterCard`'s bottom: bare stock carrying
+ * a name and one machine line, and nothing else. The controls moved onto the art as small slaps
+ * of paper that appear under the cursor — the same `bg-card shadow-slap` object the page header
+ * and the nav use — because the app's rule is that anything you can press is paper stuck to the
+ * wall, and a bar welded across a card is not that.
+ *
+ * The single machine line is what makes it hold. Everything the card might have to say — an
+ * update waiting, a retirement, a missing folder, a failed toggle — takes that one line *in
+ * place of* the variant rather than adding a row beneath it. A card can therefore never grow
+ * taller than its neighbours, which is what kept the old grid ragged: two cards in a row would
+ * be six bands and four, and the line of the shelf broke.
  *
  * Enabled mods keep their colour and disabled ones grey out, which makes "what am I wearing?"
- * answerable without reading anything. Colour returns on hover so a greyed slot is still
- * browsable. */
+ * answerable without reading anything. Colour returns on hover so a greyed shelf is still
+ * browsable. That part the card already did, and it is the best thing about it. */
 export function ModCard({
   mod,
   updateCheck,
@@ -62,6 +106,8 @@ export function ModCard({
   onOpenDetail,
   error,
   isEditable,
+  verbs = DEFAULT_VERBS,
+  emphasiseEnabled = false,
 }: ModCardProps) {
   // GameBanana's remote preview, or the picture that came inside the archive for a mod imported
   // from outside the app. Resolved in one place so every surface showing a mod agrees.
@@ -86,139 +132,235 @@ export function ModCard({
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
+  // One stamp, worst first: a missing folder is a thing to fix, an update is a thing to do, a
+  // retirement is only a thing to know. Two stamps on a 265px card would sit on top of one
+  // another, and a mod really can be all three at once.
+  let stamp: { label: string; tone: string } | null = null;
+  if (isFolderMissing) {
+    stamp = { label: "Missing", tone: "bg-destructive text-white" };
+  } else if (hasUpdate) {
+    stamp = { label: "Update", tone: "bg-primary text-primary-foreground" };
+  } else if (isRetired) {
+    stamp = {
+      label: updateCheck?.is_withdrawn ? "Taken down" : "Retired",
+      tone: "bg-muted-foreground text-card",
+    };
+  }
+
+  // The one machine line, in the same worst-first order, replacing the variant rather than
+  // adding to it.
+  let line: string;
+  let lineTone: string;
+  if (isFolderMissing) {
+    line = "Files missing — moved or deleted";
+    lineTone = "text-destructive";
+  } else if (error) {
+    line = error;
+    lineTone = "text-destructive";
+  } else if (hasUpdate && updateCheck?.suggested_file_name) {
+    line = `New file: ${updateCheck.suggested_file_name}`;
+    lineTone = "text-card-foreground/80";
+  } else if (hasUpdate) {
+    line = "An update is waiting";
+    lineTone = "text-card-foreground/80";
+  } else if (isRetired) {
+    line = updateCheck?.is_withdrawn ? "Removed from GameBanana" : "Retired by its author";
+    lineTone = "text-card-foreground/60";
+  } else {
+    line = variant ?? (isFromGameBanana ? "GameBanana" : "Added by hand");
+    lineTone = mod.enabled ? "text-card-foreground/80" : "text-card-foreground/40";
+  }
+
+  const verb = mod.enabled ? verbs.disable : verbs.enable;
+  const verbLabel = isToggling ? (mod.enabled ? "Turning off…" : "Turning on…") : verb;
+
+  const style = { "--tilt": `${tiltFor(mod.id)}deg` } as CSSProperties;
+  // Only where being on is the rare state — see `emphasiseEnabled`.
+  const isMarkedOn = mod.enabled && emphasiseEnabled;
+
   return (
     <div
-      // Printed board stuck to the wall — the same object as the character cards, which is why
-      // the cut corner went: a surface is identified by its hard offset shadow now. The border
-      // stays because here it is load-bearing, marking a mod with an update waiting.
-      className={`group/card flex flex-col border-2 bg-card shadow-slap-lift transition-all hover:-translate-y-0.5 hover:border-primary ${
-        hasUpdate ? "border-primary" : "border-border"
+      style={style}
+      // Paper stuck to the wall, at the same angle rule the roster uses. Enabled straightens the
+      // card and rings it in the accent, and it stays that way rather than only under the
+      // cursor: a character wears exactly one mod, so in any shelf precisely one card is on and
+      // the rest are off. `CharacterCard` tried the same ring and dropped it, correctly — nearly
+      // every character has something enabled, so a ring there landed on nearly every card and
+      // marked nothing. The condition it could not meet is the ordinary case here.
+      className={`group/card relative flex flex-col border-2 bg-card p-[5px] pb-0 shadow-slap-lift transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-[3px] hover:ring-primary ${
+        isMarkedOn
+          ? "rotate-0 border-primary ring-[3px] ring-primary"
+          : "rotate-[var(--tilt)] border-border"
       }`}
     >
       {/* 16:10, not the roster's 3:4: GameBanana previews are landscape without exception, so a
-          portrait frame would crop most of every image away. These cards never share a grid with
-          character cards, so the shape can differ while the styling stays identical. */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary">
+          portrait frame would crop most of every image away. */}
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-art">
         {artSrc ? (
           <img
             src={artSrc}
             alt=""
-            className={`absolute inset-0 h-full w-full object-cover transition-[filter] ${
+            className={`absolute inset-0 h-full w-full object-cover transition-[filter,scale] duration-300 ${
               mod.enabled
                 ? ""
-                : "brightness-50 grayscale group-hover/card:brightness-100 group-hover/card:grayscale-0"
+                : "brightness-[.68] grayscale group-hover/card:scale-[1.04] group-hover/card:brightness-100 group-hover/card:grayscale-0"
             }`}
           />
         ) : (
           // Permanent for hand-added mods, which have no remote listing to take a picture from,
           // and the resting state for any GameBanana mod whose submission has no preview image.
           // A designed state, not a load failure, so it gets an icon and a label.
-          <div
-            className={`absolute inset-0 flex flex-col items-center justify-center gap-1 font-heading text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 ${
-              mod.enabled ? "" : "opacity-55 group-hover/card:opacity-100"
+          <span
+            className={`absolute inset-0 flex flex-col items-center justify-center gap-1 font-heading text-[11px] uppercase tracking-[0.12em] text-card-foreground/25 ${
+              mod.enabled ? "" : "group-hover/card:text-card-foreground/40"
             }`}
           >
             <ImageOff className="h-6 w-6 opacity-70" />
             No preview
-          </div>
+          </span>
         )}
 
-        {/* No scanlines or foot gradient here, unlike the character cards. Those sit under a
-            single clean portrait and have a name printed over the art; a mod preview is a busy
-            screenshot, often with its own text baked in, and nothing is overlaid on it — the
-            name lives in the strip below. Texture on top of that only makes it harder to read
-            what the mod actually looks like, which is the one job this image has. */}
-
-        {hasUpdate && (
-          <span className="absolute right-1.5 top-1.5 bg-primary px-1.5 py-px font-heading text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
-            Update
+        {/* Flush into the corner of the well rather than inset from it, the way the roster's
+            does — a stamp hits the edge of the thing it is stamping. Signage, not display type:
+            it is the app talking, and every other label the app puts on a control is Bebas. */}
+        {stamp && (
+          <span
+            className={`absolute right-0 top-0 z-20 px-1.5 py-px font-sign text-[15px] uppercase tracking-[0.06em] ${stamp.tone}`}
+          >
+            {stamp.label}
           </span>
         )}
 
         {/* The preview opens the mod's page, the same gesture as in Browse — an installed mod is
             the same object you were looking at there, so pointing at its picture should mean the
-            same thing. It sits above the image and below the update badge, and the card's own
-            action stays the bar below: this reads about the mod, that changes it. */}
+            same thing. It fills the well and sits beneath the controls, which stop the click. */}
         {onOpenDetail && (
           <button
             type="button"
             onClick={onOpenDetail}
             aria-label={`View ${mod.display_name} on GameBanana`}
-            className="absolute inset-0 cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
-          >
-            {/* Only on hover, and only a hint: the picture is the target, this says so without
-                sitting on top of the artwork the rest of the time. */}
-            <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-background/85 px-1.5 py-px font-heading text-[10px] uppercase tracking-[0.1em] text-foreground opacity-0 transition-opacity group-hover/card:opacity-100">
-              <ExternalLink className="h-2.5 w-2.5" />
-              Details
-            </span>
-          </button>
+            title="View on GameBanana"
+            className="absolute inset-0 z-10 cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+          />
         )}
-      </div>
 
-      <div
-        className={`border-t-2 bg-background px-2.5 pb-2 pt-1.5 group-hover/card:border-t-primary ${
-          hasUpdate ? "border-t-primary" : "border-t-border"
-        }`}
-      >
-        {/* Middle-truncated: a hand-written name can outrun the card, and the tail is where a
-            name says which of several similar things this is. */}
-        <MiddleTruncate
-          text={mod.display_name}
-          className={`font-heading text-sm font-semibold uppercase tracking-wide ${
-            mod.enabled ? "text-foreground" : "text-muted-foreground"
+        {/* The verb, as a slap of paper laid on the art — the same object as the page header's
+            buttons, which is the point: the app has one kind of pressable thing. It appears
+            under the cursor, and stays put in the accent while the mod is on, so a shelf at rest
+            is a row of pictures rather than a row of identical buttons. */}
+        <button
+          type="button"
+          disabled={isToggling}
+          onClick={() => onToggle(!mod.enabled)}
+          className={`absolute bottom-2 left-2 z-30 inline-flex h-8 -rotate-1 items-center px-3 font-sign text-[17px] uppercase tracking-[0.1em] shadow-slap transition-opacity disabled:pointer-events-none ${
+            mod.enabled ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground"
+          } ${
+            isMarkedOn
+              ? "opacity-100"
+              : "opacity-0 focus-visible:opacity-100 group-hover/card:opacity-100"
           }`}
-        />
-        {/* The source, not the enabled state — the bar below already says that, and saying it
-            twice was the first thing that read as noise.
-
-            Which file of the mod this is takes this line when there is one, rather than adding a
-            third — "Belle Bottom Heavy Nsfw", "Main file". Two cards from one mod page then read
-            as one mod in two variants, which is what they are, and the icon still says where
-            they came from. */}
-        <span
-          className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70"
-          title={isFromGameBanana ? "From GameBanana" : "Added by hand"}
         >
-          {isFromGameBanana ? (
-            <Package className="h-3 w-3 shrink-0" />
-          ) : (
-            <Folder className="h-3 w-3 shrink-0" />
+          {verbLabel}
+        </button>
+
+        {/* The tools, as three more slaps. They were a bordered strip welded under the card;
+            here they are objects lying on the art, and they exist only while you are pointing at
+            it — which is the only time they can be used anyway. */}
+        <span className="absolute bottom-2 right-2 z-30 flex gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
+          {hasUpdate && updateCheck ? (
+            <UpdateModDialog
+              key={`${updateCheck.mod_id}:${updateCheck.suggested_file_id ?? "none"}`}
+              mod={mod}
+              updateCheck={updateCheck}
+            />
+          ) : isFromGameBanana ? (
+            // Widens into a labelled confirmation rather than swapping the glyph in place: a
+            // tick where a refresh arrow was is easy to miss on a small target, and the word is
+            // what actually answers "did that do anything?".
+            isConfirmedUpToDate ? (
+              <span
+                className="flex h-8 rotate-1 items-center gap-1.5 bg-card px-2 font-sign text-[15px] uppercase tracking-[0.06em] text-success shadow-slap"
+                role="status"
+              >
+                <Check className="h-3.5 w-3.5 shrink-0" />
+                Up to date
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={isCheckingUpdate}
+                onClick={onCheckUpdate}
+                aria-label={`Check ${mod.display_name} for updates`}
+                title="Check for updates"
+                className="flex h-8 w-8 -rotate-1 items-center justify-center bg-card text-card-foreground shadow-slap hover:text-primary disabled:pointer-events-none"
+              >
+                <RefreshCw className={`h-4 w-4 ${isCheckingUpdate ? "animate-spin" : ""}`} />
+              </button>
+            )
+          ) : null}
+
+          {isEditable && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              aria-label={`Edit ${mod.display_name}`}
+              title="Edit mod"
+              className="flex h-8 w-8 rotate-1 items-center justify-center bg-card text-card-foreground shadow-slap hover:text-primary"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
           )}
-          <span className="truncate">
-            {variant ?? (isFromGameBanana ? "GameBanana" : "Added by hand")}
+
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={() => setIsConfirmingDelete(true)}
+            aria-label={`Delete ${mod.display_name}`}
+            title="Delete mod"
+            className="flex h-8 w-8 -rotate-1 items-center justify-center bg-card text-card-foreground shadow-slap hover:text-destructive disabled:pointer-events-none"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </span>
+      </span>
+
+      {/* Bare stock, exactly as the roster's card ends: a name, then one machine line. No rules,
+          no bands, nothing that can grow. */}
+      <span className="relative block px-0.5 pb-1.5 pt-1">
+        <span className="flex items-center justify-between gap-1.5">
+          {/* Middle-truncated: a hand-written name can outrun the card, and the tail is where a
+              name says which of several similar things this is. */}
+          <MiddleTruncate
+            text={mod.display_name}
+            className={`min-w-0 flex-1 font-heading text-[18px] uppercase leading-none ${
+              mod.enabled ? "text-card-foreground" : "text-card-foreground/85"
+            }`}
+          />
+          {/* At the end of the name line and so directly above the machine line — the mark and
+              the sentence it is about form one column. A mark rather than a second sentence: the
+              card has no room for one, and the line below already says what happened. */}
+          {isFolderMissing || error ? (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+          ) : isRetired ? (
+            <Archive className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          ) : null}
+        </span>
+        <span className="mt-1 flex items-baseline justify-between gap-1.5">
+          <span
+            className={`min-w-0 truncate font-mono text-[11px] font-bold uppercase tracking-wide ${lineTone}`}
+          >
+            {line}
+          </span>
+          {/* Where the roster puts its counts: the right-hand end of the machine line. Where a
+              mod came from is the one fact about it the app knows and the name never says. */}
+          <span
+            className="shrink-0 text-card-foreground/40"
+            title={isFromGameBanana ? "From GameBanana" : "Added by hand"}
+          >
+            {isFromGameBanana ? <Package className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
           </span>
         </span>
-      </div>
-
-      {/* The bar carries the state at rest and the verb on hover: an enabled mod reads ENABLED
-          in solid accent, then drops the fill and says DISABLE under the cursor, so the click's
-          result is visible before committing to it. */}
-      <button
-        type="button"
-        disabled={isToggling}
-        onClick={() => onToggle(!mod.enabled)}
-        className={`group/bar w-full border-t px-2.5 py-2 text-center font-heading text-xs font-bold uppercase tracking-[0.1em] transition-colors disabled:pointer-events-none ${
-          mod.enabled
-            ? "border-t-primary bg-primary text-primary-foreground hover:bg-transparent hover:text-primary"
-            : "border-t-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
-        }`}
-      >
-        {isToggling ? (
-          mod.enabled ? (
-            "Disabling…"
-          ) : (
-            "Enabling…"
-          )
-        ) : mod.enabled ? (
-          <>
-            <span className="group-hover/bar:hidden">Enabled</span>
-            <span className="hidden group-hover/bar:inline">Disable</span>
-          </>
-        ) : (
-          "Enable"
-        )}
-      </button>
+      </span>
 
       {/* Mounted only while open so it starts from the mod as it is now — reopening after a
           rename must not offer the name it had before. */}
@@ -247,119 +389,29 @@ export function ModCard({
         />
       )}
 
-      {/* Sits above the action row rather than in it, because it is not an action. Nothing to
-          click, nothing to dismiss: the mod still works, and the only thing the app can usefully
-          do is pass on what the author said. Muted rather than accented — the hazard yellow is
-          for things that want doing, and this wants only knowing. */}
-      {isRetired && updateCheck && (
-        <p className="flex items-start gap-1.5 border-t border-border px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+      {/* The author's own words, and the only thing on the card allowed a second line. It is not
+          an action and there is nothing to dismiss — the mod still works — so it hangs off the
+          bottom of the stock as a torn-off note rather than joining the card's body. Rendered
+          only when the notice actually says something: "retired" alone is already on the machine
+          line above, and repeating it would spend two lines saying one thing. */}
+      {isRetired && updateCheck?.withdrawal_notice?.trim() && (
+        <p className="relative -mx-[5px] flex items-start gap-1.5 bg-muted px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
           <Archive className="mt-px h-3.5 w-3.5 shrink-0" />
-          <span>
-            <span className="text-foreground">
-              {updateCheck.is_withdrawn
-                ? "Removed from GameBanana."
-                : "Retired by its author."}
-            </span>{" "}
-            {/* Verbatim, and truncated rather than reflowed: it is the author's sentence, and
-                usually points at whatever replaced this mod. */}
-            {updateCheck.withdrawal_notice?.trim()
-              ? updateCheck.withdrawal_notice.trim()
-              : "Still installed and still working — it just will not be updated again."}
-          </span>
+          <span className="line-clamp-2">{updateCheck.withdrawal_notice.trim()}</span>
         </p>
       )}
 
-      {/* Update on the left, delete pushed to the far right and ghosted until hovered. They are
-          deliberately unlike each other in size, weight and position: one is routine, the other
-          destroys files. */}
-      <div className="flex items-center gap-1.5 border-t border-border px-2 py-1.5">
-        {hasUpdate && updateCheck ? (
-          <UpdateModDialog
-            key={`${updateCheck.mod_id}:${updateCheck.suggested_file_id ?? "none"}`}
-            mod={mod}
-            updateCheck={updateCheck}
-          />
-        ) : isFromGameBanana ? (
-          // Widens into a labelled confirmation rather than swapping the glyph in place: a tick
-          // where a refresh arrow was is easy to miss on a 28px target, and the word is what
-          // actually answers "did that do anything?".
-          isConfirmedUpToDate ? (
-            <span
-              className="flex h-7 items-center gap-1.5 border border-success/40 px-2 text-[11px] text-success"
-              role="status"
-            >
-              <Check className="h-3.5 w-3.5 shrink-0" />
-              Up to date
-            </span>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              disabled={isCheckingUpdate}
-              onClick={onCheckUpdate}
-              aria-label={`Check ${mod.display_name} for updates`}
-              title="Check for updates"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`} />
-            </Button>
-          )
-        ) : null}
-
-        <div className="flex-1" />
-
-        {/* Sits with delete rather than beside the name: the name is for reading, and a control
-            parked against it would be one more thing between the eye and the word. */}
-        {isEditable && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 opacity-45 hover:bg-transparent hover:text-primary hover:opacity-100"
-            onClick={() => setIsEditing(true)}
-            aria-label={`Edit ${mod.display_name}`}
-            title="Edit mod"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-        )}
-
-        <Button
+      {/* The one case that earns a control of its own: the files are gone, so every other verb on
+          this card would fail, and the only useful move left is to forget it. */}
+      {isFolderMissing && (
+        <button
           type="button"
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 opacity-45 hover:bg-transparent hover:text-destructive hover:opacity-100"
           disabled={isDeleting}
-          onClick={() => setIsConfirmingDelete(true)}
-          aria-label={`Delete ${mod.display_name}`}
-          title="Delete mod"
+          onClick={onDelete}
+          className="relative -mx-[5px] bg-destructive/15 px-2 py-1.5 text-center font-sign text-[15px] uppercase tracking-[0.1em] text-destructive transition-colors hover:bg-destructive hover:text-white disabled:pointer-events-none"
         >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-
-      {(error || isFolderMissing) && (
-        <div className="border-t border-destructive/30 bg-destructive/10 px-2.5 py-2">
-          <p className="flex items-start gap-1.5 text-[11px] text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
-            {isFolderMissing
-              ? "This mod's files are missing — was it deleted or moved outside the app?"
-              : error}
-          </p>
-          {isFolderMissing && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2 w-full"
-              disabled={isDeleting}
-              onClick={onDelete}
-            >
-              Remove from library
-            </Button>
-          )}
-        </div>
+          Remove from library
+        </button>
       )}
     </div>
   );
