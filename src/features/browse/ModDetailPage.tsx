@@ -1,17 +1,18 @@
 import {
-  ArrowLeft,
   Bookmark,
   Check,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   FileWarning,
+  Settings as SettingsIcon,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { PageHeader } from "@/components/PageHeader";
+import { SignStrip } from "@/components/SignStrip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDownloadProgress, useDownloads } from "@/features/downloads/hooks";
@@ -25,6 +26,7 @@ import {
 } from "@/features/settings/hooks";
 import { executablesIn, fileScan } from "@/lib/fileScan";
 import { shouldBlur } from "@/lib/mature";
+import { tiltFor } from "@/lib/tilt";
 import {
   gameBananaModId,
   useExternalLink,
@@ -56,7 +58,6 @@ import {
 
 interface ModDetailPageProps {
   mod: GbMod;
-  onBack: () => void;
   /** Passes the freshly fetched `detail` alongside `file` — unlike the outer `mod` prop (which
    * can be a placeholder when opened from Bookmarks, missing category/tag data), `detail` is
    * always a real live fetch, so the install flow's target-guessing reads from this instead. */
@@ -84,7 +85,7 @@ const UNFINISHED_STATUSES = new Set([
 
 /** The right column's width, shared by the panel and the skeleton that stands in for it while
  * the fetch is in flight. Two places that have to agree. */
-const SIDE_PANEL_WIDTH = "w-[400px]";
+const SIDE_PANEL_WIDTH = "w-[430px]";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -107,7 +108,8 @@ function youtubeEmbedUrl(url: string): string | null {
 
 /** A page rather than a dialog: screenshots, showcase video, a full description and a file list
  * are more content than a modal can hold without its own inner scroll region fighting the
- * page's. Reached from Browse or Bookmarks; `onBack` returns to whichever sent you.
+ * page's. Reached from Browse or Bookmarks; the title bar's back arrow returns to
+ * whichever sent you.
  *
  * Two columns, because the install control used to sit below the description — and a real
  * GameBanana description runs to eighteen thousand characters, so the one thing the page exists
@@ -115,7 +117,6 @@ function youtubeEmbedUrl(url: string): string | null {
  * stays reachable however far down the description you are. */
 export function ModDetailPage({
   mod,
-  onBack,
   onInstall,
   onOpenCreator,
   onOpenMod,
@@ -326,32 +327,82 @@ export function ModDetailPage({
           leave it" is not a question only a mod page has. The mechanics, and why the gallery's
           arrows have to lose the z-index fight, are documented there. */}
       <PageHeader
-        leading={
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={onBack}
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        }
         title={detail?.name ?? mod.name}
-        subtitle={categoryName ? `Mod / ${categoryName}` : "Mod"}
+        // The app's own word for what kind of page this is, sprayed on the wall behind the
+        // title — never the mod's name, which is arbitrary length and somebody else's text.
+        tag="Mod"
+        subtitle={categoryName ? `Mod · ${categoryName}` : "Mod"}
+        // Unpinned, and that is a real trade rather than a free win. A GameBanana description
+        // runs to eighteen thousand characters, so this is the longest scroll in the app and
+        // the page it replaced pinned its header specifically to keep the title in view. But
+        // pinning forces `overflow-hidden`, and the wall tag is deliberately taller than the
+        // band it sits in — a pinned header cuts the sprayed word in half and puts a rule under
+        // it, which is the exact chrome this pass exists to remove. The title bar carries back
+        // and forward, so nothing here is unreachable once the heading scrolls away.
+        pinned={false}
       >
         {/* Up here rather than down with the files, because it changes what this page is for:
-              you came to decide whether to install something you already have. Which file you
-              have is a separate question, answered in the list itself. */}
+            you came to decide whether to install something you already have. Which file you
+            have is a separate question, answered in the list itself. */}
         {installedCount > 0 && (
-          <p className="flex items-center gap-1.5 text-[11px] text-success">
+          <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-success">
             <Check className="h-3.5 w-3.5 shrink-0" />
             {installedCount > 1
-              ? `In your library — ${installedCount} variants installed`
+              ? `In your library · ${installedCount} variants`
               : "In your library"}
-          </p>
+          </span>
+        )}
+        {/* Both controls come up from the side panel. They act on the mod as a whole rather
+            than on one of its files, which is what the header band is for — and it leaves the
+            panel below holding only the things that differ per file. Paper, tilted opposite
+            ways, exactly as the Library and All Mods headers do it. */}
+        {detail && (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleToggleBookmark}
+              aria-label={
+                isBookmarked
+                  ? `Remove ${detail.name} from bookmarks`
+                  : `Bookmark ${detail.name}`
+              }
+              className="h-[38px] rotate-[0.6deg] border-0 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 hover:bg-card"
+            >
+              <Bookmark
+                className="h-3.5 w-3.5"
+                fill={isBookmarked ? "currentColor" : "none"}
+              />
+              {isBookmarked ? "Bookmarked" : "Bookmark"}
+            </Button>
+            {/* The opener plugin, not an anchor: `target="_blank"` does not navigate inside a
+                WebView2, so a plain link here would simply do nothing. */}
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => externalLink.requestOpen(detail.profile_url)}
+              className="h-[38px] -rotate-[0.5deg] border-0 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground/70 shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 hover:bg-card hover:text-card-foreground"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              GameBanana
+            </Button>
+          </>
         )}
       </PageHeader>
+
+      {/* What the page can say about itself in numbers, on the sign every other page uses.
+          These were three cells in a bordered grid inside the side panel; they are live
+          readings about the mod, which is the one thing the strip is for. */}
+      {detail && (
+        <SignStrip
+          items={[
+            `${detail.like_count.toLocaleString()} LIKES`,
+            `${detail.view_count.toLocaleString()} VIEWS`,
+            `${detail.download_count.toLocaleString()} DOWNLOADS`,
+            ...(installedCount > 0 ? ["IN YOUR LIBRARY"] : []),
+          ]}
+        />
+      )}
 
       {isLoading || !detail ? (
         <div className="flex items-start gap-6">
@@ -379,10 +430,45 @@ export function ModDetailPage({
                     supplied them for exactly one of fifteen images on the mod this was built
                     against. */}
                 <div className="relative flex justify-center">
+                  {/* The picture sits on top of a small heap of the ones on either side of it.
+                      Nothing else in the app overlaps anything else, which is exactly why a pile
+                      reads as a different kind of object rather than another panel — and it says
+                      "one of several" without spending a row saying it. The prints behind are
+                      real neighbouring frames, dimmed, not blank board.
+
+                      Sized off the same `aspectRatio` as the frame so the heap tracks the
+                      picture's own shape: a 2.5:1 banner and a near-square shot both keep their
+                      corners showing in the right places. */}
                   <div
-                    className="h-[400px] max-w-full overflow-hidden border-2 border-border bg-sidebar"
+                    className="relative h-[400px] max-w-full"
                     style={{ aspectRatio: heroRatio }}
                   >
+                    {images.length > 1 && (
+                      <>
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-y-4 -right-3 left-5 rotate-[1.5deg] overflow-hidden border-2 border-border bg-card shadow-slap-lift"
+                        >
+                          <img
+                            src={imageUrl(images[(activeImageIndex + 2) % images.length], false)}
+                            alt=""
+                            className="h-full w-full object-cover brightness-[.42] saturate-50"
+                          />
+                        </span>
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-y-2 -right-1.5 left-2.5 rotate-[0.75deg] overflow-hidden border-2 border-border bg-card shadow-slap-lift"
+                        >
+                          <img
+                            src={imageUrl(images[(activeImageIndex + 1) % images.length], false)}
+                            alt=""
+                            className="h-full w-full object-cover brightness-[.42] saturate-50"
+                          />
+                        </span>
+                      </>
+                    )}
+                    <div className="relative z-10 h-full w-full -rotate-[0.5deg] border-2 border-border bg-card p-[5px] shadow-slap-lift">
+                      <div className="h-full w-full overflow-hidden bg-art">
                     <MatureContentShield
                       isBlurred={isMature}
                       revealed={revealed}
@@ -417,7 +503,9 @@ export function ModDetailPage({
                           }
                         />
                       </button>
-                    </MatureContentShield>
+                      </MatureContentShield>
+                      </div>
+                    </div>
                   </div>
 
                   {images.length > 1 && (
@@ -459,10 +547,22 @@ export function ModDetailPage({
                 )}
 
                 {images.length > 1 && (
-                  // Every image, in one strip, at its own shape. The four-tile grid it replaces
-                  // could only reach the rest through an expander — a piece of state that
-                  // existed solely to work around the grid.
-                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1.5">
+                  // The rest of the shots, laid out as prints — the same object the pile above
+                  // is made of, so the hero and the row are one idea rather than a picture and
+                  // a widget. Each is board with a print margin and a wider mount along the
+                  // bottom carrying its number, at its own angle.
+                  //
+                  // The frames are a uniform 16:10, which reverses what this strip used to do:
+                  // it gave every thumbnail its own `w-auto` shape so a banner read as a banner.
+                  // That is right for loose tiles and wrong for a row of prints, which only
+                  // reads as a set if the mounts match. The hero still takes each picture's true
+                  // ratio, so the shape is never actually lost — the row trades it for the
+                  // material.
+                  //
+                  // Fixed width and scrolling rather than `flex-1`: at fourteen images an even
+                  // split gives 80px prints, which is below the size where you can tell two
+                  // screenshots of the same character apart.
+                  <div className="-mx-1 mt-5 flex gap-3.5 overflow-x-auto px-1 pb-3 pt-2">
                     {images.map((image, index) => {
                       const isActive = index === activeImageIndex;
                       return (
@@ -473,28 +573,92 @@ export function ModDetailPage({
                           onClick={() => setActiveImageIndex(index)}
                           aria-label={`Show image ${index + 1}`}
                           aria-current={isActive}
+                          style={
+                            { "--tilt": `${tiltFor(image.file)}deg` } as CSSProperties
+                          }
                           className={cn(
-                            "h-[82px] shrink-0 overflow-hidden border-2 transition-colors",
+                            "relative w-[172px] shrink-0 rotate-[var(--tilt)] border-2 bg-card p-1 pb-[18px] shadow-slap-lift outline-none transition-[rotate,translate,border-color] duration-200 hover:-translate-y-0.5 hover:rotate-0",
                             isActive
                               ? "border-primary"
-                              : "border-border hover:border-muted-foreground",
+                              : "border-border hover:border-primary",
+                            "focus-visible:border-primary",
                           )}
                         >
-                          <img
-                            src={imageUrl(image, false)}
-                            alt=""
+                          <span className="relative block aspect-[16/10] w-full overflow-hidden bg-art">
+                            <img
+                              src={imageUrl(image, false)}
+                              alt=""
+                              className={cn(
+                                "absolute inset-0 h-full w-full object-cover transition",
+                                !isActive && "brightness-[.62] saturate-[.7]",
+                                isMature && !revealed && "scale-105 blur-[6px]",
+                              )}
+                            />
+                          </span>
+                          {/* On the mount, centred, the way a photo print carries its number. */}
+                          <span
                             className={cn(
-                              // `w-auto` is what makes the thumbnail hug its picture too, so a
-                              // banner reads as a banner in the strip instead of being squared off.
-                              "h-full w-auto max-w-none transition",
-                              !isActive && "brightness-50 hover:brightness-90",
-                              isMature && !revealed && "scale-105 blur-[6px]",
+                              "absolute inset-x-0 bottom-[3px] text-center font-mono text-[9px] font-bold tracking-[0.14em]",
+                              isActive ? "text-primary" : "text-card-foreground/45",
                             )}
-                          />
+                          >
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
                         </button>
                       );
                     })}
                   </div>
+                )}
+              </section>
+            )}
+
+            {/* What the author says has to be in place, on the page rather than only inside the
+                install dialog.
+                It was in the dialog alone, which is after the decision — and of the thirty
+                most-downloaded ZZZ mods, seventeen declare something. Several of those are
+                in-game settings rather than downloads, the kind that let a mod install perfectly
+                and then do nothing at all, so they are worth meeting while you are still looking
+                at the pictures.
+                Bordered in the accent rather than filled: this is a condition, not a control,
+                and nothing here is pressable except the links the author supplied. */}
+            {detail.requirements.length > 0 && (
+              <section className="relative -rotate-[0.35deg] border-2 border-primary bg-card p-5 shadow-slap-lift">
+                <span className="absolute -top-3 right-2 rotate-[2.5deg] bg-primary px-2.5 py-0.5 font-sign text-[15px] uppercase tracking-[0.12em] text-primary-foreground shadow-slap">
+                  Before you install
+                </span>
+                <h3 className="font-heading text-[19px] uppercase leading-none text-card-foreground">
+                  {detail.requirements.length === 1
+                    ? "It needs one thing"
+                    : `It needs ${detail.requirements.length} things`}
+                </h3>
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {detail.requirements.map(({ name, url }) => (
+                    <li key={`${name}:${url ?? ""}`}>
+                      {url ? (
+                        <button
+                          type="button"
+                          onClick={() => externalLink.requestOpen(url, "author")}
+                          className="flex items-center gap-2 bg-background px-3 py-1.5 font-mono text-[11.5px] font-bold uppercase tracking-[0.06em] text-card-foreground transition-colors hover:text-primary"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0 text-primary" />
+                          {name}
+                        </button>
+                      ) : (
+                        // No link means the author named a game setting rather than a download,
+                        // so it gets a different mark and no affordance to press.
+                        <span className="flex items-center gap-2 bg-background px-3 py-1.5 font-mono text-[11.5px] font-bold uppercase tracking-[0.06em] text-card-foreground">
+                          <SettingsIcon className="h-3 w-3 shrink-0 text-primary" />
+                          {name}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {detail.requirements.some((r) => r.url === null) && (
+                  <p className="mt-3 font-mono text-[11px] leading-relaxed tracking-[0.04em] text-card-foreground/55">
+                    The ones with a cog are game settings, not downloads — get them wrong and the
+                    mod installs fine and then does nothing.
+                  </p>
                 )}
               </section>
             )}
@@ -594,25 +758,26 @@ export function ModDetailPage({
               object and left the panel's own yellow caption bar sitting directly under a yellow
               line. What it can claim in height is the window less that offset and the padding at
               the foot of the page. */}
-          <aside
-            className={`sticky top-[4.25rem] flex max-h-[calc(100vh-7.25rem)] ${SIDE_PANEL_WIDTH} shrink-0 flex-col gap-3.5`}
-          >
-            <div
-              className="shrink-0 border-2 border-border bg-card"
-            >
-              <PanelHeader label="Details">
-                {/* The opener plugin, not an anchor: `target="_blank"` does not navigate inside
-                    a WebView2, so a plain link here would simply do nothing. */}
-                <button
-                  type="button"
-                  onClick={() => externalLink.requestOpen(detail.profile_url)}
-                  className="flex items-center gap-1 border-b border-primary-foreground/40 tracking-[0.1em]"
-                >
-                  Open
-                  <ExternalLink className="h-3 w-3" />
-                </button>
-              </PanelHeader>
+          {/* Separate things stuck on the wall rather than one panel with rules through it.
+              Each takes its own angle, which is what stops a column of board reading as a single
+              welded object — the same move the character page makes with its band and its cards.
 
+              The whole column scrolls now instead of the file list scrolling inside a fixed box.
+              That box existed because the panel was one object with a header that had to stay
+              put; with the blocks separated there is nothing to pin, and a nested scroller
+              inside a sticky column was always going to be two scrollbars arguing.
+
+              `Open` and `Bookmark` are gone from here — they act on the mod rather than on any
+              one of its files, so they moved up to the header band with the title. */}
+          <aside
+            // The negative margins buy the scroll box room to show what hangs outside the cards
+            // without moving them: `overflow-y-auto` makes this a clipping context, and the
+            // author stamp deliberately overhangs its card's top-right corner, so without the
+            // padding the stamp is sheared off. The matching negative margin keeps the column
+            // sitting exactly where it did.
+            className={`sticky -top-3 -mr-2 -mt-3 flex max-h-[calc(100vh-2.5rem)] ${SIDE_PANEL_WIDTH} shrink-0 flex-col gap-4 overflow-y-auto pb-2 pr-2 pt-3`}
+          >
+            <div className="shrink-0 -rotate-[0.3deg] border-2 border-border bg-card shadow-slap-lift">
               {/* The whole row is the way to the author's page, not just the avatar: a 36px
                   target is a small thing to ask someone to hit, and the name beside it points
                   at the same place. Hover lights the border and the name so it reads as a way
@@ -623,49 +788,66 @@ export function ModDetailPage({
                   onOpenCreator(detail.submitter.id, detail.submitter.name)
                 }
                 aria-label={`View ${detail.submitter.name || "this creator"}'s mods`}
-                className="group/creator flex w-full items-center gap-3 border-b border-border px-3.5 py-3 text-left"
+                className="group/creator relative flex w-full items-start gap-3.5 p-4 text-left"
               >
+                {/* Stamped, and hanging off the corner the way the requirements notice does —
+                    it names what the card is without spending a row on a caption. */}
+                <span className="absolute -top-2.5 right-[-5px] rotate-[2.5deg] bg-primary px-2.5 py-0.5 font-sign text-[13px] uppercase tracking-[0.12em] text-primary-foreground shadow-slap">
+                  Author
+                </span>
                 {detail.submitter.avatar_url ? (
                   <img
                     src={detail.submitter.avatar_url}
                     alt=""
-                    className="h-9 w-9 shrink-0 border-2 border-border object-cover group-hover/creator:border-primary"
+                    className="h-[70px] w-[70px] shrink-0 border-2 border-border object-cover transition-colors group-hover/creator:border-primary"
                   />
                 ) : (
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center border-2 border-border bg-secondary font-heading text-base text-muted-foreground group-hover/creator:border-primary">
+                  <span className="flex h-[70px] w-[70px] shrink-0 items-center justify-center border-2 border-border bg-art font-heading text-2xl text-muted-foreground transition-colors group-hover/creator:border-primary">
                     {(detail.submitter.name || "?").charAt(0).toUpperCase()}
                   </span>
                 )}
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
-                    Submitted by
-                  </p>
-                  <p className="truncate font-heading text-base tracking-[0.02em] group-hover/creator:text-primary">
+                <span className="min-w-0 flex-1">
+                  {/* The person gets the display face at the size the page's own headings use.
+                      They were a 16px line under a label, which made the author of the thing you
+                      are about to install the quietest text in the column. */}
+                  <span className="block truncate font-heading text-[26px] uppercase leading-none tracking-[0.005em] text-card-foreground transition-colors group-hover/creator:text-primary">
                     {detail.submitter.name || "Unknown"}
-                  </p>
-                </div>
-                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-hover/creator:text-primary" />
+                  </span>
+                  <span className="mt-2 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Submitter · GameBanana
+                  </span>
+                  {/* Signage on the wall colour, so the way through reads as a control laid on
+                      the card rather than as a coloured word at the end of a row. */}
+                  <span className="mt-3 inline-block bg-background px-2.5 py-1 font-sign text-[15px] uppercase tracking-[0.1em] text-primary">
+                    See mods →
+                  </span>
+                </span>
               </button>
 
-              <div className="grid grid-cols-3 divide-x divide-border border-b border-border bg-background">
-                <StatCell
-                  value={detail.like_count.toLocaleString()}
-                  label="likes"
-                />
-                <StatCell
-                  value={detail.view_count.toLocaleString()}
-                  label="views"
-                />
-                <StatCell
-                  value={detail.download_count.toLocaleString()}
-                  label="downloads"
-                />
-              </div>
+            </div>
 
-              <dl className="px-3.5 py-1">
+            {/* What the machine knows about the mod, on its own board. */}
+            <div className="shrink-0 rotate-[0.25deg] border-2 border-border bg-card shadow-slap-lift">
+              {/* Two by two, label over value, rather than four ruled rows.
+                  As rows every fact was the same weight and the same colour, so the block read
+                  as a table to be parsed rather than as four things to be glanced at. Here the
+                  label is small machine type and the value carries the display face, which is
+                  the same relationship the sign strip and the character cards already use.
+                  The two dates keep their pairing on the bottom row: read together they say how
+                  long the mod has been around and whether anyone is still looking after it,
+                  which neither answers on its own. */}
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-4 px-4 py-4">
                 {categoryName && (
                   <MetaRow term="Category" value={categoryName} />
                 )}
+                {/* `detail`, not `mod`: the list record is synthesised when this page is opened
+                    from the library or from bookmarks and reports "not mature" by design, which
+                    would call every mod you own Safe. `detail.is_mature` comes from GameBanana's
+                    own `_bIsNsfw` on the fetch this page already makes. */}
+                <MetaRow
+                  term="Rating"
+                  value={detail.is_mature ? "Mature" : "Safe"}
+                />
                 {/* Published then Updated, oldest first: read together they say how long the
                     mod has been around and whether anyone is still looking after it, which
                     neither date answers on its own.
@@ -690,70 +872,62 @@ export function ModDetailPage({
                     reports "not mature" by design, which would make this row call every mod you
                     own "Safe". `detail.is_mature` comes from GameBanana's own `_bIsNsfw` on the
                     fetch this page already makes, so the honest answer costs nothing. */}
-                <MetaRow
-                  term="Rating"
-                  value={detail.is_mature ? "Mature" : "Safe"}
-                />
               </dl>
 
-              <div className="border-t border-border px-3.5 py-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleToggleBookmark}
-                  aria-label={
-                    isBookmarked
-                      ? `Remove ${detail.name} from bookmarks`
-                      : `Bookmark ${detail.name}`
-                  }
-                >
-                  <Bookmark
-                    className="h-3.5 w-3.5"
-                    fill={isBookmarked ? "currentColor" : "none"}
-                  />
-                  {isBookmarked ? "Bookmarked" : "Bookmark"}
-                </Button>
-              </div>
             </div>
 
-            <div
-              className="flex min-h-0 flex-col border-2 border-border bg-card"
-            >
-              <PanelHeader label="Files">
-                <span className="tabular-nums">{detail.files.length}</span>
-              </PanelHeader>
+            {/* Annotation, so it takes the marker — it is the app pointing at the thing you
+                came here to press, not a caption naming a region. */}
+            <div className="flex shrink-0 items-baseline gap-2.5 pl-1 pt-1">
+              <span className="-rotate-[1.5deg] font-hand text-[15px] text-primary">
+                {detail.files.length === 1
+                  ? "the one you can install \u2192"
+                  : `the ${detail.files.length} you can install \u2192`}
+              </span>
+            </div>
+
+            <div className="flex shrink-0 flex-col gap-4">
               {/* A reinstall replaces files in place, so a failure has to be visible: the swap
                   rolls back on its own, but a button that quietly returns to normal is
                   indistinguishable from one that worked. */}
               {reinstall.isError && (
-                <p className="border-b border-border px-3.5 py-2 text-xs text-destructive">
+                <p className="border-2 border-destructive bg-card px-3.5 py-2 text-xs text-destructive shadow-slap-lift">
                   Reinstall failed — {String(reinstall.error)}
                 </p>
               )}
               {detail.files.length === 0 ? (
-                <p className="px-3.5 py-4 text-sm text-muted-foreground">
+                <p className="border-2 border-border bg-card px-3.5 py-4 text-sm text-muted-foreground shadow-slap-lift">
                   No downloadable files.
                 </p>
               ) : (
-                <ul className="min-h-0 flex-1 overflow-y-auto">
+                <ul className="flex flex-col gap-4">
                   {detail.files.map((file, index) => (
                     <li
                       key={file.id}
-                      className="group flex items-center border-b border-border transition-colors last:border-b-0 hover:bg-secondary"
+                      style={{ "--tilt": `${tiltFor(file.id)}deg` } as CSSProperties}
+                      className="group flex items-stretch rotate-[var(--tilt)] border-2 border-border bg-card shadow-slap-lift transition-[rotate,translate,border-color] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary"
                     >
-                      {/* A ruled gutter rather than a bullet. The numeral goes accent only under
-                          the cursor — row one is not "the newest", and GameBanana gives no
-                          ordering that would justify marking it. */}
-                      <span className="flex w-9 shrink-0 items-center justify-center self-stretch border-r border-border bg-background font-heading text-xs tabular-nums text-muted-foreground/50 transition-colors group-hover:text-primary">
-                        {String(index + 1).padStart(2, "0")}
+                      {/* The stub of a ticket, torn off down a punched line, rather than a
+                          ruled gutter. It says what the row is — one claim on one file, of
+                          several — in the shape rather than in a word.
+
+                          The numeral goes accent only under the cursor: row one is not "the
+                          newest", and GameBanana gives no ordering that would justify marking
+                          it. */}
+                      <span className="ticket-perf relative flex w-[70px] shrink-0 flex-col items-center justify-center self-stretch bg-background py-3">
+                        <span className="font-heading text-[26px] leading-none tabular-nums text-primary">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="mt-1 font-mono text-[9px] font-bold tracking-[0.1em] text-muted-foreground/60">
+                          of {detail.files.length}
+                        </span>
                       </span>
-                      <div className="min-w-0 flex-1 px-3 py-2">
+                      <div className="min-w-0 flex-1 px-3.5 py-3">
                         {/* The installed mark rides up here beside the name rather than at the
                             end of the meta line: a real date is much wider than "1y ago" was,
                             and on a row whose button reads "Reinstall" the old single line ran
                             out of room and broke a date across two of them. */}
-                        <p className="flex items-center gap-1.5 text-[13px]">
+                        <p className="flex items-center gap-1.5 font-heading text-[17px] uppercase leading-tight tracking-[0.01em] text-card-foreground">
                           <span className="truncate">{file.file_name}</span>
                           {(installed.byFileId.get(file.id)?.length ?? 0) >
                             0 && (
@@ -770,16 +944,21 @@ export function ModDetailPage({
                             rather than among them. Clamped: most are a few words, but they run
                             to a full sentence often enough to swallow the row. */}
                         {file.description && (
-                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-foreground/70">
+                          // A stamped chip rather than a line of prose: it is a label on the
+                          // file ("SFW Variants Only", "OUTDATED DO NOT DOWNLOAD"), and on a mod
+                          // whose files are named v72.zip and v73.zip it is the only thing that
+                          // tells them apart, so it should read as a mark rather than as more
+                          // small print.
+                          <span className="mt-1.5 inline-block max-w-full truncate bg-background px-2 py-0.5 align-top font-sign text-[13px] uppercase tracking-[0.08em] text-card-foreground">
                             {file.description}
-                          </p>
+                          </span>
                         )}
                         {/* Wraps as whole facts when it must -- each item holds itself
                             together, so a narrow panel drops "20,650 dl" to its own line
                             instead of splitting "Feb 18, 2025" down the middle. */}
-                        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
                           {file.version && (
-                            <span className="whitespace-nowrap border border-border px-1 font-heading tracking-[0.06em] text-foreground">
+                            <span className="whitespace-nowrap border border-border px-1 text-card-foreground">
                               v{file.version}
                             </span>
                           )}
@@ -810,7 +989,7 @@ export function ModDetailPage({
                             row and under it on the next. It is the line that most wants to be
                             found at a glance down the list, and a column that moves is one you
                             have to hunt for on every row. */}
-                        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                        <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
                           <FileScanMark file={file} />
                           {executablesIn(file).length > 0 && (
                             <>
@@ -829,7 +1008,7 @@ export function ModDetailPage({
                         // label any of these buttons can hold ("Install again", "Unpacking…"),
                         // measured rather than guessed, which also lines the list up into a
                         // single column instead of a ragged edge.
-                        className="mr-2.5 w-24 justify-center tabular-nums"
+                        className="my-auto mr-3 w-24 shrink-0 justify-center tabular-nums"
                         variant={
                           fileAction(file.id).kind === "install"
                             ? "default"
@@ -878,6 +1057,7 @@ export function ModDetailPage({
                 </ul>
               )}
             </div>
+
           </aside>
         </div>
       )}
@@ -951,41 +1131,7 @@ function ExecutableMark({ paths }: { paths: string[] }) {
   );
 }
 
-interface PanelHeaderProps {
-  label: string;
-  children?: React.ReactNode;
-}
 
-/** A solid accent bar, matching the featured panel: it gives a panel a hard edge to start from
- * and is the one place the accent can be filled without competing with artwork. */
-function PanelHeader({ label, children }: PanelHeaderProps) {
-  return (
-    <div className="flex shrink-0 items-center justify-between bg-primary px-3.5 py-2 font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-foreground">
-      <span>{label}</span>
-      {children}
-    </div>
-  );
-}
-
-interface StatCellProps {
-  value: string;
-  label: string;
-}
-
-/** One cell of the details strip. Recessed to `--background` so the row reads as an inset well
- * inside the raised panel rather than more of the same surface. */
-function StatCell({ value, label }: StatCellProps) {
-  return (
-    <div className="min-w-0 px-3 py-2.5">
-      <p className="truncate font-heading text-[17px] tabular-nums text-primary">
-        {value}
-      </p>
-      <p className="text-[9px] uppercase tracking-[0.13em] text-muted-foreground">
-        {label}
-      </p>
-    </div>
-  );
-}
 
 interface MetaRowProps {
   term: string;
@@ -996,11 +1142,18 @@ interface MetaRowProps {
 
 function MetaRow({ term, value, title }: MetaRowProps) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border py-1.5 last:border-b-0">
-      <dt className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
+    // One cell of the two-by-two: the term in small machine type, the value under it in the
+    // display face. The label says what kind of fact this is and wants to be skimmed past; the
+    // value is the fact and wants to be read, so they take different voices rather than the
+    // same one at two opacities.
+    <div className="min-w-0">
+      <dt className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
         {term}
       </dt>
-      <dd className="min-w-0 truncate text-[13px]" title={title}>
+      <dd
+        className="truncate font-heading text-[17px] uppercase leading-none tracking-[0.005em] text-card-foreground"
+        title={title}
+      >
         {value}
       </dd>
     </div>

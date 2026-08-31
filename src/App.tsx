@@ -351,7 +351,6 @@ function App() {
     return (
       <ModDetailRoute
         mod={frame.mod}
-        onBack={closeDetail}
         onOpenCreator={openCreator}
         onOpenMod={openMod}
       />

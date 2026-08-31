@@ -5,7 +5,6 @@ import { ModDetailPage } from "./ModDetailPage";
 
 interface ModDetailRouteProps {
   mod: GbMod;
-  onBack: () => void;
   /** Opens the author's page. Owned by App because the creator page is a sibling frame in
    * the same drill-down chain, not something this route renders inside itself. */
   onOpenCreator: (id: number, name: string) => void;
@@ -19,7 +18,6 @@ interface ModDetailRouteProps {
  * for; only the browsing surfaces became pages. */
 export function ModDetailRoute({
   mod,
-  onBack,
   onOpenCreator,
   onOpenMod,
 }: ModDetailRouteProps) {
@@ -38,7 +36,6 @@ export function ModDetailRoute({
         // changes — a mature-content reveal must never leak from one mod to the next.
         key={mod.id}
         mod={mod}
-        onBack={onBack}
         onOpenCreator={onOpenCreator}
         onOpenMod={onOpenMod}
         onInstall={(file, detail) => {

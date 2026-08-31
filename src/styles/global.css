@@ -281,6 +281,27 @@ body {
   animation: edge-ticker 40s linear infinite;
 }
 
+/* The tear line down the numbered stub of a file ticket on the mod page.
+ *
+ * Punched rather than drawn: the holes are `--background`, the same wall the card is stuck to,
+ * so the join reads as somewhere the stub could be torn off rather than as a divider rule. It is
+ * the one piece of perforation in the app and it earns its place by saying what the row is —
+ * one claim on one file, of several.
+ *
+ * On the element's own `::after` so it can sit over the boundary between the stub and the body
+ * without either of them needing a border. */
+.ticket-perf::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  right: -2px;
+  width: 4px;
+  background-image: radial-gradient(circle at 2px 5.5px, var(--background) 1.7px, transparent 1.9px);
+  background-size: 4px 11px;
+  background-repeat: repeat-y;
+}
+
 /* The horizontal twin, for the LED strip. Same -50% wrap, so the content must be repeated an
  * even number of times or the loop shows a seam at the halfway point. */
 @keyframes edge-ticker-x {
