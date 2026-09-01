@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { PageHeader } from "@/components/PageHeader";
+import { PaperTilt } from "@/components/PaperTilt";
 import { SignStrip } from "@/components/SignStrip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,15 +88,40 @@ const UNFINISHED_STATUSES = new Set([
  * the fetch is in flight. Two places that have to agree. */
 const SIDE_PANEL_WIDTH = "w-[430px]";
 
+/** How far off true each install ticket sits. A short repeating set rather than `tiltFor`,
+ * which is keyed on an id and so would give two neighbouring tickets nearly the same angle as
+ * often as not — in a stack of three or four in one narrow column, "hand-placed" needs the
+ * angles to alternate. Half a card grid's tilt, for the reason `NotificationBell` gives: the
+ * lean that reads as casual across a wide shelf reads as broken in a 430px column. */
+const TICKET_TILT = [-0.5, 0.45, -0.35];
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** The hero shows the original upload; the tiles take the pre-rendered 530px size, which is
- * already wider than a tile ever gets. */
-function imageUrl(image: GbPreviewImage, full: boolean): string {
-  return `${image.base_url}/${full ? image.file : (image.file_530 ?? image.file)}`;
+/** Which pre-rendered size to ask GameBanana for.
+ *
+ * It offers three — the original, a 530px and a 220px — and asking for the wrong one is visible
+ * in both directions. Handing a 2000px original to a 172px print means the browser throws away
+ * nine tenths of every row of pixels in a single pass, which aliases rather than softens: it is
+ * what makes a thumbnail look crunchy rather than blurry. Handing a 220px file to the hero would
+ * do the obvious opposite.
+ *
+ * `file_220` was in the type from the start and never asked for, so every thumbnail on this page
+ * downloaded a full-size upload and then destroyed it. */
+type ImageSize = "full" | "medium" | "thumb";
+
+function imageUrl(image: GbPreviewImage, size: ImageSize): string {
+  // Each step falls back up the chain rather than down: a missing 220 is better served by the
+  // 530 than by nothing, and GameBanana populates neither consistently.
+  const file =
+    size === "full"
+      ? image.file
+      : size === "medium"
+        ? (image.file_530 ?? image.file)
+        : (image.file_220 ?? image.file_530 ?? image.file);
+  return `${image.base_url}/${file}`;
 }
 
 /** GameBanana's `_aEmbeddedMedia` is a list of raw video page URLs (YouTube, confirmed live),
@@ -159,7 +185,7 @@ export function ModDetailPage({
           gamebananaModId: linked.id,
           name: linked.name,
           thumbnailUrl: linked.preview_media.images[0]
-            ? imageUrl(linked.preview_media.images[0], true)
+            ? imageUrl(linked.preview_media.images[0], "full")
             : null,
           dateModified: linked.date_modified,
         }),
@@ -294,7 +320,7 @@ export function ModDetailPage({
       addBookmark.mutate({
         gamebananaModId: mod.id,
         name: detail?.name ?? mod.name,
-        thumbnailUrl: images[0] ? imageUrl(images[0], true) : null,
+        thumbnailUrl: images[0] ? imageUrl(images[0], "full") : null,
         // `detail` is a live fetch and carries the one specific category; the placeholder
         // fallback covers bookmarking before it lands, and the backfill sorts that out later.
         categoryName: detail?.category.name ?? mod.sub_category?.name ?? null,
@@ -345,8 +371,31 @@ export function ModDetailPage({
             you came to decide whether to install something you already have. Which file you
             have is a separate question, answered in the list itself. */}
         {installedCount > 0 && (
-          <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-success">
-            <Check className="h-3.5 w-3.5 shrink-0" />
+          // A stamp, like the roster's Missing and Update marks and the Author tag on the card
+          // below — filled, in signage, sitting on the wall as an object.
+          //
+          // It was 11px machine type in the success colour and nothing else: no surface, on bare
+          // concrete, between two paper slaps. The app's own rule says a thing is either paper
+          // you can press or paint on the wall, and this was neither, so it read as a caption
+          // that had come loose. It is also the one fact on the page that changes what the page
+          // is *for* — you came to decide whether to install something you already have — and it
+          // was the quietest thing in the band.
+          //
+          // Green rather than the accent, and this is the one place that is worth spending:
+          // the accent is on the Install buttons three inches below, and painting "you already
+          // have this" the same colour as "get this" says the opposite of what it means. Text
+          // in the card colour rather than white, because white on the lighter green Night uses
+          // lands near 3:1 and this is not large type.
+          <span className="relative isolate px-2.5 py-1 font-sign text-[16px] uppercase leading-none tracking-[0.08em] text-card">
+            {/* -0.6, the same magnitude as the two slaps beside it. Bigger reads as a mistake
+                here rather than as hand-placed: the paper leans and the words do not, which is
+                invisible on a card but not on a stamp the text nearly fills — at -1.2 the green
+                margin wedged, thick above one end and thin below the other. */}
+            <PaperTilt
+              tilt={-0.6}
+              className="bg-success shadow-slap"
+              coversParentBorder={false}
+            />
             {installedCount > 1
               ? `In your library · ${installedCount} variants`
               : "In your library"}
@@ -440,7 +489,13 @@ export function ModDetailPage({
                       picture's own shape: a 2.5:1 banner and a near-square shot both keep their
                       corners showing in the right places. */}
                   <div
-                    className="relative h-[400px] max-w-full"
+                    // 560, not 400. The frame takes the picture's own ratio and derives its
+                    // width from its height, so a low cap quietly shrinks every shot that is not
+                    // a wide banner: at 400 a 1.41 ratio claimed 564px of a 1216px column, and a
+                    // 2000px upload squeezed into that is three and a half times down, which is
+                    // most of why the hero read as soft. `max-w-full` still catches the wide
+                    // ones, so a 2.4 banner fills the column and loses height instead.
+                    className="relative h-[560px] max-w-full"
                     style={{ aspectRatio: heroRatio }}
                   >
                     {images.length > 1 && (
@@ -450,7 +505,7 @@ export function ModDetailPage({
                           className="pointer-events-none absolute inset-y-4 -right-3 left-5 rotate-[1.5deg] overflow-hidden border-2 border-border bg-card shadow-slap-lift"
                         >
                           <img
-                            src={imageUrl(images[(activeImageIndex + 2) % images.length], false)}
+                            src={imageUrl(images[(activeImageIndex + 2) % images.length], "medium")}
                             alt=""
                             className="h-full w-full object-cover brightness-[.42] saturate-50"
                           />
@@ -460,7 +515,7 @@ export function ModDetailPage({
                           className="pointer-events-none absolute inset-y-2 -right-1.5 left-2.5 rotate-[0.75deg] overflow-hidden border-2 border-border bg-card shadow-slap-lift"
                         >
                           <img
-                            src={imageUrl(images[(activeImageIndex + 1) % images.length], false)}
+                            src={imageUrl(images[(activeImageIndex + 1) % images.length], "medium")}
                             alt=""
                             className="h-full w-full object-cover brightness-[.42] saturate-50"
                           />
@@ -489,7 +544,7 @@ export function ModDetailPage({
                         {/* The lens is the cursor here, so no `cursor-zoom-in`: a magnifier
                             glyph beside a magnifier would be saying it twice. */}
                         <MagnifiedImage
-                          src={imageUrl(activeImage, true)}
+                          src={imageUrl(activeImage, "full")}
                           alt={detail.name}
                           disabled={
                             (isMature && !revealed) || !magnifier.enabled
@@ -538,7 +593,7 @@ export function ModDetailPage({
 
                 {isLightboxOpen && detail && (
                   <ImageLightbox
-                    sources={images.map((image) => imageUrl(image, true))}
+                    sources={images.map((image) => imageUrl(image, "full"))}
                     index={activeImageIndex}
                     onIndexChange={setActiveImageIndex}
                     onClose={() => setIsLightboxOpen(false)}
@@ -586,7 +641,7 @@ export function ModDetailPage({
                         >
                           <span className="relative block aspect-[16/10] w-full overflow-hidden bg-art">
                             <img
-                              src={imageUrl(image, false)}
+                              src={imageUrl(image, "thumb")}
                               alt=""
                               className={cn(
                                 "absolute inset-0 h-full w-full object-cover transition",
@@ -622,7 +677,11 @@ export function ModDetailPage({
                 Bordered in the accent rather than filled: this is a condition, not a control,
                 and nothing here is pressable except the links the author supplied. */}
             {detail.requirements.length > 0 && (
-              <section className="relative -rotate-[0.35deg] border-2 border-primary bg-card p-5 shadow-slap-lift">
+              <section className="relative isolate border-2 border-transparent p-5">
+                <PaperTilt
+                  tilt={-0.35}
+                  className="border-2 border-primary bg-card shadow-slap-lift"
+                />
                 <span className="absolute -top-3 right-2 rotate-[2.5deg] bg-primary px-2.5 py-0.5 font-sign text-[15px] uppercase tracking-[0.12em] text-primary-foreground shadow-slap">
                   Before you install
                 </span>
@@ -775,9 +834,14 @@ export function ModDetailPage({
             // author stamp deliberately overhangs its card's top-right corner, so without the
             // padding the stamp is sheared off. The matching negative margin keeps the column
             // sitting exactly where it did.
-            className={`sticky -top-3 -mr-2 -mt-3 flex max-h-[calc(100vh-2.5rem)] ${SIDE_PANEL_WIDTH} shrink-0 flex-col gap-4 overflow-y-auto pb-2 pr-2 pt-3`}
+            //
+            // Both sides, not just the right: the cards below lean, and `overflow-y: auto`
+            // computes `overflow-x` to auto too, so a corner poking a pixel past the left edge
+            // would put a horizontal scrollbar under the whole column.
+            className={`sticky -top-3 -mx-2 -mt-3 flex max-h-[calc(100vh-2.5rem)] ${SIDE_PANEL_WIDTH} shrink-0 flex-col gap-4 overflow-y-auto px-2 pb-2 pt-3`}
           >
-            <div className="shrink-0 -rotate-[0.3deg] border-2 border-border bg-card shadow-slap-lift">
+            <div className="relative isolate shrink-0 border-2 border-transparent">
+              <PaperTilt tilt={0.4} />
               {/* The whole row is the way to the author's page, not just the avatar: a 36px
                   target is a small thing to ask someone to hit, and the name beside it points
                   at the same place. Hover lights the border and the name so it reads as a way
@@ -827,7 +891,8 @@ export function ModDetailPage({
             </div>
 
             {/* What the machine knows about the mod, on its own board. */}
-            <div className="shrink-0 rotate-[0.25deg] border-2 border-border bg-card shadow-slap-lift">
+            <div className="relative isolate shrink-0 border-2 border-transparent">
+              <PaperTilt tilt={-0.3} />
               {/* Two by two, label over value, rather than four ruled rows.
                   As rows every fact was the same weight and the same colour, so the block read
                   as a table to be parsed rather than as four things to be glanced at. Here the
@@ -904,9 +969,26 @@ export function ModDetailPage({
                   {detail.files.map((file, index) => (
                     <li
                       key={file.id}
-                      style={{ "--tilt": `${tiltFor(file.id)}deg` } as CSSProperties}
-                      className="group flex items-stretch rotate-[var(--tilt)] border-2 border-border bg-card shadow-slap-lift transition-[rotate,translate,border-color] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary"
+                      // The lean lives on the paper underneath, not on the ticket. Rotating the
+                      // row rotates its text with it, and a glyph on a rotated baseline cannot
+                      // be hinted or subpixel-positioned — which is exactly why the file names
+                      // here used to sharpen the moment a hover straightened them. `PaperTilt`
+                      // carries the stock, the edge and the shadow at an angle and leaves every
+                      // word upright on the pixel grid; the border stays here as transparent so
+                      // nothing inside shifts by the 2px it used to occupy.
+                      className="group relative isolate flex items-stretch border-2 border-transparent transition-[translate] duration-200 hover:-translate-y-0.5"
                     >
+                      <PaperTilt
+                        tilt={TICKET_TILT[index % TICKET_TILT.length]}
+                        className="border-2 border-border bg-card shadow-slap-lift group-hover:border-primary"
+                        straightensOnHover
+                      >
+                        {/* The stub's own stock and its punched line ride on the paper rather
+                            than on the row, so the tear-off leans with the ticket instead of
+                            sitting square inside a slanted edge. Only the numeral stays up
+                            here, where it can be rendered sharp. */}
+                        <span className="ticket-perf absolute inset-y-0 left-0 w-[70px] bg-background" />
+                      </PaperTilt>
                       {/* The stub of a ticket, torn off down a punched line, rather than a
                           ruled gutter. It says what the row is — one claim on one file, of
                           several — in the shape rather than in a word.
@@ -914,7 +996,7 @@ export function ModDetailPage({
                           The numeral goes accent only under the cursor: row one is not "the
                           newest", and GameBanana gives no ordering that would justify marking
                           it. */}
-                      <span className="ticket-perf relative flex w-[70px] shrink-0 flex-col items-center justify-center self-stretch bg-background py-3">
+                      <span className="relative flex w-[70px] shrink-0 flex-col items-center justify-center self-stretch py-3">
                         <span className="font-heading text-[26px] leading-none tabular-nums text-primary">
                           {String(index + 1).padStart(2, "0")}
                         </span>
@@ -989,7 +1071,13 @@ export function ModDetailPage({
                             row and under it on the next. It is the line that most wants to be
                             found at a glance down the list, and a column that moves is one you
                             have to hunt for on every row. */}
-                        <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                        {/* Courier, like the line of numbers directly above it, because a virus
+                            verdict and an inventory of what is inside an archive are both things
+                            the app was *told* rather than things it is saying. They were the last
+                            body-copy left on this page, which put the one line about safety in a
+                            quieter voice than the file size. Set on the row so both marks agree;
+                            each one carries only its colour. */}
+                        <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
                           <FileScanMark file={file} />
                           {executablesIn(file).length > 0 && (
                             <>
@@ -1002,18 +1090,39 @@ export function ModDetailPage({
                       <Button
                         type="button"
                         size="sm"
+                        // Paper, in signage, like every other control in the app. It was a
+                        // shadcn button in body copy — the only sentence-case Geist left on the
+                        // page, sitting on a hand-torn ticket, which is exactly the seam the
+                        // rest of this restyle has been closing.
+                        //
+                        // The two states take the two materials the app already uses for them:
+                        // a first install is the thing you came here to do, so it gets the one
+                        // colour; a reinstall is a repair on something you already own, so it is
+                        // the wall colour laid on the card — the same object as "See mods →" on
+                        // the author card and the description chip two lines up. Filling both
+                        // red would spend the accent on four rows at once and mark nothing.
+                        //
                         // One width for every state, so a label that counts upward does not
-                        // resize the button under the cursor — "0%" is 41px and "Downloading…"
-                        // was 109px, and the row twitched on every tick. 96px is the widest
-                        // label any of these buttons can hold ("Install again", "Unpacking…"),
-                        // measured rather than guessed, which also lines the list up into a
-                        // single column instead of a ragged edge.
-                        className="my-auto mr-3 w-24 shrink-0 justify-center tabular-nums"
-                        variant={
+                        // resize the button under the cursor — "0%" needs 40px and "Install
+                        // again" 111px, and the row twitched on every tick.
+                        //
+                        // 112px, re-measured in this face rather than carried over: the old 96px
+                        // was measured in Geist sentence case, and uppercase Bebas at 0.1em
+                        // tracking is wider despite being condensed. "Install again" overflowed
+                        // by 15px and "Unpacking…" by 3px — both real states, neither visible
+                        // until you are mid-install, which is the worst time to find them. The
+                        // number is the widest of the ten labels this button can hold, measured
+                        // against the live element.
+                        // Flat, unlike the header's slaps: the ticket underneath already leans,
+                        // and a second angle inside the first reads as a mistake rather than as
+                        // two things placed by hand.
+                        variant="ghost"
+                        className={cn(
+                          "my-auto mr-3 h-[34px] w-28 shrink-0 justify-center border-0 font-sign text-[16px] tracking-[0.1em] uppercase tabular-nums shadow-slap transition-[translate,background-color] duration-200 hover:-translate-y-px disabled:translate-y-0 disabled:shadow-none",
                           fileAction(file.id).kind === "install"
-                            ? "default"
-                            : "outline"
-                        }
+                            ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                            : "bg-background text-card-foreground hover:bg-background hover:text-primary",
+                        )}
                         // Only this file's button waits on this file's work — a queuing
                         // reinstall used to disable every button in the list.
                         disabled={
@@ -1037,7 +1146,7 @@ export function ModDetailPage({
                             modName: detail.name,
                             fileName: file.file_name,
                             thumbnailUrl: images[0]
-                              ? imageUrl(images[0], true)
+                              ? imageUrl(images[0], "full")
                               : null,
                             characterId: action.target.character_id,
                             slot: action.target.slot,
@@ -1098,6 +1207,8 @@ function FileScanMark({ file }: FileScanMarkProps) {
 
   return (
     <span
+      // Typography comes from the row — see the note there. This says only which of the three
+      // verdicts it is, in the one colour that means it.
       className={cn(
         "flex items-center gap-1 whitespace-nowrap",
         scan.verdict === "clean" && "text-success",

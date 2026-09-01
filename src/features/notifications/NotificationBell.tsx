@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
+import { PaperTilt } from "@/components/PaperTilt";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { shouldBlur } from "@/lib/mature";
 import { updatedLabel } from "@/lib/time";
@@ -11,7 +12,7 @@ import { useCreatorFeed, useMarkCreatorFeedSeen } from "./hooks";
  * rows want to look hand-placed, not scattered, and half a nav sign's tilt because the panel is
  * only 336px wide — the same angle that reads as casual across a card grid reads as broken in a
  * narrow column. */
-const ROW_TILT = ["-0.8deg", "0.6deg", "-0.5deg"];
+const ROW_TILT = [-0.8, 0.6, -0.5];
 
 interface NotificationBellProps {
   /** Opens the mod the row names. Owned by App, which owns the detail route — a bell row goes
@@ -155,13 +156,24 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
                       setIsOpen(false);
                       onOpenMod(item);
                     }}
-                    style={{ "--tilt": ROW_TILT[index % ROW_TILT.length] } as CSSProperties}
+
                     // Each row is its own slip on the panel's ground — the same object as a nav
                     // sign or a character card, so the panel stops being the one surface in the
                     // app that could belong to any other program. Hover straightens and lifts it,
                     // which is the gesture every other pressable thing here uses.
-                    className="flex w-full rotate-[var(--tilt)] items-center gap-3 bg-background p-1.5 text-left shadow-slap outline-none transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:ring-2 focus-visible:ring-primary"
+                    //
+                    // The tilt is on the paper underneath rather than on the row itself — see
+                    // `PaperTilt`, which this was the first instance of and which now carries
+                    // the reasoning. Borderless, because a slip on a panel is stock and a
+                    // shadow and nothing else.
+                    className="group relative isolate flex w-full items-center gap-3 p-1.5 text-left outline-none transition-[translate] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary"
                   >
+                    <PaperTilt
+                      tilt={ROW_TILT[index % ROW_TILT.length]}
+                      className="bg-background shadow-slap"
+                      coversParentBorder={false}
+                      straightensOnHover
+                    />
                     <MatureContentShield
                       isBlurred={shouldBlur(visibility, item.is_mature)}
                       className="h-[42px] w-[56px] shrink-0 overflow-hidden bg-muted"
