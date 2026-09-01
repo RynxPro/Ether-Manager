@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
-import { CARD_GRID } from "@/lib/layout";
+import { BROWSE_GRID } from "@/lib/layout";
 import { shouldBlur } from "@/lib/mature";
 import { findScrollParent } from "@/lib/scroll";
 import type { GbMod, ModSort } from "@/lib/tauri-commands";
@@ -176,7 +176,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
     return (
       <div className="space-y-4">
         {band}
-        <div className={CARD_GRID}>
+        <div className={BROWSE_GRID}>
           {/* Matches the card it stands in for: same 4:3 frame, and square-cornered, since
               nothing in this app has had a border radius since the Eridu pass. */}
           {Array.from({ length: 12 }).map((_, index) => (
@@ -211,7 +211,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
   return (
     <div ref={rootRef} className="space-y-4">
       {band}
-      <div className={CARD_GRID}>
+      <div className={BROWSE_GRID}>
         {records.map((mod) => (
           <GameBananaModCard
             key={mod.id}

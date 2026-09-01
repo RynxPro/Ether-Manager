@@ -17,3 +17,12 @@ export const POSTER_GRID = "grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))]
  * Same `auto-fill` reasoning as `POSTER_GRID`: columns follow the window rather than a fixed
  * set of breakpoints. */
 export const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4";
+
+/** Browse's own grid. Same columns as `CARD_GRID`, but the rows are further apart.
+ *
+ * That is not taste: `GameBananaModCard` hangs its NSFW and Installed tags off the card's top
+ * corners so they never cover the preview, and a tag is ~20px tall plus 3px of clearance. At
+ * `CARD_GRID`'s 16px row gap it would land on the picture of the card above — trading one
+ * covered picture for another. The column gap stays 16px because nothing overhangs sideways. */
+export const BROWSE_GRID =
+  "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-4 gap-y-9 pt-7";

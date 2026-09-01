@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useExternalLink } from "@/lib/useExternalLink";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, FileWarning, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -10,8 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -144,6 +141,20 @@ export function InstallConfirmDialog({
     );
   }
 
+  // Two voices, used the way the rest of the app uses them: the small caption that names a
+  // region is machine type, and the value under it is either machine type (a fact) or the
+  // display face (a decision). Held here so the docket cannot drift between its own halves.
+  const CAPTION =
+    "font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground";
+
+  // Every row in the character list is a thing you press, so it is signage, like the nav and
+  // the chips and every button in the app — not the primitive's 14px Geist. Highlighted takes
+  // the accent fill rather than a grey rounded bar, which is how "chosen" is said everywhere
+  // else here; `focus` and `data-highlighted` are both covered because Radix moves DOM focus on
+  // pointer and sets the attribute on keyboard.
+  const OPTION =
+    "rounded-none px-2 py-1.5 pr-8 font-sign text-[16px] uppercase tracking-[0.08em] text-card-foreground [&_svg]:text-primary focus:bg-primary focus:text-primary-foreground focus:[&_svg]:text-primary-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground data-[highlighted]:[&_svg]:text-primary-foreground";
+
   return (
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
       {/* Nested inside this dialog on purpose: a requirement's link is reached from in here,
@@ -152,35 +163,38 @@ export function InstallConfirmDialog({
       {externalLink.dialog}
       <DialogContent
         showCloseButton={false}
-        // Eridu's panel shape rather than shadcn's default card: 2px border, square, cut corner,
-        // and no padding of its own so each band can reach the edges the way the mod detail
-        // page's panels do. Wider than `max-w-sm` because this now confirms a file as well as
-        // asking a question.
-        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[460px]"
+        // Paper on the wall, like everything else you can act on: 2px edge, square, the hard
+        // slap shadow, and no padding of its own so each band reaches the edges.
+        //
+        // 600px rather than 460. The docket runs left-to-right — goods, arrow, destination —
+        // and at 460 the two halves of that sentence were too narrow to hold a file name and a
+        // character name without both truncating, which is the one thing this dialog exists to
+        // show you.
+        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[600px]"
       >
-        <form onSubmit={handleSubmit}>
-          {/* A solid accent bar, matching the DETAILS and FILES panels this dialog opens from —
-              it gives the panel a hard edge to start from and names the action once, so the
-              mod's own name is free to sit with its artwork below instead of being squeezed
-              into a title. */}
-          <DialogHeader className="flex-row items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
-            <DialogTitle className="font-heading text-[11px] font-semibold uppercase tracking-[0.16em]">
-              Install mod
+        <form onSubmit={handleSubmit} className="min-w-0">
+          {/* Machine type, not a title. It says which of the app's operations this is, the way
+              the mod page labels its regions — where the old dialog spent Anton, the page-title
+              face, on an 11px caption inside a solid red bar. The accent is needed further down
+              for the thing you press. */}
+          <DialogHeader className="flex-row items-center justify-between border-b-2 border-border px-4 py-2.5">
+            <DialogTitle className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              Install &middot; consignment
             </DialogTitle>
             <DialogClose
-              className="-my-1 -mr-1 p-1 transition-opacity hover:opacity-60"
+              className="flex h-6 w-6 shrink-0 items-center justify-center bg-background text-card-foreground shadow-slap transition-[translate] duration-200 hover:-translate-y-px"
               aria-label="Close"
             >
               <XIcon className="h-3.5 w-3.5" />
             </DialogClose>
           </DialogHeader>
 
-          {/* What you are installing. The old dialog was text only, on the one screen in this
-              app where the picture is the entire reason you got here. */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <div className="h-[54px] w-[72px] shrink-0 overflow-hidden border border-border bg-secondary">
+          {/* What you are installing, with its picture. Tilted and slapped, because it is a
+              print of the thing rather than a thumbnail in a slot. */}
+          <div className="flex items-center gap-3.5 p-3.5">
+            <div className="h-[112px] w-[168px] shrink-0 rotate-[0.7deg] border-2 border-border bg-art p-1 shadow-slap">
               {/* Not shielded, matching Bookmarks: reaching the install dialog is an active,
-                  already-informed choice, and a reveal button in a 72px box helps nobody. */}
+                  already-informed choice, and a reveal button in a 168px box helps nobody. */}
               {thumbnailUrl ? (
                 <img
                   src={thumbnailUrl}
@@ -188,96 +202,232 @@ export function InstallConfirmDialog({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center font-heading text-lg text-muted-foreground/40">
+                <span className="flex h-full w-full items-center justify-center font-heading text-2xl text-muted-foreground/40">
                   {detail.name.charAt(0)}
                 </span>
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               {/* Wraps rather than truncating, unlike every other name in this dialog. This is
-                  the one you are being asked to confirm, and GameBanana names are long — the
-                  uppercase styling and open tracking spend the width faster still, so a single
-                  line cut most real names short and left the rest only on hover. Two lines hold
-                  nearly all of them without letting the dialog grow without limit. `break-words`
-                  is for the ones that arrive as a single unbroken run of characters. */}
+                  the one you are being asked to confirm, and GameBanana names are long. Two
+                  lines hold nearly all of them without letting the dialog grow without limit;
+                  `break-words` is for the ones that arrive as a single unbroken run. */}
               <p
-                className="line-clamp-2 break-words font-heading text-sm uppercase tracking-[0.04em]"
+                className="line-clamp-2 break-words font-heading text-[25px] uppercase leading-[0.98] tracking-[0.005em] text-card-foreground"
                 title={detail.name}
               >
                 {detail.name}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
-                by {detail.submitter.name}
+              <p className="mt-2 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                {detail.submitter.name}
               </p>
             </div>
           </div>
 
-          {/* Which file. A mod routinely ships a dozen archives — the detail page's list is full
-              of `v72.zip`, `v73.zip` — and the dialog used to name only the mod, so the one thing
-              you could still get wrong was the one thing it did not show. */}
-          <div className="border-b border-border px-4 py-3">
-            <p className="mb-1 font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-              File
-            </p>
-            <div className="flex items-baseline justify-between gap-3">
+          {/* The sentence the dialog exists to say: this file goes on that shelf. The arrow is
+              the whole idea, and the destination is the heavier half on purpose — it carries
+              the display face because it is the decision, while the file carries machine type
+              because it is a fact you are only confirming.
+
+              A dozen archives named v72.zip and v73.zip is normal, so the file's own name is
+              here rather than left to the list you came from. */}
+          <div className="mx-3.5 flex items-stretch bg-background shadow-slap">
+            <div className="min-w-0 flex-1 px-3 py-2.5">
+              <span className={CAPTION}>The file</span>
               <p
-                className="truncate text-xs text-foreground"
+                className="mt-1.5 truncate font-mono text-[12px] font-bold text-card-foreground"
                 title={file.file_name}
               >
                 {file.file_name}
               </p>
-              <span className="flex shrink-0 items-center gap-2 text-[11px] tabular-nums text-muted-foreground">
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
                 {file.version && (
-                  <span className="border border-border px-1 py-px font-heading tracking-[0.06em]">
+                  <span className="whitespace-nowrap border border-border px-1 text-card-foreground">
                     v{file.version}
                   </span>
                 )}
-                {formatBytes(file.file_size)}
-              </span>
+                <span className="whitespace-nowrap">
+                  {formatBytes(file.file_size)}
+                </span>
+              </p>
             </div>
-            {warning && (
-              <p className="mt-1.5 text-[11px] text-destructive">
+            <div
+              aria-hidden
+              className="flex w-[46px] shrink-0 items-center justify-center font-heading text-[26px] leading-none text-primary"
+            >
+              &rarr;
+            </div>
+            <div className="min-w-0 flex-1 px-3 py-2.5">
+              <span className={CAPTION} id="install-character-label">
+                Lands under
+              </span>
+              <Select
+                value={characterId}
+                onValueChange={setCharacterId}
+                disabled={enqueue.isPending}
+              >
+                {/* Paper laid on the card, in the display face at the size the mod page gives a
+                    card name — the one thing on this dialog that can be wrong is the largest
+                    thing on it. `border-0` beats the primitive's own edge; the slap replaces it. */}
+                <SelectTrigger
+                  id="install-character"
+                  aria-labelledby="install-character-label install-character"
+                  className="mt-1.5 h-auto w-full border-0 bg-card px-2.5 py-2 font-heading text-[19px] uppercase leading-tight tracking-[0.005em] text-card-foreground shadow-slap [&>svg]:text-primary [&>svg]:opacity-100"
+                >
+                  {/* `SelectValue` with its own children, not a plain span. Radix renders the
+                      chosen item's label by portalling it into this node, and that gives only
+                      the character's name — the slot is half the answer to "where does this
+                      land", so `destination` says the whole sentence instead.
+                      
+                      It has to stay a `SelectValue` even so: the component registers itself as
+                      the trigger's value node, and `position="item-aligned"` positions the list
+                      by aligning the selected row over that node. Swapping it for a span left
+                      the node null and the whole list rendered at (0, viewport bottom), open but
+                      completely off-screen. */}
+                  <SelectValue placeholder="Pick one" className="min-w-0 truncate">
+                    {destination}
+                  </SelectValue>
+                </SelectTrigger>
+                {/* The panel is paper too. Scoped here rather than changed in the shared
+                    primitive, which Settings and the rest of the app still use. */}
+                <SelectContent
+                  position="popper"
+                  className="max-h-80 border-2 border-border bg-card shadow-slap-lift ring-0 [&_[data-slot=select-scroll-down-button]]:bg-card [&_[data-slot=select-scroll-down-button]]:text-primary [&_[data-slot=select-scroll-up-button]]:bg-card [&_[data-slot=select-scroll-up-button]]:text-primary"
+                >
+                  <SelectGroup>
+                    <SelectLabel className={CAPTION}>General</SelectLabel>
+                    <SelectItem className={OPTION} value={UI_CHARACTER_ID}>
+                      UI
+                    </SelectItem>
+                    <SelectItem className={OPTION} value={MISC_CHARACTER_ID}>
+                      Misc
+                    </SelectItem>
+                  </SelectGroup>
+                  <SelectSeparator className="h-0.5 bg-border" />
+                  <SelectGroup>
+                    <SelectLabel className={CAPTION}>
+                      Character (Skin)
+                    </SelectLabel>
+                    {realCharacters.map((character) => (
+                      <SelectItem
+                        key={character.id}
+                        className={OPTION}
+                        value={character.id}
+                      >
+                        {character.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* The hedge sits under the half it is about and states the result rather than the
+              caveat. It was two lines of apology above every control in the old dialog. */}
+          <p className="mt-1.5 px-3.5 text-right font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+            {destination
+              ? "Guessed from the category — change it if that is wrong"
+              : "Pick a character, or UI / Misc"}
+          </p>
+
+          <div className="px-3.5 pt-3">
+            <label htmlFor="install-display-name" className={CAPTION}>
+              Call it
+            </label>
+            {/* The app's own field: wall colour, slapped, machine type — you are typing a
+                value, and every other value in this dialog is set in Courier. */}
+            <input
+              id="install-display-name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              disabled={enqueue.isPending}
+              required
+              className="mt-1.5 block w-full bg-background px-2.5 py-2 font-mono text-[13px] text-foreground shadow-slap outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+            />
+          </div>
+
+          {/* Worst first, and each one is the same object as the mod page's requirements
+              notice: a bordered block with a stamp hanging off its corner. Bordered rather than
+              filled, because these are conditions rather than controls — nothing in any of them
+              is pressable except the links the author supplied. */}
+          {warning && (
+            <div className="relative mx-3.5 mt-3.5 border-2 border-destructive px-3 py-2.5">
+              <span className="absolute -top-3 right-2 bg-destructive px-2 py-0.5 font-sign text-[13px] uppercase tracking-[0.1em] text-white shadow-slap">
+                Flagged
+              </span>
+              <p className="font-mono text-[10.5px] font-bold uppercase leading-relaxed tracking-[0.05em] text-card-foreground">
                 GameBanana flagged this file: {warning}
               </p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* A mod is data — meshes, textures, .ini files — so a program inside one is worth
+              stopping on even when it is legitimate, and sometimes it is: a few mods ship a
+              genuine fixer utility. This names the files rather than saying "contains an
+              executable", because the name is what lets you tell a fixer from a surprise.
+
+              It informs rather than blocks. Nothing here runs on install — the archive is
+              unpacked into the mods folder and that is all — so the risk arrives later, if you
+              go and run it. Refusing the install would be theatre; saying what is in there,
+              before it is on disk, is the part that actually helps. */}
+          {executables.length > 0 && (
+            <div className="relative mx-3.5 mt-3.5 border-2 border-destructive px-3 py-2.5">
+              <span className="absolute -top-3 right-2 bg-destructive px-2 py-0.5 font-sign text-[13px] uppercase tracking-[0.1em] text-white shadow-slap">
+                Contains {executables.length === 1 ? "a program" : "programs"}
+              </span>
+              <ul className="flex flex-wrap gap-1.5">
+                {executables.map((path) => (
+                  <li
+                    key={path}
+                    className="max-w-full truncate bg-background px-2 py-0.5 font-mono text-[10.5px] font-bold text-card-foreground"
+                    title={path}
+                  >
+                    {path}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                Installing only unpacks{" "}
+                {executables.length === 1 ? "it" : "them"} &mdash; nothing is run
+              </p>
+            </div>
+          )}
 
           {/* Before the install, not after, because that is the only moment it can save you
               anything. The app cannot check any of these — the same requirement is written
               "XXMI", "xxmi" and "XXMI Launcher" across three mods — so this passes on the
               author's own words and gets out of the way.
 
-              Not styled as a warning. Most entries are the loader you already have, and colouring
-              the routine case red teaches people to ignore it by the third install. What it is
-              really for is the other kind: "Character Quality -> High" is a graphics setting
-              that makes a mod silently do nothing when it is wrong, with no error anywhere and
-              nothing to search for. */}
+              Not styled as a warning. Most entries are the loader you already have, and
+              colouring the routine case red teaches people to ignore it by the third install.
+              What it is really for is the other kind: "Character Quality -> High" is a graphics
+              setting that makes a mod silently do nothing when it is wrong, with no error
+              anywhere and nothing to search for. */}
           {detail.requirements.length > 0 && (
-            <div className="border-b border-border px-4 py-3">
-              <p className="mb-1.5 font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-                The author says you need
-              </p>
-              <ul className="space-y-1">
+            <div className="relative mx-3.5 mt-3.5 border-2 border-primary px-3 py-2.5">
+              <span className="absolute -top-3 right-2 bg-primary px-2 py-0.5 font-sign text-[13px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap">
+                Author says
+              </span>
+              <ul className="flex flex-wrap gap-1.5">
                 {detail.requirements.map(({ name, url }) => (
-                  <li
-                    key={name}
-                    className="flex items-baseline gap-2 text-[11px] text-foreground"
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-1 size-1 shrink-0 bg-muted-foreground"
-                    />
-                    <span className="min-w-0 flex-1">{name}</span>
+                  <li key={`${name}:${url ?? ""}`}>
                     {/* The opener plugin, not an anchor: `target="_blank"` does not navigate
                         inside a WebView2, so a plain link here would simply do nothing. */}
-                    {url && (
+                    {url ? (
                       <button
                         type="button"
                         onClick={() => externalLink.requestOpen(url, "author")}
-                        className="shrink-0 text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                        className="bg-background px-2 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.05em] text-card-foreground transition-colors hover:text-primary"
                       >
-                        Get it
+                        {name} &rarr;
                       </button>
+                    ) : (
+                      // No link means the author named a game setting rather than a download,
+                      // so it gets no affordance to press.
+                      <span className="bg-background px-2 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.05em] text-card-foreground">
+                        {name}
+                      </span>
                     )}
                   </li>
                 ))}
@@ -285,133 +435,34 @@ export function InstallConfirmDialog({
             </div>
           )}
 
-          {/* A mod is data — meshes, textures, .ini files — so a program inside one is worth
-              stopping on even when it is legitimate, and sometimes it is: a few mods ship a
-              genuine fixer utility. This names the files rather than saying "contains an
-              executable", because the name is what lets you tell a fixer from a surprise, and
-              because the alarm is only useful while it stays rare enough to read.
-
-              It informs rather than blocks. Nothing here runs on install — the archive is
-              unpacked into the mods folder and that is all — so the risk arrives later, if you
-              go and run it. Refusing the install would be theatre; saying what is in there,
-              before it is on disk, is the part that actually helps. */}
-          {executables.length > 0 && (
-            <div className="border-b border-border bg-destructive/10 px-4 py-3">
-              <p className="flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-[0.12em] text-destructive">
-                <FileWarning className="h-3.5 w-3.5 shrink-0" />
-                Contains {executables.length === 1 ? "a program" : "programs"}
-              </p>
-              <ul className="mt-1.5 space-y-0.5">
-                {executables.map((path) => (
-                  <li
-                    key={path}
-                    className="truncate font-mono text-[11px] text-foreground"
-                    title={path}
-                  >
-                    {path}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Installing only unpacks{" "}
-                {executables.length === 1 ? "it" : "them"} into your mods folder
-                — nothing is run. Mods do not normally need to, so open{" "}
-                {executables.length === 1 ? "it" : "them"} only if you know what
-                it does.
-              </p>
-            </div>
+          {/* No progress bar here anymore. The download outlives this dialog, so showing its
+              progress inside a box the user is about to close would be claiming that closing
+              matters — it does not, and the Downloads page is where a running install actually
+              lives. This error is only about failing to *queue* one. */}
+          {enqueue.isError && (
+            <p className="mx-3.5 mt-3.5 border-2 border-destructive bg-card px-3 py-2 font-mono text-[10.5px] font-bold text-destructive">
+              {String(enqueue.error)}
+            </p>
           )}
-
-          <div className="grid gap-3.5 px-4 py-4">
-            <div className="grid gap-1.5">
-              <Label
-                htmlFor="install-display-name"
-                className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
-              >
-                Display name
-              </Label>
-              <Input
-                id="install-display-name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                disabled={enqueue.isPending}
-                required
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label
-                htmlFor="install-character"
-                className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
-              >
-                Install to
-              </Label>
-              <Select
-                value={characterId}
-                onValueChange={setCharacterId}
-                disabled={enqueue.isPending}
-              >
-                <SelectTrigger id="install-character" className="w-full">
-                  <SelectValue placeholder="Select a character, or UI / Misc" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>General</SelectLabel>
-                    <SelectItem value={UI_CHARACTER_ID}>UI</SelectItem>
-                    <SelectItem value={MISC_CHARACTER_ID}>Misc</SelectItem>
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>Character (Skin)</SelectLabel>
-                    {realCharacters.map((character) => (
-                      <SelectItem key={character.id} value={character.id}>
-                        {character.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              {/* The hedge the old dialog led with, moved to where the doubt actually is. It was
-                  two lines of apology above every control; here it sits under the one field it
-                  is about, and it states the result rather than the caveat. */}
-              <p className="text-[11px] text-muted-foreground">
-                {destination ? (
-                  <>
-                    Files under{" "}
-                    <span className="text-foreground">{destination}</span>.
-                    Guessed from the mod&apos;s category — change it if that is
-                    wrong.
-                  </>
-                ) : (
-                  "Pick a character, or UI / Misc."
-                )}
-              </p>
-            </div>
-
-            {/* No progress bar here anymore. The download outlives this dialog, so showing its
-                progress inside a box the user is about to close would be claiming that closing
-                matters — it does not, and the Downloads page is where a running install actually
-                lives. This error is only about failing to *queue* one. */}
-            {enqueue.isError && (
-              <p className="text-sm text-destructive">
-                {String(enqueue.error)}
-              </p>
-            )}
-          </div>
 
           {/* `mx-0 mb-0` cancels the base footer's `-mx-4 -mb-4`, which exists to bleed into
               `DialogContent`'s default padding. This content has none, so those negatives lifted
               the whole footer clean out of the panel. */}
-          <DialogFooter className="mx-0 mb-0 items-center border-t border-border bg-background px-4 py-3 sm:justify-between">
-            {/* Says where the work goes, because the dialog closing on Install would otherwise
-                look like nothing happened until the mod appeared minutes later. */}
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <ArrowRight className="h-3 w-3" />
-              Downloads in the background
+          <DialogFooter className="mx-0 mb-0 mt-3.5 items-center border-t-2 border-border bg-background px-3.5 py-3 sm:justify-between">
+            {/* Annotation, so it takes the marker: it is the app leaning in to say what happens
+                next, not a caption naming a region. Says where the work goes, because the
+                dialog closing on Install would otherwise look like nothing happened until the
+                mod appeared minutes later. */}
+            <span className="-rotate-[1.2deg] font-hand text-[13px] text-primary">
+              runs in the background &rarr;
             </span>
-            <Button type="submit" disabled={!characterId || enqueue.isPending}>
+            <button
+              type="submit"
+              disabled={!characterId || enqueue.isPending}
+              className="h-10 shrink-0 bg-primary px-6 font-sign text-[20px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap transition-[translate] duration-200 hover:-translate-y-px disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+            >
               {enqueue.isPending ? "Queueing…" : "Install"}
-            </Button>
+            </button>
           </DialogFooter>
         </form>
       </DialogContent>
