@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { SignStrip } from "@/components/SignStrip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
@@ -158,18 +159,39 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, records.length]);
 
+  // What the page can say about its own results, most- to least-changeable: the sign only ever
+  // shows part of itself at once and the first item is what is on screen when the page opens.
+  const bandItems = [
+    totalCount !== null
+      ? `${totalCount.toLocaleString()} results`
+      : isSearching
+        ? "Search results"
+        : "Counting…",
+    isSearching ? "Best match" : sortLabel,
+    ...(records.length > 0 ? [`${records.length.toLocaleString()} loaded`] : []),
+    ...(hiddenCount > 0 ? [`${hiddenCount.toLocaleString()} hidden`] : []),
+  ];
+
   const band = (
-    // Gives the grid a top edge. Without it the results simply began, and the sort in force was
-    // only discoverable by looking back up at the control that set it.
-    <div className="flex items-baseline justify-between border-b-2 border-primary pb-2.5 font-heading text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-      <span>
-        Results
-        {totalCount !== null && (
-          <span className="ml-2 text-foreground">{totalCount.toLocaleString()}</span>
-        )}
-      </span>
-      <span>{isSearching ? "Best match" : sortLabel}</span>
-    </div>
+    <>
+      {/* Gives the grid a top edge, and says which sort is in force — without it the results
+          simply began, and the ordering was only discoverable by looking back up at the control
+          that set it. It was a row of small caps over an accent rule; it is the app's own lit
+          sign now, the same object the Library and All Mods carry.
+
+          Browse hangs its strip here rather than under the page header, where the other two put
+          theirs. Theirs summarise a library that is entirely on the page; this one summarises
+          the results, which begin below the controls — and a sign describing the feed belongs
+          at the top of the feed. */}
+      <SignStrip items={bandItems} />
+      {/* `SignStrip` is `aria-hidden` on the argument that its numbers are stated in full
+          elsewhere on the page. On the Library that is true — the tabs carry their own counts.
+          Here nothing else states them, so this carries them for a screen reader. `polite`
+          because the count changes as pages load and should not interrupt. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {bandItems.join(". ")}.
+      </p>
+    </>
   );
 
   if (isLoading) {

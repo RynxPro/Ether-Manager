@@ -1,6 +1,5 @@
 import { ArrowUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { findScrollParent } from "@/lib/scroll";
 import { useDebounce } from "@/lib/useDebounce";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
@@ -117,28 +116,32 @@ export function Browse({
           strip of feed showing above it. */}
       {!isHeaderOnScreen && (
         <div className="sticky -top-6 z-30 h-0">
-          <div className="-mx-6 flex animate-in items-center gap-2 border-b-2 border-primary bg-background px-6 py-2.5 duration-200 slide-in-from-top-4">
+          {/* Wall, not paper. It was `bg-card`, which is exactly what the controls standing on
+              it are made of — so the search field had no edge against its own container and
+              read as loose text with a magnifier next to it. A strip pinned across the whole
+              window is not a slap anyway; it is a piece of wall that stays put while the feed
+              moves behind it, and the 2px rule is what stops it dissolving into the cards
+              scrolling underneath. */}
+          <div className="-mx-6 flex animate-in items-center gap-2.5 border-b-2 border-border bg-background px-6 py-3 duration-200 slide-in-from-top-4">
             <SearchBar
               compact
               inputRef={searchRef}
-              query={query}
-              onQueryChange={setQuery}
-              categoryId={categoryId}
-              onCategoryChange={setCategoryId}
-              sort={sort}
+            query={query}
+            onQueryChange={setQuery}
+            categoryId={categoryId}
+            onCategoryChange={setCategoryId}
+            sort={sort}
               onSortChange={setSort}
             />
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0"
               onClick={scrollToTop}
               aria-label="Back to top"
+              className="flex h-9 shrink-0 items-center gap-1.5 bg-primary px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap transition-[translate] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ArrowUp className="h-3.5 w-3.5" />
               Top
-            </Button>
+            </button>
           </div>
         </div>
       )}
@@ -157,26 +160,31 @@ export function Browse({
             that pairing. */}
         <PageHeader
           title="Browse"
+          // The app's own word for what kind of page this is, sprayed on the wall behind the
+          // title. Browse was the last page without one.
+          tag="Browse"
           subtitle="GameBanana · Zenless Zone Zero"
           pinned={false}
         />
 
-        <div className="border-2 border-border">
-          <FeaturedBanner onSelectMod={onSelectMod} />
+        {/* No container. The banner and the controls were sealed inside one bordered box, which
+            was the last thing in the app holding two unrelated objects together in a frame —
+            what is shown off, and how you narrow it, are not the same thought. They are two
+            things on the wall now, and the gap between them says so. */}
+        <FeaturedBanner onSelectMod={onSelectMod} />
 
-          <div className="border-t border-border px-4 py-3">
-            <SearchBar
-              // Only one of the two search inputs may hold the hotkey ref, or the second to mount
-              // silently steals it — Ctrl+F would then focus whichever is off screen.
-              inputRef={isHeaderOnScreen ? searchRef : undefined}
+        <div>
+          <SearchBar
+            // Only one of the two search inputs may hold the hotkey ref, or the second to
+            // mount silently steals it — Ctrl+F would then focus whichever is off screen.
+            inputRef={isHeaderOnScreen ? searchRef : undefined}
               query={query}
               onQueryChange={setQuery}
               categoryId={categoryId}
               onCategoryChange={setCategoryId}
               sort={sort}
-              onSortChange={setSort}
-            />
-          </div>
+            onSortChange={setSort}
+          />
         </div>
       </div>
 
