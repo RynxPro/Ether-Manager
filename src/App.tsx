@@ -322,18 +322,6 @@ function App() {
     });
   }
 
-  /** Leaving a drill-down is a step back, not a step somewhere new, so it moves along the trail
-   * instead of extending it — otherwise pressing Back on screen and then Back on the mouse would
-   * send you forwards into the page you had just left.
-   *
-   * The fallback covers the one path with no previous entry to return to: a detail opened from
-   * the notification bell on a freshly started app. Popping directly still lands on the section
-   * root. */
-  function closeDetail() {
-    if (cursor > 0) goBack();
-    else navigate({ ...here, detailStack: detailStack.slice(0, -1) });
-  }
-
   /** The open drill-down, whichever kind it is. Written once rather than per section: all
    * five sections share one detail chain, and Back must behave identically in each. */
   function renderDetail(frame: DetailFrame) {
@@ -343,7 +331,6 @@ function App() {
           key={`creator-${frame.id}`}
           creatorId={frame.id}
           fallbackName={frame.name}
-          onBack={closeDetail}
           onSelectMod={openMod}
         />
       );
