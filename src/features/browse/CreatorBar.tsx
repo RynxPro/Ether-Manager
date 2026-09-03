@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { tiltFor } from "@/lib/tilt";
 import type { CreatorBookmark } from "@/lib/tauri-commands";
 
 interface CreatorBarProps {
@@ -86,12 +87,15 @@ export function CreatorBar({ creators, onSelectCreator }: CreatorBarProps) {
   if (creators.length === 0) return null;
 
   return (
-    <div className="relative border-2 border-border bg-card">
-      <div className="flex items-center gap-2 px-3 pt-2">
-        <span className="font-heading text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
-          Creators
+    // No box. A bordered panel around a row of faces was the last container on this page
+    // holding unrelated things in a frame; the creators are objects on the wall like everything
+    // else, and the caption above them is enough to say what they are.
+    <div className="relative">
+      <div className="flex items-center gap-2 pb-1">
+        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          Creators you follow
         </span>
-        <span className="border border-border px-1.5 text-[10px] tabular-nums text-muted-foreground">
+        <span className="bg-card px-1.5 font-mono text-[10px] font-bold tabular-nums text-card-foreground shadow-slap">
           {creators.length}
         </span>
       </div>
@@ -101,7 +105,9 @@ export function CreatorBar({ creators, onSelectCreator }: CreatorBarProps) {
         // The scrollbar is hidden through `.creator-track` in global.css, alongside the app's
         // other scrollbar rules. The row is ~100px tall and a 10px bar beneath it would spend a
         // tenth of the band reporting what the fade already reports.
-        className="creator-track flex overflow-x-auto overflow-y-hidden px-3 pt-2 pb-3"
+        // `gap` and padding rather than divider borders: each cell is its own slap now, and a
+        // rule between two pieces of paper is a rule about nothing.
+        className="creator-track flex gap-3 overflow-x-auto overflow-y-hidden px-0.5 pb-2 pt-1"
       >
         {creators.map((creator) => (
           <button
@@ -113,23 +119,24 @@ export function CreatorBar({ creators, onSelectCreator }: CreatorBarProps) {
             title={`${creator.name} — ${creator.mod_count} ${
               creator.mod_count === 1 ? "mod" : "mods"
             }`}
-            className="group flex w-[132px] shrink-0 flex-col items-center gap-1.5 border-r border-border px-1.5 py-2 last:border-r-0"
+            style={{ "--tilt": `${tiltFor(creator.gamebanana_member_id)}deg` } as CSSProperties}
+            className="group flex w-[126px] shrink-0 rotate-[var(--tilt)] flex-col items-center gap-1.5 bg-card px-2 py-2.5 shadow-slap-lift transition-[rotate,translate] duration-200 hover:-translate-y-0.5 hover:rotate-0 focus-visible:ring-2 focus-visible:ring-primary"
           >
             {creator.avatar_url ? (
               <img
                 src={creator.avatar_url}
                 alt=""
-                className="h-14 w-14 border-2 border-border object-cover group-hover:border-primary"
+                className="h-14 w-14 border-2 border-border object-cover transition-colors group-hover:border-primary"
               />
             ) : (
-              <span className="flex h-14 w-14 items-center justify-center border-2 border-border bg-secondary font-heading text-xl text-muted-foreground group-hover:border-primary">
+              <span className="flex h-14 w-14 items-center justify-center border-2 border-border bg-art font-heading text-xl text-muted-foreground transition-colors group-hover:border-primary">
                 {(creator.name || "?").charAt(0).toUpperCase()}
               </span>
             )}
-            <span className="max-w-[116px] truncate font-heading text-[11px] tracking-[0.02em] group-hover:text-primary">
+            <span className="max-w-[110px] truncate font-sign text-[15px] uppercase tracking-[0.06em] text-card-foreground transition-colors group-hover:text-primary">
               {creator.name}
             </span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">
+            <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.08em] tabular-nums text-muted-foreground">
               {creator.mod_count} {creator.mod_count === 1 ? "mod" : "mods"}
             </span>
           </button>
@@ -140,12 +147,12 @@ export function CreatorBar({ creators, onSelectCreator }: CreatorBarProps) {
           below the header row so it never washes over the "Creators" label. */}
       {canScrollLeft && (
         <>
-          <div className="pointer-events-none absolute bottom-0.5 left-0.5 top-7 w-16 bg-gradient-to-r from-card to-transparent" />
+          <div className="pointer-events-none absolute bottom-0.5 left-0.5 top-0 w-16 bg-gradient-to-r from-background to-transparent" />
           <button
             type="button"
             onClick={() => scrollByPage(-1)}
             aria-label="Show earlier creators"
-            className="absolute left-2 top-[58%] flex h-7 w-7 -translate-y-1/2 items-center justify-center border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
+            className="absolute left-0 top-[52%] flex h-8 w-8 -translate-y-1/2 items-center justify-center bg-card text-card-foreground shadow-slap transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronRight className="h-4 w-4 rotate-180" />
           </button>
@@ -153,12 +160,12 @@ export function CreatorBar({ creators, onSelectCreator }: CreatorBarProps) {
       )}
       {canScrollRight && (
         <>
-          <div className="pointer-events-none absolute bottom-0.5 right-0.5 top-7 w-16 bg-gradient-to-l from-card to-transparent" />
+          <div className="pointer-events-none absolute bottom-0.5 right-0.5 top-0 w-16 bg-gradient-to-l from-background to-transparent" />
           <button
             type="button"
             onClick={() => scrollByPage(1)}
             aria-label="Show more creators"
-            className="absolute right-2 top-[58%] flex h-7 w-7 -translate-y-1/2 items-center justify-center border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
+            className="absolute right-0 top-[52%] flex h-8 w-8 -translate-y-1/2 items-center justify-center bg-card text-card-foreground shadow-slap transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronRight className="h-4 w-4" />
           </button>

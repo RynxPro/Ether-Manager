@@ -2,12 +2,11 @@ import { Bookmark as BookmarkIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FilterChip } from "@/components/FilterChip";
-import { Input } from "@/components/ui/input";
 import {
   useCharacters,
   useInstalledFromGameBanana,
 } from "@/features/library/hooks";
-import { CARD_GRID } from "@/lib/layout";
+import { BROWSE_GRID } from "@/lib/layout";
 import { placeholderGbMod } from "@/lib/placeholderGbMod";
 import type { Bookmark, Character, GbMod } from "@/lib/tauri-commands";
 import { BookmarkCard } from "./BookmarkCard";
@@ -19,6 +18,7 @@ import {
   useRemoveBookmark,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
+import { SignStrip } from "@/components/SignStrip";
 
 interface BookmarkGroup {
   characterId: string;
@@ -145,26 +145,68 @@ export function BookmarksView({
             (bookmark.character_id ?? UNSORTED_ID) === selectedCharacter,
         );
   const count = bookmarks?.length ?? 0;
+  // How much of the shortlist you have already acted on. A shortlist is mostly things you have
+  // not got yet, so the proportion you have is the one number about the page worth stating.
+  const installedSavedCount = (bookmarks ?? []).filter(
+    (bookmark) => (installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0) > 0,
+  ).length;
+  /** The roster's name for a bookmark's character, or nothing when it has none. The rail already
+   * does this to build its chips; the card needs the same answer, so it comes from one place. */
+  const labelForCharacter = (characterId: string | null) =>
+    characterId ? (nameById.get(characterId) ?? characterId) : null;
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Bookmarks" subtitle="Saved from Browse">
+      <PageHeader
+        title="Bookmarks"
+        // The app's own word for what kind of page this is, sprayed on the wall behind the
+        // title. Every other page has one.
+        tag="Saved"
+        subtitle="Saved from Browse"
+        // Unpinned, like every other page that has had the street pass. The tag is the reason:
+        // it is deliberately taller than the band it sits in, so a pinned header has to clip it
+        // and the sprayed word gets cut off against a rule. A shortlist is also a page you
+        // scroll to the end of rather than one you get lost in, so there is nothing a bar needs
+        // to keep telling you.
+        pinned={false}
+      >
         {!isLoading && count > 0 && (
           <>
-            <span className="font-heading text-[11px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] tabular-nums text-muted-foreground">
               {needle ? `${matches.length} of ${count}` : `${count} saved`}
             </span>
-            <Input
-              type="search"
+            {/* Paper, not the shadcn `Input`: that primitive is a bordered box with a soft focus
+                ring, which is the wrong material on a wall. Machine type, because you are typing
+                a value. The same object as the search on Browse. */}
+            <input
+              type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search your bookmarks…"
               aria-label="Search your bookmarks"
-              className="w-full sm:w-64"
+              className="h-10 w-full border-0 bg-card px-3 font-mono text-[13px] text-foreground shadow-slap outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary sm:w-64"
             />
           </>
         )}
       </PageHeader>
+
+      {/* What the page can say about itself in numbers, on the same lit sign the Library, All
+          Mods and Browse carry. Ordered most- to least-changeable: the strip only ever shows
+          part of itself at once, and the first item is what is on screen when the page opens. */}
+      {!isLoading && count > 0 && (
+        <SignStrip
+          items={[
+            `${count} saved`,
+            installedSavedCount > 0
+              ? `${installedSavedCount} already installed`
+              : "None installed yet",
+            shelves.length > 1 ? `${shelves.length} characters` : "One character",
+            (creators ?? []).length > 0
+              ? `${(creators ?? []).length} creators followed`
+              : "No creators followed",
+          ]}
+        />
+      )}
 
       {/* Above the mod list and outside every branch below it, because following creators and
           saving mods are independent — an empty shortlist with four creators in it is a real
@@ -173,30 +215,46 @@ export function BookmarksView({
       <CreatorBar creators={creators ?? []} onSelectCreator={onSelectCreator} />
 
       {isLoading ? (
-        <div className={CARD_GRID}>
+        <div className={BROWSE_GRID}>
           {Array.from({ length: 8 }).map((_, index) => (
+            // Card-shaped, not a bare square: a placeholder that is not the shape of the thing
+            // it stands in for makes the layout jump the moment the data arrives.
             <div
               key={index}
-              className="aspect-[4/3] animate-pulse border-2 border-border bg-card"
-            />
+              className="animate-pulse border-2 border-border bg-card p-[5px] pb-0 shadow-slap-lift"
+            >
+              <div className="aspect-[4/3] w-full bg-art" />
+              <div className="px-1 pb-3 pt-2">
+                <div className="h-[39px] bg-art" />
+                <div className="mt-1.5 h-3 w-2/3 bg-art" />
+              </div>
+            </div>
           ))}
         </div>
       ) : count === 0 ? (
         // A designed state rather than a line of grey text: an empty shortlist is the normal
         // condition on a fresh install, not a failure.
-        <div className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border bg-card px-6 py-16 text-center">
-          <BookmarkIcon className="h-7 w-7 text-muted-foreground/40" />
-          <p className="font-heading text-sm uppercase tracking-[0.1em] text-foreground">
+        // A note on board sized to its own sentence, rather than a dashed outline stretched
+        // across the window. Dashed is the one border style this app does not own, and an empty
+        // shortlist is the normal condition on a fresh install, not a failure.
+        <div className="max-w-lg -rotate-[0.4deg] border-2 border-border bg-card px-7 py-9 shadow-slap-lift">
+          <BookmarkIcon className="h-7 w-7 text-primary" />
+          <p className="mt-4 font-heading text-[24px] uppercase leading-none tracking-[0.005em] text-foreground">
             Nothing saved yet
           </p>
-          <p className="max-w-sm text-sm text-muted-foreground">
+          <p className="mt-3 font-mono text-[11px] font-bold uppercase leading-relaxed tracking-[0.06em] text-muted-foreground">
             The bookmark button on any mod in Browse keeps it here.
           </p>
         </div>
       ) : matches.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No bookmarks match “{query.trim()}”.
-        </p>
+        <div className="max-w-lg rotate-[0.35deg] border-2 border-border bg-card px-7 py-7 shadow-slap-lift">
+          <p className="font-heading text-[22px] uppercase leading-none tracking-[0.005em] text-foreground">
+            Nothing matches
+          </p>
+          <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+            No saved mod is called “{query.trim()}”.
+          </p>
+        </div>
       ) : (
         <div className="space-y-4">
           {/* The characters, as a rail rather than as nine headings with nine grids under them.
@@ -228,7 +286,7 @@ export function BookmarksView({
             </div>
           )}
 
-          <div className={CARD_GRID}>
+          <div className={BROWSE_GRID}>
             {visible.map((bookmark) => (
               <BookmarkCard
                 key={bookmark.gamebanana_mod_id}
@@ -236,6 +294,7 @@ export function BookmarksView({
                 installedCount={
                   installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0
                 }
+                characterLabel={labelForCharacter(bookmark.character_id)}
                 onSelect={() =>
                   onSelectMod(
                     placeholderGbMod({
