@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import {
   useModsFolder,
@@ -127,6 +127,14 @@ interface OptionSlabProps {
   isSelected: boolean;
   isDisabled: boolean;
   onClick: () => void;
+  /** Set by the group, which owns the roving tab stop. A radio group is one stop in the tab
+   * order, not one per answer. */
+  tabIndex: number;
+  /** The group's arrow handling. It hangs off each radio rather than off the group element: the
+   * group is a `radiogroup`, which is not focusable, and a key handler on a non-focusable
+   * interactive role is both a lint error and a lie about where keys arrive. */
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+  ref: React.Ref<HTMLButtonElement>;
 }
 
 /** One answer in a pick-one setting.
@@ -145,11 +153,17 @@ function OptionSlab({
   isSelected,
   isDisabled,
   onClick,
+  tabIndex,
+  onKeyDown,
+  ref,
 }: OptionSlabProps) {
   return (
     <button
       type="button"
       role="radio"
+      ref={ref}
+      tabIndex={tabIndex}
+      onKeyDown={onKeyDown}
       aria-checked={isSelected}
       disabled={isDisabled}
       onClick={onClick}
@@ -177,6 +191,94 @@ function OptionSlab({
         </span>
       )}
     </button>
+  );
+}
+
+interface SlabRadioGroupProps<T extends string> {
+  labelledBy: string;
+  options: { value: T; label: string; description: string }[];
+  /** Undefined while the first read is in flight. Nothing is marked selected in that window
+   * rather than guessing, because guessing wrong makes the row visibly jump. */
+  value: T | undefined;
+  isDisabled: boolean;
+  onPick: (value: T) => void;
+}
+
+/** A pick-one setting, with the keyboard behaviour a radio group is supposed to have.
+ *
+ * These were plain buttons carrying `role="radio"`, which told assistive tech "this is a radio
+ * group" and then behaved like nothing of the sort: every answer was its own tab stop and the
+ * arrow keys did nothing at all. Announcing a pattern and not implementing it is worse than
+ * using plain buttons, because the promise is what the user navigates by.
+ *
+ * So: one tab stop for the whole group (the chosen answer holds it — or the first, while the
+ * stored value is still loading), and the arrows move within it, wrapping at both ends.
+ *
+ * Focus moves without selecting, and that is a deliberate departure from the usual radio
+ * behaviour. Here, choosing writes to the database and repaints the entire app — arrowing from
+ * Daylight to Match Windows would strobe the window through every theme on the way past. The
+ * ARIA practices allow exactly this when selection has consequences: move with the arrows,
+ * commit with Space or Enter, which the native button already gives us. */
+function SlabRadioGroup<T extends string>({
+  labelledBy,
+  options,
+  value,
+  isDisabled,
+  onPick,
+}: SlabRadioGroupProps<T>) {
+  const slabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selected = options.findIndex((option) => option.value === value);
+  // Nothing stored yet still needs a way in, or the group would be unreachable by keyboard
+  // until the first read lands.
+  const tabStop = selected === -1 ? 0 : selected;
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const from = slabs.current.findIndex((slab) => slab === document.activeElement);
+    if (from === -1) return;
+
+    let to: number;
+    switch (event.key) {
+      case "ArrowDown":
+      case "ArrowRight":
+        to = (from + 1) % options.length;
+        break;
+      case "ArrowUp":
+      case "ArrowLeft":
+        to = (from - 1 + options.length) % options.length;
+        break;
+      case "Home":
+        to = 0;
+        break;
+      case "End":
+        to = options.length - 1;
+        break;
+      default:
+        return;
+    }
+    // Arrow keys scroll the page by default, which would drag the setting out from under the
+    // cursor while you are moving through it.
+    event.preventDefault();
+    slabs.current[to]?.focus();
+  }
+
+  return (
+    <div role="radiogroup" aria-labelledby={labelledBy} className="mt-3.5 grid gap-2">
+      {options.map((option, index) => (
+        <OptionSlab
+          key={option.value}
+          ref={(slab) => {
+            slabs.current[index] = slab;
+          }}
+          tabIndex={index === tabStop ? 0 : -1}
+          onKeyDown={handleKeyDown}
+          label={option.label}
+          description={option.description}
+          isSelected={option.value === value}
+          isDisabled={isDisabled}
+          onClick={() => onPick(option.value)}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -290,21 +392,15 @@ export function SettingsPage() {
           headingId="theme-heading"
           description="Two versions of the same wall. Everything moves together — nothing is only styled for one of them."
         >
-          <div role="radiogroup" aria-labelledby="theme-heading" className="mt-3.5 grid gap-2">
-            {THEME_OPTIONS.map((option) => (
-              <OptionSlab
-                key={option.value}
-                label={option.label}
-                description={option.description}
-                // Undefined while the first read is in flight. Nothing is marked selected in that
-                // window rather than guessing, because guessing wrong makes the row visibly jump
-                // — and the theme itself is already painted correctly from the cache regardless.
-                isSelected={theme === option.value}
-                isDisabled={saveTheme.isPending}
-                onClick={() => saveTheme.mutate(option.value)}
-              />
-            ))}
-          </div>
+          {/* The theme itself is already painted correctly from the cache while this loads, so
+              nothing here has to guess at the stored value. */}
+          <SlabRadioGroup
+            labelledBy="theme-heading"
+            options={THEME_OPTIONS}
+            value={theme}
+            isDisabled={saveTheme.isPending}
+            onPick={(value) => saveTheme.mutate(value)}
+          />
 
           {saveTheme.isError && (
             <p className={ERROR_LINE}>
@@ -326,22 +422,13 @@ export function SettingsPage() {
             </p>
           )}
 
-          <div
-            role="radiogroup"
-            aria-labelledby="mature-content-heading"
-            className="mt-3.5 grid gap-2"
-          >
-            {OPTIONS.map((option) => (
-              <OptionSlab
-                key={option.value}
-                label={option.label}
-                description={option.description}
-                isSelected={visibility === option.value}
-                isDisabled={setVisibility.isPending}
-                onClick={() => setVisibility.mutate(option.value)}
-              />
-            ))}
-          </div>
+          <SlabRadioGroup
+            labelledBy="mature-content-heading"
+            options={OPTIONS}
+            value={visibility}
+            isDisabled={setVisibility.isPending}
+            onPick={(value) => setVisibility.mutate(value)}
+          />
 
           {setVisibility.isError && (
             <p className={ERROR_LINE}>
