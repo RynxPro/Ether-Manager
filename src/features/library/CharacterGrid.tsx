@@ -36,7 +36,7 @@ export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
     return (
       <div className={POSTER_GRID}>
         {Array.from({ length: 12 }).map((_, index) => (
-          <Skeleton key={index} className="aspect-[3/4] rounded-xl" />
+          <Skeleton key={index} className="aspect-[3/4]" />
         ))}
       </div>
     );

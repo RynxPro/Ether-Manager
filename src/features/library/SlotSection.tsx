@@ -59,7 +59,7 @@ export function SlotSection({
       )}
 
       {mods.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+        <p className="border-2 border-dashed border-border p-4 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           No mods installed for this slot yet.
         </p>
       ) : (
