@@ -10,12 +10,14 @@
     "id": "wise",
     "name": "Wise",
     "portrait": "/characters/wise.webp",
+    "banner": "/banners/wise.webp",
     "gamebanana_category_id": 30316
   },
   {
     "id": "belle",
     "name": "Belle",
     "portrait": "/characters/belle.webp",
+    "banner": "/banners/belle.webp",
     "gamebanana_category_id": 30334
   },
   {
