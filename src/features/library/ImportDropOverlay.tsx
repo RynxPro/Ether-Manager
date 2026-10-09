@@ -54,7 +54,7 @@ export function ImportDropOverlay({
               type="button"
               onClick={onDismissError}
               aria-label="Dismiss"
-              className="-my-0.5 shrink-0 p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              className="-my-0.5 shrink-0 p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <XIcon className="h-3.5 w-3.5" />
             </button>

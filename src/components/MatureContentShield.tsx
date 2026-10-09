@@ -81,7 +81,7 @@ export function MatureContentShield({
           }}
           // A light scrim only. Anything heavier would undo the point of the lighter blur and
           // put the wall of grey tiles back.
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1.5 bg-black/25 px-2 text-white [text-shadow:0_1px_6px_rgba(0,0,0,.9)]"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1.5 bg-black/25 px-2 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary [text-shadow:0_1px_6px_rgba(0,0,0,.9)]"
         >
           <EyeOff className="h-5 w-5" />
           <span className="text-center font-heading text-[11px] uppercase leading-tight tracking-[0.08em]">

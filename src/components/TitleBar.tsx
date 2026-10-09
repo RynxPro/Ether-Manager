@@ -175,7 +175,7 @@ function NavButton({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-full w-[34px] items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+      className="flex h-full w-[34px] items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-30"
     >
       {/* 16px on the same 10-unit grid, so the chevrons carry the weight of a control pressed
           constantly rather than reading as hairlines. The window controls stay at 10px on purpose:

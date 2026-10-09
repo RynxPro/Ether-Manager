@@ -41,7 +41,7 @@ export function ModComments({ modId, postCount, onFollowLink }: ModCommentsProps
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
-        className="mb-3 flex w-full items-center gap-2 border-b-2 border-border pb-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-3 flex w-full items-center gap-2 border-b-2 border-border pb-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <MessageSquare className="h-3.5 w-3.5 shrink-0" />
         <span>Comments</span>

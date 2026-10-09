@@ -50,7 +50,7 @@ export function FilterChip({ label, count, isSelected, onClick }: FilterChipProp
       aria-pressed={isSelected}
       onClick={onClick}
       style={style}
-      className={`inline-flex h-[30px] rotate-[var(--tilt)] items-center gap-2 px-3 font-sign text-[15px] uppercase tracking-[0.1em] shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 ${
+      className={`inline-flex h-[30px] rotate-[var(--tilt)] items-center gap-2 px-3 font-sign text-[15px] uppercase tracking-[0.1em] shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         isSelected
           ? "bg-primary text-primary-foreground"
           : "bg-card text-card-foreground/70 hover:text-card-foreground"

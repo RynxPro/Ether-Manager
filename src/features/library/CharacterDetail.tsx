@@ -165,7 +165,7 @@ export function CharacterDetail({
           type="button"
           size="sm"
           onClick={onImport}
-          className="h-[38px] rotate-[0.7deg] border-0 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 hover:bg-card"
+          className="h-[38px] rotate-[0.7deg] border-0 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-card"
         >
           <FilePlus2 className="h-3.5 w-3.5" />
           Import
@@ -338,7 +338,7 @@ export function CharacterDetail({
                     type="button"
                     disabled={isTakingOff}
                     onClick={() => void takeOffEnabled(enabled)}
-                    className="inline-flex h-[38px] -rotate-[0.6deg] items-center gap-2 bg-primary px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 disabled:pointer-events-none disabled:opacity-70"
+                    className="inline-flex h-[38px] -rotate-[0.6deg] items-center gap-2 bg-primary px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-70"
                   >
                     {isTakingOff
                       ? enabled.length > 1
@@ -351,7 +351,7 @@ export function CharacterDetail({
                   <button
                     type="button"
                     onClick={() => void revealWornFolder(worn.folder_path)}
-                    className="inline-flex h-[38px] rotate-[0.5deg] items-center gap-2 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0"
+                    className="inline-flex h-[38px] rotate-[0.5deg] items-center gap-2 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <FolderOpen className="h-3.5 w-3.5" />
                     Open folder
@@ -361,7 +361,7 @@ export function CharacterDetail({
               <button
                 type="button"
                 onClick={onBrowse}
-                className="inline-flex h-[38px] -rotate-[0.4deg] items-center gap-2 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground/70 shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 hover:text-card-foreground"
+                className="inline-flex h-[38px] -rotate-[0.4deg] items-center gap-2 bg-card px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground/70 shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:text-card-foreground"
               >
                 <Compass className="h-3.5 w-3.5" />
                 Find more

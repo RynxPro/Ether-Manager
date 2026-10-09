@@ -121,7 +121,7 @@ export function CharacterPicker({
                 disabled={disabled}
                 aria-current={isSelected}
                 onClick={() => onChange(character.id)}
-                className={`flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-secondary disabled:opacity-50 ${
+                className={`flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-secondary disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
                   isSelected ? "text-primary" : "text-foreground"
                 }`}
               >
