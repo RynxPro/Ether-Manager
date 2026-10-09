@@ -441,7 +441,7 @@ export function FeaturedBanner({ onSelectMod }: FeaturedBannerProps) {
                 aria-label={`Show ${PERIOD_LABELS[slide.period].headline}: ${record.name}`}
                 aria-current={isActive}
                 style={{ "--tilt": `${RAIL_TILT[i % RAIL_TILT.length]}deg` } as CSSProperties}
-                className={`group/rail relative flex rotate-[var(--tilt)] flex-col border-2 bg-card p-1 pb-0 text-left shadow-slap-lift transition-[rotate,translate,border-color] duration-200 hover:-translate-y-0.5 hover:rotate-0 ${
+                className={`group/rail relative flex rotate-[var(--tilt)] flex-col border-2 bg-card p-1 pb-0 text-left shadow-slap-lift transition-[rotate,translate,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:ring-2 hover:ring-primary ${
                   isActive ? "border-primary" : "border-border hover:border-primary"
                 }`}
               >

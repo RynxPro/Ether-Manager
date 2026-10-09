@@ -980,7 +980,7 @@ export function ModDetailPage({
                     >
                       <PaperTilt
                         tilt={TICKET_TILT[index % TICKET_TILT.length]}
-                        className="border-2 border-border bg-card shadow-slap-lift group-hover:border-primary"
+                        className="border-2 border-border bg-card shadow-slap-lift transition-[box-shadow] duration-200 group-hover:border-primary group-hover:ring-2 group-hover:ring-primary"
                         straightensOnHover
                       >
                         {/* The stub's own stock and its punched line ride on the paper rather

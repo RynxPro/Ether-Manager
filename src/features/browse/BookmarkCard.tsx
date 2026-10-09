@@ -48,7 +48,7 @@ export function BookmarkCard({
   return (
     <div
       style={{ "--tilt": `${tiltFor(bookmark.gamebanana_mod_id)}deg` } as CSSProperties}
-      className="group relative flex rotate-[var(--tilt)] flex-col border-2 border-border bg-card p-[5px] pb-0 text-left shadow-slap-lift transition-[rotate,translate,border-color] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary"
+      className="group relative flex rotate-[var(--tilt)] flex-col border-2 border-border bg-card p-[5px] pb-0 text-left shadow-slap-lift transition-[rotate,translate,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-2 hover:ring-primary"
     >
       {/* Off the picture and onto the wall, the same place and the same green as the browse
           card's — a shortlist is mostly things you have not got yet, so the ones you already

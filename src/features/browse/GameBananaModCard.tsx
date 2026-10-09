@@ -69,7 +69,7 @@ export function GameBananaModCard({
       // are mostly type and buys them crisp glyphs; a card that is mostly picture cannot use it,
       // because a photograph sitting square inside a slanted mount reads as a mistake. Same trade
       // `ModCard` and `CharacterCard` already make.
-      className="group relative flex rotate-[var(--tilt)] flex-col border-2 border-border bg-card p-[5px] pb-0 text-left shadow-slap-lift transition-[rotate,translate,border-color] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary"
+      className="group relative flex rotate-[var(--tilt)] flex-col border-2 border-border bg-card p-[5px] pb-0 text-left shadow-slap-lift transition-[rotate,translate,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-2 hover:ring-primary"
     >
       {/* Both tags hang off the card's top corners onto the wall — `bottom-full` rather than a
           pixel offset, so they clear the art whatever size the type is. An inset value cannot

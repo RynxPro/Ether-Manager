@@ -536,7 +536,7 @@ function LogRow({ download, onRetry, onOpenCharacter }: LogRowProps) {
   const shell =
     "group flex w-full items-center gap-4 border-2 border-transparent bg-card p-2.5 text-left shadow-slap";
   const live =
-    "transition-[translate,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary";
+    "transition-[translate,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary hover:ring-2 hover:ring-primary focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary";
 
   const body = (
     <>

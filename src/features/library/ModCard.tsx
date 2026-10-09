@@ -187,9 +187,9 @@ export function ModCard({
       // the rest are off. `CharacterCard` tried the same ring and dropped it, correctly — nearly
       // every character has something enabled, so a ring there landed on nearly every card and
       // marked nothing. The condition it could not meet is the ordinary case here.
-      className={`group/card relative flex flex-col border-2 bg-card p-[5px] pb-0 shadow-slap-lift transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-[3px] hover:ring-primary ${
+      className={`group/card relative flex flex-col border-2 bg-card p-[5px] pb-0 shadow-slap-lift transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-2 hover:ring-primary ${
         isMarkedOn
-          ? "rotate-0 border-primary ring-[3px] ring-primary"
+          ? "rotate-0 border-primary ring-2 ring-primary"
           : "rotate-[var(--tilt)] border-border"
       }`}
     >
