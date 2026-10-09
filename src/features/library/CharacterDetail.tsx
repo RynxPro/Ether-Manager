@@ -1,5 +1,5 @@
-import { Compass, FilePlus2, FolderOpen } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, Compass, FilePlus2, FolderOpen } from "lucide-react";
+import { useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { PageHeader } from "@/components/PageHeader";
 import { SignStrip } from "@/components/SignStrip";
@@ -61,6 +61,24 @@ export function CharacterDetail({
   // mutations in a row, and the shared pending flag drops to false between each one, which would
   // flicker the label.
   const [isTakingOff, setIsTakingOff] = useState(false);
+
+  /** The shelf of looks this character already owns. The band needs a handle on it so
+   * "Wear one" can point at something concrete. */
+  const shelf = useRef<HTMLDivElement>(null);
+
+  /** Sends you to the mods you already have, rather than out to Browse.
+   *
+   * The empty band had one verb on it and it was Find more, which leaves the app — while four
+   * looks you had already installed sat two hundred pixels below, unmentioned. This scrolls to
+   * them and puts focus on the first, so the keyboard arrives where the eye does. Deliberately
+   * not "enable the first one for you": which look a character wears is the one decision this
+   * page exists to let you make. */
+  function goToShelf() {
+    const node = shelf.current;
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    node.querySelector<HTMLElement>("button, a, [role=button]")?.focus({ preventScroll: true });
+  }
 
   async function revealWornFolder(folderPath: string) {
     setBandError(null);
@@ -257,6 +275,15 @@ export function CharacterDetail({
           {/* Two axes, because the art now runs under everything: the left one gives the words
               a surface to sit on, the bottom one stops the picture ending against the well's
               edge in mid-detail.
+
+              Both were pulled back — the left wash from 45% at 30% to 30% at 20%, the bottom
+              from 58% to 64% — because they were covering the thing the page is for. The band
+              is the one place a character is shown at size, and two short lines of Courier do
+              not need half a banner darkened behind them to stay legible. What made this look
+              unavoidable was Belle and Wise, the two characters with no banner at all: their
+              fallback blurs a portrait at .5 brightness and then this scrim darkened it again,
+              which read as a black rectangle and got blamed on the scrim rather than on the
+              missing art.
               Both run to the well's own colour rather than to black, which is what keeps this
               reading as a recess in board instead of a gradient laid over a photograph — and it
               is why it works in Daylight too, where a black scrim would be a bruise. */}
@@ -264,7 +291,7 @@ export function CharacterDetail({
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(90deg, var(--art) 4%, color-mix(in srgb, var(--art) 45%, transparent) 30%, transparent 52%), linear-gradient(transparent 58%, color-mix(in srgb, var(--art) 80%, transparent))",
+                "linear-gradient(90deg, var(--art) 2%, color-mix(in srgb, var(--art) 30%, transparent) 20%, transparent 42%), linear-gradient(transparent 64%, color-mix(in srgb, var(--art) 88%, transparent))",
             }}
           />
 
@@ -358,6 +385,18 @@ export function CharacterDetail({
                   </button>
                 </>
               )}
+              {/* Only when there is something to wear. On a character with an empty shelf the
+                  one honest verb is Find more, which is why that renders unconditionally. */}
+              {!worn && skins.length > 0 && (
+                <button
+                  type="button"
+                  onClick={goToShelf}
+                  className="inline-flex h-[38px] -rotate-[0.6deg] items-center gap-2 bg-primary px-4 font-sign text-[17px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap transition-[rotate,translate] duration-200 hover:-translate-y-px hover:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                  Wear one
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onBrowse}
@@ -371,23 +410,25 @@ export function CharacterDetail({
         </div>
       </div>
 
-      {isLoading ? (
-        <div className={CARD_GRID}>
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="aspect-[16/10] w-full" />
-          ))}
-        </div>
-      ) : (
-        <SlotSection
-          mods={skins}
-          updateChecksByModId={updateChecksByModId}
-          onOpenModDetail={onOpenModDetail}
-          verbs={WEAR_VERBS}
-          // The one surface where being on is rare: a character wears a single look, so one
-          // card in this shelf is marked and the rest are not.
-          emphasiseEnabled
-        />
-      )}
+      <div ref={shelf}>
+        {isLoading ? (
+          <div className={CARD_GRID}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="aspect-[16/10] w-full" />
+            ))}
+          </div>
+        ) : (
+          <SlotSection
+            mods={skins}
+            updateChecksByModId={updateChecksByModId}
+            onOpenModDetail={onOpenModDetail}
+            verbs={WEAR_VERBS}
+            // The one surface where being on is rare: a character wears a single look, so one
+            // card in this shelf is marked and the rest are not.
+            emphasiseEnabled
+          />
+        )}
+      </div>
     </div>
   );
 }
