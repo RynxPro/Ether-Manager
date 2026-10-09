@@ -1180,7 +1180,7 @@ interface SectionLabelProps {
 }
 
 /** A ruled label rather than a heading. The page already has one title; these name bands
- * within it, which is the small-uppercase-Bahnschrift job described in DESIGN.md. */
+ * within it, so they take a caption size rather than a title’s weight. */
 function SectionLabel({ left, right }: SectionLabelProps) {
   return (
     <div className="mb-3 flex items-center justify-between border-b-2 border-border pb-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
