@@ -6,9 +6,15 @@ import { checkGamebananaApi, isModsFolderLinked, type ApiHealth } from "@/lib/ta
  * a minute, short enough that an outage starting mid-session shows up without a restart. */
 const API_POLL_MS = 60_000;
 
-/** Bars lit per reading, and the colour they take. Green is the only place `--success` is used:
- * the accent already means "active" throughout the app, so a healthy connection painted in it
- * would read as something switched on rather than something fine. */
+/** Bars lit per reading, and the colour they take.
+ *
+ * Green rather than the accent, which already means "active" throughout the app — a healthy
+ * connection painted in it would read as something switched on rather than something fine. The
+ * reading is positional too (one, two or three bars), so it never depends on colour alone.
+ *
+ * This is no longer the only `--success` in the app; the other is the "you already have this"
+ * tag on a Browse or Bookmarks card. The token's own note in `global.css` carries the rule that
+ * covers both. */
 const SIGNAL: Record<ApiHealth, { bars: number; color: string; word: string }> = {
   Good: { bars: 3, color: "bg-success", word: "Responsive" },
   Fair: { bars: 2, color: "bg-primary", word: "Slow" },

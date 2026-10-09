@@ -65,11 +65,22 @@
   --accent: #cbc4b4;
   --accent-foreground: #1a1714;
   --destructive: #7f1d1d;
-  /* The one green in the app, and it still earns its place: the sidebar's API signal is a
-   * three-step reading, and its top step cannot be `--primary` because that already means
-   * "switched on" everywhere else — a healthy connection would look like a lit control.
-   * The signal is also positional (one, two or three bars), so the reading never depends on
-   * telling this apart from the accent by colour alone. */
+  /* The one green in the app, and it has exactly two jobs. Both are *a fact worth knowing*;
+   * neither is "switched on", which belongs to `--primary` alone — a third green would start
+   * eroding the accent's only meaning.
+   *
+   * One: the sidebar's API signal, whose top step cannot be `--primary` or a healthy
+   * connection would look like a lit control. That reading is positional as well (one, two or
+   * three bars), so it never depends on telling green from the accent by colour.
+   *
+   * Two: the "you already have this" tag on a Browse, Bookmarks or mod-detail card, where it
+   * answers the question you are actually asking while scanning a grid of things you do not
+   * own. The Downloads log deliberately does *not* use it for the same word: there, "Installed"
+   * is how every finished row ends, so a column of green would be noise — and it would compete
+   * with the single red `Failed` that has to be legible from across the room.
+   *
+   * So the rule is not "installed is green". It is that green marks a fact where the fact is
+   * news; where it is the expected outcome, it stays off. */
   --success: #1f7a3d;
   --border: #b8b1a1;
   --input: #b8b1a1;
