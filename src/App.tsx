@@ -474,10 +474,16 @@ function App() {
                           </span>
                           {/* Only on Downloads, and only while something is actually running — a
                               badge that is always there stops being a signal. On the active sign
-                              it inverts, so it stays legible against the full accent fill. */}
+                              it inverts, so it stays legible against the full accent fill.
+
+                              Stamped on the corner rather than set inline: as a flex child it
+                              spent width the label needed, and the one sign it appears on carries
+                              the longest word in the rail — so the moment anything downloaded,
+                              DOWNLOADS truncated to "DOWN…". Same answer the notification bell
+                              already uses for the same problem. */}
                           {item.id === "downloads" && activeCount > 0 && (
                             <span
-                              className={`shrink-0 px-1.5 font-mono text-[14px] font-bold tabular-nums ${
+                              className={`absolute -right-1.5 -top-1.5 min-w-[18px] px-1 text-center font-mono text-[12px] font-bold tabular-nums shadow-slap ${
                                 isActive
                                   ? "bg-primary-foreground text-primary"
                                   : "bg-primary text-primary-foreground"
