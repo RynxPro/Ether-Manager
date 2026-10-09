@@ -94,7 +94,7 @@ red `Failed` that has to be legible from across the room.
 | Face | Token | Job |
 |---|---|---|
 | Anton | `--font-heading` | page titles and card names. Nothing else. |
-| Bebas Neue | `--font-sign` | **every control.** Buttons, chips, stamps, tabs. |
+| Bebas Neue | `--font-sign` | **every control, and every caption.** Buttons, chips, stamps, tabs, band labels. |
 | Permanent Marker | `--font-hand` | annotation only — a note *about* the interface, never part of it. |
 | Courier | `--font-mono` | whatever the machine knows: sizes, counts, dates, paths, file names. |
 | Geist | `--font-sans` | body copy. The only job it has. |
@@ -106,12 +106,14 @@ If a thing is a control, set it in Bebas before reaching for colour or weight to
 like one. If a thing is a figure the app measured, it is Courier — that contrast is what keeps a
 card from reading as one undifferentiated block of display type.
 
-> **Unsettled: the small caption.** A band label like `UP NEXT`, `HISTORY` or `LENS SIZE` is set
-> in Bebas on the pages done late (Downloads, Settings, the creator page) and in Anton at 10–11px
-> on the ones done early (the mod page's `SectionLabel`, the title bar, the import sheet, the
-> edit dialog). Roughly 29 call sites to 46. Both read fine; what is not fine is that a reader
-> cannot tell which one means anything. Pick one and sweep before adding a new surface that has
-> captions on it.
+**A band label is a caption, so it is Bebas.** `UP NEXT`, `HISTORY`, `LENS SIZE`, `END OF
+RESULTS` — these name a region, they do not name a thing, and a label is closer to signage than
+to a title. Caption sizes run 13–16px with tracking of `0.12`–`0.16em`; Bebas is condensed, so a
+caption converted from Anton needs roughly four extra pixels to hold the same presence.
+
+Anton still wins wherever the small text is **the name of something** or **a figure in a box**:
+the app's wordmark in the title bar, the rail thumb's mod name, the unread count on the bell, a
+queue position, an index in a numbered badge.
 
 ## Shape and measurement
 

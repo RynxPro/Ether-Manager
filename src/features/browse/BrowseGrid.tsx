@@ -277,7 +277,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
             {isFetchingNextPage ? "Loading…" : "Load more"}
           </Button>
         ) : (
-          <span className="font-heading text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="font-sign text-[15px] uppercase tracking-[0.16em] text-muted-foreground">
             End of results · {records.length.toLocaleString()} shown
           </span>
         )}

@@ -93,7 +93,7 @@ export function WindowStatus({ trailing }: WindowStatusProps) {
         {/* Drops downward, unlike the sidebar version which opened upward — there is nothing above
             a title bar to open into. Right-anchored so it cannot run off the window edge. */}
         <span className="pointer-events-none absolute right-0 top-5 z-50 hidden w-[184px] border border-border bg-popover p-2.5 font-sans text-[11px] leading-relaxed text-foreground group-hover:block">
-          <span className="mb-0.5 block font-heading text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+          <span className="mb-0.5 block font-sign text-[14px] uppercase tracking-[0.14em] text-muted-foreground">
             GameBanana
           </span>
           {signal ? `${signal.word}${latency == null ? "" : ` — ${latency} ms`}` : "Checking…"}

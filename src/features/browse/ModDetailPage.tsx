@@ -1183,7 +1183,7 @@ interface SectionLabelProps {
  * within it, so they take a caption size rather than a title’s weight. */
 function SectionLabel({ left, right }: SectionLabelProps) {
   return (
-    <div className="mb-3 flex items-center justify-between border-b-2 border-border pb-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+    <div className="mb-3 flex items-center justify-between border-b-2 border-border pb-1.5 font-sign text-[15px] uppercase tracking-[0.16em] text-muted-foreground">
       <span>{left}</span>
       {right && <span>{right}</span>}
     </div>

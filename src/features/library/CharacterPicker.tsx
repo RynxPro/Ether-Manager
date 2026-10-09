@@ -127,7 +127,7 @@ export function CharacterPicker({
               >
                 {character.name}
                 {isSelected && currentId !== undefined && (
-                  <span className="font-heading text-[10px] uppercase tracking-[0.1em]">
+                  <span className="font-sign text-[14px] uppercase tracking-[0.12em]">
                     {value === currentId ? "Current" : "Selected"}
                   </span>
                 )}

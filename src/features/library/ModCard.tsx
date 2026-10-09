@@ -211,7 +211,7 @@ export function ModCard({
           // and the resting state for any GameBanana mod whose submission has no preview image.
           // A designed state, not a load failure, so it gets an icon and a label.
           <span
-            className={`absolute inset-0 flex flex-col items-center justify-center gap-1 font-heading text-[11px] uppercase tracking-[0.12em] text-card-foreground/25 ${
+            className={`absolute inset-0 flex flex-col items-center justify-center gap-1 font-sign text-[15px] uppercase tracking-[0.14em] text-card-foreground/25 ${
               mod.enabled ? "" : "group-hover/card:text-card-foreground/40"
             }`}
           >

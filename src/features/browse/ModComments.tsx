@@ -41,7 +41,7 @@ export function ModComments({ modId, postCount, onFollowLink }: ModCommentsProps
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
-        className="mb-3 flex w-full items-center gap-2 border-b-2 border-border pb-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="mb-3 flex w-full items-center gap-2 border-b-2 border-border pb-1.5 font-sign text-[15px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <MessageSquare className="h-3.5 w-3.5 shrink-0" />
         <span>Comments</span>
@@ -87,7 +87,7 @@ export function ModComments({ modId, postCount, onFollowLink }: ModCommentsProps
                 {/* Pinned by the author — nearly always the "read this first" post, so it is
                     worth marking even though the list is not reordered around it. */}
                 {post.pin_level > 0 && (
-                  <span className="shrink-0 border border-primary/40 px-1 py-px font-heading text-[9px] uppercase tracking-[0.1em] text-primary">
+                  <span className="shrink-0 border border-primary/40 px-1 py-px font-sign text-[13px] uppercase tracking-[0.12em] text-primary">
                     Pinned
                   </span>
                 )}
