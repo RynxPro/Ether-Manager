@@ -829,8 +829,18 @@ export function ModDetailPage({
             // would put a horizontal scrollbar under the whole column.
             className={`sticky -top-3 -mx-2 -mt-3 flex max-h-[calc(100vh-2.5rem)] ${SIDE_PANEL_WIDTH} shrink-0 flex-col gap-4 overflow-y-auto px-2 pb-2 pt-3`}
           >
-            <div className="relative isolate shrink-0 border-2 border-transparent">
-              <PaperTilt tilt={0.4} />
+            {/* The same caption row the left column opens with, so the two rules sit on one
+                line across the page and the picture and this card start together. Without it
+                the left column began with a ruled label and this one began with a solid block,
+                and the rule ran into the card face at no particular height. */}
+            {/* Wrapped together so the column gap applies once, above the label, rather than
+                once above it and again below — which would have left the card sitting lower
+                than the picture it is meant to line up with. */}
+            <div className="shrink-0">
+              <SectionLabel left="Author" right="GameBanana" />
+
+              <div className="relative isolate border-2 border-transparent">
+                <PaperTilt tilt={0.4} />
               {/* The whole row is the way to the author's page, not just the avatar: a 36px
                   target is a small thing to ask someone to hit, and the name beside it points
                   at the same place. Hover lights the border and the name so it reads as a way
@@ -843,11 +853,6 @@ export function ModDetailPage({
                 aria-label={`View ${detail.submitter.name || "this creator"}'s mods`}
                 className="group/creator relative flex w-full items-start gap-3.5 p-4 text-left"
               >
-                {/* Stamped, and hanging off the corner the way the requirements notice does —
-                    it names what the card is without spending a row on a caption. */}
-                <span className="absolute -top-2.5 right-[-5px] rotate-[2.5deg] bg-primary px-2.5 py-0.5 font-sign text-[13px] uppercase tracking-[0.12em] text-primary-foreground shadow-slap">
-                  Author
-                </span>
                 {detail.submitter.avatar_url ? (
                   <img
                     src={detail.submitter.avatar_url}
@@ -866,17 +871,14 @@ export function ModDetailPage({
                   <span className="block truncate font-heading text-[26px] uppercase leading-none tracking-[0.005em] text-card-foreground transition-colors group-hover/creator:text-primary">
                     {detail.submitter.name || "Unknown"}
                   </span>
-                  <span className="mt-2 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                    Submitter · GameBanana
-                  </span>
                   {/* Signage on the wall colour, so the way through reads as a control laid on
                       the card rather than as a coloured word at the end of a row. */}
                   <span className="mt-3 inline-block bg-background px-2.5 py-1 font-sign text-[15px] uppercase tracking-[0.1em] text-primary">
                     See mods →
                   </span>
                 </span>
-              </button>
-
+                </button>
+              </div>
             </div>
 
             {/* What the machine knows about the mod, on its own board. */}
