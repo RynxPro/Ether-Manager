@@ -4,6 +4,7 @@ pub mod downloads;
 pub mod gamebanana;
 pub mod import;
 pub mod mods;
+pub mod presets;
 pub mod settings;
 pub mod updates;
 

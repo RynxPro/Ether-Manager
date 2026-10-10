@@ -3,6 +3,7 @@ mod creator_bookmarks_repo;
 mod creator_feed_repo;
 mod downloads_repo;
 mod mods_repo;
+mod presets_repo;
 mod schema;
 mod settings_repo;
 mod update_checks_repo;
@@ -12,6 +13,7 @@ pub use creator_bookmarks_repo::{CreatorBookmark, NewCreatorBookmark};
 pub use creator_feed_repo::{CreatorFeedItem, NewCreatorFeedItem};
 pub use downloads_repo::{Download, DownloadStatus, NewDownload};
 pub use mods_repo::{Mod, ModCounts, NewMod, Slot};
+pub use presets_repo::Preset;
 pub use settings_repo::{MagnifierSettings, Theme};
 pub use update_checks_repo::{ModStanding, UpdateCheck};
 

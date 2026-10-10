@@ -126,4 +126,31 @@ CREATE TABLE IF NOT EXISTS mod_update_checks (
     is_withdrawn INTEGER NOT NULL DEFAULT 0,
     withdrawal_notice TEXT
 );
+-- A named loadout: the set of mods that should be on when it is applied.
+--
+-- Stores only what should be ON. Applying is a reconciliation against the whole library, not a
+-- list of things to switch on, so the preset describes a complete state rather than a diff --
+-- the same preset applied from any starting point lands in the same place, and two mods can
+-- never end up fighting over one character because one of them was left on from before.
+--
+-- Whether a mod is currently enabled is deliberately not stored anywhere: it is which spelling
+-- of the folder exists on disk. See fs_ops::Presence. A preset is a wish, the disk is the fact.
+CREATE TABLE IF NOT EXISTS presets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- Which mods a preset wants on. No REFERENCES clause, because nothing else in this database has
+-- one and `PRAGMA foreign_keys` is off -- a constraint that is never enforced is worse than no
+-- constraint, since it reads as a guarantee. Deletion is handled where mods are deleted, and
+-- every read joins `mods`, so a row orphaned by any other path simply stops being listed.
+CREATE TABLE IF NOT EXISTS preset_mods (
+    preset_id INTEGER NOT NULL,
+    mod_id INTEGER NOT NULL,
+    PRIMARY KEY (preset_id, mod_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_preset_mods_mod ON preset_mods(mod_id);
 ";

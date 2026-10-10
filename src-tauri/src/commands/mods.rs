@@ -339,6 +339,10 @@ pub async fn delete_mod(state: State<'_, AppState>, mod_id: i64) -> Result<(), S
     // The row goes only after the files are gone. The other order would drop the mod from the
     // library and then fail to remove its folder, leaving files nothing points at.
     let db = state.db.lock().map_err(|e| e.to_string())?;
+    // Out of every preset that named it, first. Preset reads join `mods` so the counts would
+    // be right either way, but a row pointing at nothing is still a row, and a later mod that
+    // reuses this rowid must not inherit the membership.
+    db.forget_mod_in_presets(mod_id).map_err(|e| e.to_string())?;
     db.delete_mod(mod_id).map_err(|e| e.to_string())
 }
 

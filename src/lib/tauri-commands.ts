@@ -628,6 +628,68 @@ export function clearCreatorFeed(): Promise<CreatorFeed> {
   return invoke("clear_creator_feed");
 }
 
+/** A named loadout: the set of mods that should be on when it is applied.
+ *
+ * `mod_count` is what applying it would switch on — mods it named and that have since been
+ * deleted are not counted, because they are not going to happen. */
+export interface Preset {
+  id: number;
+  name: string;
+  created_at: number;
+  updated_at: number;
+  mod_count: number;
+}
+
+/** One mod that would not do as it was told while a preset was being applied. */
+export interface PresetApplyFailure {
+  mod_id: number;
+  display_name: string;
+  error: string;
+}
+
+/** What applying a preset actually did — counts of what *changed*, not of what it holds. */
+export interface PresetApplyReport {
+  enabled: number;
+  disabled: number;
+  failures: PresetApplyFailure[];
+}
+
+/** Every write below answers with the whole list, so the cache is set from the result rather
+ * than invalidated — the same bargain the creator feed makes. */
+export function listPresets(): Promise<Preset[]> {
+  return invoke("list_presets");
+}
+
+export function createPreset(name: string, modIds: number[]): Promise<Preset[]> {
+  return invoke("create_preset", { name, modIds });
+}
+
+/** Saves whatever is switched on right now, read off the disk rather than the database. */
+export function savePresetFromCurrent(name: string): Promise<Preset[]> {
+  return invoke("save_preset_from_current", { name });
+}
+
+export function renamePreset(presetId: number, name: string): Promise<Preset[]> {
+  return invoke("rename_preset", { presetId, name });
+}
+
+export function deletePreset(presetId: number): Promise<Preset[]> {
+  return invoke("delete_preset", { presetId });
+}
+
+export function setPresetMods(presetId: number, modIds: number[]): Promise<Preset[]> {
+  return invoke("set_preset_mods", { presetId, modIds });
+}
+
+export function presetModIds(presetId: number): Promise<number[]> {
+  return invoke("preset_mod_ids", { presetId });
+}
+
+/** Switches the library to what the preset describes: its mods on, everything else off. */
+export function applyPreset(presetId: number): Promise<PresetApplyReport> {
+  return invoke("apply_preset", { presetId });
+}
+
 /** One comment on a mod's page. Read-only: every write path on GameBanana's API needs a
  * session, and the app has none — replying means going to GameBanana. */
 export interface GbPost {
