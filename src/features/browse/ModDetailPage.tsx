@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { PageHeader } from "@/components/PageHeader";
 import { PaperTilt } from "@/components/PaperTilt";
+import { formatCount } from "@/lib/format";
 import { SignStrip } from "@/components/SignStrip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -941,6 +942,39 @@ export function ModDetailPage({
                     fetch this page already makes, so the honest answer costs nothing. */}
               </dl>
 
+            </div>
+
+            {/* How the mod is doing, on its own board rather than mixed into the one above:
+                those four facts are what the mod *is* and they do not change, these three are
+                readings that do.
+
+                They are on the sign strip as well, but the strip is aria-hidden, it scrolls,
+                and its whole licence to do that is that every number on it is stated somewhere
+                that holds still. On this page they were not: the bordered grid that used to
+                carry them went out with the old side panel and nothing replaced it, which left
+                the download count, the first thing anyone judges a mod by, readable only in
+                passing on a moving sign. */}
+            <div className="relative isolate shrink-0 border-2 border-transparent">
+              <PaperTilt tilt={0.35} />
+              <dl className="grid grid-cols-3 gap-x-3 px-4 py-4">
+                {/* Downloads first: of the three it is the one that says whether a mod is
+                    actually used, and it is the figure the rest of the app quotes. */}
+                <MetaRow
+                  term="Downloads"
+                  value={formatCount(detail.download_count)}
+                  title={detail.download_count.toLocaleString()}
+                />
+                <MetaRow
+                  term="Likes"
+                  value={formatCount(detail.like_count)}
+                  title={detail.like_count.toLocaleString()}
+                />
+                <MetaRow
+                  term="Views"
+                  value={formatCount(detail.view_count)}
+                  title={detail.view_count.toLocaleString()}
+                />
+              </dl>
             </div>
 
             {/* Annotation, so it takes the marker — it is the app pointing at the thing you
