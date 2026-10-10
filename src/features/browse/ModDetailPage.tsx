@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
+import { SectionLabel } from "@/components/SectionLabel";
 import {
   Bookmark,
   Check,
@@ -1197,22 +1198,6 @@ export function ModDetailPage({
           </aside>
         </div>
       )}
-    </div>
-  );
-}
-
-interface SectionLabelProps {
-  left: string;
-  right?: string;
-}
-
-/** A ruled label rather than a heading. The page already has one title; these name bands
- * within it, so they take a caption size rather than a title’s weight. */
-function SectionLabel({ left, right }: SectionLabelProps) {
-  return (
-    <div className="mb-3 flex items-center justify-between border-b-2 border-border pb-1.5 font-sign text-[15px] uppercase tracking-[0.16em] text-muted-foreground">
-      <span>{left}</span>
-      {right && <span>{right}</span>}
     </div>
   );
 }

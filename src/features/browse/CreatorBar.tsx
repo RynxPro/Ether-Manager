@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { SectionLabel } from "@/components/SectionLabel";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { tiltFor } from "@/lib/tilt";
 import type { CreatorBookmark } from "@/lib/tauri-commands";
@@ -91,14 +92,13 @@ export function CreatorBar({ creators, onSelectCreator }: CreatorBarProps) {
     // holding unrelated things in a frame; the creators are objects on the wall like everything
     // else, and the caption above them is enough to say what they are.
     <div className="relative">
-      <div className="flex items-center gap-2 pb-1">
-        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Creators you follow
-        </span>
-        <span className="bg-card px-1.5 font-mono text-[10px] font-bold tabular-nums text-card-foreground shadow-slap">
-          {creators.length}
-        </span>
-      </div>
+      {/* The ruled label every other region uses. This was nine-pixel grey type with a count
+          chip beside it, sitting directly on the sprayed wall tag — at that size, over that,
+          it read as something dropped on the page rather than as the name of what follows. */}
+      <SectionLabel
+        left="Creators you follow"
+        right={`${creators.length} ${creators.length === 1 ? "creator" : "creators"}`}
+      />
 
       <div
         ref={trackRef}
