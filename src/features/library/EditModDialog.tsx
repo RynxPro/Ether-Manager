@@ -1,18 +1,15 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { FolderOpen, XIcon, Image as ImageIcon } from "lucide-react";
+import { AlertTriangle, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
+  DOCKET_SLAB,
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDocketHeader,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { modArtSrc } from "@/lib/modArt";
-import { Label } from "@/components/ui/label";
 import { type Mod } from "@/lib/tauri-commands";
 import { CharacterPicker } from "./CharacterPicker";
 import {
@@ -22,6 +19,29 @@ import {
   usePickModThumbnail,
   useClearModThumbnail,
 } from "./hooks";
+
+/** What a field is called: the sign face, like every other control in the app.
+ *
+ * Not the display face. These name the thing you are about to change rather than the thing
+ * itself — the mod’s own name is on the card that opened this. */
+const FIELD_LABEL =
+  "font-sign text-[16px] uppercase tracking-[0.16em] text-muted-foreground/80";
+
+/** The sentence under a field, saying what pressing Save will actually do. Geist, because this
+ * is the one job Geist has here. */
+const HINT = "text-[12px] leading-snug text-muted-foreground";
+
+/** Something gone wrong, in the machine’s voice, because it is the machine reporting. */
+const ERROR_LINE =
+  "flex items-start gap-1.5 font-mono text-[10.5px] font-bold uppercase leading-relaxed tracking-[0.06em] text-destructive";
+
+/** This panel is paper, so a control on it inverts to `--background`: paper on paper of the
+ * same shade has no edge, and the slap is what makes it look pressable. */
+const ON_PAPER =
+  "bg-background text-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";
+
+/** A control on the paper that is pressed rather than typed into. */
+const PAPER_BUTTON = `inline-flex h-9 shrink-0 items-center justify-center gap-1.5 px-3.5 font-sign text-[17px] uppercase tracking-[0.1em] ${ON_PAPER}`;
 
 interface EditModDialogProps {
   mod: Mod;
@@ -166,29 +186,21 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
       <DialogContent
         showCloseButton={false}
-        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[440px]"
+        className="gap-0 p-0 sm:max-w-[440px]"
       >
-        <DialogHeader className="flex-row items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
-          <DialogTitle className="font-heading text-[11px] font-semibold uppercase tracking-[0.16em]">
-            Edit mod
-          </DialogTitle>
-          <DialogClose
-            className="-my-1 -mr-1 p-1 transition-opacity hover:opacity-60"
-            aria-label="Close"
-          >
-            <XIcon className="h-3.5 w-3.5" />
-          </DialogClose>
-        </DialogHeader>
+        <DialogDocketHeader title="Edit · mod" />
 
-        <div className="grid gap-4 px-4 py-4">
+        <div className="grid min-w-0 gap-5 p-4 [&>*]:min-w-0">
           <div className="grid gap-1.5">
-            <Label
-              htmlFor="edit-mod-name"
-              className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
-            >
+            <label htmlFor="edit-mod-name" className={FIELD_LABEL}>
               Name
-            </Label>
-            <Input
+            </label>
+            {/* The machine’s face for a value you are typing in, matching the install
+                dialog’s name field exactly — the two places that set a mod’s name should not
+                look like two different kinds of question. No lift: a text field is not
+                pressed, and one that flinches when the pointer crosses it reads as a button
+                you failed to hit. */}
+            <input
               id="edit-mod-name"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
@@ -199,30 +211,27 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                 }
               }}
               disabled={isSaving}
+              className={`w-full px-2.5 py-2 font-mono text-[13px] hover:translate-y-0 ${ON_PAPER}`}
             />
             {!isNameValid && (
-              <p className="text-[11px] text-destructive">
-                A mod needs a name.
+              <p className={ERROR_LINE}>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />A mod needs a name.
               </p>
             )}
-            {/* The variant is the installer's record of which file this came from, and renaming
-                does not change which file is on disk — so it stays put, as a reminder of what
-                the mod actually is while its name is being rewritten. */}
+            {/* The variant is the installer’s record of which file this came from, and
+                renaming does not change which file is on disk — so it stays put, as a
+                reminder of what the mod actually is while its name is being rewritten. */}
             {mod.variant_label && (
-              <p className="text-[11px] text-muted-foreground">
-                From{" "}
-                <span className="text-foreground">{mod.variant_label}</span>
+              <p className={HINT}>
+                From <span className="text-foreground">{mod.variant_label}</span>
               </p>
             )}
           </div>
 
           <div className="grid gap-1.5">
-            <Label
-              htmlFor="edit-mod-location"
-              className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
-            >
+            <label htmlFor="edit-mod-location" className={FIELD_LABEL}>
               Filed under
-            </Label>
+            </label>
             <CharacterPicker
               id="edit-mod-location"
               value={characterId}
@@ -230,19 +239,18 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               disabled={isSaving}
               currentId={mod.character_id}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Saving moves the mod&apos;s folder to match.
-            </p>
+            <p className={HINT}>Saving moves the mod’s folder to match.</p>
           </div>
 
           <div className="grid gap-1.5">
-            <Label className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-              Picture
-            </Label>
+            <span className={FIELD_LABEL}>Picture</span>
             {/* A paste target rather than only a button, because the picture is nearly always
                 already on the clipboard: copied out of the Discord message or Patreon post the
                 mod came from, or snipped from the game. Focusable and key-handled so it works
-                without a mouse; the file picker sits beside it for an image already on disk. */}
+                without a mouse; the file picker sits beside it for an image already on disk.
+
+                The one dashed edge in the app. It is the only thing here asking to be filled
+                rather than pressed, and it has to read as empty when it is. */}
             <div
               role="button"
               tabIndex={0}
@@ -253,22 +261,18 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                   void handleChooseFile();
                 }
               }}
-              className="flex items-center gap-3 border border-dashed border-border p-2 text-left focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex items-center gap-3 border-2 border-dashed border-border bg-background p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
             >
-              <div className="h-[42px] w-[56px] shrink-0 overflow-hidden border border-border bg-secondary">
+              <div className="h-[42px] w-[56px] shrink-0 overflow-hidden border-2 border-border bg-art">
                 {artSrc ? (
-                  <img
-                    src={artSrc}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={artSrc} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground/50">
+                  <span className="flex h-full w-full items-center justify-center font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">
                     None
                   </span>
                 )}
               </div>
-              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+              <p className={`min-w-0 flex-1 ${HINT}`}>
                 {isPickingFile
                   ? "Choosing…"
                   : isPictureChanged
@@ -276,79 +280,82 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                     : "Click here and press Ctrl+V to paste an image, or choose a file."}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button
+            <div className="flex gap-1.5">
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 font-normal"
+                className={`${PAPER_BUTTON} flex-1`}
                 disabled={isPickingFile || isSaving}
                 onClick={() => void handleChooseFile()}
               >
                 <ImageIcon className="h-3.5 w-3.5" />
                 Choose file
-              </Button>
-              {(mod.bundled_thumbnail || stagedPreview) &&
-                stagedPicture !== "remove" && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="font-normal"
-                    disabled={isPickingFile || isSaving}
-                    onClick={() => stagePicture("remove")}
-                  >
-                    Remove
-                  </Button>
-                )}
+              </button>
+              {(mod.bundled_thumbnail || stagedPreview) && stagedPicture !== "remove" && (
+                <button
+                  type="button"
+                  className={PAPER_BUTTON}
+                  disabled={isPickingFile || isSaving}
+                  onClick={() => stagePicture("remove")}
+                >
+                  Remove
+                </button>
+              )}
             </div>
             {pictureError && (
-              <p className="text-[11px] text-destructive">{pictureError}</p>
+              <p className={ERROR_LINE}>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {pictureError}
+              </p>
             )}
           </div>
 
           <div className="grid gap-1.5">
-            <Label className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-              Files
-            </Label>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start font-normal"
-              onClick={handleReveal}
-            >
-              <FolderOpen className="h-3.5 w-3.5" />
-              Open folder
-            </Button>
-            <p
-              className="truncate text-[11px] text-muted-foreground"
-              title={mod.folder_path}
-            >
-              {mod.folder_path}
-            </p>
+            <span className={FIELD_LABEL}>Files</span>
+            <div className="flex min-w-0 items-center gap-2">
+              {/* The path is a figure the machine holds, so it is set in the machine’s face
+                  and on a plate rather than loose on the card — a value, not a sentence. */}
+              <p
+                className="min-w-0 flex-1 truncate bg-background px-2.5 py-2 font-mono text-[11.5px] font-bold text-foreground shadow-slap"
+                title={mod.folder_path}
+              >
+                {mod.folder_path}
+              </p>
+              <button type="button" className={PAPER_BUTTON} onClick={handleReveal}>
+                <FolderOpen className="h-3.5 w-3.5" />
+                Open
+              </button>
+            </div>
             {revealError && (
-              <p className="text-[11px] text-destructive">{revealError}</p>
+              <p className={ERROR_LINE}>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {revealError}
+              </p>
             )}
           </div>
         </div>
 
         {saveError && (
-          <p className="px-4 pb-2 text-[11px] text-destructive">{saveError}</p>
+          <p className={`${ERROR_LINE} px-4 pb-3`}>
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {saveError}
+          </p>
         )}
 
-        <DialogFooter className="mx-0 mb-0 gap-2 border-t border-border bg-background px-4 py-3">
-          <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSaving}>
-              Cancel
-            </Button>
+        <DialogFooter className="mx-0 mb-0 gap-2 px-4 py-3">
+          <DialogClose
+            disabled={isSaving}
+            className={`${DOCKET_SLAB} bg-card text-card-foreground`}
+          >
+            Cancel
           </DialogClose>
-          <Button
+          <button
             type="button"
             disabled={!hasChanges || !isNameValid || isSaving}
             onClick={() => void handleSave()}
+            className={`${DOCKET_SLAB} bg-primary text-primary-foreground`}
           >
             {isSaving ? "Saving…" : "Save"}
-          </Button>
+          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { MISC_CHARACTER_ID, UI_CHARACTER_ID } from "@/lib/tauri-commands";
 import { useCharacters } from "./hooks";
+
+/** This control only ever appears inside a dialog, so it stands on `--card` — which means
+ * everything you can touch in it has to be `--background` to have an edge at all. */
+const ON_PAPER =
+  "bg-background text-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";
 
 /** The two destinations that are not roster members. Kept out of the search because nobody
  * looks for "Misc" by typing it, and they are where library-wide mods go. */
@@ -72,7 +75,9 @@ export function CharacterPicker({
 
   return (
     <>
-      <Input
+      {/* What you type is a query the machine answers, so it is set in the machine’s face
+          — and on its own plate, sunk into the card rather than drawn on it. */}
+      <input
         id={id}
         type="search"
         value={query}
@@ -80,21 +85,25 @@ export function CharacterPicker({
         placeholder="Search characters…"
         aria-label="Search characters"
         disabled={disabled}
+        className={`w-full px-2.5 py-2 font-mono text-[13px] hover:translate-y-0 ${ON_PAPER}`}
       />
 
+      {/* Chosen is filled with the accent, the way every other choice in the app reads. */}
       <div className="flex gap-1.5">
         {PSEUDO_DESTINATIONS.map(({ id: destinationId, label }) => (
-          <Button
+          <button
             key={destinationId}
             type="button"
-            variant={value === destinationId ? "default" : "outline"}
-            size="sm"
-            className="flex-1"
             disabled={disabled}
             onClick={() => onChange(destinationId)}
+            className={`h-9 flex-1 font-sign text-[18px] uppercase tracking-[0.1em] ${
+              value === destinationId
+                ? "bg-primary text-primary-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50"
+                : ON_PAPER
+            }`}
           >
             {label}
-          </Button>
+          </button>
         ))}
       </div>
 
@@ -105,10 +114,10 @@ export function CharacterPicker({
         ref={listRef}
         // `relative` so a row's offsetTop is measured against this list rather than against the
         // dialog, which is the nearest positioned ancestor otherwise.
-        className="relative h-[168px] overflow-y-auto border border-border bg-background"
+        className="relative h-[168px] overflow-y-auto bg-background shadow-slap"
       >
         {matches.length === 0 ? (
-          <p className="px-2.5 py-2 text-[11px] text-muted-foreground">
+          <p className="px-2.5 py-2 text-[12px] text-muted-foreground">
             No character matches “{query}”.
           </p>
         ) : (
@@ -121,13 +130,15 @@ export function CharacterPicker({
                 disabled={disabled}
                 aria-current={isSelected}
                 onClick={() => onChange(character.id)}
-                className={`flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-secondary disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
-                  isSelected ? "text-primary" : "text-foreground"
+                className={`flex w-full items-center justify-between px-2.5 py-1.5 text-left font-sign text-[17px] uppercase tracking-[0.06em] outline-none transition-colors duration-200 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-secondary"
                 }`}
               >
                 {character.name}
                 {isSelected && currentId !== undefined && (
-                  <span className="font-sign text-[14px] uppercase tracking-[0.12em]">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
                     {value === currentId ? "Current" : "Selected"}
                   </span>
                 )}

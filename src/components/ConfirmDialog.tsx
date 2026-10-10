@@ -1,23 +1,13 @@
 import { useRef } from "react";
-import { XIcon } from "lucide-react";
 import {
+  DOCKET_SLAB,
   Dialog,
   DialogClose,
   DialogContent,
   DialogDescription,
+  DialogDocketHeader,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
-
-/** Cancel and the action are the same slab cut from different paper.
- *
- * The footer band is `--background`, so a control standing on it has to be `--card` to have an
- * edge at all — and the one that carries colour is filled instead. Equal size on purpose: the
- * colour is what tells them apart, not the geometry, so nobody is nudged into the red one by
- * its being the bigger target. */
-const FOOTER_SLAB =
-  "inline-flex h-10 shrink-0 items-center justify-center px-5 font-sign text-[19px] uppercase tracking-[0.1em] shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";
 
 interface ConfirmDialogProps {
   /** The machine naming its own operation, in the caption voice: `Delete · mod`, not a
@@ -95,17 +85,7 @@ export function ConfirmDialog({
           </span>
         )}
 
-        <DialogHeader className="flex-row items-center justify-between border-b-2 border-border px-4 py-2.5">
-          <DialogTitle className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            {title}
-          </DialogTitle>
-          <DialogClose
-            className="flex h-6 w-6 shrink-0 items-center justify-center bg-background text-card-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-            aria-label="Close"
-          >
-            <XIcon className="h-3.5 w-3.5" />
-          </DialogClose>
-        </DialogHeader>
+        <DialogDocketHeader title={title} />
 
         {/* `DialogDescription` rather than a bare div: it is what Radix points the dialog's
             `aria-describedby` at, so this sentence is read out with the title instead of being
@@ -120,7 +100,7 @@ export function ConfirmDialog({
         <DialogFooter className="mx-0 mb-0 gap-2 px-4 py-3">
           <DialogClose
             ref={cancel}
-            className={`${FOOTER_SLAB} bg-card text-card-foreground`}
+            className={`${DOCKET_SLAB} bg-card text-card-foreground`}
           >
             Cancel
           </DialogClose>
@@ -128,7 +108,7 @@ export function ConfirmDialog({
             type="button"
             disabled={isPending}
             onClick={onConfirm}
-            className={`${FOOTER_SLAB} ${
+            className={`${DOCKET_SLAB} ${
               isDestructive
                 ? // `--destructive` is dark red in both themes, so the label is plain white
                   // rather than a token — there is no theme where it wants to be dark.

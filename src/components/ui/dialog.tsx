@@ -70,7 +70,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-none border-2 border-border bg-popover p-4 text-sm text-popover-foreground shadow-slap-lift duration-200 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] [&>*]:min-w-0 -translate-x-1/2 -translate-y-1/2 gap-4 rounded-none border-2 border-border bg-popover p-4 text-sm text-popover-foreground shadow-slap-lift duration-200 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -163,8 +163,46 @@ function DialogDescription({
   )
 }
 
+/** The head of a docket.
+ *
+ * Every dialog in the app wears the same one, so it is built here rather than retyped: the
+ * machine naming its own operation in the caption voice, a 2px rule under it, and the way out
+ * as a small piece of paper. What it replaced was a solid bar of colour with the page-title
+ * face set at 11px inside it — which made every dialog shout its own name and spent the
+ * accent on the panel rather than on the thing you press.
+ *
+ * `title` is the operation, not a sentence: `Edit · mod`, `Install · consignment`. It is also
+ * the dialog's accessible name, which is why it says what this is rather than how it feels. */
+function DialogDocketHeader({ title }: { title: React.ReactNode }) {
+  return (
+    <DialogHeader className="flex-row items-center justify-between border-b-2 border-border px-4 py-2.5">
+      <DialogTitle className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        {title}
+      </DialogTitle>
+      <DialogClose
+        className="flex h-6 w-6 shrink-0 items-center justify-center bg-background text-card-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        aria-label="Close"
+      >
+        <XIcon className="h-3.5 w-3.5" />
+      </DialogClose>
+    </DialogHeader>
+  )
+}
+
+/** A dialog footer's buttons: one shape, cut from `--card` because the footer band is
+ * `--background` and paper needs a shade between it and what it sits on.
+ *
+ * Cancel and the action are the same size on purpose — the colour is what tells them apart,
+ * so nobody is nudged into the committing one by its being the bigger target. Add the fill:
+ * `bg-card text-card-foreground` to walk away, `bg-primary text-primary-foreground` to go
+ * ahead, `bg-destructive text-white` when going ahead is the thing you cannot undo. */
+const DOCKET_SLAB =
+  "inline-flex h-10 shrink-0 items-center justify-center px-5 font-sign text-[19px] uppercase tracking-[0.1em] shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+
 export {
+  DOCKET_SLAB,
   Dialog,
+  DialogDocketHeader,
   DialogClose,
   DialogContent,
   DialogDescription,
