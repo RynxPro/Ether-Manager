@@ -1,6 +1,6 @@
 import { FilePlus2, PackageOpen, Search, SearchX } from "lucide-react";
 import { EMPTY_SLAB, EmptyState } from "@/components/EmptyState";
-import { StatLine } from "@/components/StatLine";
+import { SectionLabel } from "@/components/SectionLabel";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/FilterChip";
@@ -208,9 +208,12 @@ export function AllMods({
       {/* The counts moved off the header rail and onto the sign, where the Library keeps its
           own. They are live readings about the page, which is the one thing the strip is for,
           and it leaves the header holding only the two things you can act on. */}
-      {/* The aggregates. Each card shows its own state, but how many are on and how many are
-          waiting are not countable off a grid of twenty. */}
-      <StatLine items={signItems} />
+      {/* The aggregates, on the same ruled label Bookmarks names its creator rail with. Each
+          card shows its own state, but how many are on and how many are waiting are not
+          countable off a grid of twenty. */}
+      {signItems.length > 0 && (
+        <SectionLabel left="Mods" right={signItems.join(" · ")} />
+      )}
 
       {isLoading ? (
         <div className={CARD_GRID}>

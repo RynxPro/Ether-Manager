@@ -7,13 +7,20 @@
 interface SectionLabelProps {
   left: string;
   right?: string;
+  /** True where the right-hand reading changes while the page is open, so a screen reader
+   * hears the new total rather than only the one that was there on load. */
+  isLive?: boolean;
 }
 
 /** A ruled label rather than a heading. The page already has one title; these name bands
  * within it, so they take a caption size rather than a title’s weight. */
-export function SectionLabel({ left, right }: SectionLabelProps) {
+export function SectionLabel({ left, right, isLive = false }: SectionLabelProps) {
   return (
-    <div className="mb-3 flex items-center justify-between border-b-2 border-border pb-1.5 font-sign text-[15px] uppercase tracking-[0.16em] text-muted-foreground">
+    <div
+      role={isLive ? "status" : undefined}
+      aria-live={isLive ? "polite" : undefined}
+      className="mb-3 flex items-center justify-between border-b-2 border-border pb-1.5 font-sign text-[15px] uppercase tracking-[0.16em] text-muted-foreground"
+    >
       <span>{left}</span>
       {right && <span>{right}</span>}
     </div>

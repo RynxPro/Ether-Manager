@@ -1,7 +1,7 @@
 import { EyeOff, SearchX } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { EmptyState } from "@/components/EmptyState";
-import { StatLine } from "@/components/StatLine";
+import { SectionLabel } from "@/components/SectionLabel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstalledFromGameBanana } from "@/features/library/hooks";
@@ -168,7 +168,7 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
   // shows part of itself at once and the first item is what is on screen when the page opens.
   const bandItems = [
     totalCount !== null
-      ? `${totalCount.toLocaleString()} results`
+      ? totalCount.toLocaleString()
       : isSearching
         ? "Search results"
         : "Counting…",
@@ -188,9 +188,9 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
           theirs. Theirs summarise a library that is entirely on the page; this one summarises
           the results, which begin below the controls — and a sign describing the feed belongs
           at the top of the feed. */}
-      {/* Stated plainly, because on this page they are stated nowhere else: the result total
-          comes from the server and cannot be counted off the grid. */}
-      <StatLine items={bandItems} isLive />
+      {/* Named and stated, because on this page the figures are stated nowhere else: the
+          result total comes from the server and cannot be counted off the grid. */}
+      <SectionLabel left="Results" right={bandItems.join(" · ")} isLive />
     </>
   );
 

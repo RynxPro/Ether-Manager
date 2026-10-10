@@ -171,19 +171,21 @@ export function BookmarksView({
       >
         {!isLoading && count > 0 && (
           <>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] tabular-nums text-muted-foreground">
-              {needle ? `${matches.length} of ${count}` : `${count} saved`}
-            </span>
-            {/* Paper, not the shadcn `Input`: that primitive is a bordered box with a soft focus
-                ring, which is the wrong material on a wall. Machine type, because you are typing
-                a value. The same object as the search on Browse. */}
+            {/* Paper, not the shadcn `Input`: that primitive is a bordered box with a soft
+                focus ring, which is the wrong material on a wall. The sign face, because a
+                search box is a control and that is the face every control in this app wears —
+                it was the one search in the app set in the machine face instead.
+
+                No count beside it: the ruled label under the creator rail already states what
+                is saved, and a second copy pinned to the header was noise in the one place the
+                page should be quiet. */}
             <input
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search your bookmarks…"
               aria-label="Search your bookmarks"
-              className="h-10 w-full border-0 bg-card px-3 font-mono text-[13px] text-foreground shadow-slap outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary sm:w-64"
+              className="h-10 w-full border-0 bg-card px-3 font-sign text-[17px] uppercase tracking-[0.1em] text-card-foreground shadow-slap outline-none placeholder:text-card-foreground/40 focus-visible:ring-2 focus-visible:ring-primary sm:w-64"
             />
           </>
         )}

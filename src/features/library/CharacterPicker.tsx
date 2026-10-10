@@ -75,8 +75,8 @@ export function CharacterPicker({
 
   return (
     <>
-      {/* What you type is a query the machine answers, so it is set in the machine’s face
-          — and on its own plate, sunk into the card rather than drawn on it. */}
+      {/* The sign face, like every other search in the app, on its own plate sunk into the
+          card rather than drawn on it. */}
       <input
         id={id}
         type="search"
@@ -85,7 +85,7 @@ export function CharacterPicker({
         placeholder="Search characters…"
         aria-label="Search characters"
         disabled={disabled}
-        className={`w-full px-2.5 py-2 font-mono text-[13px] hover:translate-y-0 ${ON_PAPER}`}
+        className={`w-full px-2.5 py-2 font-sign text-[17px] uppercase tracking-[0.1em] hover:translate-y-0 ${ON_PAPER}`}
       />
 
       {/* Chosen is filled with the accent, the way every other choice in the app reads. */}

@@ -104,8 +104,10 @@ export function SearchBar({
               aria-label="Search GameBanana mods"
               // Paper rather than the shadcn `Input`: that primitive is a bordered box with a
               // soft focus ring, which is the wrong material on a wall, and overriding both
-              // costs more than not using it. Machine type because you are typing a value.
-              className={`${controlHeight} w-full border-0 bg-card pr-16 pl-9 font-mono text-[13px] text-foreground shadow-slap outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary`}
+              // costs more than not using it. The sign face, like every other control and like
+              // the searches on Library and All Mods — a search box is something you press
+              // into, not a figure the machine measured.
+              className={`${controlHeight} w-full border-0 bg-card pr-16 pl-9 font-sign text-[17px] uppercase tracking-[0.1em] text-foreground shadow-slap outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary`}
             />
             {query ? (
               <button
