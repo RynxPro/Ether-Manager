@@ -8,6 +8,7 @@ import { updatedLabel } from "@/lib/time";
 import type { GbMod } from "@/lib/tauri-commands";
 import { useAddBookmark, useBookmarks, useFeaturedMods, useRemoveBookmark } from "./hooks";
 import type { FeaturedPeriod } from "@/lib/tauri-commands";
+import { gbThumbnailUrl } from "@/lib/gbImage";
 
 interface FeaturedBannerProps {
   onSelectMod: (mod: GbMod) => void;
@@ -36,23 +37,22 @@ const PERIOD_LABELS: Record<FeaturedPeriod, { headline: string; tag: string }> =
 };
 
 function thumbnailUrlFor(mod: GbMod): string | null {
-  const image = mod.preview_media.images[0];
-  return image ? `${image.base_url}/${image.file}` : null;
+  // 530 rather than the original upload: this URL is what gets stored against a bookmark, and
+  // a bookmark card draws it about 250px wide. The original is 2000px+, which is a nine-times
+  // reduction in one step and arrives looking pixelated.
+  return gbThumbnailUrl(mod.preview_media.images, "medium");
 }
 
 /** The original upload, for the hero. The pre-rendered sizes are grid thumbnails — `file_530`
  * is 530px wide and the band is roughly three times that, so it arrived visibly upscaled. */
 function heroUrlFor(mod: GbMod): string | null {
-  const image = mod.preview_media.images[0];
-  return image ? `${image.base_url}/${image.file}` : null;
+  return gbThumbnailUrl(mod.preview_media.images, "full");
 }
 
 /** The rail cells are around 110px wide, so the smallest pre-rendered size is more than
  * enough — six original uploads would be megabytes of art nobody looks at closely. */
 function railUrlFor(mod: GbMod): string | null {
-  const image = mod.preview_media.images[0];
-  if (!image) return null;
-  return `${image.base_url}/${image.file_220 ?? image.file}`;
+  return gbThumbnailUrl(mod.preview_media.images, "small");
 }
 
 /** A fixed carousel above the search bar — not affected by the search/filter/sort controls

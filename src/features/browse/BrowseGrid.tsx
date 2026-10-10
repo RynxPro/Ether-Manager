@@ -8,6 +8,7 @@ import { BROWSE_GRID } from "@/lib/layout";
 import { shouldBlur } from "@/lib/mature";
 import { findScrollParent } from "@/lib/scroll";
 import type { GbMod, ModSort } from "@/lib/tauri-commands";
+import { gbThumbnailUrl } from "@/lib/gbImage";
 import { GameBananaModCard } from "./GameBananaModCard";
 import { SORT_OPTIONS } from "./sortOptions";
 import { useAddBookmark, useBookmarks, useInfiniteGamebananaMods, useRemoveBookmark } from "./hooks";
@@ -29,8 +30,10 @@ interface BrowseGridProps {
 const PREFETCH_MARGIN = "400px";
 
 function thumbnailUrlFor(mod: GbMod): string | null {
-  const image = mod.preview_media.images[0];
-  return image ? `${image.base_url}/${image.file}` : null;
+  // 530 rather than the original upload: this URL is what gets stored against a bookmark, and
+  // a bookmark card draws it about 250px wide. The original is 2000px+, which is a nine-times
+  // reduction in one step and arrives looking pixelated.
+  return gbThumbnailUrl(mod.preview_media.images, "medium");
 }
 
 // Module scope on purpose: leaving Browse — for a mod's page, or the sidebar — unmounts this
