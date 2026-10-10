@@ -19,6 +19,7 @@ import {
   useRemoveBookmark,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
+import { SectionLabel } from "@/components/SectionLabel";
 
 interface BookmarkGroup {
   characterId: string;
@@ -246,6 +247,19 @@ export function BookmarksView({
         />
       ) : (
         <div className="space-y-4">
+          {/* The mods get the same ruled label the creator rail above them has, so the page
+              reads as two named regions rather than one named band and then a grid that starts
+              without warning. The right-hand slot is where the count beside the search box
+              went: it belongs over the thing it is counting. */}
+          <SectionLabel
+            left="Saved mods"
+            right={
+              needle
+                ? `${matches.length} of ${count} match`
+                : `${count} saved`
+            }
+          />
+
           {/* The characters, as a rail rather than as nine headings with nine grids under them.
               Only shown once there is a choice to make: with everything saved for one character,
               a filter that can only be on or all is noise. */}
