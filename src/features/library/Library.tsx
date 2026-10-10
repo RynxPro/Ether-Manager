@@ -1,5 +1,12 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { FilePlus2, RefreshCw, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  Check,
+  FilePlus2,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
@@ -30,8 +37,16 @@ import { SignStrip } from "@/components/SignStrip";
  * GameBanana and whether its files are current are independent facts: something can be both
  * retired and out of date, and reporting only one of those would be reporting the wrong one
  * half the time. */
-function summariseUpdateSweep(checks: UpdateCheck[]): string {
-  if (checks.length === 0) return "No GameBanana mods to check";
+function summariseUpdateSweep(checks: UpdateCheck[]): {
+  text: string;
+  /** Whether the sweep turned anything up. News takes the accent and the arrow; a library
+   * that is already current takes the green and the tick, the same pair a single card shows
+   * when you check it on its own. */
+  isNews: boolean;
+} {
+  if (checks.length === 0) {
+    return { text: "No GameBanana mods to check", isNews: false };
+  }
 
   const available = checks.filter((check) => check.status === "UpdateAvailable").length;
   // An unreachable mod and one whose check errored are the same thing to a reader: the app does
@@ -50,8 +65,14 @@ function summariseUpdateSweep(checks: UpdateCheck[]): string {
   const settled = checks.length - available - unknown;
   if (settled > 0) parts.push(`${settled} up to date`);
   if (unknown > 0) parts.push(`${unknown} couldn't be checked`);
-  return parts.join(" · ");
+  return { text: parts.join(" · "), isNews: available > 0 };
 }
+
+/** What a finished sweep looks like: paper on the wall beside the button that asked for it,
+ * the same material as the stamp a single mod card shows. Tilted, because it is a slip that
+ * was put there rather than part of the row. */
+const SWEEP_RESULT =
+  "flex h-[38px] items-center gap-2 bg-card px-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] tabular-nums shadow-slap";
 
 interface LibraryProps {
   onSelectCharacter: (character: Character) => void;
@@ -102,6 +123,9 @@ export function Library({
   const { data: miscMods } = useModsForCharacter(MISC_CHARACTER_ID);
   const { data: updateChecks } = useUpdateChecks();
   const checkAllUpdates = useCheckAllUpdates();
+  const sweep = checkAllUpdates.data
+    ? summariseUpdateSweep(checkAllUpdates.data)
+    : null;
   const updateChecksByModId = new Map<number, UpdateCheck>(
     (updateChecks ?? []).map((check) => [check.mod_id, check]),
   );
@@ -243,11 +267,29 @@ export function Library({
               from the button not having worked — and finding nothing is the usual outcome. The
               result stays until the next check rather than fading, because it is a fact about
               the library, not a notification. */}
+          {/* The same object a single card shows after you check it: a slap of paper
+              carrying a glyph and a word, not a line of grey text beside a button. One card
+              answering "did that do anything?" with a stamp while a sweep over the whole
+              library answered with a caption was the odd pair.
+
+              The counts stay in the machine’s face rather than the card’s sign face: this
+              one is a measurement across the library, and that is the job Courier has. */}
           {checkAllUpdates.isError ? (
-            <span className="text-xs text-destructive">Check failed — try again</span>
-          ) : checkAllUpdates.data ? (
-            <span className="text-xs text-muted-foreground">
-              {summariseUpdateSweep(checkAllUpdates.data)}
+            <span role="status" className={`${SWEEP_RESULT} -rotate-1 text-destructive`}>
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Check failed — try again
+            </span>
+          ) : sweep ? (
+            <span
+              role="status"
+              className={`${SWEEP_RESULT} rotate-1 ${sweep.isNews ? "text-primary" : "text-success"}`}
+            >
+              {sweep.isNews ? (
+                <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <Check className="h-3.5 w-3.5 shrink-0" />
+              )}
+              {sweep.text}
             </span>
           ) : null}
           <Button
