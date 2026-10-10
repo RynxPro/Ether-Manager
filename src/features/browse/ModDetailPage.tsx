@@ -1,6 +1,8 @@
+import { EmptyState } from "@/components/EmptyState";
 import {
   Bookmark,
   Check,
+  FileX2,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -961,9 +963,12 @@ export function ModDetailPage({
                 </p>
               )}
               {detail.files.length === 0 ? (
-                <p className="border-2 border-border bg-card px-3.5 py-4 text-sm text-muted-foreground shadow-slap-lift">
-                  No downloadable files.
-                </p>
+                <EmptyState
+                  density="section"
+                  icon={FileX2}
+                  title="No downloadable files"
+                  say="This mod page has nothing attached to install."
+                />
               ) : (
                 <ul className="flex flex-col gap-4">
                   {detail.files.map((file, index) => (

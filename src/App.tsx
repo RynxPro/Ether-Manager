@@ -522,6 +522,7 @@ function App() {
                   renderDetail(openDetail)
                 ) : (
                   <BookmarksView
+                    onGoToBrowse={() => goToBrowse(null)}
                     onSelectMod={openMod}
                     onSelectCreator={openCreator}
                   />
@@ -575,6 +576,7 @@ function App() {
                     }
                     onOpenModDetail={openModDetail}
                     onImport={imports.importFromPicker}
+                    onGoToBrowse={() => goToBrowse(null)}
                   />
                 )
               ) : selectedCharacter ? (

@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import { Inbox, X } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { formatBytes } from "@/lib/format";
 import { updatedLabel } from "@/lib/time";
 import type { Download, DownloadStatus } from "@/lib/tauri-commands";
@@ -167,20 +168,14 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
           <div className="h-[212px] animate-pulse bg-card shadow-slap" />
         </div>
       ) : total === 0 ? (
-        // A board on the wall rather than a line of grey text: an empty queue is the normal
-        // condition of this page, not a failure, and a sentence floating on the concrete reads as
-        // something that failed to load. Same object as the empty state on All Mods.
-        <div className="max-w-lg -rotate-[0.4deg] border-2 border-border bg-card p-7 shadow-slap-lift">
-          <p className="font-heading text-[22px] uppercase leading-none text-card-foreground">
-            Nothing downloaded yet
-          </p>
-          <p className="mt-3 font-mono text-[11px] font-bold uppercase leading-relaxed tracking-[0.08em] text-card-foreground/50">
-            Installing a mod from Browse queues it here. You can close the dialog straight away.
-          </p>
-          <span className="mt-4 inline-block -rotate-[1.5deg] font-hand text-[15px] text-primary">
-            it keeps going if you leave
-          </span>
-        </div>
+        // No verb: an idle queue is the normal condition of this page, not a problem to solve,
+        // and a button here would be inventing work. The note keeps the one thing worth saying.
+        <EmptyState
+          icon={Inbox}
+          title="Nothing downloaded yet"
+          say="Installing a mod from Browse queues it here."
+          note="it keeps going if you leave"
+        />
       ) : (
         <div className="space-y-5">
           {leading && (

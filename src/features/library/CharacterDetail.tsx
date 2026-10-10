@@ -1,4 +1,5 @@
 import { ArrowDown, Compass, FilePlus2, FolderOpen } from "lucide-react";
+import { EMPTY_SLAB } from "@/components/EmptyState";
 import { useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { PageHeader } from "@/components/PageHeader";
@@ -422,6 +423,25 @@ export function CharacterDetail({
             mods={skins}
             updateChecksByModId={updateChecksByModId}
             onOpenModDetail={onOpenModDetail}
+            emptyTitle={`No mods for ${character.name} yet`}
+            emptyAction={
+              <>
+                <button
+                  type="button"
+                  onClick={onImport}
+                  className={`${EMPTY_SLAB} bg-background text-foreground`}
+                >
+                  Import
+                </button>
+                <button
+                  type="button"
+                  onClick={onBrowse}
+                  className={`${EMPTY_SLAB} bg-primary text-primary-foreground`}
+                >
+                  Browse
+                </button>
+              </>
+            }
             verbs={WEAR_VERBS}
             // The one surface where being on is rare: a character wears a single look, so one
             // card in this shelf is marked and the rest are not.

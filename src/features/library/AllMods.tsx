@@ -1,4 +1,5 @@
-import { FilePlus2, Search } from "lucide-react";
+import { FilePlus2, PackageOpen, Search, SearchX } from "lucide-react";
+import { EMPTY_SLAB, EmptyState } from "@/components/EmptyState";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/FilterChip";
@@ -31,6 +32,9 @@ interface AllModsProps {
   /** Opens the file picker and starts an import. Dropping a file on the window does the same
    * thing and is the faster path; this is here for anyone who does not think to drag. */
   onImport: () => void;
+  /** The way out of an empty library. The page has always said to head to Browse; now it can
+   * take you. */
+  onGoToBrowse: () => void;
 }
 
 interface CharacterGroup {
@@ -85,6 +89,7 @@ export function AllMods({
   onSelectCharacter,
   onOpenModDetail,
   onImport,
+  onGoToBrowse,
 }: AllModsProps) {
   const [query, setQuery] = useState("");
   // `null` is every character, which is the resting state — the rail narrows the list rather
@@ -214,23 +219,54 @@ export function AllMods({
             <Skeleton key={index} className="aspect-[16/10] w-full" />
           ))}
         </div>
+      ) : needle ? (
+        <EmptyState
+          icon={SearchX}
+          title="Nothing matches that"
+          say={`No installed mod is called “${query.trim()}”.`}
+          action={
+            <>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className={`${EMPTY_SLAB} bg-background text-foreground`}
+              >
+                Clear search
+              </button>
+              <button
+                type="button"
+                onClick={onGoToBrowse}
+                className={`${EMPTY_SLAB} bg-primary text-primary-foreground`}
+              >
+                Try Browse
+              </button>
+            </>
+          }
+        />
       ) : matches.length === 0 ? (
-        // Sized to what it says rather than to the window. Stretched across the full grid width,
-        // one sentence on a 1600px board reads as a layout that lost its contents; at this width
-        // it reads as a note left on the wall.
-        <div className="max-w-lg -rotate-[0.4deg] border-2 border-border bg-card p-7 shadow-slap-lift">
-          {/* Board on the wall rather than a loose sentence. An empty page is still a page, and a
-              line of grey text floating on the concrete reads as something that failed to load
-              rather than as an answer. */}
-          <p className="font-heading text-[22px] uppercase leading-none text-card-foreground">
-            {needle ? "Nothing matches that" : "Nothing installed yet"}
-          </p>
-          <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-card-foreground/50">
-            {needle
-              ? `No installed mod matches “${query.trim()}” — try Browse for new ones`
-              : "Head to Browse, or drop an archive anywhere on this window"}
-          </p>
-        </div>
+        <EmptyState
+          icon={PackageOpen}
+          title="Nothing installed yet"
+          say="Install one from Browse, or drop an archive anywhere on this window."
+          action={
+            <>
+              <button
+                type="button"
+                onClick={onImport}
+                className={`${EMPTY_SLAB} bg-background text-foreground`}
+              >
+                Import
+              </button>
+              <button
+                type="button"
+                onClick={onGoToBrowse}
+                className={`${EMPTY_SLAB} bg-primary text-primary-foreground`}
+              >
+                Go to Browse
+              </button>
+            </>
+          }
+        />
       ) : (
         <div className="space-y-6">
           {/* The characters as a rail rather than as a section and a grid each. Measured on a

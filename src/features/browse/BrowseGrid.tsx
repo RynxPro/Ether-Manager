@@ -1,4 +1,6 @@
+import { EyeOff, SearchX } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { SignStrip } from "@/components/SignStrip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -224,11 +226,17 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
     return (
       <div className="space-y-4">
         {band}
-        <p className="text-sm text-muted-foreground">
-          {hiddenCount > 0
-            ? `All ${hiddenCount} mods loaded so far are hidden by your mature-content setting.`
-            : "No mods found."}
-        </p>
+        {/* Page density even though the band sits above it: when Browse finds nothing, the
+            whole page is what is empty. This was the last bare grey sentence in the app. */}
+        <EmptyState
+          icon={hiddenCount > 0 ? EyeOff : SearchX}
+          title={hiddenCount > 0 ? "All hidden" : "No mods found"}
+          say={
+            hiddenCount > 0
+              ? `All ${hiddenCount} mods loaded so far are hidden by your mature-content setting.`
+              : "Nothing on GameBanana matches what you asked for."
+          }
+        />
       </div>
     );
   }

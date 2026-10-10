@@ -1,4 +1,5 @@
-import { Bell } from "lucide-react";
+import { Bell, BellOff } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useEffect, useRef, useState } from "react";
 import { MatureContentShield } from "@/components/MatureContentShield";
 import { PaperTilt } from "@/components/PaperTilt";
@@ -140,10 +141,12 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
           </div>
 
           {items.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              Nothing new from the creators you follow. Follow someone from their page and their
-              next upload turns up here.
-            </p>
+            <EmptyState
+              density="section"
+              icon={BellOff}
+              title="Nothing new"
+              say="Follow someone from their page and their next upload turns up here."
+            />
           ) : (
             // `-mx-0.5 px-0.5` so a slip's hard shadow and its hover lift are not clipped by the
             // scroll container an instant before you see them.

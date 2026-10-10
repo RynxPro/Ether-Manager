@@ -1,4 +1,5 @@
-import { TriangleAlert } from "lucide-react";
+import { PackagePlus, TriangleAlert } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useConflictWarnings } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { type Mod, type UpdateCheck } from "@/lib/tauri-commands";
@@ -18,6 +19,12 @@ interface SlotSectionProps {
   /** Forwarded to every card. True only where exactly one mod can sensibly be on — a character
    * wears one look — so the accent ring stays rare enough to mean something. */
   emphasiseEnabled?: boolean;
+  /** What to call this slot when it holds nothing. "No mods for Belle yet" rather than "no
+   * mods installed for this slot", which is the app describing its own data model. */
+  emptyTitle?: string;
+  /** The way out, built by whoever knows how to navigate — a character page can offer Browse
+   * and Import, the Library tabs only Import. */
+  emptyAction?: React.ReactNode;
 }
 
 /** The cards for one slot's mods.
@@ -32,6 +39,8 @@ export function SlotSection({
   onOpenModDetail,
   verbs,
   emphasiseEnabled,
+  emptyTitle,
+  emptyAction,
 }: SlotSectionProps) {
   const toggleMod = useToggleMod();
   const deleteMod = useDeleteMod();
@@ -59,9 +68,16 @@ export function SlotSection({
       )}
 
       {mods.length === 0 ? (
-        <p className="border-2 border-dashed border-border p-4 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-          No mods installed for this slot yet.
-        </p>
+        // The section size of the same object the empty pages use. This was a dashed line
+        // stretched the full width of the window holding one short sentence — the only place
+        // in the app wearing that shape, and the shape an empty page is told not to wear.
+        <EmptyState
+          density="section"
+          icon={PackagePlus}
+          title={emptyTitle ?? "Nothing here yet"}
+          say="Install one from Browse, or drop an archive anywhere on this window."
+          action={emptyAction}
+        />
       ) : (
         <div className={CARD_GRID}>
           {mods.map((mod) => {

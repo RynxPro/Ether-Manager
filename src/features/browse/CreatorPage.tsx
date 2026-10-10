@@ -1,4 +1,5 @@
-import { Check, ExternalLink, UserPlus } from "lucide-react";
+import { Check, ExternalLink, EyeOff, PackageOpen, UserPlus } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
@@ -331,16 +332,17 @@ export function CreatorPage({
           </p>
         </div>
       ) : records.length === 0 ? (
-        <div className="max-w-2xl rotate-[0.3deg] bg-card px-7 py-9 shadow-slap-lift">
-          <p className="font-heading text-[24px] uppercase leading-none tracking-[0.005em] text-foreground">
-            {hiddenCount > 0 ? "All hidden" : "Nothing for this game"}
-          </p>
-          <p className="mt-3 font-mono text-[11px] font-bold uppercase leading-relaxed tracking-[0.06em] text-muted-foreground">
-            {hiddenCount > 0
+        // No verb on either: the way out of "all hidden" is a setting on another page, and the
+        // way out of "nothing for this game" is for someone else to upload something.
+        <EmptyState
+          icon={hiddenCount > 0 ? EyeOff : PackageOpen}
+          title={hiddenCount > 0 ? "All hidden" : "Nothing for this game"}
+          say={
+            hiddenCount > 0
               ? `Every one of ${name}’s Zenless Zone Zero mods is hidden by your mature-content setting.`
-              : `${name} has no Zenless Zone Zero mods on GameBanana.`}
-          </p>
-        </div>
+              : `${name} has no Zenless Zone Zero mods on GameBanana.`
+          }
+        />
       ) : (
         <>
           <div className={BROWSE_GRID}>

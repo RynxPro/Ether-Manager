@@ -1,6 +1,7 @@
-import { Bookmark as BookmarkIcon } from "lucide-react";
+import { Bookmark as BookmarkIcon, SearchX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EMPTY_SLAB, EmptyState } from "@/components/EmptyState";
 import { FilterChip } from "@/components/FilterChip";
 import {
   useCharacters,
@@ -79,12 +80,16 @@ interface BookmarksViewProps {
   /** Opens a followed creator's page. Same drill-down chain the mod detail uses, so Back
    * comes straight back here. */
   onSelectCreator: (id: number, name: string) => void;
+  /** The way out of an empty shortlist. This page tells you to bookmark something in Browse;
+   * before this it could not take you there. */
+  onGoToBrowse: () => void;
 }
 
 /** The shortlist you build while browsing. It shares Browse's grid and card shape rather than
  * the roster's 3:4 posters it used to borrow — these are the same objects as Browse's results,
  * saved, so making them a different size and shape read as a different kind of thing. */
 export function BookmarksView({
+  onGoToBrowse,
   onSelectMod,
   onSelectCreator,
 }: BookmarksViewProps) {
@@ -232,29 +237,35 @@ export function BookmarksView({
           ))}
         </div>
       ) : count === 0 ? (
-        // A designed state rather than a line of grey text: an empty shortlist is the normal
-        // condition on a fresh install, not a failure.
-        // A note on board sized to its own sentence, rather than a dashed outline stretched
-        // across the window. Dashed is the one border style this app does not own, and an empty
-        // shortlist is the normal condition on a fresh install, not a failure.
-        <div className="max-w-lg -rotate-[0.4deg] border-2 border-border bg-card px-7 py-9 shadow-slap-lift">
-          <BookmarkIcon className="h-7 w-7 text-primary" />
-          <p className="mt-4 font-heading text-[24px] uppercase leading-none tracking-[0.005em] text-foreground">
-            Nothing saved yet
-          </p>
-          <p className="mt-3 font-mono text-[11px] font-bold uppercase leading-relaxed tracking-[0.06em] text-muted-foreground">
-            The bookmark button on any mod in Browse keeps it here.
-          </p>
-        </div>
+        <EmptyState
+          icon={BookmarkIcon}
+          title="Nothing saved yet"
+          say="Bookmark anything in Browse and it waits for you here."
+          action={
+            <button
+              type="button"
+              onClick={onGoToBrowse}
+              className={`${EMPTY_SLAB} bg-primary text-primary-foreground`}
+            >
+              Go to Browse
+            </button>
+          }
+        />
       ) : matches.length === 0 ? (
-        <div className="max-w-lg rotate-[0.35deg] border-2 border-border bg-card px-7 py-7 shadow-slap-lift">
-          <p className="font-heading text-[22px] uppercase leading-none tracking-[0.005em] text-foreground">
-            Nothing matches
-          </p>
-          <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
-            No saved mod is called “{query.trim()}”.
-          </p>
-        </div>
+        <EmptyState
+          icon={SearchX}
+          title="Nothing matches"
+          say={`No saved mod is called “${query.trim()}”.`}
+          action={
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className={`${EMPTY_SLAB} bg-background text-foreground`}
+            >
+              Clear search
+            </button>
+          }
+        />
       ) : (
         <div className="space-y-4">
           {/* The characters, as a rail rather than as nine headings with nine grids under them.
