@@ -1,15 +1,15 @@
-import { Check, Image as ImageIcon, XIcon } from "lucide-react";
+import { AlertTriangle, Check, Image as ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
+  DOCKET_ERROR,
+  DOCKET_HINT,
+  DOCKET_LABEL,
+  DOCKET_SLAB,
   Dialog,
   DialogContent,
+  DialogDocketHeader,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { BegunImport, ImportCandidate, ImportSelection } from "@/lib/tauri-commands";
 import { CharacterPicker } from "./CharacterPicker";
 import {
@@ -19,6 +19,14 @@ import {
   usePickModThumbnail,
   useSetModThumbnail,
 } from "./hooks";
+
+/** A control standing inside the candidate well.
+ *
+ * The well is already inverted to `--background` so that it reads as sunk into the panel, which
+ * means anything on top of it has to come back up to `--card`. The material rule applied twice,
+ * which is what a list of editable rows inside a dialog actually is. */
+const IN_WELL =
+  "bg-card text-card-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:opacity-50 disabled:shadow-none";
 
 /** The deepest folder that contains every one of `paths`, as a `/`-separated relative path.
  *
@@ -276,29 +284,25 @@ export function ImportModSheet({
     <Dialog open onOpenChange={(next) => !next && void handleClose()}>
       <DialogContent
         showCloseButton={false}
-        className="gap-0 border-2 border-border bg-card p-0 shadow-slap-lift sm:max-w-[520px]"
+        // The one dialog that can genuinely outgrow the window: a pack with several
+        // candidates stacks a name, a paste target and a button per mod. The wells inside it
+        // scroll, but the panel itself has to be allowed to as well, or a short window clips
+        // the footer - and the footer is where Install is.
+        className="max-h-[calc(100vh-3rem)] gap-0 overflow-y-auto p-0 sm:max-w-[520px]"
       >
-        <DialogHeader className="flex-row items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
-          <DialogTitle className="font-heading text-[11px] font-semibold uppercase tracking-[0.16em]">
-            Import mod
-          </DialogTitle>
-          <button
-            type="button"
-            onClick={() => void handleClose()}
-            disabled={isBusy}
-            aria-label="Close"
-            className="-my-1 -mr-1 p-1 transition-opacity hover:opacity-60 disabled:opacity-40"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-        </DialogHeader>
+        {/* The close button goes through `onOpenChange`, which is what cancels the import
+            session — so the shared one does the job the hand-rolled one did, and locks itself
+            while the install is running. */}
+        <DialogDocketHeader title="Import · mod" isLocked={isBusy} />
 
-        <div className="grid gap-4 px-4 py-4">
-          <div className="grid gap-0.5">
-            <p className="truncate font-heading text-[13px] uppercase tracking-[0.04em]">
+        <div className="grid min-w-0 gap-4 p-4 [&>*]:min-w-0">
+          <div className="grid min-w-0 gap-1">
+            {/* What you handed over, named in the display face, with the machine's count of
+                what it found underneath. */}
+            <p className="truncate font-heading text-[20px] uppercase leading-none tracking-[0.02em] text-card-foreground">
               {begun.source_label}
             </p>
-            <p className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
               {summary}
             </p>
           </div>
@@ -306,7 +310,7 @@ export function ImportModSheet({
           {found === 0 ? (
             // Not an error — the file is fine, it just is not a mod. Say what one looks like
             // rather than leaving someone to guess what the app wanted.
-            <p className="border border-border bg-background px-3 py-2.5 text-[13px] text-muted-foreground">
+            <p className="bg-background px-3 py-2.5 text-[13px] leading-relaxed text-muted-foreground shadow-slap">
               There is no mod in this file. An XXMI mod is a folder containing a{" "}
               <code className="text-foreground">.ini</code>, on its own or inside an archive.
             </p>
@@ -316,10 +320,13 @@ export function ImportModSheet({
                   there is nothing to combine it with; the question would be noise. */}
               {begun.plan.candidates.length > 1 && (
                 <div className="grid gap-1.5">
-                  <Label className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+                  <span className={DOCKET_LABEL}>
                     {begun.plan.candidates.length} folders inside
-                  </Label>
-                  <div className="flex border border-border bg-background p-1">
+                  </span>
+                  {/* Two slabs side by side rather than two halves of one box: they are a
+                      choice between readings, and the chosen one fills with the accent like
+                      every other choice in the app. */}
+                  <div className="flex gap-1.5">
                     <ModeButton
                       isActive={!asOneMod}
                       disabled={isBusy}
@@ -338,11 +345,11 @@ export function ImportModSheet({
                 </div>
               )}
 
-              <div className="grid gap-1.5">
-                <Label className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+              <div className="grid min-w-0 gap-1.5">
+                <span className={DOCKET_LABEL}>
                   {found === 1 ? "Name" : "What to install"}
-                </Label>
-                <div className="max-h-[240px] overflow-y-auto border border-border bg-background">
+                </span>
+                <div className="max-h-[240px] min-w-0 overflow-y-auto bg-background shadow-slap">
                   {candidates.map((candidate) => {
                     const isChosen = selected.has(candidate.rel_path);
                     return (
@@ -361,17 +368,19 @@ export function ImportModSheet({
                           aria-label={`Install ${candidate.suggested_name}`}
                           disabled={isBusy || found === 1}
                           onClick={() => toggle(candidate.rel_path)}
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center border transition-colors disabled:opacity-60 ${
+                          className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center border-2 outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${
                             isChosen
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background hover:border-muted-foreground"
+                              : "border-border bg-card hover:border-muted-foreground"
                           }`}
                         >
                           {isChosen && <Check className="h-3 w-3" />}
                         </button>
 
                         <div className="grid min-w-0 flex-1 gap-1.5">
-                          <Input
+                          {/* The name it will be installed under, in the machine's face,
+                              matching the install and edit dialogs. */}
+                          <input
                             value={names[candidate.rel_path] ?? ""}
                             onChange={(event) =>
                               setNames((current) => ({
@@ -381,7 +390,7 @@ export function ImportModSheet({
                             }
                             disabled={isBusy || !isChosen}
                             aria-label={`Name for ${candidate.suggested_name}`}
-                            className="h-8"
+                            className={`w-full px-2 py-1.5 font-mono text-[12.5px] ${IN_WELL}`}
                           />
 
                           <CandidatePicture
@@ -406,12 +415,9 @@ export function ImportModSheet({
               </div>
 
               <div className="grid gap-1.5">
-                <Label
-                  htmlFor="import-character"
-                  className="font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
-                >
+                <label htmlFor="import-character" className={DOCKET_LABEL}>
                   Filed under
-                </Label>
+                </label>
                 <CharacterPicker
                   id="import-character"
                   value={characterId}
@@ -422,7 +428,7 @@ export function ImportModSheet({
                   // Silence here would read as the app having no opinion when it in fact could
                   // not form one, which are different things. Not shown when the import came
                   // from a character's page: nothing was guessed, so nothing failed to be.
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className={DOCKET_HINT}>
                     The name did not say which character this is for — pick one.
                   </p>
                 )}
@@ -430,30 +436,36 @@ export function ImportModSheet({
             </>
           )}
 
-          {error && <p className="text-[13px] text-destructive">{error}</p>}
+          {error && (
+            <p className={DOCKET_ERROR}>
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {error}
+            </p>
+          )}
         </div>
 
-        <DialogFooter className="gap-2 border-t border-border px-4 py-3">
-          <Button
+        <DialogFooter className="mx-0 mb-0 gap-2 px-4 py-3">
+          <button
             type="button"
-            variant="outline"
             disabled={isBusy}
             onClick={() => void handleClose()}
+            className={`${DOCKET_SLAB} bg-card text-card-foreground`}
           >
             Cancel
-          </Button>
+          </button>
           {found > 0 && (
-            <Button
+            <button
               type="button"
               disabled={!canInstall || isBusy}
               onClick={() => void handleInstall()}
+              className={`${DOCKET_SLAB} bg-primary text-primary-foreground`}
             >
               {commit.isPending
                 ? "Installing…"
                 : chosen.length > 1
                   ? `Install ${chosen.length}`
                   : "Install"}
-            </Button>
+            </button>
           )}
         </DialogFooter>
       </DialogContent>
@@ -499,14 +511,16 @@ function ModeButton({
       aria-checked={isActive}
       disabled={disabled}
       onClick={onClick}
-      className={`flex-1 px-2.5 py-1.5 text-left transition-colors disabled:opacity-60 ${
-        isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+      className={`flex-1 px-3 py-2 text-left shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none ${
+        isActive ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
       }`}
     >
-      <span className="block font-heading text-[11px] uppercase tracking-[0.08em]">{label}</span>
+      <span className="block font-sign text-[17px] uppercase leading-none tracking-[0.08em]">
+        {label}
+      </span>
       <span
-        className={`block text-[10px] leading-tight ${
-          isActive ? "text-primary-foreground/70" : "text-muted-foreground/70"
+        className={`mt-1 block text-[11px] leading-tight ${
+          isActive ? "text-primary-foreground/75" : "text-muted-foreground"
         }`}
       >
         {hint}
@@ -564,20 +578,20 @@ function CandidatePicture({
           }
         }}
         aria-label={`Picture for ${name}`}
-        className={`flex items-center gap-3 border border-dashed p-2 text-left focus:outline-none focus:ring-1 focus:ring-primary ${
+        className={`flex items-center gap-3 border-2 border-dashed bg-card p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
           disabled ? "opacity-60" : ""
         } ${stagedUrl ? "border-primary" : "border-border"}`}
       >
-        <div className="h-[42px] w-[56px] shrink-0 overflow-hidden border border-border bg-secondary">
+        <div className="h-[42px] w-[56px] shrink-0 overflow-hidden border-2 border-border bg-art">
           {shown ? (
             <img src={shown} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground/50">
+            <span className="flex h-full w-full items-center justify-center font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">
               None
             </span>
           )}
         </div>
-        <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+        <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-muted-foreground">
           {isPicking
             ? "Choosing…"
             : stagedUrl
@@ -585,17 +599,15 @@ function CandidatePicture({
               : "Click here and press Ctrl+V to paste an image, or choose a file."}
         </p>
       </div>
-      <Button
+      <button
         type="button"
-        variant="outline"
-        size="sm"
-        className="font-normal"
         disabled={disabled || isPicking}
         onClick={onChooseFile}
+        className={`inline-flex h-8 items-center justify-center gap-1.5 px-3 font-sign text-[16px] uppercase tracking-[0.1em] hover:-translate-y-px disabled:translate-y-0 ${IN_WELL}`}
       >
         <ImageIcon className="h-3.5 w-3.5" />
         Choose file
-      </Button>
+      </button>
     </div>
   );
 }
