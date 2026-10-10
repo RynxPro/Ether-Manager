@@ -1,15 +1,20 @@
+import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { InstallProgressBar } from "@/components/InstallProgressBar";
-import { Button } from "@/components/ui/button";
 import {
+  DOCKET_ERROR,
+  DOCKET_HINT,
+  DOCKET_LABEL,
+  DOCKET_NOTICE,
+  DOCKET_NOTICE_COPY,
+  DOCKET_SLAB,
+  DOCKET_STAMP,
   Dialog,
   DialogContent,
+  DialogDocketHeader,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -78,27 +83,39 @@ export function UpdateModDialog({ mod, updateCheck }: UpdateModDialogProps) {
           Update
         </button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Update {mod.display_name}</DialogTitle>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="gap-0 p-0 sm:max-w-[440px]"
+      >
+        <DialogDocketHeader
+          title="Update · mod"
+          isLocked={updateMod.isPending}
+        />
 
-        <div className="grid gap-4 py-4">
-          <p className="text-xs text-muted-foreground">
+        <div className="grid min-w-0 gap-4 p-4 [&>*]:min-w-0">
+          {/* The caption names the operation, so the panel still has to name the thing. The
+              display face, because this is a mod's own name. */}
+          <p className="font-heading text-[22px] uppercase leading-none tracking-[0.02em] text-card-foreground">
+            {mod.display_name}
+          </p>
+
+          <p className={DOCKET_HINT}>
             {updateCheck.reason === "FileChanged"
               ? "GameBanana replaced this mod's file contents."
               : "The file you originally installed is no longer available on GameBanana — pick its replacement."}
           </p>
 
           {updateCheck.is_ambiguous ? (
-            <div className="grid gap-2">
-              <Label htmlFor="update-file">File</Label>
+            <div className="grid min-w-0 gap-1.5">
+              <label htmlFor="update-file" className={DOCKET_LABEL}>
+                File
+              </label>
               <Select
                 value={selectedFileId !== null ? String(selectedFileId) : undefined}
                 onValueChange={(value) => setSelectedFileId(Number(value))}
                 disabled={updateMod.isPending || isDetailLoading}
               >
-                <SelectTrigger id="update-file">
+                <SelectTrigger id="update-file" className="w-full">
                   <SelectValue
                     placeholder={isDetailLoading ? "Loading files…" : "Select a file"}
                   />
@@ -112,22 +129,31 @@ export function UpdateModDialog({ mod, updateCheck }: UpdateModDialogProps) {
                 </SelectContent>
               </Select>
               {isDetailError && (
-                <p className="text-xs text-destructive">
-                  Couldn't load this mod's file list from GameBanana. Try closing and reopening
-                  this dialog.
+                <p className={DOCKET_ERROR}>
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Could not load this mod's file list from GameBanana. Try closing and
+                  reopening this dialog.
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-foreground">
+            /* A file name is a figure the machine holds, so it goes on a plate in the
+               machine's face rather than loose on the card. */
+            <p className="truncate bg-background px-2.5 py-2 font-mono text-[12px] font-bold text-foreground shadow-slap">
               {updateCheck.suggested_file_name ?? "New file"}
             </p>
           )}
 
-          <p className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
-            Updating replaces everything in this mod's folder. Any manual edits you made there
-            will be lost.
-          </p>
+          {/* A condition, not a control: bordered rather than filled, with the consequence
+              stamped on the corner. The same object the install dialog hangs off its
+              flagged-file notice. */}
+          <div className={`${DOCKET_NOTICE} mt-1`}>
+            <span className={DOCKET_STAMP}>Replaces the folder</span>
+            <p className={DOCKET_NOTICE_COPY}>
+              Updating replaces everything in this mod's folder. Any manual edits you made
+              there will be lost.
+            </p>
+          </div>
 
           {updateMod.isPending && (
             <InstallProgressBar
@@ -138,23 +164,31 @@ export function UpdateModDialog({ mod, updateCheck }: UpdateModDialogProps) {
           )}
 
           {updateMod.isError && (
-            <p className="text-sm text-destructive">{String(updateMod.error)}</p>
+            <p className={DOCKET_ERROR}>
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {String(updateMod.error)}
+            </p>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0 gap-2 px-4 py-3">
           {updateMod.isPending && (
-            <Button type="button" variant="outline" onClick={handleCancel}>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className={`${DOCKET_SLAB} bg-card text-card-foreground`}
+            >
               Cancel
-            </Button>
+            </button>
           )}
-          <Button
+          <button
             type="button"
             disabled={selectedFileId === null || updateMod.isPending}
             onClick={handleConfirm}
+            className={`${DOCKET_SLAB} bg-primary text-primary-foreground`}
           >
             {updateMod.isPending ? "Updating…" : "Update"}
-          </Button>
+          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

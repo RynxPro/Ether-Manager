@@ -2,6 +2,11 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { AlertTriangle, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { useState } from "react";
 import {
+  DOCKET_BUTTON,
+  DOCKET_ERROR,
+  DOCKET_HINT,
+  DOCKET_LABEL,
+  DOCKET_ON_PAPER,
   DOCKET_SLAB,
   Dialog,
   DialogClose,
@@ -19,29 +24,6 @@ import {
   usePickModThumbnail,
   useClearModThumbnail,
 } from "./hooks";
-
-/** What a field is called: the sign face, like every other control in the app.
- *
- * Not the display face. These name the thing you are about to change rather than the thing
- * itself — the mod’s own name is on the card that opened this. */
-const FIELD_LABEL =
-  "font-sign text-[16px] uppercase tracking-[0.16em] text-muted-foreground/80";
-
-/** The sentence under a field, saying what pressing Save will actually do. Geist, because this
- * is the one job Geist has here. */
-const HINT = "text-[12px] leading-snug text-muted-foreground";
-
-/** Something gone wrong, in the machine’s voice, because it is the machine reporting. */
-const ERROR_LINE =
-  "flex items-start gap-1.5 font-mono text-[10.5px] font-bold uppercase leading-relaxed tracking-[0.06em] text-destructive";
-
-/** This panel is paper, so a control on it inverts to `--background`: paper on paper of the
- * same shade has no edge, and the slap is what makes it look pressable. */
-const ON_PAPER =
-  "bg-background text-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";
-
-/** A control on the paper that is pressed rather than typed into. */
-const PAPER_BUTTON = `inline-flex h-9 shrink-0 items-center justify-center gap-1.5 px-3.5 font-sign text-[17px] uppercase tracking-[0.1em] ${ON_PAPER}`;
 
 interface EditModDialogProps {
   mod: Mod;
@@ -192,7 +174,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
 
         <div className="grid min-w-0 gap-5 p-4 [&>*]:min-w-0">
           <div className="grid gap-1.5">
-            <label htmlFor="edit-mod-name" className={FIELD_LABEL}>
+            <label htmlFor="edit-mod-name" className={DOCKET_LABEL}>
               Name
             </label>
             {/* The machine’s face for a value you are typing in, matching the install
@@ -211,10 +193,10 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                 }
               }}
               disabled={isSaving}
-              className={`w-full px-2.5 py-2 font-mono text-[13px] hover:translate-y-0 ${ON_PAPER}`}
+              className={`w-full px-2.5 py-2 font-mono text-[13px] hover:translate-y-0 ${DOCKET_ON_PAPER}`}
             />
             {!isNameValid && (
-              <p className={ERROR_LINE}>
+              <p className={DOCKET_ERROR}>
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />A mod needs a name.
               </p>
             )}
@@ -222,14 +204,14 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                 renaming does not change which file is on disk — so it stays put, as a
                 reminder of what the mod actually is while its name is being rewritten. */}
             {mod.variant_label && (
-              <p className={HINT}>
+              <p className={DOCKET_HINT}>
                 From <span className="text-foreground">{mod.variant_label}</span>
               </p>
             )}
           </div>
 
           <div className="grid gap-1.5">
-            <label htmlFor="edit-mod-location" className={FIELD_LABEL}>
+            <label htmlFor="edit-mod-location" className={DOCKET_LABEL}>
               Filed under
             </label>
             <CharacterPicker
@@ -239,11 +221,11 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               disabled={isSaving}
               currentId={mod.character_id}
             />
-            <p className={HINT}>Saving moves the mod’s folder to match.</p>
+            <p className={DOCKET_HINT}>Saving moves the mod’s folder to match.</p>
           </div>
 
           <div className="grid gap-1.5">
-            <span className={FIELD_LABEL}>Picture</span>
+            <span className={DOCKET_LABEL}>Picture</span>
             {/* A paste target rather than only a button, because the picture is nearly always
                 already on the clipboard: copied out of the Discord message or Patreon post the
                 mod came from, or snipped from the game. Focusable and key-handled so it works
@@ -272,7 +254,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
                   </span>
                 )}
               </div>
-              <p className={`min-w-0 flex-1 ${HINT}`}>
+              <p className={`min-w-0 flex-1 ${DOCKET_HINT}`}>
                 {isPickingFile
                   ? "Choosing…"
                   : isPictureChanged
@@ -283,7 +265,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
             <div className="flex gap-1.5">
               <button
                 type="button"
-                className={`${PAPER_BUTTON} flex-1`}
+                className={`${DOCKET_BUTTON} flex-1`}
                 disabled={isPickingFile || isSaving}
                 onClick={() => void handleChooseFile()}
               >
@@ -293,7 +275,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               {(mod.bundled_thumbnail || stagedPreview) && stagedPicture !== "remove" && (
                 <button
                   type="button"
-                  className={PAPER_BUTTON}
+                  className={DOCKET_BUTTON}
                   disabled={isPickingFile || isSaving}
                   onClick={() => stagePicture("remove")}
                 >
@@ -302,7 +284,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               )}
             </div>
             {pictureError && (
-              <p className={ERROR_LINE}>
+              <p className={DOCKET_ERROR}>
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 {pictureError}
               </p>
@@ -310,7 +292,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
           </div>
 
           <div className="grid gap-1.5">
-            <span className={FIELD_LABEL}>Files</span>
+            <span className={DOCKET_LABEL}>Files</span>
             <div className="flex min-w-0 items-center gap-2">
               {/* The path is a figure the machine holds, so it is set in the machine’s face
                   and on a plate rather than loose on the card — a value, not a sentence. */}
@@ -320,13 +302,13 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
               >
                 {mod.folder_path}
               </p>
-              <button type="button" className={PAPER_BUTTON} onClick={handleReveal}>
+              <button type="button" className={DOCKET_BUTTON} onClick={handleReveal}>
                 <FolderOpen className="h-3.5 w-3.5" />
                 Open
               </button>
             </div>
             {revealError && (
-              <p className={ERROR_LINE}>
+              <p className={DOCKET_ERROR}>
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 {revealError}
               </p>
@@ -335,7 +317,7 @@ export function EditModDialog({ mod, onOpenChange }: EditModDialogProps) {
         </div>
 
         {saveError && (
-          <p className={`${ERROR_LINE} px-4 pb-3`}>
+          <p className={`${DOCKET_ERROR} px-4 pb-3`}>
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {saveError}
           </p>
