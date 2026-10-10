@@ -198,6 +198,38 @@ where there is something worth saying by hand.
   form elsewhere on the same page; it is atmosphere carrying a summary, never the only place a
   count exists. Give it at least two readings, or the loop leaves a visible gap.
 
+## Dialogs — the docket
+
+Every dialog is one object: a docket, pinned over the wall. They are built from `ui/dialog.tsx`,
+which carries the frame and the vocabulary so that no dialog has to redeclare either.
+
+- **The panel is paper.** Square, `border-2`, `shadow-slap-lift`, `p-0` so each band reaches the
+  edges. The shell supplies all of it; a dialog passes only its width.
+- **The head is a caption, not a title.** Courier 10px, `tracking-[0.2em]`, muted, naming the
+  operation as `Verb · noun` — `Install · consignment`, `Delete · mod`. It is also the dialog's
+  accessible name. Never the display face: Anton is for page titles and the names of things, and
+  an 11px caption in a coloured bar was what this language replaced.
+- **No coloured header bar.** The accent is needed further down, for the thing you press.
+- **The way out is a small piece of paper** on `--background`, top right, and it carries
+  `isLocked` when the dialog is running something it will not abandon.
+- **The footer is a band of `--background`** with `border-t-2`, holding slabs of `--card`. Cancel
+  and the action are the same size; the colour is the only difference, so nobody is nudged into
+  the committing one by its being the bigger target.
+- **Danger is a stamp, not a colour wash.** A `--destructive` stamp hung off the top edge at
+  −2°, saying the *consequence* in two or three words — "Deletes files", "Replaces the folder",
+  "Leaves the app". Absent on an ordinary confirmation, which is what makes it mean anything.
+- **A condition is bordered, never filled** (`DOCKET_NOTICE`): nothing in it is pressable, so it
+  must not look like a control.
+- **Focus opens on the way out.** Cancel, not the first focusable element. The point of asking is
+  that the default answer is no.
+- **Inside the panel, the material rule applies as many times as it has to.** A control on the
+  panel inverts to `--background`; a control inside a well that is already `--background` comes
+  back up to `--card`.
+- **Values are the machine's.** Anything typed into or read back — a name, a path, a file name —
+  is Courier on its own plate. Labels are the sign face; the sentence under a field is Geist.
+- **Grid items do not shrink on their own.** The shell sets `min-w-0` on its children; a panel
+  with its own nested grids has to repeat it, or one unbreakable path will size the whole dialog.
+
 ## Imagery
 
 The art is the point of this app. Anything laid over it needs to earn its place.

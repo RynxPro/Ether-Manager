@@ -81,7 +81,7 @@ export function ImageLightbox({
 
         <DialogClose
           aria-label="Close"
-          className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center border border-border bg-card text-foreground transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
+          className="absolute top-4 right-4 h-9 w-9 flex items-center justify-center bg-card text-foreground shadow-slap outline-none transition-[translate,box-shadow,background-color,color] duration-200 hover:-translate-y-px hover:bg-primary hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
           <XIcon className="h-4 w-4" />
         </DialogClose>
@@ -92,7 +92,7 @@ export function ImageLightbox({
               type="button"
               onClick={() => onIndexChange((index - 1 + sources.length) % sources.length)}
               aria-label="Previous image"
-              className="absolute top-1/2 left-4 flex h-14 w-9 -translate-y-1/2 items-center justify-center border border-border bg-card text-foreground transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
+              className="absolute top-1/2 left-4 flex h-14 w-9 -translate-y-1/2 items-center justify-center bg-card text-foreground shadow-slap outline-none transition-[box-shadow,background-color,color] duration-200 hover:bg-primary hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -100,12 +100,12 @@ export function ImageLightbox({
               type="button"
               onClick={() => onIndexChange((index + 1) % sources.length)}
               aria-label="Next image"
-              className="absolute top-1/2 right-4 flex h-14 w-9 -translate-y-1/2 items-center justify-center border border-border bg-card text-foreground transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
+              className="absolute top-1/2 right-4 flex h-14 w-9 -translate-y-1/2 items-center justify-center bg-card text-foreground shadow-slap outline-none transition-[box-shadow,background-color,color] duration-200 hover:bg-primary hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
 
-            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 border border-border bg-card px-2.5 py-1 font-heading text-[11px] tabular-nums tracking-[0.12em] text-muted-foreground">
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card px-2.5 py-1 font-mono text-[11px] font-bold tabular-nums tracking-[0.14em] text-muted-foreground shadow-slap">
               {index + 1} / {sources.length}
             </span>
           </>
