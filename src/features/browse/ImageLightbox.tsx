@@ -55,10 +55,10 @@ export function ImageLightbox({
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent
         showCloseButton={false}
-        // Everything the base content assumes about being a small centred card is undone here:
-        // no rounding, no ring, no padding, no max width, and transparent so the backdrop is
-        // the only surface behind the picture.
-        className="top-0 left-0 flex h-screen max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none bg-transparent p-0 ring-0 sm:max-w-none"
+        // Everything the base content assumes about being a sheet of paper is undone here: no
+        // edge, no shadow, no padding, no max width, and transparent so the backdrop is the only
+        // surface behind the picture. The panel is not an object in this one — the photograph is.
+        className="top-0 left-0 flex h-screen max-w-none translate-x-0 translate-y-0 items-center justify-center border-0 bg-transparent p-0 shadow-none sm:max-w-none"
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
 

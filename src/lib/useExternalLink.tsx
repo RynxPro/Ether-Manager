@@ -90,13 +90,15 @@ export function useExternalLink() {
 
   const dialog = pending ? (
     <ConfirmDialog
-      title="Leave for your browser?"
+      title="Leave · external link"
       confirmLabel="Open"
-      // Red rather than the accent yellow. Yellow is the colour of the thing you came here to
-      // do — install, enable, follow — and wearing it here would make leaving the app look like
-      // one more of those. This is the only dialog in the app whose outcome the app cannot see,
-      // undo, or take any responsibility for.
+      // The dark red rather than the accent. The accent is the colour of the thing you came
+      // here to do — install, enable, follow — and wearing it here would make leaving the app
+      // look like one more of those. This is the only dialog in the app whose outcome the app
+      // cannot see, undo, or take any responsibility for; the stamp says that in words, since
+      // nothing is destroyed and "danger" would be the wrong word for it.
       isDestructive
+      consequence="Leaves the app"
       onConfirm={() => {
         void openUrl(pending.url);
         setPending(null);

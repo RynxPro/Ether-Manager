@@ -314,7 +314,7 @@ export function BookmarksView({
 
       {pendingRemoval && (
         <ConfirmDialog
-          title="Remove bookmark"
+          title="Remove · bookmark"
           description={
             <>
               <span className="text-foreground">{pendingRemoval.name}</span>{" "}

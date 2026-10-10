@@ -370,7 +370,7 @@ export function ModCard({
           disagree about whether deleting is guarded. */}
       {isConfirmingDelete && (
         <ConfirmDialog
-          title="Delete mod"
+          title="Delete · mod"
           description={
             <>
               <span className="text-foreground">{mod.display_name}</span> and its folder are
@@ -380,6 +380,7 @@ export function ModCard({
           }
           confirmLabel={isDeleting ? "Deleting…" : "Delete"}
           isDestructive
+          consequence="Deletes files"
           isPending={isDeleting}
           onConfirm={() => {
             setIsConfirmingDelete(false);
