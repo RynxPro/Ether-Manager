@@ -92,6 +92,18 @@ impl Db {
                     now,
                 ],
             )?;
+
+            // Refresh the picture on a row that is already here, and nothing else. The art is
+            // the one field that can legitimately change under us — a row filed when this app
+            // asked GameBanana for a different rendering keeps that rendering forever
+            // otherwise. Read state and the name are deliberately left alone: the first would
+            // resurrect something already read, the second would rewrite text the user has
+            // seen, which is what the INSERT OR IGNORE above exists to prevent.
+            self.conn.execute(
+                "UPDATE creator_feed SET thumbnail_url = ?2
+                  WHERE gamebanana_mod_id = ?1 AND thumbnail_url IS NOT ?2",
+                params![item.gamebanana_mod_id, item.thumbnail_url],
+            )?;
         }
 
         self.conn.execute(
@@ -110,7 +122,11 @@ impl Db {
     pub fn list_creator_feed(&self, limit: i64) -> rusqlite::Result<Vec<CreatorFeedItem>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT * FROM creator_feed ORDER BY date_added DESC LIMIT ?1")?;
+            .prepare(
+                "SELECT * FROM creator_feed
+                 WHERE dismissed_at IS NULL
+                 ORDER BY date_added DESC LIMIT ?1",
+            )?;
         let rows = stmt.query_map(params![limit], row_to_feed_item)?;
         rows.collect()
     }
@@ -118,7 +134,7 @@ impl Db {
     /// How many entries have not been read — the number on the badge.
     pub fn count_unseen_creator_feed(&self) -> rusqlite::Result<i64> {
         self.conn.query_row(
-            "SELECT COUNT(*) FROM creator_feed WHERE seen_at IS NULL",
+            "SELECT COUNT(*) FROM creator_feed WHERE seen_at IS NULL AND dismissed_at IS NULL",
             [],
             |row| row.get(0),
         )
@@ -138,6 +154,25 @@ impl Db {
             params![now],
         )?;
         Ok(())
+    }
+
+    /// Empties the panel: every entry currently in it stops being listed, and the badge with
+    /// them.
+    ///
+    /// A tombstone rather than a delete. `record_creator_feed_items` is an INSERT OR IGNORE
+    /// keyed on the mod id, so a deleted row would be filed again by the next GameBanana check
+    /// and everything just cleared would reappear. Marking them instead means cleared stays
+    /// cleared, while a mod the creator posts tomorrow is a new id and arrives normally.
+    ///
+    /// Sets `seen_at` too, for the rows that were never opened: dismissed-but-unread would be
+    /// a state nothing can reach and the badge query has to exclude twice.
+    pub fn dismiss_creator_feed(&self, now: i64) -> rusqlite::Result<usize> {
+        self.conn.execute(
+            "UPDATE creator_feed
+                SET dismissed_at = ?1, seen_at = COALESCE(seen_at, ?1)
+              WHERE dismissed_at IS NULL",
+            params![now],
+        )
     }
 
     /// Drops one creator's entries. Called when they are unfollowed — the bell is news from
@@ -185,6 +220,57 @@ mod tests {
 
         assert_eq!(inserted, 2);
         assert_eq!(db.count_unseen_creator_feed().unwrap(), 2);
+    }
+
+    #[test]
+    fn clearing_empties_the_list_and_the_badge() {
+        let db = db();
+        db.record_creator_feed_items(&[item(1, 10, NOW), item(2, 10, NOW)], NOW)
+            .unwrap();
+
+        let dismissed = db.dismiss_creator_feed(NOW + 60).unwrap();
+
+        assert_eq!(dismissed, 2);
+        assert!(db.list_creator_feed(50).unwrap().is_empty());
+        assert_eq!(db.count_unseen_creator_feed().unwrap(), 0);
+    }
+
+    #[test]
+    fn a_cleared_entry_does_not_come_back_on_the_next_check() {
+        let db = db();
+        db.record_creator_feed_items(&[item(1, 10, NOW)], NOW)
+            .unwrap();
+        db.dismiss_creator_feed(NOW + 60).unwrap();
+
+        // The very next GameBanana page still lists that mod, as it will for days. The whole
+        // reason clearing tombstones rather than deletes is that this must not resurrect it.
+        db.record_creator_feed_items(&[item(1, 10, NOW), item(2, 10, NOW)], NOW + 120)
+            .unwrap();
+
+        let listed = db.list_creator_feed(50).unwrap();
+        assert_eq!(listed.len(), 1, "only the mod filed after the clear");
+        assert_eq!(listed[0].gamebanana_mod_id, 2);
+    }
+
+    #[test]
+    fn re_checking_refreshes_the_picture_without_unreading_the_row() {
+        let db = db();
+        let mut first = item(1, 10, NOW);
+        first.thumbnail_url = Some("https://example.invalid/530-a.jpg".to_string());
+        db.record_creator_feed_items(&[first], NOW).unwrap();
+        db.mark_creator_feed_seen(NOW + 10).unwrap();
+
+        let mut smaller = item(1, 10, NOW);
+        smaller.thumbnail_url = Some("https://example.invalid/220-a.jpg".to_string());
+        db.record_creator_feed_items(&[smaller], NOW + 60).unwrap();
+
+        let listed = db.list_creator_feed(50).unwrap();
+        assert_eq!(
+            listed[0].thumbnail_url.as_deref(),
+            Some("https://example.invalid/220-a.jpg"),
+        );
+        assert!(listed[0].seen_at.is_some(), "a read row stays read");
+        assert_eq!(db.count_unseen_creator_feed().unwrap(), 0);
     }
 
     #[test]

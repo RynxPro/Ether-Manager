@@ -7,7 +7,11 @@ import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { shouldBlur } from "@/lib/mature";
 import { updatedLabel } from "@/lib/time";
 import type { CreatorFeedItem } from "@/lib/tauri-commands";
-import { useCreatorFeed, useMarkCreatorFeedSeen } from "./hooks";
+import {
+  useClearCreatorFeed,
+  useCreatorFeed,
+  useMarkCreatorFeedSeen,
+} from "./hooks";
 
 /** How far off true each slip sits. A short repeating pair rather than anything random: three
  * rows want to look hand-placed, not scattered, and half a nav sign's tilt because the panel is
@@ -46,6 +50,7 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
   const { data: feed } = useCreatorFeed();
   const { data: visibility } = useMatureContentVisibility();
   const markSeen = useMarkCreatorFeedSeen();
+  const clearFeed = useClearCreatorFeed();
 
   const items = feed?.items ?? [];
   const unseen = feed?.unseen ?? 0;
@@ -126,19 +131,37 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
           // it cannot run past the window edge however wide it gets.
           className="absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-[380px] flex-col border-2 border-border bg-card p-2.5 shadow-slap-lift"
         >
-          <div className="flex shrink-0 items-baseline gap-2 px-0.5 pb-2.5">
-            <h2 className="font-heading text-[19px] uppercase leading-none text-foreground">
+          <div className="flex shrink-0 items-center gap-2.5 px-0.5 pb-2.5">
+            <h2 className="font-heading text-[20px] uppercase leading-none text-foreground">
               What&apos;s new
             </h2>
             {/* The count belongs up here rather than on each row: it answers "is this worth
                 opening" from the bell, and repeating it per row would say the same thing three
                 times. Accent because unread is a state, and state is what the accent marks. */}
             {wasUnread.size > 0 && (
-              <span className="ml-auto font-mono text-[11px] font-bold text-primary">
-                {wasUnread.size} NEW
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                {wasUnread.size} new
               </span>
             )}
+            {/* In the head, because that is where you look once you have read the list — and
+                because a verb at the foot of a scrolling column is a verb you have to go and
+                find. Paper on the panel, which is card, so it inverts to the wall colour.
+
+                Clearing is not the same as the marking-read that opening does: read means you
+                looked, cleared means you are done with these and do not want them listed
+                again. */}
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => clearFeed.mutate()}
+                disabled={clearFeed.isPending}
+                className="ml-auto inline-flex h-7 shrink-0 items-center bg-background px-3 font-sign text-[15px] uppercase tracking-[0.1em] text-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+              >
+                {clearFeed.isPending ? "Clearing…" : "Clear"}
+              </button>
+            )}
           </div>
+          <div className="mb-2.5 h-0.5 shrink-0 bg-border" />
 
           {items.length === 0 ? (
             <EmptyState
@@ -177,42 +200,57 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
                       coversParentBorder={false}
                       straightensOnHover
                     />
-                    <MatureContentShield
-                      isBlurred={shouldBlur(visibility, item.is_mature)}
-                      className="h-[42px] w-[56px] shrink-0 overflow-hidden bg-muted"
-                    >
-                      {item.thumbnail_url ? (
-                        <img
-                          src={item.thumbnail_url}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center font-mono text-[9px] uppercase text-muted-foreground">
-                          No art
+                    {/* 76 across, not 56. The feed sends the 220px rendering now, and at the
+                        old size it was a nine-and-a-half-times reduction in a single step,
+                        which aliases the same way the bookmark cards did. Bordered, because at
+                        this size it is a print rather than a swatch. */}
+                    <span className="relative shrink-0">
+                      {/* Stamped on the artwork rather than inline in the byline. A chip
+                          wedged between the creator name and the date pushed both into
+                          truncation on the only two rows that needed reading. */}
+                      {wasUnread.has(item.gamebanana_mod_id) && (
+                        <span className="absolute -left-1.5 -top-2 z-10 -rotate-3 bg-primary px-1.5 font-sign text-[12px] uppercase tracking-[0.1em] text-primary-foreground shadow-slap">
+                          New
                         </span>
                       )}
-                    </MatureContentShield>
+                      <MatureContentShield
+                        isBlurred={shouldBlur(visibility, item.is_mature)}
+                        className="h-[57px] w-[76px] overflow-hidden border-2 border-border bg-art"
+                      >
+                        {item.thumbnail_url ? (
+                          <img
+                            src={item.thumbnail_url}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
+                            No art
+                          </span>
+                        )}
+                      </MatureContentShield>
+                    </span>
 
                     <span className="min-w-0 flex-1 pr-1">
-                      <span className="block truncate font-sign text-[16px] leading-tight tracking-[0.04em] text-foreground">
+                      {/* Two lines rather than one truncated. These are mod names, which run
+                          long and carry their variant in brackets at the end — one line cut
+                          most of them mid-word, which is the half that says which one it is. */}
+                      <span className="line-clamp-2 block font-sign text-[19px] leading-[1.05] tracking-[0.03em] text-foreground">
                         {item.mod_name}
                       </span>
                       {/* The creator is the reason this row exists, so it is named here rather
-                          than left to the mod page — "who posted it" is the notification. */}
-                      <span className="mt-0.5 flex items-center gap-1.5 truncate font-mono text-[10px] font-bold uppercase text-muted-foreground">
-                        {/* Stamped rather than an edge marker. A 2px rule down the left of a row
-                            is invisible sitting beside a thumbnail — this has to survive being
-                            next to artwork. */}
-                        {wasUnread.has(item.gamebanana_mod_id) && (
-                          <span className="shrink-0 bg-primary px-1 text-primary-foreground">
-                            New
-                          </span>
-                        )}
-                        <span className="truncate">
-                          {item.creator_name} / {updatedLabel(item.date_added)}
+                          than left to the mod page — "who posted it" is the notification. The
+                          sign face, because it is a name; the date stays in the machine face
+                          and goes right, so there is one column of dates to scan rather than
+                          four dates at four different offsets. */}
+                      <span className="mt-1 flex items-baseline gap-2">
+                        <span className="min-w-0 truncate font-sign text-[15px] uppercase tracking-[0.08em] text-card-foreground">
+                          {item.creator_name}
+                        </span>
+                        <span className="ml-auto shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                          {updatedLabel(item.date_added)}
                         </span>
                       </span>
                     </span>

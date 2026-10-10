@@ -54,6 +54,23 @@ pub fn mark_creator_feed_seen(state: State<AppState>) -> Result<CreatorFeed, Str
     })
 }
 
+/// Empties the bell.
+///
+/// Distinct from marking it read: read means you looked, cleared means you are done with these
+/// and do not want them listed again. The entries are tombstoned rather than deleted, because
+/// the next GameBanana check would otherwise file every one of them straight back.
+#[tauri::command]
+pub fn clear_creator_feed(state: State<AppState>) -> Result<CreatorFeed, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.dismiss_creator_feed(now()).map_err(|e| e.to_string())?;
+    Ok(CreatorFeed {
+        items: db
+            .list_creator_feed(FEED_PAGE_SIZE)
+            .map_err(|e| e.to_string())?,
+        unseen: db.count_unseen_creator_feed().map_err(|e| e.to_string())?,
+    })
+}
+
 /// Asks GameBanana what is new from the creators the user follows, files anything not already
 /// on the list, and answers with the bell's current contents.
 ///

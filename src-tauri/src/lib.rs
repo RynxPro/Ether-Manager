@@ -151,6 +151,7 @@ pub fn run() {
             commands::creator_feed::list_creator_feed,
             commands::creator_feed::check_creator_feed,
             commands::creator_feed::mark_creator_feed_seen,
+            commands::creator_feed::clear_creator_feed,
             commands::gamebanana::add_bookmark,
             commands::gamebanana::backfill_bookmark_characters,
             commands::gamebanana::remove_bookmark,

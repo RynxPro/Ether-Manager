@@ -45,6 +45,7 @@ impl Db {
         self.migrate_mods_variant_label_column()?;
         self.migrate_mods_bundled_thumbnail_column()?;
         self.migrate_bookmarks_character_column()?;
+        self.migrate_creator_feed_dismissed_column()?;
         self.migrate_update_check_standing_columns()?;
         self.migrate_derive_enabled_from_disk()?;
         self.migrate_legacy_slot_values()
@@ -228,6 +229,25 @@ impl Db {
     /// Nullable because it genuinely can be unknown: rows saved before this existed have none
     /// until `backfill_bookmark_characters` fetches it, and a mod filed under a category this
     /// app does not recognise has none at all. Idempotent, same reasoning as the columns above.
+    /// Adds the column that remembers the bell was emptied.
+    ///
+    /// `CREATE TABLE IF NOT EXISTS` leaves an existing table alone, so a database written before
+    /// this existed has the old ten columns and would fail every read the moment the repo asks
+    /// for the eleventh. Rows written before it read as NULL, which is the not-dismissed state
+    /// and the right answer for everything that was in the list when the app updated.
+    fn migrate_creator_feed_dismissed_column(&self) -> rusqlite::Result<()> {
+        let has_column: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('creator_feed') WHERE name = 'dismissed_at'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_column == 0 {
+            self.conn
+                .execute_batch("ALTER TABLE creator_feed ADD COLUMN dismissed_at INTEGER;")?;
+        }
+        Ok(())
+    }
+
     fn migrate_bookmarks_character_column(&self) -> rusqlite::Result<()> {
         let has_column: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM pragma_table_info('bookmarks') WHERE name = 'character_id'",

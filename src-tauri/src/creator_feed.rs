@@ -64,7 +64,8 @@ pub fn select_new_from_followed(
                 creator_name: record.submitter.name.clone(),
                 creator_avatar_url: record.submitter.avatar_url.clone(),
                 mod_name: record.name.clone(),
-                thumbnail_url: record.preview_media.thumbnail_url(),
+                // The bell draws these at 76px. See `small_thumbnail_url`.
+                thumbnail_url: record.preview_media.small_thumbnail_url(),
                 is_mature: record.is_mature,
                 date_added: record.date_added,
             })

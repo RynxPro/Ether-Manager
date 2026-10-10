@@ -98,7 +98,12 @@ CREATE TABLE IF NOT EXISTS creator_feed (
     is_mature INTEGER NOT NULL DEFAULT 0,
     date_added INTEGER NOT NULL,
     discovered_at INTEGER NOT NULL,
-    seen_at INTEGER
+    seen_at INTEGER,
+    -- Set when the list is cleared from the panel. A tombstone rather than a delete, because
+    -- `record_creator_feed_items` is an INSERT OR IGNORE keyed on the mod id: a deleted row
+    -- would be filed again by the very next GameBanana check and the cleared item would come
+    -- straight back. Dismissed rows stay until the retention sweep drops them by age.
+    dismissed_at INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_creator_feed_date ON creator_feed(date_added DESC);

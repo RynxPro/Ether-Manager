@@ -111,6 +111,22 @@ impl GbPreviewMedia {
     /// `file_530` is the largest pre-rendered size GameBanana offers and comfortably covers a
     /// mod card a few hundred pixels wide; the smaller thumb and then the full-size original
     /// are fallbacks, since not every submission has every size rendered.
+    /// The same first screenshot, at the smallest rendering GameBanana offers.
+    ///
+    /// For anything drawn below about a hundred pixels. The 530 painted into the bell’s
+    /// thumbnail is a nine-and-a-half-times reduction in one step, which aliases exactly the
+    /// way the roster portraits and the bookmark cards did — see `gbImageUrl` on the frontend,
+    /// which is the same decision made per call site there.
+    pub fn small_thumbnail_url(&self) -> Option<String> {
+        let image = self.images.first()?;
+        let file = image
+            .file_220
+            .as_deref()
+            .or(image.file_530.as_deref())
+            .unwrap_or(&image.file);
+        Some(format!("{}/{}", image.base_url, file))
+    }
+
     pub fn thumbnail_url(&self) -> Option<String> {
         let image = self.images.first()?;
         let file = image

@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { checkCreatorFeed, markCreatorFeedSeen, type CreatorFeed } from "@/lib/tauri-commands";
+import {
+  checkCreatorFeed,
+  clearCreatorFeed,
+  markCreatorFeedSeen,
+  type CreatorFeed,
+} from "@/lib/tauri-commands";
 
 const FEED_KEY = ["creatorFeed"] as const;
 
@@ -42,5 +47,19 @@ export function useMarkCreatorFeedSeen() {
     onSuccess: (feed: CreatorFeed) => {
       queryClient.setQueryData(FEED_KEY, feed);
     },
+  });
+}
+
+/** Empties the panel.
+ *
+ * Writes the answer straight into the cache like the seen mutation does, for the same reason:
+ * invalidating would re-run `checkCreatorFeed`, and putting a GameBanana request behind the
+ * act of clearing a list would refill it in front of you.
+ */
+export function useClearCreatorFeed() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: clearCreatorFeed,
+    onSuccess: (feed: CreatorFeed) => queryClient.setQueryData(FEED_KEY, feed),
   });
 }

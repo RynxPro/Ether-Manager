@@ -622,6 +622,12 @@ export function markCreatorFeedSeen(): Promise<CreatorFeed> {
   return invoke("mark_creator_feed_seen");
 }
 
+/** Empties the bell. Distinct from marking it read: read means you looked, cleared means you
+ * are done with these and do not want them listed again. */
+export function clearCreatorFeed(): Promise<CreatorFeed> {
+  return invoke("clear_creator_feed");
+}
+
 /** One comment on a mod's page. Read-only: every write path on GameBanana's API needs a
  * session, and the app has none — replying means going to GameBanana. */
 export interface GbPost {
