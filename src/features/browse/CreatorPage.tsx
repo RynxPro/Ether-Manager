@@ -3,7 +3,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
-import { SignStrip } from "@/components/SignStrip";
 import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
 import { BROWSE_GRID } from "@/lib/layout";
@@ -254,24 +253,6 @@ export function CreatorPage({
           </p>
         )}
       </div>
-
-      {/* Same sign every other page carries. "On GameBanana · all games" sits immediately before
-          the four account-wide counters so the qualifier comes round with them on every pass. */}
-      <SignStrip
-        items={[
-          zzzLine,
-          ...(joinYear !== null ? [`Joined ${joinYear}`] : []),
-          ...(stats
-            ? [
-                "On GameBanana · all games",
-                `${stats.submissions.toLocaleString()} submissions`,
-                `${stats.thanks_received.toLocaleString()} thanks`,
-                `${stats.featured.toLocaleString()} featured`,
-                `${(creator?.subscriber_count ?? 0).toLocaleString()} subscribers`,
-              ]
-            : []),
-        ]}
-      />
 
       {/* A banned or private profile is not an empty one, and must not look like it. GameBanana
           still serves the mod list in both cases, so the list stays — this only explains why

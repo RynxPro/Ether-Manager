@@ -19,7 +19,6 @@ import {
   useRemoveBookmark,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
-import { SignStrip } from "@/components/SignStrip";
 
 interface BookmarkGroup {
   characterId: string;
@@ -150,11 +149,6 @@ export function BookmarksView({
             (bookmark.character_id ?? UNSORTED_ID) === selectedCharacter,
         );
   const count = bookmarks?.length ?? 0;
-  // How much of the shortlist you have already acted on. A shortlist is mostly things you have
-  // not got yet, so the proportion you have is the one number about the page worth stating.
-  const installedSavedCount = (bookmarks ?? []).filter(
-    (bookmark) => (installed.countByModId.get(bookmark.gamebanana_mod_id) ?? 0) > 0,
-  ).length;
   /** The roster's name for a bookmark's character, or nothing when it has none. The rail already
    * does this to build its chips; the card needs the same answer, so it comes from one place. */
   const labelForCharacter = (characterId: string | null) =>
@@ -194,24 +188,6 @@ export function BookmarksView({
           </>
         )}
       </PageHeader>
-
-      {/* What the page can say about itself in numbers, on the same lit sign the Library, All
-          Mods and Browse carry. Ordered most- to least-changeable: the strip only ever shows
-          part of itself at once, and the first item is what is on screen when the page opens. */}
-      {!isLoading && count > 0 && (
-        <SignStrip
-          items={[
-            `${count} saved`,
-            installedSavedCount > 0
-              ? `${installedSavedCount} already installed`
-              : "None installed yet",
-            shelves.length > 1 ? `${shelves.length} characters` : "One character",
-            (creators ?? []).length > 0
-              ? `${(creators ?? []).length} creators followed`
-              : "No creators followed",
-          ]}
-        />
-      )}
 
       {/* Above the mod list and outside every branch below it, because following creators and
           saving mods are independent — an empty shortlist with four creators in it is a real

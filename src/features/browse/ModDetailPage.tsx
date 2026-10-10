@@ -16,7 +16,6 @@ import { MatureContentShield } from "@/components/MatureContentShield";
 import { PageHeader } from "@/components/PageHeader";
 import { PaperTilt } from "@/components/PaperTilt";
 import { formatCount } from "@/lib/format";
-import { SignStrip } from "@/components/SignStrip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDownloadProgress, useDownloads } from "@/features/downloads/hooks";
@@ -442,19 +441,6 @@ export function ModDetailPage({
         )}
       </PageHeader>
 
-      {/* What the page can say about itself in numbers, on the sign every other page uses.
-          These were three cells in a bordered grid inside the side panel; they are live
-          readings about the mod, which is the one thing the strip is for. */}
-      {detail && (
-        <SignStrip
-          items={[
-            `${detail.like_count.toLocaleString()} LIKES`,
-            `${detail.view_count.toLocaleString()} VIEWS`,
-            `${detail.download_count.toLocaleString()} DOWNLOADS`,
-            ...(installedCount > 0 ? ["IN YOUR LIBRARY"] : []),
-          ]}
-        />
-      )}
 
       {isLoading || !detail ? (
         <div className="flex items-start gap-6">
@@ -1280,8 +1266,6 @@ function ExecutableMark({ paths }: { paths: string[] }) {
     </span>
   );
 }
-
-
 
 interface MetaRowProps {
   term: string;

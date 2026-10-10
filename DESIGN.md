@@ -194,9 +194,16 @@ where there is something worth saying by hand.
 - **The wall tag is a second word, not an echo.** Downloads gets `Queue`; Settings gets `Setup`.
   Never user content — a mod title is arbitrary length, and the tag exists to say which room you
   are standing in, which is always something the app named.
-- **`SignStrip` is `aria-hidden` and it moves.** Every number on it must be stated in readable
-  form elsewhere on the same page; it is atmosphere carrying a summary, never the only place a
-  count exists. Give it at least two readings, or the loop leaves a visible gap.
+- **A page states its own numbers in one plain line.** Courier, 11px, `tracking-[0.12em]`, muted, with the leading figure in `--foreground`. Only where those
+  figures are not already stated by something else on the page: Browse needs it because the
+  result total comes from the server and cannot be counted off the grid, All Mods because how
+  many are on is not countable off twenty cards. Everywhere else the tabs, chips, subtitles
+  and cards already say it, and a second copy is one more thing to keep in sync.
+- **There was a scrolling LED sign here and there is not any more.** It carried the same
+  counts on seven pages, it was `aria-hidden` so it could never be the only place a number
+  lived, and it cut its own letters in half at both ends. Three attempts to fix it all came
+  back to the same thing: it was decoration pretending to be an instrument. If live data
+  needs saying, say it in the line above.
 
 ## Dialogs — the docket
 

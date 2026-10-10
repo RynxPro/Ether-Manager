@@ -15,7 +15,6 @@ import {
   type LiveProgress,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
-import { SignStrip } from "@/components/SignStrip";
 
 /** What each state is called on screen.
  *
@@ -93,15 +92,6 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
   // it is waiting. Paused counts as leading: it is still the one holding the slot, and its bytes
   // are the ones a resume continues from.
   const [leading, ...waiting] = active;
-  const installed = finished.filter((download) => download.status === "Installed");
-  const failedCount = finished.filter((download) => download.status === "Failed").length;
-  /** Everything this app has ever pulled down, added up. The one reading here that is about the
-   * page as a whole rather than about a row, and the only figure the log cannot be read off at a
-   * glance — which is what earns it a place on the sign. */
-  const bytesPulled = installed.reduce(
-    (sum, download) => sum + (download.total_bytes ?? download.downloaded_bytes),
-    0,
-  );
   const total = (downloads ?? []).length;
 
   /** What the page can say about itself, in words. Written once because it is said twice: here,
@@ -143,24 +133,6 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
           </>
         )}
       </PageHeader>
-
-      {/* The live readings, on the same lit sign the other pages carry. Ordered most- to
-          least-changeable: the strip only ever shows part of itself at once, and the first item is
-          what is on screen when the page opens. */}
-      {!isLoading && total > 0 && (
-        <SignStrip
-          items={[
-            // Nothing at all when nothing is running, rather than "queue empty". An idle queue is
-            // this page's resting state, and a sign that announces it makes the normal condition
-            // sound like a shortfall.
-            leading ? liveSignReading(leading, progress[leading.id]) : null,
-            waiting.length > 0 ? `${waiting.length} waiting` : null,
-            installed.length > 0 ? `${installed.length} installed` : null,
-            failedCount > 0 ? `${failedCount} failed` : null,
-            bytesPulled > 0 ? `${formatBytes(bytesPulled)} pulled` : null,
-          ].filter((item): item is string => item !== null)}
-        />
-      )}
 
       {isLoading ? (
         <div className="space-y-5">
@@ -240,19 +212,6 @@ export function DownloadsView({ onOpenCharacter }: DownloadsViewProps) {
       )}
     </div>
   );
-}
-
-/** The single reading the sign leads with while something is running. Short enough to be read as
- * it goes past, which is the only thing on the strip that has to be. */
-function liveSignReading(download: Download, live: LiveProgress | undefined): string {
-  if (download.status === "Paused") return "Paused";
-  if (download.status === "Extracting" || live?.isExtracting) return "Unpacking";
-  const downloaded = live?.downloaded ?? download.downloaded_bytes;
-  const total = live?.total ?? download.total_bytes;
-  const percent = total && total > 0 ? Math.round((downloaded / total) * 100) : null;
-  if (percent === null) return "Downloading";
-  const speed = live?.speedBytesPerSec;
-  return speed ? `${percent}% · ${formatBytes(speed)}/s` : `${percent}%`;
 }
 
 /** How long the rest will take, in words, or null when there is nothing honest to say.

@@ -27,7 +27,6 @@ import {
   useUpdateChecks,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
-import { SignStrip } from "@/components/SignStrip";
 
 /** Says what a completed sweep actually found. Counts rather than a bare "done", because the
  * only outcome that changes the page is an update being available — every other result looks
@@ -143,20 +142,6 @@ export function Library({
     { id: "ui", label: "UI", count: uiMods?.length ?? null },
     { id: "misc", label: "Misc", count: miscMods?.length ?? null },
   ];
-
-  // Built only from what this page already knows, and skipping anything still loading rather
-  // than printing a zero — a sign that reads "0 CHARACTERS" for a moment on every open is worse
-  // than one that arrives a beat late. Same `UpdateAvailable` predicate the sweep summary uses.
-  const updatesWaiting = (updateChecks ?? []).filter(
-    (check) => check.status === "UpdateAvailable",
-  ).length;
-  const signItems = [
-    characterCount === null ? null : `${characterCount} CHARACTERS`,
-    updatesWaiting > 0 ? `${updatesWaiting} UPDATES WAITING` : "NOTHING TO UPDATE",
-    uiMods === undefined ? null : `${uiMods.length} UI`,
-    miscMods === undefined ? null : `${miscMods.length} MISC`,
-  ].filter((item): item is string => item !== null);
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -208,8 +193,6 @@ export function Library({
           Import
         </Button>
       </PageHeader>
-
-      <SignStrip items={signItems} />
 
       {/* The rule is gone: it was separating the tabs from the grid, and the tabs are objects now
           rather than a row of text, so they separate themselves. What is left is a plain flex row,

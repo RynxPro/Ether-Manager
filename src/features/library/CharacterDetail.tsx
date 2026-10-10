@@ -3,7 +3,6 @@ import { EMPTY_SLAB } from "@/components/EmptyState";
 import { useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { PageHeader } from "@/components/PageHeader";
-import { SignStrip } from "@/components/SignStrip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CARD_GRID } from "@/lib/layout";
@@ -40,8 +39,7 @@ const WEAR_VERBS = { enable: "Wear this", disable: "Take it off" };
  *
  * So it now starts the way every other top-level page starts: `PageHeader`, which brings the
  * 48px display title, the accent sprayed under the word instead of ruled across the window, and
- * the section's name tagged on the wall behind it. Then the `SignStrip`, carrying what this page
- * can say about itself in numbers. The banner keeps its place and its carefully measured crop,
+ * the section’s name tagged on the wall behind it. The banner keeps its place and its carefully measured crop,
  * but becomes what every other surface here is — board with a drawn edge, a print margin, and
  * one hard shadow under it. */
 export function CharacterDetail({
@@ -139,21 +137,10 @@ export function CharacterDetail({
         .join(" · ")
     : "";
 
-  // This character's, not the library's: the strip reports the page it is bolted to.
-  const updatesWaiting = skins.filter(
-    (mod) => updateChecksByModId.get(mod.id)?.status === "UpdateAvailable",
-  ).length;
-
   // Built only from what the page already knows, and skipping anything still loading rather than
   // printing a zero — a strip that reads "0 MODS" for a moment on every open is worse than one
   // that arrives a beat late. Ordered most- to least-changeable, since the strip shows only part
   // of itself at once and the first item is the one on screen when the page opens.
-  const signItems = [
-    mods === undefined ? null : `${skins.length} ${skins.length === 1 ? "MOD" : "MODS"}`,
-    mods === undefined ? null : wearing === null ? "NOTHING ON" : `WEARING ${wearing}`,
-    updatesWaiting > 0 ? `${updatesWaiting} WAITING` : null,
-  ].filter((item): item is string => item !== null);
-
   const subtitle =
     skins.length === 0
       ? "No mods yet"
@@ -190,8 +177,6 @@ export function CharacterDetail({
           Import
         </Button>
       </PageHeader>
-
-      <SignStrip items={signItems} />
 
       {/* Board on the wall, not a framed strip.
 

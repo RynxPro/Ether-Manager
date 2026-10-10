@@ -2,7 +2,6 @@ import { EyeOff, SearchX } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { SignStrip } from "@/components/SignStrip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstalledFromGameBanana } from "@/features/library/hooks";
 import { useMatureContentVisibility } from "@/features/settings/hooks";
@@ -188,13 +187,17 @@ export function BrowseGrid({ query, categoryId, sort, onSelectMod }: BrowseGridP
           theirs. Theirs summarise a library that is entirely on the page; this one summarises
           the results, which begin below the controls — and a sign describing the feed belongs
           at the top of the feed. */}
-      <SignStrip items={bandItems} />
-      {/* `SignStrip` is `aria-hidden` on the argument that its numbers are stated in full
-          elsewhere on the page. On the Library that is true — the tabs carry their own counts.
-          Here nothing else states them, so this carries them for a screen reader. `polite`
-          because the count changes as pages load and should not interrupt. */}
-      <p className="sr-only" role="status" aria-live="polite">
-        {bandItems.join(". ")}.
+      {/* Stated plainly, because on this page they are stated nowhere else: the result total
+          comes from the server and cannot be counted off the grid. It used to ride the lit sign
+          with an `sr-only` paragraph beside it carrying the same words for a screen reader —
+          two copies of one fact, neither of them readable by eye. One line does both.
+
+          `polite` because the count climbs as pages load and must not interrupt. */}
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground" role="status" aria-live="polite">
+        <span className="text-foreground">{bandItems[0]}</span>
+        {bandItems.slice(1).map((item) => (
+          <span key={item}> · {item}</span>
+        ))}
       </p>
     </>
   );

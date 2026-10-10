@@ -23,7 +23,6 @@ import {
   useUpdateChecks,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
-import { SignStrip } from "@/components/SignStrip";
 
 interface AllModsProps {
   onSelectCharacter: (character: Character) => void;
@@ -208,7 +207,16 @@ export function AllMods({
       {/* The counts moved off the header rail and onto the sign, where the Library keeps its
           own. They are live readings about the page, which is the one thing the strip is for,
           and it leaves the header holding only the two things you can act on. */}
-      {signItems.length > 0 && <SignStrip items={signItems} />}
+      {/* The aggregates, stated plainly. Each card shows its own state, but how many are on
+          and how many are waiting are not countable off a grid of twenty. */}
+      {signItems.length > 0 && (
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          <span className="text-foreground">{signItems[0]}</span>
+          {signItems.slice(1).map((item) => (
+            <span key={item}> · {item}</span>
+          ))}
+        </p>
+      )}
 
       {isLoading ? (
         <div className={CARD_GRID}>

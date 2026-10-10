@@ -113,10 +113,6 @@
    * than an object placed on it. Night never had the problem: there the well is *darker* than
    * the wall and reads as a recess. This keeps it clearly lighter instead. */
   --art: #f2efe7;
-  /* The LED strip: the one lit object in either theme, and the only place a glow is allowed. */
-  --sign: #1a1714;
-  --sign-foreground: #f6f3ec;
-  --sign-glow: none;
   /* Hard offset shadow — a printed thing sitting proud of the wall, not a soft UI elevation.
    * `--slap-lift` is the ambient half, used together with the hard one on cards and never
    * on its own. */
@@ -172,9 +168,6 @@
   /* At night the surface stops being paper and becomes a painted panel — same role, same
    * token, different material. This is the pair's whole trick. */
   --art: #101014;
-  --sign: #08080a;
-  --sign-foreground: #ff5a44;
-  --sign-glow: 0 0 8px rgb(255 59 33 / 0.6);
   --slap-shadow: 2px 3px 0 rgb(0 0 0 / 0.7);
   --slap-lift: 0 9px 18px rgb(0 0 0 / 0.5);
   /* Overlay rather than multiply: on a dark ground, multiplying noise darkens toward black
@@ -217,8 +210,6 @@ body {
   --font-sans: 'Geist Variable', sans-serif;
   --font-mono: ui-monospace, 'Courier New', monospace;
   --color-art: var(--art);
-  --color-sign: var(--sign);
-  --color-sign-foreground: var(--sign-foreground);
   /* Always used as a pair on anything stuck to the wall — the hard offset says "printed
    * object", the ambient lift stops it looking pasted onto a flat image. */
   --shadow-slap: var(--slap-shadow);
@@ -313,28 +304,12 @@ body {
   background-repeat: repeat-y;
 }
 
-/* The horizontal twin, for the LED strip. Same -50% wrap, so the content must be repeated an
- * even number of times or the loop shows a seam at the halfway point. */
-@keyframes edge-ticker-x {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-.edge-ticker-x {
-  animation: edge-ticker-x 34s linear infinite;
-}
-
 
 /* Anything ambient enough to run forever has to answer to this. The strip is decoration that
  * carries no information the app needs you to read, so it simply stops rather than degrading to
  * something slower. */
 @media (prefers-reduced-motion: reduce) {
-  .edge-ticker,
-  .edge-ticker-x {
+  .edge-ticker {
     animation: none;
   }
 }
