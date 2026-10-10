@@ -129,7 +129,11 @@ export function NotificationBell({ onOpenMod }: NotificationBellProps) {
           // lived at the bottom-left of the sidebar, and completely wrong once it moved: from the
           // top-right of the window the panel flew off the screen entirely. Anchoring right means
           // it cannot run past the window edge however wide it gets.
-          className="absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-[380px] flex-col border-2 border-border bg-card p-2.5 shadow-slap-lift"
+          // Capped at four rows and a bit, not at 70vh. A dropdown that grows to seven hundred
+          // pixels stops being a dropdown and becomes a page you have to dismiss; the list
+          // scrolls inside instead, which it was already built to do. The vh term is only a
+          // floor for a short window — whichever is smaller wins.
+          className="absolute right-0 top-full z-50 mt-2 flex max-h-[min(400px,calc(100vh-5rem))] w-[380px] flex-col border-2 border-border bg-card p-2.5 shadow-slap-lift"
         >
           <div className="flex shrink-0 items-center gap-2.5 px-0.5 pb-2.5">
             <h2 className="font-heading text-[20px] uppercase leading-none text-foreground">

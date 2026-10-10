@@ -84,7 +84,13 @@ export function TitleBar({
     // as maximise/restore, so that gesture works without any code here.
     <div
       data-tauri-drag-region
-      className="flex h-8 shrink-0 items-center border-b border-border bg-sidebar"
+      // The rule is drawn rather than bordered, and that is not cosmetic. `h-8` with `border-b`
+      // leaves a 31px content box, and centring anything of even height inside an odd one puts
+      // it on a half pixel — which every descendant then inherits. The notification panel hung
+      // off this row at y=37.5 and every glyph in it was resampled, which is what read as the
+      // text being blurry. An inset shadow keeps the bar exactly 32 tall with a 32px content
+      // box, so its children land on whole pixels.
+      className="flex h-8 shrink-0 items-center bg-sidebar shadow-[inset_0_-1px_0_var(--border)]"
     >
       {/* `pointer-events-none` so a press on the lettering lands on the bar behind it. Without
           it, the one part of the bar with something written on it would be the one part you
