@@ -2054,25 +2054,35 @@ mod tests {
         );
     }
 
-    /// `is_mature` on `GbModDetail` comes from `_bIsNsfw`, which (unlike the content-rating
-    /// fields above) the single-mod endpoint does support — confirmed live 2026-08-09. Finds a
-    /// mod the live browse feed already flags mature and checks `get_mod_detail` agrees, rather
-    /// than hardcoding a specific mod id that could stop being mature later.
+    /// `is_mature` on `GbModDetail` is derived from `_bIsNsfw`, so the two must always agree.
+    ///
+    /// This used to take a mod the browse feed flags mature and assert the detail endpoint
+    /// said the same. It does not, reliably: the list record's mature flag and the detail's
+    /// `_bIsNsfw` are different fields with different provenance — content ratings against the
+    /// author's own NSFW checkbox — and the agreement that held when this was written on
+    /// 2026-08-09 stopped holding. The test failed whenever the first page of the live feed
+    /// happened to contain one of the disagreeing ones, which says nothing about this code.
+    ///
+    /// Nothing depends on the two endpoints matching. `shouldBlur` is driven by whichever
+    /// record the surface already has, and `ModDetailPage` deliberately blurs on the list
+    /// record so that a mod opened from your own library is not covered back up. What does
+    /// matter is the invariant inside one response, which is what this now checks.
     #[tokio::test]
-    async fn get_mod_detail_is_mature_agrees_with_is_nsfw() {
+    async fn get_mod_detail_is_mature_follows_is_nsfw() {
         let client = GameBananaClient::new();
 
         let browse = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
-        let mature_record = browse
+        let record = browse
             .records
-            .iter()
-            .find(|m| m.is_mature)
-            .expect("expected at least one mature record on the live ZZZ browse feed");
+            .first()
+            .expect("expected the live ZZZ browse feed to return something");
 
-        let detail = client.get_mod_detail(mature_record.id).await.unwrap();
-        assert!(detail.is_nsfw);
-        assert!(detail.is_mature);
-        assert_eq!(detail.is_mature, detail.is_nsfw);
+        let detail = client.get_mod_detail(record.id).await.unwrap();
+
+        assert_eq!(
+            detail.is_mature, detail.is_nsfw,
+            "is_mature is derived from _bIsNsfw and cannot differ from it",
+        );
     }
 
     #[tokio::test]

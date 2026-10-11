@@ -1,4 +1,4 @@
-use crate::db::{Mod, Preset};
+use crate::db::{Db, Mod, Preset};
 use crate::fs_ops;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -145,6 +145,56 @@ pub fn preset_mod_ids(state: State<AppState>, preset_id: i64) -> Result<Vec<i64>
     db.preset_mod_ids(preset_id).map_err(|e| e.to_string())
 }
 
+/// One rename that applying a preset will attempt.
+pub struct Planned {
+    pub mod_id: i64,
+    pub display_name: String,
+    pub wanted_on: bool,
+    pub rename: (PathBuf, PathBuf),
+}
+
+/// Everything applying would do, worked out before a single folder is touched.
+///
+/// Split from the command so it can be tested against a real database and real folders — the
+/// command itself needs a Tauri `State` and cannot be called from a test. Returns the renames
+/// to attempt and the mods that could not even be planned.
+///
+/// A planning failure is carried rather than thrown. A mod whose folder has gone missing
+/// underneath the app cannot be moved, and the user should be told which one; letting it
+/// abort the call would also leave the other thirty mods untouched for the sake of one.
+pub fn plan_apply(db: &Db, preset_id: i64) -> rusqlite::Result<(Vec<Planned>, Vec<PresetApplyFailure>)> {
+    let wanted = db.preset_mod_ids(preset_id)?;
+    let mods = db.list_all_mods()?;
+    let mut planned = Vec::new();
+    let mut failures = Vec::new();
+
+    for change in plan_preset(&wanted, &mods) {
+        let name = mods
+            .iter()
+            .find(|m| m.id == change.mod_id)
+            .map(|m| m.display_name.clone())
+            .unwrap_or_default();
+        match fs_ops::plan_mod_enabled(db, change.mod_id, change.turn_on) {
+            // `plan_preset` already dropped everything that needs no move, so a `None` here
+            // only means the disk agreed with the preset after all.
+            Ok(None) => {}
+            Ok(Some(rename)) => planned.push(Planned {
+                mod_id: change.mod_id,
+                display_name: name,
+                wanted_on: change.turn_on,
+                rename,
+            }),
+            Err(error) => failures.push(PresetApplyFailure {
+                mod_id: change.mod_id,
+                display_name: name,
+                error: error.to_string(),
+            }),
+        }
+    }
+
+    Ok((planned, failures))
+}
+
 /// Switches the library to what the preset describes.
 ///
 /// A reconciliation over every installed mod, not a list of things to switch on. Mods the
@@ -165,49 +215,9 @@ pub async fn apply_preset(
     state: State<'_, AppState>,
     preset_id: i64,
 ) -> Result<PresetApplyReport, String> {
-    struct Planned {
-        mod_id: i64,
-        display_name: String,
-        wanted_on: bool,
-        rename: (PathBuf, PathBuf),
-    }
-
-    // Planning failures are collected rather than thrown. A mod whose folder has gone missing
-    // underneath the app cannot be moved, and the user should be told which one — silently
-    // skipping it would report a clean apply that did not happen.
-    let mut failures: Vec<PresetApplyFailure> = Vec::new();
-
-    let planned: Vec<Planned> = {
+    let (planned, failures) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        let wanted = db.preset_mod_ids(preset_id).map_err(|e| e.to_string())?;
-        let mods = db.list_all_mods().map_err(|e| e.to_string())?;
-        let changes = plan_preset(&wanted, &mods);
-
-        let mut planned = Vec::with_capacity(changes.len());
-        for change in changes {
-            let name = mods
-                .iter()
-                .find(|m| m.id == change.mod_id)
-                .map(|m| m.display_name.clone())
-                .unwrap_or_default();
-            match fs_ops::plan_mod_enabled(&db, change.mod_id, change.turn_on) {
-                // `plan_preset` already dropped everything that needs no move, so a `None`
-                // here only means the disk agreed with the preset after all.
-                Ok(None) => {}
-                Ok(Some(rename)) => planned.push(Planned {
-                    mod_id: change.mod_id,
-                    display_name: name,
-                    wanted_on: change.turn_on,
-                    rename,
-                }),
-                Err(error) => failures.push(PresetApplyFailure {
-                    mod_id: change.mod_id,
-                    display_name: name,
-                    error: error.to_string(),
-                }),
-            }
-        }
-        planned
+        plan_apply(&db, preset_id).map_err(|e| e.to_string())?
     };
 
     tokio::task::spawn_blocking(move || {
@@ -246,6 +256,8 @@ mod tests {
     use super::*;
     use crate::db::Slot;
 
+    const NOW: i64 = 1_787_000_000;
+
     fn a_mod(id: i64, enabled: bool) -> Mod {
         Mod {
             id,
@@ -264,6 +276,76 @@ mod tests {
             created_at: 0,
             updated_at: 0,
         }
+    }
+
+    /// A library on disk. `Some(true)` is a folder in the enabled spelling, `Some(false)` the
+    /// `DISABLED_` one, `None` no folder at all — which is how a mod goes missing under the app.
+    fn library(label: &str, folders: &[(&str, Option<bool>)]) -> (std::path::PathBuf, Db) {
+        let root = std::env::temp_dir().join(format!("ether-manager-preset-{label}"));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("make root");
+
+        let db = Db::open_in_memory().expect("in-memory db");
+        for (name, on_disk) in folders {
+            let canonical = root.join(name);
+            match on_disk {
+                Some(true) => std::fs::create_dir_all(&canonical).expect("make mod folder"),
+                Some(false) => std::fs::create_dir_all(root.join(format!("DISABLED_{name}")))
+                    .expect("make disabled mod folder"),
+                None => {}
+            }
+            db.insert_mod(crate::db::NewMod {
+                character_id: "lucia-elowen".to_string(),
+                slot: crate::db::Slot::CharacterSkin,
+                display_name: (*name).to_string(),
+                folder_path: canonical.to_string_lossy().to_string(),
+                thumbnail_url: None,
+                gamebanana_mod_id: None,
+                gamebanana_file_id: None,
+                gamebanana_md5: None,
+                variant_label: None,
+                bundled_thumbnail: None,
+            })
+            .expect("insert mod");
+        }
+        (root, db)
+    }
+
+    #[test]
+    fn a_mod_whose_folder_is_gone_is_reported_rather_than_skipped() {
+        // `here` is on disk but switched off; `gone` has no folder in either spelling.
+        let (root, db) = library("missing", &[("here", Some(false)), ("gone", None)]);
+        let ids: Vec<i64> = db.list_all_mods().unwrap().iter().map(|m| m.id).collect();
+        let preset = db.create_preset("Both", &ids, NOW).unwrap();
+
+        let (planned, failures) = plan_apply(&db, preset).unwrap();
+
+        assert_eq!(planned.len(), 1, "only the mod that still has a folder");
+        assert_eq!(planned[0].display_name, "here");
+        assert_eq!(failures.len(), 1, "the missing one is reported, not dropped");
+        assert_eq!(failures[0].display_name, "gone");
+        assert!(!failures[0].error.is_empty(), "the reason is carried through");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn planning_leaves_the_disk_alone() {
+        let (root, db) = library("untouched", &[("one", Some(true))]);
+        let ids: Vec<i64> = db.list_all_mods().unwrap().iter().map(|m| m.id).collect();
+        let preset = db.create_preset("Empty", &[], NOW).unwrap();
+
+        let (planned, failures) = plan_apply(&db, preset).unwrap();
+
+        // The preset holds nothing, so the one installed mod is planned off.
+        assert_eq!(planned.len(), 1);
+        assert!(!planned[0].wanted_on);
+        assert!(failures.is_empty());
+        assert_eq!(ids.len(), 1);
+        // Nothing has moved: planning is a decision, the rename happens afterwards.
+        assert!(root.join("one").exists(), "planning must not touch the disk");
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
