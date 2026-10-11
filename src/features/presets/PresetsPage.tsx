@@ -5,7 +5,6 @@ import {
   Pencil,
   Play,
   Plus,
-  RotateCcw,
   Trash2,
   Type,
 } from "lucide-react";
@@ -303,7 +302,6 @@ export function PresetsPage() {
   const rename = useRenamePreset();
   const remove = useDeletePreset();
   const apply = useApplyPreset();
-  const setMods = useSetPresetMods();
 
   const [isNaming, setIsNaming] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -407,23 +405,11 @@ export function PresetsPage() {
                         .slice(0, FACE_TILES)}
                     />
 
-                    {/* The four you rarely want, as slaps lying on the artwork, the way the mod
+                    {/* The three you rarely want, as slaps lying on the artwork, the way the mod
                         cards carry theirs. They exist only while you are pointing at the card,
                         which is the only time they can be used anyway — and `focus-within`
                         rather than hover alone, or they would be unreachable by keyboard. */}
                     <span className="absolute bottom-1.5 right-1.5 flex gap-1.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover/preset:opacity-100">
-                      <button
-                        type="button"
-                        title="Replace with what is on now"
-                        aria-label={`Replace ${preset.name} with what is on now`}
-                        disabled={setMods.isPending}
-                        onClick={() =>
-                          setMods.mutate({ presetId: preset.id, modIds: [...enabledIds] })
-                        }
-                        className={CARD_TOOL}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </button>
                       <button
                         type="button"
                         title="Choose what is in it"
