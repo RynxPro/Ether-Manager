@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Layers, Pencil, Play } from "lucide-react";
+import { AlertTriangle, Check, Layers, Pencil, Play, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EMPTY_SLAB, EmptyState } from "@/components/EmptyState";
@@ -21,6 +21,7 @@ import { modArtSrc } from "@/lib/modArt";
 import type { Mod, Preset, PresetApplyReport } from "@/lib/tauri-commands";
 import {
   useApplyPreset,
+  useCreatePreset,
   useDeletePreset,
   usePresetModIds,
   usePresets,
@@ -283,11 +284,14 @@ export function PresetsPage() {
   const presets = usePresets();
   const allMods = useAllMods();
   const saveCurrent = useSavePresetFromCurrent();
+  const createEmpty = useCreatePreset();
   const rename = useRenamePreset();
   const remove = useDeletePreset();
   const apply = useApplyPreset();
+  const setMods = useSetPresetMods();
 
   const [isNaming, setIsNaming] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [renaming, setRenaming] = useState<Preset | null>(null);
   const [editing, setEditing] = useState<Preset | null>(null);
   const [deleting, setDeleting] = useState<Preset | null>(null);
@@ -298,6 +302,23 @@ export function PresetsPage() {
   const items = presets.data ?? [];
   const enabledCount = mods.filter((mod) => mod.enabled).length;
   const byId = new Map(mods.map((mod) => [mod.id, mod]));
+  const enabledIds = new Set(mods.filter((mod) => mod.enabled).map((mod) => mod.id));
+
+  /** What pressing Apply would change, worked out here rather than asked of the backend.
+   *
+   * This is why there is no confirmation dialog in front of Apply. Applying a two-mod preset
+   * can switch off thirty others, and finding that out afterwards would be a nasty surprise —
+   * but a dialog in front of the one button this whole feature exists for is a worse answer.
+   * Saying it on the card before the press costs no click at all.
+   *
+   * It also answers the question the page opens with: a preset that would change nothing is
+   * the one you are already wearing. */
+  function pending(preset: Preset) {
+    const wanted = new Set(preset.mod_ids);
+    const on = preset.mod_ids.filter((id) => !enabledIds.has(id)).length;
+    const off = [...enabledIds].filter((id) => !wanted.has(id)).length;
+    return { on, off, isCurrent: on === 0 && off === 0 };
+  }
 
   return (
     <div className="space-y-6">
@@ -307,6 +328,17 @@ export function PresetsPage() {
         tag="Loadouts"
         pinned={false}
       >
+        {/* An empty one to curate, for a themed set you never wear all at once. The accent
+            stays on saving the current state, which is the fast path. */}
+        <button
+          type="button"
+          disabled={createEmpty.isPending}
+          onClick={() => setIsCreating(true)}
+          className={`${PAGE_SLAB} bg-card text-card-foreground`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New preset
+        </button>
         <button
           type="button"
           disabled={saveCurrent.isPending || mods.length === 0}
@@ -344,6 +376,11 @@ export function PresetsPage() {
             {items.map((preset) => (
               <div key={preset.id} className="space-y-2">
                 <div className="relative border-2 border-border bg-card p-2 shadow-slap-lift">
+                  {pending(preset).isCurrent && preset.mod_count > 0 && (
+                    <span className="absolute -right-1.5 -top-2.5 z-10 rotate-[2.5deg] bg-success px-2 py-0.5 font-sign text-[13px] uppercase tracking-[0.1em] text-card shadow-slap">
+                      On now
+                    </span>
+                  )}
                   {/* Its own mods, not the first six in the library. `list_presets` carries
                       the membership so this costs no extra query. */}
                   <PresetFace
@@ -357,6 +394,12 @@ export function PresetsPage() {
                   </p>
                   <p className="mt-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                     {preset.mod_count} {preset.mod_count === 1 ? "mod" : "mods"}
+                    {!pending(preset).isCurrent && (
+                      <span className="text-card-foreground">
+                        {" · "}
+                        {pending(preset).on} on, {pending(preset).off} off
+                      </span>
+                    )}
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
@@ -378,6 +421,19 @@ export function PresetsPage() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       Edit
+                    </button>
+                    {/* The commonest follow-up: you tweaked the loadout and want this preset
+                        to mean the new one. Doing it through the editor would be re-ticking by
+                        hand what the library already knows. */}
+                    <button
+                      type="button"
+                      disabled={setMods.isPending}
+                      onClick={() =>
+                        setMods.mutate({ presetId: preset.id, modIds: [...enabledIds] })
+                      }
+                      className={`${PAGE_SLAB} bg-background text-foreground`}
+                    >
+                      Use current
                     </button>
                     <button
                       type="button"
@@ -419,6 +475,28 @@ export function PresetsPage() {
           isPending={saveCurrent.isPending}
           onSubmit={(name) => saveCurrent.mutate(name, { onSuccess: () => setIsNaming(false) })}
           onOpenChange={() => setIsNaming(false)}
+        />
+      )}
+
+      {isCreating && (
+        <NameDialog
+          title="New · preset"
+          label="Call it"
+          hint="Starts empty. Pick what goes in it next."
+          initial=""
+          confirmLabel="Create"
+          isPending={createEmpty.isPending}
+          onSubmit={(name) =>
+            createEmpty.mutate(name, {
+              onSuccess: (list) => {
+                setIsCreating(false);
+                // Newest first, so the one just made is at the top. Opened straight into the
+                // editor, because an empty preset is not finished being created.
+                if (list[0]) setEditing(list[0]);
+              },
+            })
+          }
+          onOpenChange={() => setIsCreating(false)}
         />
       )}
 

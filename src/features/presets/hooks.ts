@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   applyPreset,
+  createPreset,
   deletePreset,
   listPresets,
   presetModIds,
@@ -39,6 +40,11 @@ function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<Preset[]>) {
     mutationFn,
     onSuccess: (presets: Preset[]) => queryClient.setQueryData(PRESETS_KEY, presets),
   });
+}
+
+/** A preset with nothing in it, for curating a set you do not currently wear. */
+export function useCreatePreset() {
+  return useListWrite((name: string) => createPreset(name, []));
 }
 
 export function useSavePresetFromCurrent() {
