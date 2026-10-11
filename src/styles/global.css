@@ -108,15 +108,21 @@
   --sidebar-ring: #e02b12;
 
   /* ---- street materials ---- */
-  /* What sits behind a character cutout, and it has to be told apart from `--background`, not
-   * merely from `--card`.
+  /* What sits behind a character cutout: a recess, which is what it is at night too.
    *
-   * The portraits are transparent, so this colour is most of what a card actually shows. It sat
-   * at #e4e0d6 — only 16 steps above the wall, against the card body's 36 — which meant the bulk
-   * of every card was near enough the wall's own value to read as a hole punched in it rather
-   * than an object placed on it. Night never had the problem: there the well is *darker* than
-   * the wall and reads as a recess. This keeps it clearly lighter instead. */
-  --art: #f2efe7;
+   * This was raised to #f2efe7 to stop a card reading as a hole punched in the wall, back when
+   * the card had no drawn edge. It has one now, and `CharacterCard` says why that is the better
+   * fix — an edge settles it at any wall value, so the brightness never had to.
+   *
+   * Raised, it cost more than it bought. Four steps from `--card` is not a well at all, and the
+   * portraits are transparent, so a pale character — Remielle Dan, white wings on near-white
+   * paper — had nothing to sit against and all but vanished. Night never had that problem
+   * because its well is plainly darker than its card.
+   *
+   * Back to #e4e0d6, now chosen rather than inherited: it recedes from the card by 1.19 where
+   * Night's recedes by 1.20, so a well is a well in both themes. Still a step and a half above
+   * the wall, so the hole it was raised to avoid stays avoided even without the edge. */
+  --art: #e4e0d6;
   /* Hard offset shadow — a printed thing sitting proud of the wall, not a soft UI elevation.
    * `--slap-lift` is the ambient half, used together with the hard one on cards and never
    * on its own. */
