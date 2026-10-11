@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { sortCharacters, type CharacterSort } from "./characterSort";
 import { POSTER_GRID } from "@/lib/layout";
 import {
   MISC_CHARACTER_ID,
@@ -12,6 +13,9 @@ import { useAllMods, useCharacters, useModCounts, useUpdateChecks } from "./hook
 
 interface CharacterGridProps {
   onSelect: (character: Character) => void;
+  /** How to order the roster. Owned by `Library`, because the control that sets it lives in
+   * the page header beside the search box. */
+  sort?: CharacterSort;
   /** Filters the roster by character name. Matches characters only — finding a specific mod is
    * the All Mods page's job, not the roster's. */
   query?: string;
@@ -19,7 +23,7 @@ interface CharacterGridProps {
 
 const NO_MODS: ModCounts = { total: 0, enabled: 0 };
 
-export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
+export function CharacterGrid({ onSelect, query = "", sort = "yours" }: CharacterGridProps) {
   const { data: characters, isLoading: isLoadingCharacters } = useCharacters();
   const { data: modCounts } = useModCounts();
   // Both of these are already in cache when the Library renders — `allMods` backs the search
@@ -54,12 +58,13 @@ export function CharacterGrid({ onSelect, query = "" }: CharacterGridProps) {
     ? realCharacters.filter((character) => character.name.toLowerCase().includes(needle))
     : realCharacters;
 
-  // The whole roster always renders — browsing it is part of the point — but characters you
-  // own nothing for sink below the ones you do, so the top of the grid is your actual
-  // collection rather than mostly-empty cards. Ties keep the roster's own order.
-  const sorted = matching
-    .map((character) => ({ character, counts: modCounts?.[character.id] ?? NO_MODS }))
-    .sort((a, b) => Number(b.counts.total > 0) - Number(a.counts.total > 0));
+  // The whole roster always renders — browsing it is part of the point — and how it is ordered
+  // is the reader's choice now. See `characterSort`; every option settles its ties on the
+  // roster's own order.
+  const sorted = sortCharacters(
+    matching.map((character) => ({ character, counts: modCounts?.[character.id] ?? NO_MODS })),
+    sort,
+  );
 
   // v1 enables one mod per slot and every real character has a single slot, so the first
   // enabled mod found is the character's current look. If multi-enable ever lands, this picks

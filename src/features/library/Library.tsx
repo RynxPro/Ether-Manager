@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import {
   AlertTriangle,
   ArrowDownToLine,
+  ArrowDownWideNarrow,
   Check,
   FilePlus2,
   RefreshCw,
@@ -10,6 +11,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchHotkey } from "@/lib/useSearchHotkey";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  PAPER_CONTROL,
+  PAPER_SELECT_ITEM,
+  PAPER_SELECT_PANEL,
+} from "@/lib/paperSelect";
+import { CHARACTER_SORT_OPTIONS, type CharacterSort } from "./characterSort";
 import { tiltFor } from "@/lib/tilt";
 import {
   MISC_CHARACTER_ID,
@@ -116,6 +130,7 @@ export function Library({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only, by design
   }, []);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<CharacterSort>("yours");
   const searchRef = useSearchHotkey(() => setQuery(""));
   const { data: characters } = useCharacters();
   const { data: uiMods } = useModsForCharacter(UI_CHARACTER_ID);
@@ -159,6 +174,27 @@ export function Library({
             from the top of the page, and the two pages that carry both now put them in the same
             place in the same order. Still only on Characters, because that is the only tab it
             filters. */}
+        {tab === "characters" && (
+          // Leaning the other way to the search box beside it. Two controls at the same angle
+          // read as one wide object; opposite angles read as two things put down separately,
+          // which is what they are.
+          <Select value={sort} onValueChange={(value) => setSort(value as CharacterSort)}>
+            <SelectTrigger
+              aria-label="Sort characters"
+              className={`h-[38px] w-[186px] -rotate-[0.5deg] ${PAPER_CONTROL} [&>span]:flex [&>span]:items-center [&>span]:gap-2 [&>svg]:text-primary [&>svg]:opacity-100`}
+            >
+              <ArrowDownWideNarrow className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" className={PAPER_SELECT_PANEL}>
+              {CHARACTER_SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} className={PAPER_SELECT_ITEM}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {tab === "characters" && (
           <div className="relative rotate-[0.6deg]">
             {/* The icon is the label. A visible text label is the rule for form fields, and the
@@ -298,7 +334,9 @@ export function Library({
           the reason is the wall tag behind them, which is this page's business and not something
           `CharacterGrid` or `SlotSection` should have to know about to render correctly. */}
       <div className="relative">
-        {tab === "characters" && <CharacterGrid onSelect={onSelectCharacter} query={query} />}
+        {tab === "characters" && (
+          <CharacterGrid onSelect={onSelectCharacter} query={query} sort={sort} />
+        )}
 
         {tab === "ui" && (
           <SlotSection
