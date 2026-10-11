@@ -98,7 +98,7 @@ export function CharacterCard({
       // than an object placed on it. A drawn edge settles that at any wall value, which is the
       // point: the fix belongs on the card, not in the theme's brightness.
       className={`group relative flex w-full rotate-[var(--tilt)] flex-col border-2 border-border p-[5px] pb-0 text-left shadow-slap-lift outline-none transition-[rotate,translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:rotate-0 hover:border-primary hover:ring-2 hover:ring-primary focus-visible:ring-2 focus-visible:ring-primary ${
-        hasMods ? "bg-card" : "bg-muted"
+        hasMods ? "bg-card" : "bg-card-idle"
       }`}
     >
       <span className="relative block aspect-[3/4] w-full overflow-hidden bg-art">

@@ -49,6 +49,10 @@
   --foreground: #1a1714;
   --card: #f6f3ec;
   --card-foreground: #1a1714;
+  /* A character card with nothing installed. Darker than the wall, where `--card` is lighter
+   * than it: the two states sit on opposite sides of the ground, which is what makes "in play"
+   * and "idle" legible at a glance rather than a matter of degree. */
+  --card-idle: #cdc6b7;
   --popover: #f6f3ec;
   --popover-foreground: #1a1714;
   --primary: #e02b12;
@@ -136,6 +140,12 @@
   --foreground: #f0ede6;
   --card: #22222a;
   --card-foreground: #f0ede6;
+  /* Recessed by the same amount Daylight's is — 1.09 against the wall there, 1.11 here — so
+   * the rule survives the theme rather than being two numbers picked by eye. It used to be
+   * `--muted`, which at night sits *above* the wall: an idle card read as a slightly dimmer
+   * version of an active one instead of a hole in the concrete, and the gap between the two
+   * states was 1.07 where Daylight had 1.53. */
+  --card-idle: #0a0a0e;
   --popover: #22222a;
   --popover-foreground: #f0ede6;
   --primary: #ff3b21;
@@ -243,6 +253,7 @@ body {
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
+  --color-card-idle: var(--card-idle);
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
