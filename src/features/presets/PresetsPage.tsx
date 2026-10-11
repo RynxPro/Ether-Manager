@@ -25,7 +25,7 @@ import {
   DialogDocketHeader,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useAllMods } from "@/features/library/hooks";
+import { useAllMods, useCharacters } from "@/features/library/hooks";
 import { modArtSrc } from "@/lib/modArt";
 import type { Mod, Preset, PresetApplyReport } from "@/lib/tauri-commands";
 import {
@@ -206,7 +206,9 @@ function EditDialog({
 }) {
   const members = usePresetModIds(preset.id);
   const save = useSetPresetMods();
+  const { data: characters } = useCharacters();
   const [picked, setPicked] = useState<Set<number> | null>(null);
+  const [query, setQuery] = useState("");
 
   // Seeded once the membership arrives, then owned here. Re-seeding on every render would undo
   // a tick the moment react-query refetched underneath.
@@ -215,6 +217,19 @@ function EditDialog({
   }, [members.data, picked]);
 
   const chosen = picked ?? new Set<number>();
+
+  // The character is part of what you search for. A mod called "Bottom Heavy" says nothing
+  // about whose it is, and the question being asked of this list is nearly always "what have
+  // I got for her" rather than "what was that one called".
+  const characterName = new Map((characters ?? []).map((c) => [c.id, c.name]));
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? mods.filter((mod) =>
+        `${mod.display_name} ${mod.variant_label ?? ""} ${characterName.get(mod.character_id) ?? ""}`
+          .toLowerCase()
+          .includes(needle),
+      )
+    : mods;
 
   return (
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
@@ -229,8 +244,25 @@ function EditDialog({
           </p>
           <p className={DOCKET_HINT}>Applying this turns these on and everything else off.</p>
 
+          {/* Typed against, rather than scrolled through. The whole library is in here and a
+              library grows; at sixty mods a flat list is a scroll with no landmarks. */}
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find a mod or a character…"
+            aria-label="Find a mod or a character"
+            disabled={save.isPending}
+            className={`w-full px-2.5 py-2 font-sign text-[17px] uppercase tracking-[0.1em] hover:translate-y-0 ${DOCKET_ON_PAPER}`}
+          />
+
           <div className="max-h-[300px] min-w-0 overflow-y-auto bg-background shadow-slap">
-            {mods.map((mod) => {
+            {shown.length === 0 && (
+              <p className="px-2.5 py-3 text-[12px] text-muted-foreground">
+                Nothing installed matches “{query.trim()}”.
+              </p>
+            )}
+            {shown.map((mod) => {
               const isChosen = chosen.has(mod.id);
               return (
                 <button
@@ -258,9 +290,26 @@ function EditDialog({
                   >
                     {isChosen && <Check className="h-3 w-3" />}
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-sign text-[16px] uppercase tracking-[0.06em] text-foreground">
-                    {mod.display_name}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-sign text-[16px] uppercase tracking-[0.06em] text-foreground">
+                      {mod.display_name}
+                    </span>
+                    {/* The variant as well as the character, because two files of one mod
+                        carry the same display name — without it the rows for a pack are
+                        indistinguishable, which is exactly the moment you need to tell them
+                        apart. */}
+                    <span className="block truncate font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      {characterName.get(mod.character_id) ?? mod.character_id}
+                      {mod.variant_label ? ` · ${mod.variant_label}` : ""}
+                    </span>
                   </span>
+                  {/* What is on right now, so curating a set can start from what you are
+                      already wearing instead of from memory. */}
+                  {mod.enabled && (
+                    <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-success">
+                      On
+                    </span>
+                  )}
                 </button>
               );
             })}
