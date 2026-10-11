@@ -183,9 +183,43 @@ and only takes `--destructive` on hover. They differ in size, weight and positio
 colour.
 
 **An empty state is a designed object, not a sentence.** A line of grey text on bare concrete
-reads as something that failed to load. Empty states are a board on the wall: a card or a
-`border-2 border-dashed` panel, an Anton headline, a Courier sub-line, and a marker annotation
-where there is something worth saying by hand.
+reads as something that failed to load. There is one `EmptyState`, in two sizes: `page` for a
+page with nothing on it, `section` for a part of a populated page. It is a sheet with the icon
+pinned over its top edge on its own square of paper, an Anton headline, a Courier line, and a
+verb.
+
+**An empty state carries the way out.** Every one of them used to describe the fix in words
+while giving you nothing to press. Bookmarks and All Mods go to Browse, a character page offers
+Import and Browse, a failed search clears itself. Where there is genuinely nothing to do — an
+idle download queue, a creator with no mods for this game — there is no button, because
+inventing one is worse than the silence.
+
+**A page-level empty state centres on the window, not on the column.** The sidebar shares the
+content's ground, so there is no edge for the eye to measure from and the whole window reads as
+one surface. Centring inside the content column puts it a hundred pixels right of where the
+middle looks like it is. Measured at runtime, because the number is the sidebar's width minus
+the page's right gutter and neither belongs to the component.
+
+## Actions on a card
+
+- **Rank them; do not line them up.** A card's actions are not equal and must not look it. The
+  preset card had five of one weight wrapping onto three rows — 138 of its 338 pixels were
+  controls, and the four you rarely press took more room than the one you press every time.
+- **The verb the surface exists for gets the foot of the card**, full width, in the accent.
+- **The rare ones are small slaps lying on the artwork**, shown on hover *and* `focus-within`,
+  each with a `title` and an `aria-label` — an icon is not a name. The mod cards established
+  this; the preset cards follow it.
+- **Say what a press will do before it is pressed, rather than confirming it afterwards.** A
+  preset card reads `8 MODS · 3 ON, 5 OFF`, so applying it cannot surprise you. A dialog in
+  front of the one button a page exists for is a worse answer than a line of type above it.
+  Confirm destruction; do not confirm the main verb.
+- **Nothing that overwrites silently belongs in a hover row.** "Use current" replaced a
+  preset's whole contents with whatever happened to be enabled, on one click, behind an icon
+  that said none of that. It was removed rather than guarded: the editor already does the job
+  and shows you what you are changing.
+- **`--success` marks "you are already in this state".** A preset that would change nothing
+  wears the green `On now` stamp. It is the same sum as the line above it, so it costs nothing
+  to work out, and it answers the question the page opens with.
 
 ## Page furniture
 
