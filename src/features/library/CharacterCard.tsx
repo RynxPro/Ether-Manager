@@ -29,13 +29,13 @@ interface CharacterCardProps {
  *
  * Two deliberate departures from the card this replaces:
  *
- * The portraits are 480×640 transparent cutouts, exactly the 3:4 of the frame, so they fit the
- * well with no crop and no letterbox — and at that size every face was about twelve pixels, which
- * is why sixty characters read as one texture. The art is zoomed to fix that, but anchored to the
- * top rather than aimed at a focal point: a 2.05× crop at 55%/14% assumed the whole roster places
- * its heads alike, and on the live art it cut the top off Von Lycaon, Wise and Belle while
- * stranding the smaller-composed Remielle Dan in the middle of her frame. Anchoring cannot
- * decapitate anyone; it can only take feet.
+ * The portraits are 480×640 transparent cutouts, exactly the 3:4 of the frame, so each one fits
+ * its well precisely — no crop, no letterbox, the whole character on every card. Faces come out
+ * small at this size, and that was twice treated as a fault worth cropping to fix: a 2.05× zoom
+ * at a fixed focal point, which cut the top off three characters and stranded a fourth, then a
+ * 1.4× zoom anchored to the top, which clipped nobody but filled the grid with half-figures.
+ * Seeing all three side by side settled it — a wall of whole characters is what this screen is
+ * for, and a small face is a cheaper loss than a cropped one.
  *
  * And characters with nothing installed are no longer greyed out. Desaturating the empty majority
  * made the grid look switched off rather than idle — the art is the reason this screen exists.
@@ -106,16 +106,16 @@ export function CharacterCard({
           <img
             src={character.portrait}
             alt=""
-            // 1.4× anchored to the top of the frame, which is the whole trick: a head can
-            // never be clipped however the character is composed, because the crop can only
-            // eat downward. The worst case is losing feet, which nobody looks for.
+            // The whole figure, uncropped. 480×640 against a 3:4 well means the art lands in
+            // the frame exactly: nothing cut, nothing letterboxed.
             //
-            // This replaced a 2.05× crop anchored at 55%/14% — a focal point that assumed every
-            // portrait puts its head in the same place. Measured on the live roster it does not:
-            // that setting cut the top off Von Lycaon, Wise and Belle, while Remielle Dan, drawn
-            // smaller inside her canvas, came out a speck adrift in the middle. Anchoring beats
-            // aiming, because it fails safe instead of failing on whichever art disagrees.
-            className="absolute inset-0 h-full w-full origin-top scale-[1.4] object-contain transition-transform duration-300 group-hover:scale-[1.46]"
+            // Two crops were tried and both lost to this. A 2.05× zoom at a 55%/14% focal point
+            // cut the top off Von Lycaon, Wise and Belle and stranded the smaller-drawn Remielle
+            // Dan in the middle of her frame. A 1.4× zoom anchored to the top fixed the clipping
+            // — anchoring cannot decapitate anyone, it can only take feet — but a wall of
+            // half-figures reads worse than a wall of whole ones, which is the thing this screen
+            // is for. The small face is the price, and it is the right one to pay.
+            className="absolute inset-0 h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
           // 7 of the 60 characters ship without a portrait — a permanent state, not a load
