@@ -58,7 +58,7 @@ const PAGE_SLAB =
 function ApplyReport({ report }: { report: PresetApplyReport }) {
   if (report.failures.length > 0) {
     return (
-      <div className="relative border-2 border-destructive px-3.5 py-3">
+      <div role="status" className="relative border-2 border-destructive px-3.5 py-3">
         <span className="absolute -top-3 right-2 -rotate-[2deg] bg-destructive px-2 py-0.5 font-sign text-[13px] uppercase tracking-[0.1em] text-white shadow-slap">
           {report.failures.length} refused
         </span>
@@ -209,6 +209,7 @@ function EditDialog({
   const { data: characters } = useCharacters();
   const [picked, setPicked] = useState<Set<number> | null>(null);
   const [query, setQuery] = useState("");
+  const search = useRef<HTMLInputElement>(null);
 
   // Seeded once the membership arrives, then owned here. Re-seeding on every render would undo
   // a tick the moment react-query refetched underneath.
@@ -235,6 +236,12 @@ function EditDialog({
     <Dialog open onOpenChange={(next) => !next && onOpenChange(false)}>
       <DialogContent
         showCloseButton={false}
+        // Opens on the search box. The job here is to find mods and tick them, and the close
+        // button happening to come first in the markup is not a reason to start there.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          search.current?.focus();
+        }}
         className="max-h-[min(560px,calc(100vh-5rem))] gap-0 overflow-y-auto p-0 sm:max-w-[520px]"
       >
         <DialogDocketHeader title="Edit · preset" isLocked={save.isPending} />
@@ -247,6 +254,7 @@ function EditDialog({
           {/* Typed against, rather than scrolled through. The whole library is in here and a
               library grows; at sixty mods a flat list is a scroll with no landmarks. */}
           <input
+            ref={search}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
