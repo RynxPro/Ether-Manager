@@ -29,12 +29,13 @@ interface CharacterCardProps {
  *
  * Two deliberate departures from the card this replaces:
  *
- * The portraits are 480×640 transparent cutouts, which is exactly the 3:4 of the frame — so
- * `object-cover` and `object-contain` did the identical thing and no crop happened at all. Every
- * card rendered a whole standing figure about 150px wide, putting each face at roughly twelve
- * pixels, which is why sixty different characters read as one texture. The scale below crops into
- * the art so each card shows a face: one blind rule for the whole roster, since the official art
- * places heads within a few percent of each other.
+ * The portraits are 480×640 transparent cutouts, exactly the 3:4 of the frame, so they fit the
+ * well with no crop and no letterbox — and at that size every face was about twelve pixels, which
+ * is why sixty characters read as one texture. The art is zoomed to fix that, but anchored to the
+ * top rather than aimed at a focal point: a 2.05× crop at 55%/14% assumed the whole roster places
+ * its heads alike, and on the live art it cut the top off Von Lycaon, Wise and Belle while
+ * stranding the smaller-composed Remielle Dan in the middle of her frame. Anchoring cannot
+ * decapitate anyone; it can only take feet.
  *
  * And characters with nothing installed are no longer greyed out. Desaturating the empty majority
  * made the grid look switched off rather than idle — the art is the reason this screen exists.
@@ -105,11 +106,16 @@ export function CharacterCard({
           <img
             src={character.portrait}
             alt=""
-            // 2.05× anchored just above and right of centre lands on the head for essentially the
-            // whole roster; the official art is composed consistently enough that a single focal
-            // point beats per-character tuning, which would be sixty hand-checked numbers and two
-            // new fields on `Character` for a gain you have to hunt for.
-            className="absolute inset-0 h-full w-full origin-[55%_14%] scale-[2.05] object-cover transition-transform duration-300 group-hover:scale-[2.14]"
+            // 1.4× anchored to the top of the frame, which is the whole trick: a head can
+            // never be clipped however the character is composed, because the crop can only
+            // eat downward. The worst case is losing feet, which nobody looks for.
+            //
+            // This replaced a 2.05× crop anchored at 55%/14% — a focal point that assumed every
+            // portrait puts its head in the same place. Measured on the live roster it does not:
+            // that setting cut the top off Von Lycaon, Wise and Belle, while Remielle Dan, drawn
+            // smaller inside her canvas, came out a speck adrift in the middle. Anchoring beats
+            // aiming, because it fails safe instead of failing on whichever art disagrees.
+            className="absolute inset-0 h-full w-full origin-top scale-[1.4] object-contain transition-transform duration-300 group-hover:scale-[1.46]"
           />
         ) : (
           // 7 of the 60 characters ship without a portrait — a permanent state, not a load
