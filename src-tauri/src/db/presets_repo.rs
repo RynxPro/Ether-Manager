@@ -14,6 +14,9 @@ pub struct Preset {
     pub created_at: i64,
     pub updated_at: i64,
     pub mod_count: i64,
+    /// The mods it asks for, still-installed only, so a card can show their art without a
+    /// query per preset. Small by nature — a loadout is tens of mods, not thousands.
+    pub mod_ids: Vec<i64>,
 }
 
 fn row_to_preset(row: &Row) -> rusqlite::Result<Preset> {
@@ -22,7 +25,8 @@ fn row_to_preset(row: &Row) -> rusqlite::Result<Preset> {
         name: row.get("name")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
-        mod_count: row.get("mod_count")?,
+        mod_count: 0,
+        mod_ids: Vec::new(),
     })
 }
 
@@ -34,16 +38,34 @@ impl Db {
     /// claims mods that have since been deleted.
     pub fn list_presets(&self) -> rusqlite::Result<Vec<Preset>> {
         let mut stmt = self.conn.prepare(
-            "SELECT p.id, p.name, p.created_at, p.updated_at,
-                    (SELECT COUNT(*)
-                       FROM preset_mods pm
-                       JOIN mods m ON m.id = pm.mod_id
-                      WHERE pm.preset_id = p.id) AS mod_count
-               FROM presets p
-              ORDER BY p.updated_at DESC, p.id DESC",
+            "SELECT id, name, created_at, updated_at
+               FROM presets
+              ORDER BY updated_at DESC, id DESC",
         )?;
-        let rows = stmt.query_map([], row_to_preset)?;
-        rows.collect()
+        let mut presets: Vec<Preset> = stmt.query_map([], row_to_preset)?.collect::<Result<_, _>>()?;
+
+        // One query for every membership rather than one per preset. Joined to `mods` so a
+        // preset never claims mods that have since been deleted, which is what makes the count
+        // honest: a preset that named six and has had two deleted says four, because four is
+        // what applying it would switch on.
+        let mut members = self.conn.prepare(
+            "SELECT pm.preset_id, pm.mod_id
+               FROM preset_mods pm
+               JOIN mods m ON m.id = pm.mod_id
+              ORDER BY pm.preset_id, pm.mod_id",
+        )?;
+        let rows = members.query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))?;
+        for row in rows {
+            let (preset_id, mod_id) = row?;
+            if let Some(preset) = presets.iter_mut().find(|p| p.id == preset_id) {
+                preset.mod_ids.push(mod_id);
+            }
+        }
+        for preset in &mut presets {
+            preset.mod_count = preset.mod_ids.len() as i64;
+        }
+
+        Ok(presets)
     }
 
     /// Creates a preset holding `mod_ids`.

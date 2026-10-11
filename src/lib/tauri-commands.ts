@@ -638,6 +638,9 @@ export interface Preset {
   created_at: number;
   updated_at: number;
   mod_count: number;
+  /** The mods it asks for that are still installed, so a card can show their art without a
+   * query per preset. */
+  mod_ids: number[];
 }
 
 /** One mod that would not do as it was told while a preset was being applied. */

@@ -5,6 +5,7 @@ import {
   Compass,
   Download,
   Layers,
+  SlidersHorizontal,
   LayoutGrid,
   Settings as SettingsIcon,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { AllMods } from "@/features/library/AllMods";
 import { CharacterDetail } from "@/features/library/CharacterDetail";
 import { ImportDropOverlay } from "@/features/library/ImportDropOverlay";
 import { ImportModSheet } from "@/features/library/ImportModSheet";
+import { PresetsPage } from "@/features/presets/PresetsPage";
 import { Library } from "@/features/library/Library";
 import { useModImport } from "@/features/library/useModImport";
 import { NotificationBell } from "@/features/notifications/NotificationBell";
@@ -39,7 +41,13 @@ import {
 } from "@/lib/tauri-commands";
 
 type View =
-  "library" | "allmods" | "browse" | "bookmarks" | "downloads" | "settings";
+  | "library"
+  | "allmods"
+  | "presets"
+  | "browse"
+  | "bookmarks"
+  | "downloads"
+  | "settings";
 
 /** One level of drill-down inside a section.
  *
@@ -90,6 +98,7 @@ const NAV_GROUPS: {
     items: [
       { id: "library", label: "Library", icon: LayoutGrid },
       { id: "allmods", label: "All mods", icon: Layers },
+      { id: "presets", label: "Presets", icon: SlidersHorizontal },
     ],
   },
   {
@@ -527,6 +536,8 @@ function App() {
                     onSelectCreator={openCreator}
                   />
                 )
+              ) : view === "presets" ? (
+                <PresetsPage />
               ) : view === "downloads" ? (
                 <DownloadsView
                   onOpenCharacter={(characterId) => {
