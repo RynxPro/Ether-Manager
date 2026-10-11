@@ -1,4 +1,14 @@
-import { AlertTriangle, Check, Layers, Pencil, Play, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Layers,
+  Pencil,
+  Play,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Type,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EMPTY_SLAB, EmptyState } from "@/components/EmptyState";
@@ -33,6 +43,11 @@ import {
 /** How many pieces of art a card's face shows. Six because the face is three across and two
  * down, and a face with holes in it reads as a loading state rather than as a small preset. */
 const FACE_TILES = 6;
+
+/** A small tool lying on the artwork. Card-coloured on art rather than background-coloured on
+ * card, because here the paper sits on a picture rather than on the panel. */
+const CARD_TOOL =
+  "flex h-7 w-7 shrink-0 items-center justify-center bg-card text-card-foreground shadow-slap outline-none transition-[translate,box-shadow,color] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50";
 
 const PAGE_SLAB =
   "inline-flex h-[38px] shrink-0 items-center gap-1.5 px-4 font-sign text-[17px] uppercase tracking-[0.1em] shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";
@@ -375,20 +390,70 @@ export function PresetsPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
             {items.map((preset) => (
               <div key={preset.id} className="space-y-2">
-                <div className="relative border-2 border-border bg-card p-2 shadow-slap-lift">
+                <div className="group/preset relative border-2 border-border bg-card p-2 shadow-slap-lift">
                   {pending(preset).isCurrent && preset.mod_count > 0 && (
                     <span className="absolute -right-1.5 -top-2.5 z-10 rotate-[2.5deg] bg-success px-2 py-0.5 font-sign text-[13px] uppercase tracking-[0.1em] text-card shadow-slap">
                       On now
                     </span>
                   )}
-                  {/* Its own mods, not the first six in the library. `list_presets` carries
-                      the membership so this costs no extra query. */}
-                  <PresetFace
-                    mods={preset.mod_ids
-                      .map((id) => byId.get(id))
-                      .filter((mod): mod is Mod => mod !== undefined)
-                      .slice(0, FACE_TILES)}
-                  />
+
+                  <div className="relative">
+                    {/* Its own mods, not the first six in the library. `list_presets` carries
+                        the membership so this costs no extra query. */}
+                    <PresetFace
+                      mods={preset.mod_ids
+                        .map((id) => byId.get(id))
+                        .filter((mod): mod is Mod => mod !== undefined)
+                        .slice(0, FACE_TILES)}
+                    />
+
+                    {/* The four you rarely want, as slaps lying on the artwork, the way the mod
+                        cards carry theirs. They exist only while you are pointing at the card,
+                        which is the only time they can be used anyway — and `focus-within`
+                        rather than hover alone, or they would be unreachable by keyboard. */}
+                    <span className="absolute bottom-1.5 right-1.5 flex gap-1.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover/preset:opacity-100">
+                      <button
+                        type="button"
+                        title="Replace with what is on now"
+                        aria-label={`Replace ${preset.name} with what is on now`}
+                        disabled={setMods.isPending}
+                        onClick={() =>
+                          setMods.mutate({ presetId: preset.id, modIds: [...enabledIds] })
+                        }
+                        className={CARD_TOOL}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Choose what is in it"
+                        aria-label={`Edit what is in ${preset.name}`}
+                        onClick={() => setEditing(preset)}
+                        className={CARD_TOOL}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Rename"
+                        aria-label={`Rename ${preset.name}`}
+                        onClick={() => setRenaming(preset)}
+                        className={CARD_TOOL}
+                      >
+                        <Type className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete"
+                        aria-label={`Delete ${preset.name}`}
+                        onClick={() => setDeleting(preset)}
+                        className={`${CARD_TOOL} hover:text-destructive`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  </div>
+
                   <p className="mt-2.5 truncate font-heading text-[21px] uppercase leading-none tracking-[0.01em] text-card-foreground">
                     {preset.name}
                   </p>
@@ -401,55 +466,20 @@ export function PresetsPage() {
                       </span>
                     )}
                   </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={apply.isPending}
-                      onClick={() => {
-                        setReportFor(preset.id);
-                        apply.mutate(preset.id);
-                      }}
-                      className={`${PAGE_SLAB} bg-primary text-primary-foreground`}
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      {apply.isPending && reportFor === preset.id ? "Applying…" : "Apply"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditing(preset)}
-                      className={`${PAGE_SLAB} bg-background text-foreground`}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </button>
-                    {/* The commonest follow-up: you tweaked the loadout and want this preset
-                        to mean the new one. Doing it through the editor would be re-ticking by
-                        hand what the library already knows. */}
-                    <button
-                      type="button"
-                      disabled={setMods.isPending}
-                      onClick={() =>
-                        setMods.mutate({ presetId: preset.id, modIds: [...enabledIds] })
-                      }
-                      className={`${PAGE_SLAB} bg-background text-foreground`}
-                    >
-                      Use current
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRenaming(preset)}
-                      className={`${PAGE_SLAB} bg-background text-foreground`}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleting(preset)}
-                      className={`${PAGE_SLAB} bg-background text-foreground hover:text-destructive`}
-                    >
-                      Delete
-                    </button>
-                  </div>
+
+                  {/* The whole foot, because this is the one thing the page exists for. */}
+                  <button
+                    type="button"
+                    disabled={apply.isPending}
+                    onClick={() => {
+                      setReportFor(preset.id);
+                      apply.mutate(preset.id);
+                    }}
+                    className="mt-3 flex h-[42px] w-full items-center justify-center gap-2 bg-primary font-sign text-[20px] uppercase tracking-[0.12em] text-primary-foreground shadow-slap outline-none transition-[translate,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+                  >
+                    <Play className="h-4 w-4" />
+                    {apply.isPending && reportFor === preset.id ? "Applying…" : "Apply"}
+                  </button>
                 </div>
 
                 {reportFor === preset.id && apply.data && <ApplyReport report={apply.data} />}
