@@ -517,8 +517,26 @@ export function ModDetailPage({
                         disabled={isMature && !revealed}
                         onClick={() => setIsLightboxOpen(true)}
                         aria-label={`View ${detail.name} full size`}
-                        className="h-full w-full outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+                        className="relative h-full w-full outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
                       >
+                        {/* The 530 rendering, underneath, so the frame is never empty.
+                            Measured: the full upload is 333KB and takes about 1.1s, of which
+                            only 250ms is GameBanana — the rest is the bytes. The 530 is a
+                            twentieth of that and is usually already in cache from the grid you
+                            clicked through, so it paints at once and the sharp one covers it
+                            when it lands. No opacity state and no `onLoad`: an image that has
+                            not loaded paints nothing, so the full one simply arrives on top.
+
+                            Inside the shield rather than behind it. A placeholder outside it
+                            would show a mature preview unblurred for a second, which is the
+                            one thing the shield exists to prevent. */}
+                        <img
+                          src={gbImageUrl(activeImage, "medium")}
+                          alt=""
+                          aria-hidden
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-contain"
+                        />
                         {/* The lens is the cursor here, so no `cursor-zoom-in`: a magnifier
                             glyph beside a magnifier would be saying it twice. */}
                         <MagnifiedImage
