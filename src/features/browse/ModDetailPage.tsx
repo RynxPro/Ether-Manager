@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
+import { gbImageUrl } from "@/lib/gbImage";
 import { SectionLabel } from "@/components/SectionLabel";
 import {
   Bookmark,
@@ -47,7 +48,6 @@ import {
   type GbFile,
   type GbMod,
   type GbModDetail,
-  type GbPreviewImage,
   type Mod,
 } from "@/lib/tauri-commands";
 import { ImageLightbox } from "./ImageLightbox";
@@ -113,20 +113,6 @@ function formatFileSize(bytes: number): string {
  *
  * `file_220` was in the type from the start and never asked for, so every thumbnail on this page
  * downloaded a full-size upload and then destroyed it. */
-type ImageSize = "full" | "medium" | "thumb";
-
-function imageUrl(image: GbPreviewImage, size: ImageSize): string {
-  // Each step falls back up the chain rather than down: a missing 220 is better served by the
-  // 530 than by nothing, and GameBanana populates neither consistently.
-  const file =
-    size === "full"
-      ? image.file
-      : size === "medium"
-        ? (image.file_530 ?? image.file)
-        : (image.file_220 ?? image.file_530 ?? image.file);
-  return `${image.base_url}/${file}`;
-}
-
 /** GameBanana's `_aEmbeddedMedia` is a list of raw video page URLs (YouTube, confirmed live),
  * not ready-to-embed ones — this extracts the video id and builds the `/embed/` form. */
 function youtubeEmbedUrl(url: string): string | null {
@@ -187,8 +173,10 @@ export function ModDetailPage({
         placeholderGbMod({
           gamebananaModId: linked.id,
           name: linked.name,
+          // Stored, and later drawn in a ~250px card — see `gbImageUrl`. "full" here is how
+          // a two-thousand-pixel upload ends up being destroyed in a bookmark tile.
           thumbnailUrl: linked.preview_media.images[0]
-            ? imageUrl(linked.preview_media.images[0], "full")
+            ? gbImageUrl(linked.preview_media.images[0], "medium")
             : null,
           dateModified: linked.date_modified,
         }),
@@ -323,7 +311,7 @@ export function ModDetailPage({
       addBookmark.mutate({
         gamebananaModId: mod.id,
         name: detail?.name ?? mod.name,
-        thumbnailUrl: images[0] ? imageUrl(images[0], "full") : null,
+        thumbnailUrl: images[0] ? gbImageUrl(images[0], "medium") : null,
         // `detail` is a live fetch and carries the one specific category; the placeholder
         // fallback covers bookmarking before it lands, and the backfill sorts that out later.
         categoryName: detail?.category.name ?? mod.sub_category?.name ?? null,
@@ -495,7 +483,7 @@ export function ModDetailPage({
                           className="pointer-events-none absolute inset-y-4 -right-3 left-5 rotate-[1.5deg] overflow-hidden border-2 border-border bg-card shadow-slap-lift"
                         >
                           <img
-                            src={imageUrl(images[(activeImageIndex + 2) % images.length], "medium")}
+                            src={gbImageUrl(images[(activeImageIndex + 2) % images.length], "medium")}
                             alt=""
                             className="h-full w-full object-cover brightness-[.42] saturate-50"
                           />
@@ -505,7 +493,7 @@ export function ModDetailPage({
                           className="pointer-events-none absolute inset-y-2 -right-1.5 left-2.5 rotate-[0.75deg] overflow-hidden border-2 border-border bg-card shadow-slap-lift"
                         >
                           <img
-                            src={imageUrl(images[(activeImageIndex + 1) % images.length], "medium")}
+                            src={gbImageUrl(images[(activeImageIndex + 1) % images.length], "medium")}
                             alt=""
                             className="h-full w-full object-cover brightness-[.42] saturate-50"
                           />
@@ -534,7 +522,7 @@ export function ModDetailPage({
                         {/* The lens is the cursor here, so no `cursor-zoom-in`: a magnifier
                             glyph beside a magnifier would be saying it twice. */}
                         <MagnifiedImage
-                          src={imageUrl(activeImage, "full")}
+                          src={gbImageUrl(activeImage, "full")}
                           alt={detail.name}
                           disabled={
                             (isMature && !revealed) || !magnifier.enabled
@@ -583,7 +571,7 @@ export function ModDetailPage({
 
                 {isLightboxOpen && detail && (
                   <ImageLightbox
-                    sources={images.map((image) => imageUrl(image, "full"))}
+                    sources={images.map((image) => gbImageUrl(image, "full"))}
                     index={activeImageIndex}
                     onIndexChange={setActiveImageIndex}
                     onClose={() => setIsLightboxOpen(false)}
@@ -631,7 +619,7 @@ export function ModDetailPage({
                         >
                           <span className="relative block aspect-[16/10] w-full overflow-hidden bg-art">
                             <img
-                              src={imageUrl(image, "thumb")}
+                              src={gbImageUrl(image, "small")}
                               alt=""
                               className={cn(
                                 "absolute inset-0 h-full w-full object-cover transition",
@@ -1173,8 +1161,10 @@ export function ModDetailPage({
                             gamebananaFileId: file.id,
                             modName: detail.name,
                             fileName: file.file_name,
+                            // Drawn at thumbnail size on the Downloads page, so the 530
+                            // rendering rather than the original upload.
                             thumbnailUrl: images[0]
-                              ? imageUrl(images[0], "full")
+                              ? gbImageUrl(images[0], "medium")
                               : null,
                             characterId: action.target.character_id,
                             slot: action.target.slot,
