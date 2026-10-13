@@ -148,9 +148,31 @@ function App() {
     historyRef.current = history;
   }, [history]);
 
+  /** The one panel everything scrolls in.
+   *
+   * Every page shares it, so it keeps whatever offset the last one left: scrolling deep into
+   * Browse and then opening the Library dropped you into the middle of the roster. `BrowseGrid`
+   * already worked around this for its own feed — it saves and restores an offset keyed by
+   * filter — but nothing reset it when the *view* changed. */
+  const scrollPanel = useRef<HTMLElement>(null);
+
+  // Reset at the moment of navigation rather than in an effect, and written out at each of
+  // the three call sites rather than wrapped in a helper. Both are deliberate.
+  //
+  // Ordering is why it is not an effect: a layout effect here would run *after* the incoming
+  // page's own, so it would undo `BrowseGrid`'s restore every time you returned to the feed.
+  // Resetting before the next page renders lets a page that wants its old position put it back
+  // and win.
+  //
+  // Written out because `goBack` and `goForward` are used by a listener registered once for the
+  // app's lifetime, which is only sound while their bodies touch nothing but `setCursor` and
+  // refs. A shared helper is a second function the dependency check cannot see through, and it
+  // would have had to be silenced rather than satisfied.
+
   /** Moves somewhere new, which discards anything that was ahead — the same thing a browser
    * does when you go back and then follow a different link. */
   function navigate(next: Location) {
+    if (scrollPanel.current) scrollPanel.current.scrollTop = 0;
     setHistory((past) => {
       const trail = [...past.slice(0, cursor + 1), next];
       return trail.length > MAX_HISTORY
@@ -161,10 +183,12 @@ function App() {
   }
 
   function goBack() {
+    if (scrollPanel.current) scrollPanel.current.scrollTop = 0;
     setCursor((c) => Math.max(0, c - 1));
   }
 
   function goForward() {
+    if (scrollPanel.current) scrollPanel.current.scrollTop = 0;
     setCursor((c) => Math.min(historyRef.current.length - 1, c + 1));
   }
 
@@ -514,7 +538,7 @@ function App() {
           {/* No centered max-width container: this is a desktop window, so content fills whatever
           width the user gives it. Individual pages cap themselves only where line length
           actually matters for reading (Settings, the mod description). */}
-          <main className="flex-1 overflow-y-auto p-6">
+          <main ref={scrollPanel} className="flex-1 overflow-y-auto p-6">
             <div>
               {view === "browse" ? (
                 openDetail ? (
