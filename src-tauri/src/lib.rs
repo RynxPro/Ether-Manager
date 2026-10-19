@@ -12,8 +12,8 @@ mod updates;
 mod variant_label;
 mod xxmi;
 
-use std::sync::atomic::{AtomicBool, AtomicU8};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU8};
 use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
@@ -67,6 +67,13 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // Desktop-only, and registered here rather than in the builder chain: the
+            // crate is declared for non-mobile targets only, so a chain call would not
+            // compile if this were ever built for Android or iOS.
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             let db_path = app_data_dir.join("ether-manager.sqlite3");
@@ -88,7 +95,9 @@ pub fn run() {
                 Ok(Some(folder)) => {
                     match fs_ops::settle_mod_folders(&db, std::path::Path::new(&folder)) {
                         Ok(0) => {}
-                        Ok(moved) => println!("moved {moved} mod folder(s) into the current layout"),
+                        Ok(moved) => {
+                            println!("moved {moved} mod folder(s) into the current layout")
+                        }
                         Err(e) => eprintln!("could not settle mod folders: {e}"),
                     }
                     commands::settings::allow_mods_folder_assets(app.handle(), &folder);

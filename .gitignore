@@ -29,3 +29,9 @@ postman/
 *.njsproj
 *.sln
 *.sw?
+
+# Updater signing keys - the private one signs every release, so a single commit of it
+# would let anyone ship an "update" to every installed copy. It belongs in ~/.tauri and
+# in a GitHub secret, never here.
+*.key
+*.key.pub

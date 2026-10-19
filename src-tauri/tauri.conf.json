@@ -28,9 +28,18 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY3RjdDQzk5NzBDNDQ1MEMKUldRTVJjUndtY3ozWjE4RThHNmZ1RG1ZaGs3UHp4RjRHeFR3VUxCcStKRUU4NDgzc2YrUHNsTzAK",
+      "endpoints": [
+        "https://github.com/RynxPro/Ether-Manager/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
