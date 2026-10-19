@@ -1,0 +1,72 @@
+# Builds, signs and publishes a release when a version tag is pushed.
+#
+#   npm version 0.1.1 --no-git-tag-version   # then match src-tauri/tauri.conf.json
+#   git commit -am "release: 0.1.1" && git tag v0.1.1 && git push --follow-tags
+#
+# The tag is the only trigger, so ordinary commits cost no CI minutes.
+#
+# Two repository secrets must exist before this can produce a usable release, and neither may
+# ever be committed:
+#   TAURI_SIGNING_PRIVATE_KEY           the contents of the key from `tauri signer generate`
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password, or an empty string if it was made without
+#
+# Without them the installer still builds, but it ships unsigned and the updater refuses
+# unsigned updates - so the release would publish and nobody could take it.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    # Windows-only because the app is: it drives XXMI/ZZMI, which exists nowhere else.
+    runs-on: windows-latest
+    permissions:
+      # tauri-action creates the release and uploads to it.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Keyed on the lockfile, so a dependency change busts it and an ordinary release does not.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Checks before build. A release is the worst place to discover something did not compile.
+      - run: npx tsc --noEmit
+      - run: npx eslint src
+
+      # The gamebanana module is skipped deliberately. Those tests call the live GameBanana API,
+      # so they fail when the site is slow, down, or has simply changed its data - none of which
+      # says anything about this build. They are worth running locally and worthless as a release
+      # gate. Everything else runs: fs_ops, the repos, presets, characters.
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib -- --skip gamebanana
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Ether Manager ${{ github.ref_name }}
+          releaseBody: ${{ github.event.head_commit.message }}
+          # Published rather than drafted: the app polls releases/latest/download/latest.json,
+          # and a draft is not "latest" to anyone.
+          releaseDraft: false
+          prerelease: false
+          # uploadUpdaterJson and uploadUpdaterSignatures both default to true, which is what
+          # writes latest.json and the .sig beside the installer. Left implicit rather than
+          # restated, so they cannot drift out of step with the action's own defaults.
