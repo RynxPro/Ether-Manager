@@ -348,8 +348,8 @@ async fn download_and_swap_gamebanana_file(
     gamebanana_file_id: i64,
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
     should_stop: impl Fn() -> bool,
-// Returns the installed file and which of the mod's files it is in words — an update can move a
-// row onto a different archive of the same mod, so the label has to move with it.
+    // Returns the installed file and which of the mod's files it is in words — an update can move a
+    // row onto a different archive of the same mod, so the label has to move with it.
 ) -> Result<(GbFile, Option<String>), String> {
     let detail = tokio::select! {
         found = gamebanana.get_mod_detail(gamebanana_mod_id) => found.map_err(|e| e.to_string())?,

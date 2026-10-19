@@ -33,7 +33,14 @@ const MIN_NAME_TOKEN: usize = 4;
 /// word is plenty — "Albedo" is a fine name for a mod. A *folder* called "Mod" is not, and it
 /// is what an archive falls back to when its author could not think of anything either.
 const GENERIC_FOLDER_NAMES: [&str; 8] = [
-    "mod", "mods", "folder", "new folder", "data", "files", "release", "final",
+    "mod",
+    "mods",
+    "folder",
+    "new folder",
+    "data",
+    "files",
+    "release",
+    "final",
 ];
 
 const IMAGE_EXTENSIONS: [&str; 4] = ["png", "jpg", "jpeg", "webp"];
@@ -459,7 +466,10 @@ mod tests {
 
     #[test]
     fn names_nothing_in_the_roster_matches_are_left_for_the_user() {
-        assert_eq!(guess_character_id(&["cool_outfit_v2.zip".to_string()]), None);
+        assert_eq!(
+            guess_character_id(&["cool_outfit_v2.zip".to_string()]),
+            None
+        );
     }
 
     #[test]
@@ -486,8 +496,7 @@ mod tests {
         let plan = plan_for(&root, "remielle_black_variety_pack.zip");
         assert_eq!(plan.candidates.len(), 1);
         assert_eq!(
-            plan.candidates[0].suggested_name,
-            "Remielle Black Variety Pack Nude",
+            plan.candidates[0].suggested_name, "Remielle Black Variety Pack Nude",
             "the author's bracketed tag is not part of the mod's name"
         );
         assert_eq!(
@@ -513,7 +522,10 @@ mod tests {
                 preview_rel_path: Some("NicolePreview.png".to_string()),
             }]
         );
-        assert_eq!(plan.suggested_character_id, Some("nicole-demara".to_string()));
+        assert_eq!(
+            plan.suggested_character_id,
+            Some("nicole-demara".to_string())
+        );
     }
 
     #[test]
@@ -521,7 +533,10 @@ mod tests {
         assert_eq!(strip_leading_tag("[LL] Remielle Black"), "Remielle Black");
         assert_eq!(strip_leading_tag("[NSFW]"), "[NSFW]");
         assert_eq!(strip_leading_tag("Nicole [4K]"), "Nicole [4K]");
-        assert_eq!(strip_leading_tag("Nicole-BottomHeavy"), "Nicole-BottomHeavy");
+        assert_eq!(
+            strip_leading_tag("Nicole-BottomHeavy"),
+            "Nicole-BottomHeavy"
+        );
     }
 
     #[test]

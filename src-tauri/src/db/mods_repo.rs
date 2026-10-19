@@ -382,7 +382,6 @@ impl Db {
         )?;
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -466,7 +465,13 @@ mod tests {
 
         let counts = db.count_mods_by_character().unwrap();
 
-        assert_eq!(counts["belle"], ModCounts { total: 2, enabled: 1 });
+        assert_eq!(
+            counts["belle"],
+            ModCounts {
+                total: 2,
+                enabled: 1
+            }
+        );
         // A character with mods but none enabled must report 0, not be absent.
         assert_eq!(
             counts["anby-demara"],
@@ -583,7 +588,11 @@ mod tests {
         for listed_mod in &listed {
             let fetched = db.get_mod(listed_mod.id).unwrap().unwrap();
             assert_eq!(
-                (listed_mod.enabled, listed_mod.files_missing, &listed_mod.folder_path),
+                (
+                    listed_mod.enabled,
+                    listed_mod.files_missing,
+                    &listed_mod.folder_path
+                ),
                 (fetched.enabled, fetched.files_missing, &fetched.folder_path),
                 "batch and single-row presence disagreed for mod {}",
                 listed_mod.id
@@ -667,7 +676,10 @@ mod tests {
             )
             .unwrap();
         assert_eq!(std::path::Path::new(&stored), root.join("pinkdress"));
-        assert!(!inserted.enabled, "but it is still off, because the disk says so");
+        assert!(
+            !inserted.enabled,
+            "but it is still off, because the disk says so"
+        );
     }
 
     #[test]
@@ -684,8 +696,11 @@ mod tests {
             fs_ops::disabled_path(&moved),
         )
         .unwrap();
-        db.update_folder_path(inserted.id, &fs_ops::disabled_path(&moved).to_string_lossy())
-            .unwrap();
+        db.update_folder_path(
+            inserted.id,
+            &fs_ops::disabled_path(&moved).to_string_lossy(),
+        )
+        .unwrap();
 
         let stored: String = db
             .conn
@@ -765,8 +780,13 @@ mod tests {
         new_mod.gamebanana_md5 = Some("old-md5".to_string());
         let inserted = db.insert_mod(new_mod).unwrap();
 
-        db.set_gamebanana_file(inserted.id, 1775946, "new-md5", Some("NSFW Variants Included"))
-            .unwrap();
+        db.set_gamebanana_file(
+            inserted.id,
+            1775946,
+            "new-md5",
+            Some("NSFW Variants Included"),
+        )
+        .unwrap();
 
         let fetched = db.get_mod(inserted.id).unwrap().unwrap();
         assert_eq!(fetched.gamebanana_file_id, Some(1775946));

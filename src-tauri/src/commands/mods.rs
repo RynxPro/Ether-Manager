@@ -257,7 +257,11 @@ pub async fn toggle_mod(
 ///
 /// Whatever the bytes claim to be, `thumbnail::write_thumbnail` decides from their own header.
 #[tauri::command]
-pub fn set_mod_thumbnail(state: State<AppState>, mod_id: i64, bytes: Vec<u8>) -> Result<Mod, String> {
+pub fn set_mod_thumbnail(
+    state: State<AppState>,
+    mod_id: i64,
+    bytes: Vec<u8>,
+) -> Result<Mod, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     apply_thumbnail(&db, mod_id, &bytes)
 }
@@ -287,7 +291,9 @@ pub async fn pick_mod_thumbnail(app: AppHandle) -> Result<Option<Vec<u8>>, Strin
     let path = chosen
         .into_path()
         .map_err(|e| format!("could not read that file: {e}"))?;
-    std::fs::read(&path).map(Some).map_err(|e| format!("could not read that file: {e}"))
+    std::fs::read(&path)
+        .map(Some)
+        .map_err(|e| format!("could not read that file: {e}"))
 }
 
 /// Drops a picture this app set, leaving the card to fall back to whatever it had before — a
@@ -342,7 +348,8 @@ pub async fn delete_mod(state: State<'_, AppState>, mod_id: i64) -> Result<(), S
     // Out of every preset that named it, first. Preset reads join `mods` so the counts would
     // be right either way, but a row pointing at nothing is still a row, and a later mod that
     // reuses this rowid must not inherit the membership.
-    db.forget_mod_in_presets(mod_id).map_err(|e| e.to_string())?;
+    db.forget_mod_in_presets(mod_id)
+        .map_err(|e| e.to_string())?;
     db.delete_mod(mod_id).map_err(|e| e.to_string())
 }
 
@@ -397,5 +404,4 @@ mod tests {
 
         fs::remove_dir_all(&root).unwrap();
     }
-
 }

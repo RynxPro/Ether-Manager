@@ -495,28 +495,28 @@ async fn run_download(app: AppHandle, id: i64) {
         .await
     } else {
         install_gamebanana_file(
-        &state.gamebanana,
-        &state.db,
-        InstallRequest {
-            gamebanana_mod_id: download.gamebanana_mod_id,
-            gamebanana_file_id: download.gamebanana_file_id,
-            character_id: &download.character_id,
-            slot: download.slot,
-            display_name: &download.display_name,
-            staging: Staging {
-                path: staged.clone(),
-                resume_from,
-                etag: download.etag.clone(),
+            &state.gamebanana,
+            &state.db,
+            InstallRequest {
+                gamebanana_mod_id: download.gamebanana_mod_id,
+                gamebanana_file_id: download.gamebanana_file_id,
+                character_id: &download.character_id,
+                slot: download.slot,
+                display_name: &download.display_name,
+                staging: Staging {
+                    path: staged.clone(),
+                    resume_from,
+                    etag: download.etag.clone(),
+                },
             },
-        },
-        on_validator,
-        on_progress,
-        on_extract_start,
-        // Asked during the stretch before any bytes exist — the mod lookup and the connection to
-        // GameBanana's file host — where the progress callback has not been reached yet and so
-        // could not carry a stop. Without this a download is unstoppable for as long as it takes
-        // to start, which on a slow link is most of the time you spend looking at it.
-        || Stop::from_u8(stop_check.load(Ordering::Relaxed)) != Stop::Running,
+            on_validator,
+            on_progress,
+            on_extract_start,
+            // Asked during the stretch before any bytes exist — the mod lookup and the connection to
+            // GameBanana's file host — where the progress callback has not been reached yet and so
+            // could not carry a stop. Without this a download is unstoppable for as long as it takes
+            // to start, which on a slow link is most of the time you spend looking at it.
+            || Stop::from_u8(stop_check.load(Ordering::Relaxed)) != Stop::Running,
         )
         .await
     };

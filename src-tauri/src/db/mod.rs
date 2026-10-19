@@ -509,7 +509,10 @@ mod tests {
         db.conn
             .execute(
                 "UPDATE mods SET thumbnail_path = ?1 WHERE id = ?2",
-                params!["https://images.gamebanana.com/img/ss/mods/530-90_abc.jpg", id],
+                params![
+                    "https://images.gamebanana.com/img/ss/mods/530-90_abc.jpg",
+                    id
+                ],
             )
             .unwrap();
 

@@ -33,7 +33,9 @@ fn has_vowel(s: &str) -> bool {
 /// `ll_remielle_white_variety_pack_-_exposed_dress.zip` becomes "Remielle White Variety Pack
 /// Exposed Dress" — which is, almost to the word, what someone renaming that mod by hand types.
 pub fn prettify_file_name(file_name: &str) -> String {
-    let stem = file_name.rsplit_once('.').map_or(file_name, |(stem, _)| stem);
+    let stem = file_name
+        .rsplit_once('.')
+        .map_or(file_name, |(stem, _)| stem);
 
     let stem = match stem.rsplit_once('_') {
         Some((head, tail))
@@ -142,7 +144,11 @@ mod tests {
 
     #[test]
     fn a_readable_file_name_becomes_the_label() {
-        let a = file(1, "ll_remielle_white_variety_pack_-_exposed_dress.zip", None);
+        let a = file(
+            1,
+            "ll_remielle_white_variety_pack_-_exposed_dress.zip",
+            None,
+        );
         let b = file(2, "ll_remielle_black_variety_pack_-_nude.zip", None);
         assert_eq!(
             variant_label(&[a.clone(), b], &a).as_deref(),
@@ -171,7 +177,10 @@ mod tests {
 
     #[test]
     fn gamebananas_collision_tag_is_not_part_of_the_name() {
-        assert_eq!(prettify_file_name("velina_makeup_6fc91.zip"), "Velina Makeup");
+        assert_eq!(
+            prettify_file_name("velina_makeup_6fc91.zip"),
+            "Velina Makeup"
+        );
         assert_eq!(
             prettify_file_name("bodacious_belle_a7f3b.zip"),
             "Bodacious Belle"

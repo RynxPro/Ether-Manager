@@ -45,7 +45,8 @@ pub fn list_creator_feed(state: State<AppState>) -> Result<CreatorFeed, String> 
 #[tauri::command]
 pub fn mark_creator_feed_seen(state: State<AppState>) -> Result<CreatorFeed, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.mark_creator_feed_seen(now()).map_err(|e| e.to_string())?;
+    db.mark_creator_feed_seen(now())
+        .map_err(|e| e.to_string())?;
     Ok(CreatorFeed {
         items: db
             .list_creator_feed(FEED_PAGE_SIZE)

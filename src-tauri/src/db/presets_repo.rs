@@ -42,7 +42,9 @@ impl Db {
                FROM presets
               ORDER BY updated_at DESC, id DESC",
         )?;
-        let mut presets: Vec<Preset> = stmt.query_map([], row_to_preset)?.collect::<Result<_, _>>()?;
+        let mut presets: Vec<Preset> = stmt
+            .query_map([], row_to_preset)?
+            .collect::<Result<_, _>>()?;
 
         // One query for every membership rather than one per preset. Joined to `mods` so a
         // preset never claims mods that have since been deleted, which is what makes the count
@@ -54,7 +56,8 @@ impl Db {
                JOIN mods m ON m.id = pm.mod_id
               ORDER BY pm.preset_id, pm.mod_id",
         )?;
-        let rows = members.query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))?;
+        let rows =
+            members.query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))?;
         for row in rows {
             let (preset_id, mod_id) = row?;
             if let Some(preset) = presets.iter_mut().find(|p| p.id == preset_id) {

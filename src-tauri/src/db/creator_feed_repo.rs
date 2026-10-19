@@ -120,13 +120,11 @@ impl Db {
     /// mod above yesterday's because it happened to be discovered later would be reporting on
     /// this app's polling schedule instead of on the creator's.
     pub fn list_creator_feed(&self, limit: i64) -> rusqlite::Result<Vec<CreatorFeedItem>> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT * FROM creator_feed
+        let mut stmt = self.conn.prepare(
+            "SELECT * FROM creator_feed
                  WHERE dismissed_at IS NULL
                  ORDER BY date_added DESC LIMIT ?1",
-            )?;
+        )?;
         let rows = stmt.query_map(params![limit], row_to_feed_item)?;
         rows.collect()
     }

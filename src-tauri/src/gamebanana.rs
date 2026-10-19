@@ -729,7 +729,11 @@ fn parse_mod_records(values: Vec<serde_json::Value>) -> Vec<GbMod> {
             // thirty quietly became twenty-seven and the only symptom was a short grid. Say
             // which record went and why, so the next new-or-renamed field is a log line rather
             // than an investigation.
-            let name = v.get("_sName").and_then(|n| n.as_str()).unwrap_or("?").to_owned();
+            let name = v
+                .get("_sName")
+                .and_then(|n| n.as_str())
+                .unwrap_or("?")
+                .to_owned();
             match serde_json::from_value::<GbMod>(v) {
                 Ok(m) => Some(m),
                 Err(e) => {
@@ -1176,14 +1180,13 @@ impl GameBananaClient {
                     body: body.clone(),
                 }
             } else {
-                GameBananaError::UnexpectedResponse(
-                    "Member/:id/ProfilePage".to_string(),
-                )
+                GameBananaError::UnexpectedResponse("Member/:id/ProfilePage".to_string())
             }
         })?;
 
-        let mut creator: GbCreator =
-            serde_json::from_value(value.clone()).map_err(|_| GameBananaError::UnexpectedResponse("Member/:id/ProfilePage".to_string()))?;
+        let mut creator: GbCreator = serde_json::from_value(value.clone()).map_err(|_| {
+            GameBananaError::UnexpectedResponse("Member/:id/ProfilePage".to_string())
+        })?;
 
         // An empty string is how GameBanana says "no avatar" on this endpoint, and an empty
         // `src` makes the browser re-request the page itself — so it has to become `None` here
@@ -1374,8 +1377,8 @@ impl GameBananaClient {
             .error_for_status()?
             .text()
             .await?;
-        let mut fields: Vec<RawFeaturedFields> = serde_json::from_str(&fields_body)
-            .map_err(|_| {
+        let mut fields: Vec<RawFeaturedFields> =
+            serde_json::from_str(&fields_body).map_err(|_| {
                 GameBananaError::UnexpectedResponse(fields_body.chars().take(500).collect())
             })?;
 
@@ -1692,7 +1695,10 @@ mod tests {
     #[tokio::test]
     async fn browse_by_category_returns_more_than_gamebananas_default_page_size() {
         let client = GameBananaClient::new();
-        let result = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
+        let result = client
+            .search_mods(None, None, ModSort::default(), 1)
+            .await
+            .unwrap();
 
         assert!(
             result.records.len() > 5,
@@ -1711,9 +1717,16 @@ mod tests {
     #[tokio::test]
     async fn browse_records_arrive_with_download_counts_attached() {
         let client = GameBananaClient::new();
-        let result = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
+        let result = client
+            .search_mods(None, None, ModSort::default(), 1)
+            .await
+            .unwrap();
 
-        let known = result.records.iter().filter(|m| m.download_count.is_some()).count();
+        let known = result
+            .records
+            .iter()
+            .filter(|m| m.download_count.is_some())
+            .count();
         assert!(
             known * 2 > result.records.len(),
             "only {known} of {} browse records carried a download count",
@@ -1827,7 +1840,10 @@ mod tests {
 
         let picked = pick_featured(&subs, false);
 
-        assert_eq!(picked.iter().map(|s| s.id).collect::<Vec<_>>(), vec![10, 20]);
+        assert_eq!(
+            picked.iter().map(|s| s.id).collect::<Vec<_>>(),
+            vec![10, 20]
+        );
     }
 
     /// The whole point of the change: six different ranking windows, not six slots off one
@@ -1937,8 +1953,14 @@ mod tests {
         apply_download_counts(&mut records, &counts);
 
         assert_eq!(records[0].download_count, Some(1126));
-        assert_eq!(records[1].download_count, None, "id 2 was never answered for");
-        assert_eq!(records[2].download_count, None, "id 3 was answered with null");
+        assert_eq!(
+            records[1].download_count, None,
+            "id 2 was never answered for"
+        );
+        assert_eq!(
+            records[2].download_count, None,
+            "id 3 was answered with null"
+        );
     }
 
     /// A single explicit `null` used to fail the whole array, so one unmeasured mod cost a
@@ -1963,7 +1985,10 @@ mod tests {
     #[tokio::test]
     async fn text_search_filters_to_mod_type_records_only() {
         let client = GameBananaClient::new();
-        let result = client.search_mods(Some("Belle"), None, ModSort::default(), 1).await.unwrap();
+        let result = client
+            .search_mods(Some("Belle"), None, ModSort::default(), 1)
+            .await
+            .unwrap();
 
         assert!(!result.records.is_empty());
         // Every returned record must be a real, installable Mod — the raw search endpoint
@@ -1999,7 +2024,10 @@ mod tests {
     async fn search_records_have_is_mature_agreeing_with_initial_visibility() {
         let client = GameBananaClient::new();
 
-        let browse = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
+        let browse = client
+            .search_mods(None, None, ModSort::default(), 1)
+            .await
+            .unwrap();
         assert!(!browse.records.is_empty());
         for m in &browse.records {
             assert!(!m.initial_visibility.is_empty());
@@ -2009,7 +2037,10 @@ mod tests {
             );
         }
 
-        let search = client.search_mods(Some("Belle"), None, ModSort::default(), 1).await.unwrap();
+        let search = client
+            .search_mods(Some("Belle"), None, ModSort::default(), 1)
+            .await
+            .unwrap();
         assert!(!search.records.is_empty());
         for m in &search.records {
             assert!(!m.initial_visibility.is_empty());
@@ -2071,7 +2102,10 @@ mod tests {
     async fn get_mod_detail_is_mature_follows_is_nsfw() {
         let client = GameBananaClient::new();
 
-        let browse = client.search_mods(None, None, ModSort::default(), 1).await.unwrap();
+        let browse = client
+            .search_mods(None, None, ModSort::default(), 1)
+            .await
+            .unwrap();
         let record = browse
             .records
             .first()
@@ -2103,7 +2137,9 @@ mod tests {
     #[test]
     fn analysis_warnings_flatten_from_every_shape_gamebanana_sends() {
         fn warnings_of(json: &str) -> Vec<String> {
-            serde_json::from_str::<GbFile>(json).unwrap().analysis_warnings
+            serde_json::from_str::<GbFile>(json)
+                .unwrap()
+                .analysis_warnings
         }
         // Only the fields without a serde default, plus the one under test.
         let file = |warnings: &str| {
@@ -2147,7 +2183,10 @@ mod tests {
         const MOD_WITH_UNSCANNABLE_FILES: i64 = 562973; // "Saint Yanagi"
 
         let client = GameBananaClient::new();
-        let files = client.get_mod_files(MOD_WITH_UNSCANNABLE_FILES).await.unwrap();
+        let files = client
+            .get_mod_files(MOD_WITH_UNSCANNABLE_FILES)
+            .await
+            .unwrap();
 
         assert!(!files.is_empty());
         assert!(
@@ -2157,8 +2196,10 @@ mod tests {
             "every file should carry a verdict"
         );
         assert!(
-            files.iter().any(|f| f.analysis_result.as_deref() == Some("ok")
-                && f.av_result.as_deref() == Some("clean")),
+            files
+                .iter()
+                .any(|f| f.analysis_result.as_deref() == Some("ok")
+                    && f.av_result.as_deref() == Some("clean")),
             "expected at least one file that passed"
         );
         assert!(
@@ -2169,7 +2210,10 @@ mod tests {
         );
         // The correlation the UI's wording leans on: a file with no AV result is one whose
         // archive would not open, not one where something was found.
-        for file in files.iter().filter(|f| f.av_result.as_deref() != Some("clean")) {
+        for file in files
+            .iter()
+            .filter(|f| f.av_result.as_deref() != Some("clean"))
+        {
             assert_eq!(file.av_result.as_deref(), Some("unknown"));
             assert_eq!(file.analysis_result.as_deref(), Some("extraction_error"));
         }
@@ -2200,7 +2244,10 @@ mod tests {
     #[tokio::test]
     async fn a_mods_comments_come_back_with_bodies_and_posters() {
         let client = GameBananaClient::new();
-        let page = client.get_mod_posts(POPULAR_MOD_WITH_POSTS, 1).await.unwrap();
+        let page = client
+            .get_mod_posts(POPULAR_MOD_WITH_POSTS, 1)
+            .await
+            .unwrap();
 
         assert!(page.record_count > 0, "the mod is known to have comments");
         assert!(!page.records.is_empty(), "a page of them parsed to nothing");
@@ -2239,19 +2286,32 @@ mod tests {
         let ordinary = parse(r#"{"_aRequirements": [["XXMI", "https://example.invalid/xxmi"]]}"#);
         assert_eq!(ordinary.len(), 1);
         assert_eq!(ordinary[0].name, "XXMI");
-        assert_eq!(ordinary[0].url.as_deref(), Some("https://example.invalid/xxmi"));
+        assert_eq!(
+            ordinary[0].url.as_deref(),
+            Some("https://example.invalid/xxmi")
+        );
 
         // A game setting has nowhere to link to, and GameBanana sends "" rather than omitting it.
         let setting = parse(r#"{"_aRequirements": [["Character Quality -> High", ""]]}"#);
         assert_eq!(setting[0].name, "Character Quality -> High");
-        assert_eq!(setting[0].url, None, "an empty URL must not become a dead link");
+        assert_eq!(
+            setting[0].url, None,
+            "an empty URL must not become a dead link"
+        );
 
         // Malformed entries are dropped, never shown as an empty row.
-        assert!(parse(r#"{"_aRequirements": [[]]}"#).is_empty(), "no name at all");
-        assert!(parse(r#"{"_aRequirements": [["   ", "x"]]}"#).is_empty(), "blank name");
+        assert!(
+            parse(r#"{"_aRequirements": [[]]}"#).is_empty(),
+            "no name at all"
+        );
+        assert!(
+            parse(r#"{"_aRequirements": [["   ", "x"]]}"#).is_empty(),
+            "blank name"
+        );
 
         // More elements than expected must not fail the whole detail fetch.
-        let extra = parse(r#"{"_aRequirements": [["slotfix", "https://example.invalid", "extra"]]}"#);
+        let extra =
+            parse(r#"{"_aRequirements": [["slotfix", "https://example.invalid", "extra"]]}"#);
         assert_eq!(extra.len(), 1);
         assert_eq!(extra[0].name, "slotfix");
     }
@@ -2265,7 +2325,10 @@ mod tests {
     #[tokio::test]
     async fn some_real_zzz_mods_declare_requirements() {
         let client = GameBananaClient::new();
-        let page = client.search_mods(None, None, ModSort::MostDownloaded, 1).await.unwrap();
+        let page = client
+            .search_mods(None, None, ModSort::MostDownloaded, 1)
+            .await
+            .unwrap();
 
         let mut checked = 0usize;
         let mut with_requirements = 0usize;
@@ -2277,7 +2340,10 @@ mod tests {
             if !detail.requirements.is_empty() {
                 with_requirements += 1;
                 assert!(
-                    detail.requirements.iter().all(|r| !r.name.trim().is_empty()),
+                    detail
+                        .requirements
+                        .iter()
+                        .all(|r| !r.name.trim().is_empty()),
                     "a requirement with a blank name would render as an empty row"
                 );
             }
@@ -2568,10 +2634,8 @@ mod tests {
         });
 
         let client = GameBananaClient::new();
-        let dest = std::env::temp_dir().join(format!(
-            "ether-manager-gb-stalled-{}",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("ether-manager-gb-stalled-{}", std::process::id()));
 
         let outcome = tokio::time::timeout(
             Duration::from_secs(5),

@@ -52,11 +52,7 @@ pub fn is_mods_folder_linked(state: State<AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn set_mods_folder(
-    app: AppHandle,
-    state: State<AppState>,
-    path: String,
-) -> Result<(), String> {
+pub fn set_mods_folder(app: AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.set_setting("mods_folder", &path)
         .map_err(|e| e.to_string())?;
@@ -99,7 +95,8 @@ pub fn get_mature_content_visibility(state: State<AppState>) -> Result<MatureVis
 #[tauri::command]
 pub fn get_conflict_warnings(state: State<AppState>) -> Result<bool, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.get_conflict_warnings_enabled().map_err(|e| e.to_string())
+    db.get_conflict_warnings_enabled()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

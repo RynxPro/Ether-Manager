@@ -306,8 +306,10 @@ fn place_mods(
         // A mod arrives switched off, so the folder is created in its DISABLED_ spelling; a clean
         // name would be one the game loads before anyone asked it to. `insert_mod` stores the
         // canonical spelling of this same path.
-        let canonical_dest =
-            fs_ops::unique_mod_dir(&character_dir, &slugify_display_name(&selection.display_name));
+        let canonical_dest = fs_ops::unique_mod_dir(
+            &character_dir,
+            &slugify_display_name(&selection.display_name),
+        );
         let dest = fs_ops::disabled_path(&canonical_dest);
 
         // Where the preview is has to be settled before the folder moves, since it may be inside.
@@ -343,10 +345,9 @@ fn place_mods(
         let bundled_thumbnail = match preview {
             None => None,
             // It travelled with the folder, so it is already in place — just say where.
-            Some(preview) if preview_inside => preview
-                .strip_prefix(&source)
-                .ok()
-                .map(to_forward_slashes),
+            Some(preview) if preview_inside => {
+                preview.strip_prefix(&source).ok().map(to_forward_slashes)
+            }
             // It was loose beside the mod, so bring a copy along. Otherwise it would be left
             // behind in staging and deleted the moment the session closed.
             Some(preview) => copy_preview_into(&preview, &dest),
@@ -417,8 +418,7 @@ fn staging_dir(session_id: u64) -> PathBuf {
 
 /// A base64 encoder, rather than a dependency for the one place the app needs one.
 fn base64(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
 
     for chunk in bytes.chunks(3) {

@@ -157,7 +157,10 @@ mod tests {
         fs::write(dest.join("Nicole.ini"), b"[Mod]\n").unwrap();
 
         assert!(extract_archive(&archive, &dest).is_err());
-        assert!(dest.is_dir(), "a folder we did not create is not ours to bin");
+        assert!(
+            dest.is_dir(),
+            "a folder we did not create is not ours to bin"
+        );
         assert!(
             dest.join("Nicole.ini").is_file(),
             "and neither is anything already inside it"

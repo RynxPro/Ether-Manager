@@ -787,7 +787,10 @@ mod tests {
         assert_eq!(renamed, 1, "only the real miscased ini should have moved");
         assert!(root.join("ニコ.ini").is_file());
         assert!(root.join("a").is_file());
-        assert!(root.join("ini").is_file(), "a bare `ini` is not an extension");
+        assert!(
+            root.join("ini").is_file(),
+            "a bare `ini` is not an extension"
+        );
         assert!(root.join("モデル名").is_file());
 
         fs::remove_dir_all(&root).unwrap();
@@ -812,7 +815,10 @@ mod tests {
         });
 
         assert_eq!(result.unwrap(), "renamed");
-        assert_eq!(attempts, 4, "it should have kept trying, not given up at one");
+        assert_eq!(
+            attempts, 4,
+            "it should have kept trying, not given up at one"
+        );
     }
 
     /// A missing path is an answer, not a delay. `ModFolderMissing` is built on it, so retrying
@@ -1277,7 +1283,11 @@ mod tests {
             .join("belle")
             .join("Character Skin")
             .join("neondream");
-        let ui_dir = root.join("Characters").join("ui").join("UI").join("hudtweak");
+        let ui_dir = root
+            .join("Characters")
+            .join("ui")
+            .join("UI")
+            .join("hudtweak");
         let skin = insert_mod_with_folder(&db, "belle", Slot::CharacterSkin, &skin_dir);
         let ui = insert_mod_with_folder(&db, "ui", Slot::Ui, &ui_dir);
 
@@ -1328,7 +1338,10 @@ mod tests {
             "the row has to follow the folder, or the app looks for a mod that moved"
         );
         assert!(char_dir.join("neondream").is_dir());
-        assert!(!char_dir.join("Character Skin").exists(), "emptied slot dir");
+        assert!(
+            !char_dir.join("Character Skin").exists(),
+            "emptied slot dir"
+        );
 
         let flat_after = db.get_mod(flat.id).unwrap().unwrap();
         assert_eq!(

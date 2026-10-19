@@ -202,7 +202,10 @@ impl Db {
     }
 
     pub fn set_magnifier_settings(&self, value: MagnifierSettings) -> rusqlite::Result<()> {
-        self.set_setting(MAGNIFIER_ENABLED_KEY, if value.enabled { "true" } else { "false" })?;
+        self.set_setting(
+            MAGNIFIER_ENABLED_KEY,
+            if value.enabled { "true" } else { "false" },
+        )?;
         self.set_setting(
             MAGNIFIER_SIZE_KEY,
             &value
@@ -318,13 +321,19 @@ mod tests {
     #[test]
     fn magnifier_settings_default_when_nothing_has_been_chosen() {
         let db = Db::open_in_memory().unwrap();
-        assert_eq!(db.get_magnifier_settings().unwrap(), MagnifierSettings::DEFAULT);
+        assert_eq!(
+            db.get_magnifier_settings().unwrap(),
+            MagnifierSettings::DEFAULT
+        );
     }
 
     #[test]
     fn magnifier_settings_round_trip() {
         let db = Db::open_in_memory().unwrap();
-        let chosen = MagnifierSettings { enabled: false, size: 96 };
+        let chosen = MagnifierSettings {
+            enabled: false,
+            size: 96,
+        };
         db.set_magnifier_settings(chosen).unwrap();
         assert_eq!(db.get_magnifier_settings().unwrap(), chosen);
     }
@@ -338,14 +347,23 @@ mod tests {
         let db = Db::open_in_memory().unwrap();
 
         db.set_setting(MAGNIFIER_SIZE_KEY, "9999").unwrap();
-        assert_eq!(db.get_magnifier_settings().unwrap().size, MAGNIFIER_MAX_SIZE);
+        assert_eq!(
+            db.get_magnifier_settings().unwrap().size,
+            MAGNIFIER_MAX_SIZE
+        );
 
         db.set_setting(MAGNIFIER_SIZE_KEY, "1").unwrap();
-        assert_eq!(db.get_magnifier_settings().unwrap().size, MAGNIFIER_MIN_SIZE);
+        assert_eq!(
+            db.get_magnifier_settings().unwrap().size,
+            MAGNIFIER_MIN_SIZE
+        );
 
         // Not a number at all falls back rather than exploding.
         db.set_setting(MAGNIFIER_SIZE_KEY, "huge").unwrap();
-        assert_eq!(db.get_magnifier_settings().unwrap().size, MAGNIFIER_DEFAULT_SIZE);
+        assert_eq!(
+            db.get_magnifier_settings().unwrap().size,
+            MAGNIFIER_DEFAULT_SIZE
+        );
     }
 
     #[test]

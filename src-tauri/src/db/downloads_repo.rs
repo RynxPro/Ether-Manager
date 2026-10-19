@@ -490,7 +490,8 @@ mod tests {
         let retried = db.enqueue_download(new_test_download(2)).unwrap().id;
         for id in [resumed, retried] {
             db.set_download_progress(id, 90_000, Some(182_101)).unwrap();
-            db.set_download_etag(id, Some("\"6a74e743-2c755\"")).unwrap();
+            db.set_download_etag(id, Some("\"6a74e743-2c755\""))
+                .unwrap();
         }
         db.set_download_status(resumed, DownloadStatus::Paused, None)
             .unwrap();
@@ -614,7 +615,8 @@ mod tests {
         let db = Db::open_in_memory().unwrap();
         let id = db.enqueue_download(new_test_download(1)).unwrap().id;
 
-        db.set_download_progress(id, 182_400, Some(182_400)).unwrap();
+        db.set_download_progress(id, 182_400, Some(182_400))
+            .unwrap();
         db.set_download_status(id, DownloadStatus::Installed, None)
             .unwrap();
 

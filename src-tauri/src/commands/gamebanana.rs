@@ -8,14 +8,13 @@ use tauri::State;
 use std::sync::Mutex;
 
 use crate::commands::mods::slugify_display_name;
+use crate::content_rating::MatureVisibility;
 use crate::db::{
     Bookmark, CreatorBookmark, Db, Mod, NewBookmark, NewCreatorBookmark, NewMod, Slot,
 };
-use crate::content_rating::MatureVisibility;
 use crate::gamebanana::{
     GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail, GbPostPage,
-    GbSearchResult, ModSort,
-    ResumePoint,
+    GbSearchResult, ModSort, ResumePoint,
 };
 use crate::{archive, fs_ops, AppState};
 
@@ -507,7 +506,7 @@ async fn download_and_extract_gamebanana_file(
     on_progress: impl FnMut(u64, Option<u64>) -> bool,
     on_extract_start: impl FnOnce(),
     should_stop: impl Fn() -> bool,
-// Returns where it landed, which file it was, and which of the mod's files that is in words.
+    // Returns where it landed, which file it was, and which of the mod's files that is in words.
 ) -> Result<(PathBuf, GbFile, Option<String>, Option<String>), String> {
     let InstallRequest {
         gamebanana_mod_id,
@@ -730,7 +729,8 @@ pub async fn backfill_mod_thumbnails(state: State<'_, AppState>) -> Result<usize
             continue;
         };
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        db.set_thumbnail_url(mod_id, &url).map_err(|e| e.to_string())?;
+        db.set_thumbnail_url(mod_id, &url)
+            .map_err(|e| e.to_string())?;
         filled += 1;
     }
     Ok(filled)

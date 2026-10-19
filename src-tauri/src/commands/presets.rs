@@ -162,7 +162,10 @@ pub struct Planned {
 /// A planning failure is carried rather than thrown. A mod whose folder has gone missing
 /// underneath the app cannot be moved, and the user should be told which one; letting it
 /// abort the call would also leave the other thirty mods untouched for the sake of one.
-pub fn plan_apply(db: &Db, preset_id: i64) -> rusqlite::Result<(Vec<Planned>, Vec<PresetApplyFailure>)> {
+pub fn plan_apply(
+    db: &Db,
+    preset_id: i64,
+) -> rusqlite::Result<(Vec<Planned>, Vec<PresetApplyFailure>)> {
     let wanted = db.preset_mod_ids(preset_id)?;
     let mods = db.list_all_mods()?;
     let mut planned = Vec::new();
@@ -322,9 +325,16 @@ mod tests {
 
         assert_eq!(planned.len(), 1, "only the mod that still has a folder");
         assert_eq!(planned[0].display_name, "here");
-        assert_eq!(failures.len(), 1, "the missing one is reported, not dropped");
+        assert_eq!(
+            failures.len(),
+            1,
+            "the missing one is reported, not dropped"
+        );
         assert_eq!(failures[0].display_name, "gone");
-        assert!(!failures[0].error.is_empty(), "the reason is carried through");
+        assert!(
+            !failures[0].error.is_empty(),
+            "the reason is carried through"
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -343,7 +353,10 @@ mod tests {
         assert!(failures.is_empty());
         assert_eq!(ids.len(), 1);
         // Nothing has moved: planning is a decision, the rename happens afterwards.
-        assert!(root.join("one").exists(), "planning must not touch the disk");
+        assert!(
+            root.join("one").exists(),
+            "planning must not touch the disk"
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -357,9 +370,18 @@ mod tests {
         assert_eq!(
             changes,
             vec![
-                PresetChange { mod_id: 1, turn_on: true },
-                PresetChange { mod_id: 2, turn_on: false },
-                PresetChange { mod_id: 3, turn_on: true },
+                PresetChange {
+                    mod_id: 1,
+                    turn_on: true
+                },
+                PresetChange {
+                    mod_id: 2,
+                    turn_on: false
+                },
+                PresetChange {
+                    mod_id: 3,
+                    turn_on: true
+                },
             ],
         );
     }
@@ -381,8 +403,14 @@ mod tests {
         assert_eq!(
             changes,
             vec![
-                PresetChange { mod_id: 1, turn_on: false },
-                PresetChange { mod_id: 2, turn_on: false },
+                PresetChange {
+                    mod_id: 1,
+                    turn_on: false
+                },
+                PresetChange {
+                    mod_id: 2,
+                    turn_on: false
+                },
             ],
         );
     }
@@ -413,6 +441,12 @@ mod tests {
         // but nothing here should invent work for an id with no row either.
         let changes = plan_preset(&[1, 99], &mods);
 
-        assert_eq!(changes, vec![PresetChange { mod_id: 1, turn_on: true }]);
+        assert_eq!(
+            changes,
+            vec![PresetChange {
+                mod_id: 1,
+                turn_on: true
+            }]
+        );
     }
 }

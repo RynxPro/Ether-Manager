@@ -374,7 +374,11 @@ mod tests {
             suggested_file_name: None,
             is_ambiguous: false,
         };
-        db.upsert_update_check(mod_id, &unavailable, ModStanding::UNKNOWN, Some("GameBanana request failed: timeout"),
+        db.upsert_update_check(
+            mod_id,
+            &unavailable,
+            ModStanding::UNKNOWN,
+            Some("GameBanana request failed: timeout"),
         )
         .unwrap();
 

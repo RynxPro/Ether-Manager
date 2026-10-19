@@ -99,7 +99,10 @@ mod tests {
 
     #[test]
     fn the_two_non_character_categories_resolve_to_their_pseudo_characters() {
-        assert_eq!(super::character_id_for_category("UI").as_deref(), Some("ui"));
+        assert_eq!(
+            super::character_id_for_category("UI").as_deref(),
+            Some("ui")
+        );
         assert_eq!(
             super::character_id_for_category("Other/Misc").as_deref(),
             Some("misc")
@@ -109,7 +112,10 @@ mod tests {
     /// An unplaceable mod is left unplaced rather than swept into Misc, so the page can say so.
     #[test]
     fn an_unknown_category_resolves_to_nothing() {
-        assert_eq!(super::character_id_for_category("Some Future Category"), None);
+        assert_eq!(
+            super::character_id_for_category("Some Future Category"),
+            None
+        );
         assert_eq!(super::character_id_for_category(""), None);
     }
 
