@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getVersion } from "@tauri-apps/api/app";
 import { checkGamebananaApi, isModsFolderLinked, type ApiHealth } from "@/lib/tauri-commands";
+import { useAppUpdate, useAppVersion } from "@/lib/useAppUpdate";
 
 /** How often the API is re-probed. Long enough that idling in the app costs one small request
  * a minute, short enough that an outage starting mid-session shows up without a restart. */
@@ -30,6 +30,13 @@ interface WindowStatusProps {
    * A slot rather than the bell itself, so this component keeps knowing only about the three
    * things it reports on. */
   trailing?: React.ReactNode;
+  /** Where to send someone who has just been told an update is waiting.
+   *
+   * The one control among the readouts, and it earns the exception: this is the only thing the
+   * bar reports that asks for an answer, and a badge announcing a new version with no way to
+   * reach it would be worse than not mentioning it. It does not install anything — pressing it
+   * opens Settings, where the version, the notes and the Install button are. */
+  onOpenSettings?: () => void;
 }
 
 /** What the app is attached to, what version it is, and whether GameBanana is answering.
@@ -41,13 +48,19 @@ interface WindowStatusProps {
  *
  * None of the three is a control; they are things you check rather than operate, so the only
  * interaction is a hover explaining what the signal measures. Anything in `trailing` is the
- * exception and sits apart from them, at the end of the row. */
-export function WindowStatus({ trailing }: WindowStatusProps) {
-  const { data: version } = useQuery({
-    queryKey: ["appVersion"],
-    queryFn: getVersion,
-    staleTime: Infinity,
-  });
+ * exception and sits apart from them, at the end of the row.
+ *
+ * The update badge is the other exception, and the only one that appears and disappears: a new
+ * release is a fact about this window in the same way its version is, and it is the one reading
+ * here that is worth acting on the moment it is read. */
+export function WindowStatus({ trailing, onOpenSettings }: WindowStatusProps) {
+  const { data: version } = useAppVersion();
+
+  // Mounted for the life of the window, which is what makes this the app's launch check: asking
+  // here costs one request a run and puts the answer in the cache that Settings reads. An error
+  // is deliberately silent in this row — a release server that did not answer is not a fact
+  // about the window, and the Settings sheet is where it is reported.
+  const { data: update } = useAppUpdate();
 
   // Polled rather than read once: the folder can stop existing while the app is open — an
   // external drive unplugged, ZZMI reinstalled elsewhere — and a stale "linked" is the one
@@ -118,6 +131,21 @@ export function WindowStatus({ trailing }: WindowStatusProps) {
       <Divider />
 
       <span className="tabular-nums">{version ? `v${version}` : ""}</span>
+
+      {/* Only ever rendered when there is genuinely something newer, so its presence is the
+          whole message — there is no "up to date" state of this badge to read past. Filled with
+          the accent because that is what the app uses for the live thing on screen, and this is
+          the one reading in the row that is asking rather than telling. */}
+      {update && onOpenSettings && (
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title={`Version ${update.version} is available — open Settings to install it`}
+          className="-my-0.5 shrink-0 bg-primary px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-primary-foreground transition-[translate] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Update {update.version}
+        </button>
+      )}
 
       {/* `-my-1` so a control taller than a 13px line of text does not stretch the row and push
           the readouts off the baseline they share. */}

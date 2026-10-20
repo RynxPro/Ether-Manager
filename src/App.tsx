@@ -400,7 +400,12 @@ function App() {
       onForward={goForward}
       canGoBack={cursor > 0}
       canGoForward={cursor < history.length - 1}
-      status={<WindowStatus trailing={<NotificationBell onOpenMod={openFeedItem} />} />}
+      status={
+        <WindowStatus
+          trailing={<NotificationBell onOpenMod={openFeedItem} />}
+          onOpenSettings={() => goTo("settings")}
+        />
+      }
     >
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center text-muted-foreground">

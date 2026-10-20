@@ -23,6 +23,8 @@ import {
   useTheme,
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
+import { AppUpdateSheet } from "./AppUpdateSheet";
+import { ERROR_LINE, SECTION_COPY, SECTION_TITLE, SHEET } from "./sheet";
 
 /** Shown for the moment before the stored settings arrive. Matches the Rust default so the
  * controls do not visibly jump into place on load. */
@@ -69,20 +71,6 @@ const OPTIONS: {
     description: "Mature mods are left out of Browse results entirely.",
   },
 ];
-
-/** One setting, on its own piece of paper. Sections used to be separated by a hairline rule and
- * nothing else, which made the page one long document rather than a set of switches. */
-const SHEET = "bg-card p-[18px] shadow-slap-lift";
-/** What a setting is called. The display face, because these are the names of things — the
- * controls inside them wear the sign face. */
-const SECTION_TITLE =
-  "font-heading text-[24px] uppercase leading-none tracking-[0.02em] text-card-foreground";
-/** The one place on this page that is genuinely prose: what a setting does and what it costs you.
- * Geist, because body copy is the one job Geist has in this app. */
-const SECTION_COPY = "mt-1.5 text-[13px] leading-relaxed text-muted-foreground";
-/** Something gone wrong, in the machine's voice because it is the machine reporting. */
-const ERROR_LINE =
-  "mt-3 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-destructive";
 
 interface SettingSheetProps {
   title: string;
@@ -525,8 +513,8 @@ export function SettingsPage() {
           )}
         </SettingSheet>
 
-        {/* Full width, and last. It is the only setting that is a value rather than a choice, and
-            the only one whose value is long enough to need the room. */}
+        {/* Full width, and the last of the settings. It is the only one that is a value rather
+            than a choice, and the only one whose value is long enough to need the room. */}
         <section className={`${SHEET} lg:col-span-2`}>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="min-w-[240px]">
@@ -566,6 +554,10 @@ export function SettingsPage() {
             </p>
           )}
         </section>
+
+        {/* After the settings, because it is not one. Everything above changes how the app
+            behaves; this reports on the app itself and offers the one action that replaces it. */}
+        <AppUpdateSheet />
       </div>
     </div>
   );
