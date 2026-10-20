@@ -226,6 +226,16 @@ export function useSetModsFolder() {
     mutationFn: (path: string) => setModsFolder(path),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["modsFolder"] });
+      // Both, because the folder is two separate questions to the cache: which path is set,
+      // and whether a folder is actually there. The title bar's "Folder missing" warning asks
+      // the second one, and only this mutation can know the answer just changed.
+      //
+      // Invalidating one and not the other is what made the app open with a red warning about
+      // the very folder you had just chosen: the check runs once at launch, during first-run
+      // setup, when there is legitimately no folder yet — and then kept that `false`. It came
+      // right on the query's own 60s poll or on the next launch, which is how it was reported,
+      // as needing a restart.
+      queryClient.invalidateQueries({ queryKey: ["modsFolderLinked"] });
     },
   });
 }
