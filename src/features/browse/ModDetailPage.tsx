@@ -1,4 +1,4 @@
-import { EmptyState } from "@/components/EmptyState";
+import { EMPTY_SLAB, EmptyState } from "@/components/EmptyState";
 import { gbImageUrl } from "@/lib/gbImage";
 import { SectionLabel } from "@/components/SectionLabel";
 import {
@@ -136,7 +136,17 @@ export function ModDetailPage({
   onOpenCreator,
   onOpenMod,
 }: ModDetailPageProps) {
-  const { data: detail, isLoading } = useGamebananaModDetail(mod.id);
+  // `isError` and `refetch` are the point of this destructure, not decoration. Taking only
+  // `data` and `isLoading` is what made a failed lookup indistinguishable from a slow one: the
+  // render below falls back on `!detail`, so a request that gave up left the page sitting on
+  // skeletons with nothing to press and no way to know it had stopped trying.
+  const {
+    data: detail,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useGamebananaModDetail(mod.id);
   const externalLink = useExternalLink();
   const queryClient = useQueryClient();
 
@@ -431,7 +441,7 @@ export function ModDetailPage({
       </PageHeader>
 
 
-      {isLoading || !detail ? (
+      {isLoading ? (
         <div className="flex items-start gap-6">
           <div className="min-w-0 flex-1 space-y-3">
             <Skeleton className="h-[470px] w-full" />
@@ -440,6 +450,34 @@ export function ModDetailPage({
           </div>
           <Skeleton className={`h-[540px] ${SIDE_PANEL_WIDTH} shrink-0`} />
         </div>
+      ) : !detail ? (
+        // Anything that is not loading and has no mod to show. Written as `!detail` rather than
+        // `isError` so it cannot be escaped: the skeletons used to be the fallback for this
+        // branch, which meant every way of ending up without data looked identical to still
+        // waiting — for as long as the page stayed open.
+        //
+        // The way out is a button rather than advice, because the request usually works on the
+        // second ask. Going back and opening the mod again already fixed it; that only worked
+        // because remounting refetches, which is a cure nobody should have to discover.
+        <EmptyState
+          icon={FileWarning}
+          title={isError ? "Could not load this mod" : "Nothing came back"}
+          say={
+            isError
+              ? "GameBanana did not answer. It is usually busy rather than broken, so this is worth another go."
+              : "GameBanana answered without the mod in it."
+          }
+          action={
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className={`${EMPTY_SLAB} bg-primary text-primary-foreground`}
+            >
+              {isFetching ? "Trying…" : "Try again"}
+            </button>
+          }
+        />
       ) : (
         <div className="flex items-start gap-6">
           <div className="min-w-0 flex-1 space-y-6">
