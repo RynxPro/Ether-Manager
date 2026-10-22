@@ -329,6 +329,11 @@ pub(crate) fn swap_archive_into_mod_folder(
         crate::commands::unique_temp_id()
     ));
 
+    // Read before anything is replaced, written back afterwards. A reinstall swaps the whole
+    // folder, so any edit the user made to a mod's ini — a changed toggle key, a variable set
+    // the way they like it — went with it, silently and with nothing to recover from.
+    let keepsakes = ini_keepsakes(current_dir);
+
     let result = crate::archive::extract_archive(archive_path, &staging_dir)
         .map_err(|e| e.to_string())
         .and_then(|_| {
@@ -338,7 +343,84 @@ pub(crate) fn swap_archive_into_mod_folder(
             crate::fs_ops::replace_mod_folder(current_dir, &staging_dir).map_err(|e| e.to_string())
         });
     let _ = std::fs::remove_dir_all(&staging_dir);
+    if result.is_ok() {
+        restore_ini_keepsakes(current_dir, &keepsakes);
+    }
     result
+}
+
+/// Every ini in a mod's folder, with the path it sat at, read into memory.
+///
+/// Held in memory rather than copied aside because the whole point is to survive a directory
+/// that is about to be replaced, and anything written next to it would have to be cleaned up
+/// afterwards whether the swap succeeded or not. Mod inis are kilobytes.
+///
+/// Files the game already ignores are skipped, which is what stops a reinstall backing up the
+/// last reinstall's backups and doubling them every time.
+fn ini_keepsakes(dir: &std::path::Path) -> Vec<(std::path::PathBuf, String)> {
+    let mut found = Vec::new();
+    collect_ini_keepsakes(dir, dir, &mut found);
+    found
+}
+
+fn collect_ini_keepsakes(
+    root: &std::path::Path,
+    dir: &std::path::Path,
+    found: &mut Vec<(std::path::PathBuf, String)>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.to_ascii_uppercase().starts_with("DISABLED") {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            collect_ini_keepsakes(root, &path, found);
+        } else if name.ends_with(".ini") {
+            if let (Ok(text), Ok(relative)) = (std::fs::read_to_string(&path), path.strip_prefix(root))
+            {
+                found.push((relative.to_path_buf(), text));
+            }
+        }
+    }
+}
+
+/// Writes the old inis back beside the new ones, under the name XXMI itself uses for this.
+///
+/// `DISABLED_BACKUP_<unixtime>.<original name>` is not invented here — it is the spelling XXMI
+/// leaves behind when it edits a mod's ini, which means 3DMigoto skips it (`exclude_recursive =
+/// DISABLED*`), the import scanner already knows not to treat it as a second mod, and anyone who
+/// has used XXMI for a while already recognises the file.
+///
+/// Failures are ignored on purpose. The mod has been installed by this point; refusing to finish
+/// because a courtesy copy could not be written would turn a successful update into an error.
+fn restore_ini_keepsakes(dir: &std::path::Path, keepsakes: &[(std::path::PathBuf, String)]) {
+    if keepsakes.is_empty() {
+        return;
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    for (relative, text) in keepsakes {
+        let Some(name) = relative.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        let target_dir = match relative.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => dir.join(parent),
+            _ => dir.to_path_buf(),
+        };
+        if std::fs::create_dir_all(&target_dir).is_err() {
+            continue;
+        }
+        let _ = std::fs::write(
+            target_dir.join(format!("DISABLED_BACKUP_{stamp}.{name}")),
+            text,
+        );
+    }
 }
 
 async fn download_and_swap_gamebanana_file(
@@ -518,6 +600,87 @@ mod tests {
     /// install fixture (see `commands::gamebanana::tests`), kept fast and deterministic.
     const SAMPLE_MOD_ID: i64 = 645291;
     const SAMPLE_FILE_ID: i64 = 1776071;
+
+    fn keepsake_dir(label: &str) -> std::path::PathBuf {
+        static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("ether-manager-keepsake-test-{label}-{n}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn an_edited_ini_survives_the_folder_being_replaced() {
+        let root = keepsake_dir("survives");
+        std::fs::create_dir_all(root.join("variant")).unwrap();
+        std::fs::write(root.join("Nicole.ini"), "key = VK_F3 ; my binding").unwrap();
+        std::fs::write(root.join("variant/body.ini"), "$swapvar = 2").unwrap();
+
+        let kept = ini_keepsakes(&root);
+        assert_eq!(kept.len(), 2, "both inis, including the one in a subfolder");
+
+        // Stand in for the swap: the old folder is gone and a fresh one is in its place.
+        std::fs::remove_dir_all(&root).unwrap();
+        std::fs::create_dir_all(root.join("variant")).unwrap();
+        std::fs::write(root.join("Nicole.ini"), "key = VK_F10").unwrap();
+        restore_ini_keepsakes(&root, &kept);
+
+        let backups: Vec<String> = walk_names(&root)
+            .into_iter()
+            .filter(|n| n.starts_with("DISABLED_BACKUP_"))
+            .collect();
+        assert_eq!(backups.len(), 2, "one backup per ini, got {backups:?}");
+        let restored: Vec<String> = backups
+            .iter()
+            .map(|n| find_and_read(&root, n))
+            .collect();
+        assert!(restored.iter().any(|t| t.contains("my binding")));
+        assert!(restored.iter().any(|t| t.contains("$swapvar = 2")));
+        // The new file is untouched - the backup sits beside it, it does not replace it.
+        assert_eq!(
+            std::fs::read_to_string(root.join("Nicole.ini")).unwrap(),
+            "key = VK_F10"
+        );
+    }
+
+    #[test]
+    fn backups_do_not_accumulate_across_reinstalls() {
+        // The failure this guards: if a backup counted as an ini, every reinstall would copy
+        // the last one too and the folder would double each time.
+        let root = keepsake_dir("accumulate");
+        std::fs::write(root.join("Nicole.ini"), "key = VK_F3").unwrap();
+        std::fs::write(root.join("DISABLED_BACKUP_1749653424.Nicole.ini"), "old").unwrap();
+        assert_eq!(ini_keepsakes(&root).len(), 1);
+    }
+
+    fn walk_names(dir: &std::path::Path) -> Vec<String> {
+        let mut names = Vec::new();
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                names.extend(walk_names(&path));
+            } else {
+                names.push(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+        names
+    }
+
+    fn find_and_read(dir: &std::path::Path, name: &str) -> String {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let found = find_and_read(&path, name);
+                if !found.is_empty() {
+                    return found;
+                }
+            } else if entry.file_name().to_string_lossy() == name {
+                return std::fs::read_to_string(&path).unwrap();
+            }
+        }
+        String::new()
+    }
 
     fn insert_fixture_mod(db: &Db, gamebanana_file_id: i64, gamebanana_md5: Option<&str>) -> i64 {
         db.insert_mod(NewMod {
