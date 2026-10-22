@@ -1,3 +1,4 @@
+pub mod app_update;
 pub mod characters;
 pub mod creator_feed;
 pub mod downloads;
