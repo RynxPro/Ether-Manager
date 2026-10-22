@@ -639,14 +639,6 @@ struct RawListResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct GbDescriptionFields {
-    #[serde(rename(deserialize = "_sDescription"), default)]
-    description: String,
-    #[serde(rename(deserialize = "_sText"), default)]
-    description_html: String,
-}
-
-#[derive(Debug, Deserialize)]
 struct RawApiError {
     #[serde(rename(deserialize = "_sErrorCode"))]
     code: String,
@@ -1394,14 +1386,41 @@ impl GameBananaClient {
             .collect())
     }
 
-    /// `@gbprofile` cannot be combined with extra `_csvProperties` in one request (confirmed
-    /// live — GameBanana returns `UNKNOWN_PROPERTY_SET`), so the description body (`_sText`,
-    /// `_sDescription`) is fetched as a second call and merged in.
+    /// One request, naming every property the page needs.
+    ///
+    /// It used to be two, because `@gbprofile` cannot be combined with extra `_csvProperties` —
+    /// GameBanana answers `UNKNOWN_PROPERTY_SET` — so the description body came from a second
+    /// call. Naming the fields individually instead drops the shorthand and with it the second
+    /// request: confirmed live across five mods that this list returns each field byte-identical
+    /// to what the two calls produced, and about 17% less of it, since `@gbprofile` sends some
+    /// fifty properties of which this type reads seventeen.
+    ///
+    /// Halving the requests halves the ways the page can fail, which is the real point: a mod
+    /// page that could not load was stranding people, and it only had to lose one of two coin
+    /// flips to do it.
+    ///
+    /// Keep this list and `GbModDetail` in step. A field added to the struct without being added
+    /// here arrives missing: one with `#[serde(default)]` goes quietly wrong, one without fails
+    /// the whole fetch. `_bHasContentRatings` and `_sInitialVisibility` are deliberately absent —
+    /// `Mod/:id` rejects them outright (`UNKNOWN_PROPERTY`), which is why they are defaulted on
+    /// the struct rather than requested.
+    /// Joined with `concat!` rather than a backslash line continuation: the continuation kept
+    /// this file's indentation inside the string, and GameBanana rejected the whole request
+    /// over a property it saw as `        _bIsNsfw`.
+    const DETAIL_PROPERTIES: &str = concat!(
+        "_idRow,_sName,_sProfileUrl,_tsDateModified,_tsDateAdded,_bIsNsfw,_aGame,",
+        "_aRequirements,_aPreviewMedia,_aEmbeddedMedia,_nDownloadCount,_nViewCount,",
+        "_nPostCount,_nLikeCount,_aCategory,_aSubmitter,_sDescription,_sText,_aFiles"
+    );
+
     pub async fn get_mod_detail(&self, mod_id: i64) -> Result<GbModDetail, GameBananaError> {
-        let profile_url = format!("{BASE_URL}/Mod/{mod_id}?_csvProperties=@gbprofile");
-        let profile_body = self
+        let url = format!(
+            "{BASE_URL}/Mod/{mod_id}?_csvProperties={}",
+            Self::DETAIL_PROPERTIES
+        );
+        let body = self
             .http
-            .get(&profile_url)
+            .get(&url)
             .timeout(API_REQUEST_TIMEOUT)
             .send()
             .await?
@@ -1409,31 +1428,16 @@ impl GameBananaClient {
             .text()
             .await?;
 
-        let mut detail: GbModDetail = serde_json::from_str(&profile_body).map_err(|_| {
-            if let Ok(err) = serde_json::from_str::<RawApiError>(&profile_body) {
+        let mut detail: GbModDetail = serde_json::from_str(&body).map_err(|_| {
+            if let Ok(err) = serde_json::from_str::<RawApiError>(&body) {
                 GameBananaError::Api {
                     code: err.code,
-                    body: profile_body.clone(),
+                    body: body.clone(),
                 }
             } else {
-                GameBananaError::UnexpectedResponse(profile_body.chars().take(500).collect())
+                GameBananaError::UnexpectedResponse(body.chars().take(500).collect())
             }
         })?;
-
-        let text_url = format!("{BASE_URL}/Mod/{mod_id}?_csvProperties=_sText,_sDescription");
-        let text_body = self
-            .http
-            .get(&text_url)
-            .timeout(API_REQUEST_TIMEOUT)
-            .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        if let Ok(text_fields) = serde_json::from_str::<GbDescriptionFields>(&text_body) {
-            detail.description_html = text_fields.description_html;
-            detail.description = text_fields.description;
-        }
 
         // Unlike list/search records, `Mod/:id` has no `_bHasContentRatings`/
         // `_sInitialVisibility` to run through `content_rating::is_mature` — but it does send
@@ -1449,9 +1453,9 @@ impl GameBananaClient {
     }
 
     /// A mod's files together with whether it is still something anyone should be installing —
-    /// one lightweight request, unlike `get_mod_detail` (which costs two: `@gbprofile` plus a
-    /// separate text-fields call). Used by update detection, which needs to check many mods and
-    /// has no use for the description body.
+    /// a lighter request than `get_mod_detail`, which asks for the preview media, the category,
+    /// the submitter and the description body as well. Used by update detection, which checks
+    /// many mods at once and has no use for any of that.
     ///
     /// Confirmed live: `Mod/:id?_csvProperties=_aFiles` returns `{"_aFiles": [...]}` directly,
     /// not the `_aMetadata`/`_aRecords` envelope `parse_list_response` handles — and the four
