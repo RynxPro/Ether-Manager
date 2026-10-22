@@ -11,6 +11,7 @@ import {
   enqueueDownload,
   getModsFolder,
   listAllMods,
+  listModConflicts,
   listCharacters,
   listModCounts,
   listModsForCharacter,
@@ -71,7 +72,19 @@ function useModMutationInvalidation() {
     queryClient.invalidateQueries({ queryKey: ["mods"] });
     queryClient.invalidateQueries({ queryKey: ["allMods"] });
     queryClient.invalidateQueries({ queryKey: ["modCounts"] });
+    // Turning a mod on or off changes who is claiming what, which is the whole input to the
+    // conflict scan. Without this the warning would describe the library as it was.
+    queryClient.invalidateQueries({ queryKey: ["modConflicts"] });
   };
+}
+
+/** The assets that more than one enabled mod is claiming.
+ *
+ * One query for the whole library rather than one per character: the scan reads every enabled
+ * mod's folder either way, so asking per character would do the same work several times over
+ * and still have to compare across the results. */
+export function useModConflicts() {
+  return useQuery({ queryKey: ["modConflicts"], queryFn: listModConflicts });
 }
 
 export function useToggleMod() {

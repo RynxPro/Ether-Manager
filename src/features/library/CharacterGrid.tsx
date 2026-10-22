@@ -9,7 +9,13 @@ import {
 } from "@/lib/tauri-commands";
 import { useConflictWarnings } from "@/features/settings/hooks";
 import { CharacterCard } from "./CharacterCard";
-import { useAllMods, useCharacters, useModCounts, useUpdateChecks } from "./hooks";
+import {
+  useAllMods,
+  useCharacters,
+  useModConflicts,
+  useModCounts,
+  useUpdateChecks,
+} from "./hooks";
 
 interface CharacterGridProps {
   onSelect: (character: Character) => void;
@@ -35,6 +41,10 @@ export function CharacterGrid({ onSelect, query = "", sort = "yours" }: Characte
   // first read is in flight counts as on, so the marks do not appear a beat after the grid.
   const { data: conflictWarnings } = useConflictWarnings();
   const showConflictWarning = conflictWarnings !== false;
+  // One scan for the roster. Each conflict names the character it belongs to, so the cards need
+  // nothing but the set of characters that have one.
+  const { data: conflicts } = useModConflicts();
+  const charactersInConflict = new Set((conflicts ?? []).map((conflict) => conflict.character_id));
 
   if (isLoadingCharacters) {
     return (
@@ -96,6 +106,7 @@ export function CharacterGrid({ onSelect, query = "", sort = "yours" }: Characte
           enabledModName={enabledModNames.get(character.id) ?? null}
           hasUpdate={charactersWithUpdate.has(character.id)}
           showConflictWarning={showConflictWarning}
+          hasConflict={charactersInConflict.has(character.id)}
           onSelect={() => onSelect(character)}
         />
       ))}

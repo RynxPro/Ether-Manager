@@ -104,6 +104,26 @@ export function listAllMods(): Promise<Mod[]> {
   return invoke("list_all_mods");
 }
 
+/** One asset that more than one enabled mod claims.
+ *
+ * Only ever reported within a single character: a hash claimed across characters is shared
+ * boilerplate rather than a fight, and Rust filters those out before they get here. */
+export interface ModConflict {
+  /** The contested 3DMigoto hash, lowercase. */
+  hash: string;
+  character_id: string;
+  /** The mods claiming it — two or more, ascending. */
+  mod_ids: number[];
+}
+
+/** Which enabled mods are claiming the same piece of the game, read from their ini files.
+ *
+ * Costs a walk of every enabled mod's folder, which is why it is its own query rather than part
+ * of the mod lists: the library renders constantly and this does not need to. */
+export function listModConflicts(): Promise<ModConflict[]> {
+  return invoke("list_mod_conflicts");
+}
+
 export function toggleMod(modId: number, enabled: boolean): Promise<void> {
   return invoke("toggle_mod", { modId, enabled });
 }

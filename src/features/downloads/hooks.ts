@@ -33,6 +33,8 @@ export function useDownloads() {
       queryClient.invalidateQueries({ queryKey: ["allMods"] });
       queryClient.invalidateQueries({ queryKey: ["modCounts"] });
       queryClient.invalidateQueries({ queryKey: ["updateChecks"] });
+      // A mod arriving or being replaced changes which assets are claimed.
+      queryClient.invalidateQueries({ queryKey: ["modConflicts"] });
     });
     return () => {
       unlistenPromise.then((unlisten) => unlisten());

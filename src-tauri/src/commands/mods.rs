@@ -4,8 +4,52 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
+use crate::conflicts::{self, ModConflict, ModHashes};
 use crate::db::{Mod, ModCounts, Slot};
 use crate::{fs_ops, AppState};
+
+/// Which enabled mods are claiming the same piece of the game.
+///
+/// `async` with the walk on a blocking thread, not because this is slow today — a real library
+/// is a few dozen folders — but because a synchronous Tauri command runs on the main thread,
+/// and the main thread is the one drawing the window. A library on a slow external drive would
+/// otherwise freeze the app for as long as the scan took, which is a bug this project has
+/// already gone looking for once.
+///
+/// Read from disk on each call rather than stored. The hashes live in the mod's own ini files,
+/// which the user can edit and other tools do edit, so a cached copy would be a second version
+/// of a fact that is already written down somewhere authoritative — the mistake `fs_ops` avoids
+/// by deriving `enabled` from the folder name rather than storing it.
+#[tauri::command]
+pub async fn list_mod_conflicts(state: State<'_, AppState>) -> Result<Vec<ModConflict>, String> {
+    // Collect, then drop the lock. The scan below is disk work and must not hold it: every
+    // other command would queue behind this one.
+    let enabled: Vec<(i64, String, String)> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.list_all_mods()
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            // Only what the game is loading. A mod that is off claims nothing, and one whose
+            // folder has gone has nothing to read.
+            .filter(|m| m.enabled && !m.files_missing)
+            .map(|m| (m.id, m.character_id, m.folder_path))
+            .collect()
+    };
+
+    tokio::task::spawn_blocking(move || {
+        let scanned: Vec<ModHashes> = enabled
+            .into_iter()
+            .map(|(mod_id, character_id, folder_path)| ModHashes {
+                mod_id,
+                character_id,
+                hashes: conflicts::collect_mod_hashes(Path::new(&folder_path)),
+            })
+            .collect();
+        conflicts::find_conflicts(&scanned)
+    })
+    .await
+    .map_err(|e| format!("the conflict scan did not finish: {e}"))
+}
 
 #[tauri::command]
 pub fn list_mods_for_character(

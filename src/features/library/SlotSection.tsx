@@ -4,7 +4,12 @@ import { useConflictWarnings } from "@/features/settings/hooks";
 import { CARD_GRID } from "@/lib/layout";
 import { type Mod, type UpdateCheck } from "@/lib/tauri-commands";
 import { ModCard } from "./ModCard";
-import { useCheckModUpdateWithConfirmation, useDeleteMod, useToggleMod } from "./hooks";
+import {
+  useCheckModUpdateWithConfirmation,
+  useDeleteMod,
+  useModConflicts,
+  useToggleMod,
+} from "./hooks";
 
 interface SlotSectionProps {
   mods: Mod[];
@@ -48,21 +53,40 @@ export function SlotSection({
   // Undefined while the preference is still being read, and that counts as on — a notice that
   // appeared a moment after the page did would be worse than one that was simply there.
   const { data: showConflictWarning } = useConflictWarnings();
-  const enabledCount = mods.filter((mod) => mod.enabled).length;
+  const { data: conflicts } = useModConflicts();
+
+  // Only the contested assets involving mods on this page, and only the mods themselves. The
+  // scan covers the whole library, so a character page would otherwise report a fight happening
+  // somewhere the reader cannot see.
+  const shownIds = new Set(mods.map((mod) => mod.id));
+  const here = (conflicts ?? []).filter((conflict) =>
+    conflict.mod_ids.some((id) => shownIds.has(id)),
+  );
+  const contestedAssets = here.length;
+  const namesInConflict = mods
+    .filter((mod) => here.some((conflict) => conflict.mod_ids.includes(mod.id)))
+    .map((mod) => mod.display_name);
 
   return (
     <section className="space-y-3">
-      {/* Stacking is allowed but rarely a good idea, so this states the risk once and gets out
-          of the way — no dialog on the toggle, which would nag on every deliberate change. It
-          shows only while more than one is actually on, so it reports a live condition rather
-          than warning about something hypothetical. */}
-      {showConflictWarning !== false && enabledCount > 1 && (
+      {/* Shown only when two enabled mods are genuinely claiming the same asset, read out of
+          their own ini files. This used to appear whenever more than one mod was on and say they
+          "usually conflict", which was a guess: two mods for one character that touch different
+          parts of her do not fight at all, and being told they might teaches you to ignore the
+          notice. Now it only appears when something is actually wrong, and it says what.
+
+          Still a line of text rather than a dialog on the toggle, which would nag on every
+          deliberate change — stacking mods on purpose is a thing people do. */}
+      {showConflictWarning !== false && contestedAssets > 0 && (
         <p className="flex items-start gap-2 border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
           <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0 text-primary" />
           <span>
-            <span className="text-foreground">{enabledCount} mods enabled at once.</span> ZZMI
-            will load them all, but mods that alter the same model usually conflict — expect
-            flickering, wrong textures, or a crash. Turn all but one off if the game misbehaves.
+            <span className="text-foreground">
+              {namesInConflict.join(" and ")} change the same{" "}
+              {contestedAssets === 1 ? "part of the model" : `${contestedAssets} parts of the model`}.
+            </span>{" "}
+            ZZMI loads one of them and silently drops the other, so whichever loses will look like
+            it is not installed. Turn one off to choose which wins.
           </span>
         </p>
       )}

@@ -1,6 +1,7 @@
 mod archive;
 mod characters;
 mod commands;
+mod conflicts;
 mod content_rating;
 mod creator_feed;
 mod db;
@@ -160,6 +161,7 @@ pub fn run() {
             commands::mods::list_mods_for_character,
             commands::mods::list_mod_counts,
             commands::mods::list_all_mods,
+            commands::mods::list_mod_conflicts,
             commands::import::pick_mod_archive,
             commands::import::begin_import,
             commands::import::read_import_preview,
