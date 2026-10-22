@@ -244,7 +244,9 @@ mod tests {
     fn stable_never_points_at_the_rolling_tag() {
         // The whole safety of the arrangement: `releases/latest` is the one address GitHub
         // refuses to resolve to a prerelease.
-        assert!(UpdateChannel::Stable.endpoint().contains("releases/latest/"));
+        assert!(UpdateChannel::Stable
+            .endpoint()
+            .contains("releases/latest/"));
         assert!(UpdateChannel::Nightly.endpoint().contains("/nightly/"));
         assert_ne!(
             UpdateChannel::Stable.endpoint(),

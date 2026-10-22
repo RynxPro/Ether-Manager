@@ -47,6 +47,26 @@ pub struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // One copy at a time, and it has to be registered first — the plugin works by claiming
+        // a lock before anything else starts, so a plugin above it would run in the doomed
+        // second process.
+        //
+        // Not a nicety. Two copies share one SQLite file and one mods folder, and the app
+        // derives whether a mod is enabled from the folder's name on disk. Two instances
+        // renaming folders and writing rows against the same library is a way to end up with a
+        // database describing something that is not there — and the second copy would look
+        // perfectly normal while doing it.
+        //
+        // A second launch raises the window that already exists rather than dying quietly,
+        // because a double-clicked icon that appears to do nothing reads as the app being
+        // broken.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         // Everything the app has to say about itself, written to a file next to the database.
         //
         // This replaces a dozen `eprintln!` calls, which in a release build go to a console that

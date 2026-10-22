@@ -66,11 +66,7 @@ pub fn parse_ini_hashes(text: &str) -> BTreeSet<String> {
             continue;
         }
         // A value can carry a trailing comment; 3DMigoto takes the first token.
-        let value = value
-            .split([';', '#'])
-            .next()
-            .unwrap_or("")
-            .trim();
+        let value = value.split([';', '#']).next().unwrap_or("").trim();
         if value.len() >= 6 && value.chars().all(|c| c.is_ascii_hexdigit()) {
             found.insert(value.to_ascii_lowercase());
         }
@@ -282,7 +278,11 @@ mod tests {
             "hash = ffffffff\n",
         )
         .unwrap();
-        std::fs::write(root.join("DISABLED_RABBITFXBACKUP_x.ini"), "hash = eeeeeeee\n").unwrap();
+        std::fs::write(
+            root.join("DISABLED_RABBITFXBACKUP_x.ini"),
+            "hash = eeeeeeee\n",
+        )
+        .unwrap();
         std::fs::write(root.join("Shouty.INI"), "hash = dddddddd\n").unwrap();
         std::fs::create_dir_all(root.join("DISABLED_variant")).unwrap();
         std::fs::write(root.join("DISABLED_variant/x.ini"), "hash = cccccccc\n").unwrap();

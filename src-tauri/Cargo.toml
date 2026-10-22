@@ -69,5 +69,6 @@ strip = true
 opt-level = 2
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 
