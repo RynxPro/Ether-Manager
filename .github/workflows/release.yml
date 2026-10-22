@@ -29,6 +29,14 @@ on:
   push:
     tags:
       - "v*"
+      # The rolling nightly. Force-moved rather than created fresh each time, so the channel has
+      # an address that never changes:
+      #
+      #   git tag -f nightly && git push -f origin nightly
+      #
+      # Bump the version in tauri.conf.json and package.json above whatever Stable is on first,
+      # or the app will compare the two builds, find the same number, and offer nothing.
+      - "nightly"
 
 jobs:
   windows:
@@ -65,6 +73,16 @@ jobs:
       # gate. Everything else runs: fs_ops, the repos, presets, characters.
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib -- --skip gamebanana
 
+      # tauri-action uploads into whatever release already carries this tag, and the nightly tag
+      # always does. Clearing it first means each nightly is a clean set of artifacts rather than
+      # the new ones landing beside the old.
+      - name: Clear the previous nightly release
+        if: github.ref_name == 'nightly'
+        shell: bash
+        run: gh release delete nightly --yes || echo "no previous nightly to clear"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,7 +90,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: Ether Manager ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name == 'nightly' && 'Ether Manager nightly' || format('Ether Manager {0}', github.ref_name) }}
           releaseBody: ${{ github.event.head_commit.message }}
           # Published rather than drafted: the app polls releases/latest/download/latest.json,
           # and a draft is not "latest" to anyone.
@@ -81,7 +99,7 @@ jobs:
           # signs and still uploads latest.json beside its installer - it simply never becomes
           # the "latest" release, which is the only one the updater ever asks for. That is what
           # makes it safe to publish a build only you will install.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') || github.ref_name == 'nightly' }}
           # uploadUpdaterJson and uploadUpdaterSignatures both default to true, which is what
           # writes latest.json and the .sig beside the installer. Left implicit rather than
           # restated, so they cannot drift out of step with the action's own defaults.

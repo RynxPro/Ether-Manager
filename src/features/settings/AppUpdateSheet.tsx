@@ -1,19 +1,28 @@
 import { AlertTriangle } from "lucide-react";
 import { InstallProgressBar } from "@/components/InstallProgressBar";
-import { useAppUpdate, useAppVersion, useInstallAppUpdate } from "@/lib/useAppUpdate";
-import { exactDate } from "@/lib/time";
+import {
+  useAppUpdate,
+  useAppVersion,
+  useInstallAppUpdate,
+  useSetUpdateChannel,
+  useUpdateChannel,
+} from "@/lib/useAppUpdate";
+import type { UpdateChannel } from "@/lib/tauri-commands";
 import { ERROR_LINE, PRESS, SECTION_COPY, SECTION_TITLE, SHEET } from "./sheet";
 
-/** The update's own date, when the release carried one.
- *
- * Guarded rather than trusted: the field is whatever the manifest put there, and an
- * unparseable string would otherwise render as "Invalid Date" in the one place claiming to
- * report a fact. Nothing is lost by saying nothing. */
-function publishedOn(raw: string | undefined): string | null {
-  if (!raw) return null;
-  const parsed = Date.parse(raw);
-  return Number.isNaN(parsed) ? null : exactDate(parsed / 1000);
-}
+/** What each channel is for, in the user's terms rather than the release process's. */
+const CHANNELS: { value: UpdateChannel; label: string; description: string }[] = [
+  {
+    value: "Stable",
+    label: "Stable",
+    description: "Finished releases. What everyone else is running.",
+  },
+  {
+    value: "Nightly",
+    label: "Nightly",
+    description: "Whatever is being worked on. Expect it to break sometimes.",
+  },
+];
 
 /** What version is running, whether there is a newer one, and the button that takes it.
  *
@@ -25,6 +34,8 @@ export function AppUpdateSheet() {
   const { data: version } = useAppVersion();
   const { data: update, isLoading, isFetching, error, refetch } = useAppUpdate();
   const { install, isInstalling, error: installError, progress, percent } = useInstallAppUpdate();
+  const { data: channel } = useUpdateChannel();
+  const switchChannel = useSetUpdateChannel();
 
   return (
     <section className={`${SHEET} lg:col-span-2`}>
@@ -73,7 +84,7 @@ export function AppUpdateSheet() {
             <button
               type="button"
               className={`${PRESS} bg-primary text-primary-foreground`}
-              onClick={() => install(update)}
+              onClick={() => install()}
             >
               Install {update.version}
             </button>
@@ -93,17 +104,52 @@ export function AppUpdateSheet() {
         </div>
       )}
 
-      {update?.body && (
+      {/* The channel, last in the card because it is the rarely-touched half: most people will
+          never move off Stable, and the ones who do are looking for it. Two plain buttons rather
+          than a switch — a switch would have to imply which side is "on", and neither is. */}
+      <div className="mt-4 border-t border-border/60 pt-4">
+        <h4 className="font-sign text-[16px] uppercase tracking-[0.16em] text-muted-foreground/80">
+          Updates to take
+        </h4>
+        <div role="radiogroup" aria-label="Update channel" className="mt-2 flex flex-wrap gap-2">
+          {CHANNELS.map((option) => {
+            const isCurrent = channel === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={isCurrent}
+                disabled={switchChannel.isPending}
+                onClick={() => switchChannel.mutate(option.value)}
+                className={`${PRESS} ${
+                  isCurrent ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className={SECTION_COPY}>
+          {CHANNELS.find((option) => option.value === channel)?.description ??
+            CHANNELS[0].description}
+          {channel === "Nightly"
+            ? " Switching back to Stable will offer the stable build, even though its number is lower."
+            : ""}
+        </p>
+      </div>
+
+      {update?.notes && (
         <div className="mt-4">
           <h4 className="font-sign text-[16px] uppercase tracking-[0.16em] text-muted-foreground/80">
             What changed
-            {publishedOn(update.date) ? ` — ${publishedOn(update.date)}` : ""}
           </h4>
           {/* Whatever the release notes say, laid out as written and capped in height. This is
               text from a server, so it is rendered as text: line breaks are kept, nothing in it
               is interpreted. */}
           <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-line bg-background p-3 text-[12.5px] leading-relaxed text-foreground shadow-slap">
-            {update.body}
+            {update.notes}
           </p>
         </div>
       )}

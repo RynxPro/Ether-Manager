@@ -104,6 +104,40 @@ export function listAllMods(): Promise<Mod[]> {
   return invoke("list_all_mods");
 }
 
+/** Which releases this install is willing to be offered.
+ *
+ * A string union rather than an enum so it crosses the IPC boundary as the same word Rust
+ * stores in the settings table. */
+export type UpdateChannel = "Stable" | "Nightly";
+
+/** What the chosen channel is offering, when it is offering anything. */
+export interface AppUpdateInfo {
+  version: string;
+  /** The release notes, when the release carried any. */
+  notes: string | null;
+}
+
+export function getUpdateChannel(): Promise<UpdateChannel> {
+  return invoke("get_update_channel");
+}
+
+export function setUpdateChannel(channel: UpdateChannel): Promise<void> {
+  return invoke("set_update_channel", { channel });
+}
+
+/** Asks the chosen channel what it has, or null when it has nothing newer.
+ *
+ * Not the updater plugin's own `check()`: that reads its endpoint from `tauri.conf.json` and
+ * cannot be pointed anywhere else, so it could only ever see the stable channel. */
+export function checkAppUpdate(): Promise<AppUpdateInfo | null> {
+  return invoke("check_app_update");
+}
+
+/** Downloads and installs it. On Windows this never resolves — the installer closes the app. */
+export function installAppUpdate(): Promise<void> {
+  return invoke("install_app_update");
+}
+
 /** One asset that more than one enabled mod claims.
  *
  * Only ever reported within a single character: a hash claimed across characters is shared
