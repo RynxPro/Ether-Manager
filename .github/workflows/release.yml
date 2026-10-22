@@ -3,7 +3,18 @@
 #   npm version 0.1.1 --no-git-tag-version   # then match src-tauri/tauri.conf.json
 #   git commit -am "release: 0.1.1" && git tag v0.1.1 && git push --follow-tags
 #
-# The tag is the only trigger, so ordinary commits cost no CI minutes.
+# The tag is the only trigger, so ordinary commits cost no CI minutes. Pushing a branch builds
+# nothing at all - `testing` is where code lives, not a build channel.
+#
+# A tag carrying a hyphen is published as a prerelease:
+#
+#   v0.2.0          a release. Becomes "latest", so every installed copy is offered it.
+#   v0.2.0-beta.1   a prerelease. Built and signed exactly the same, but GitHub never counts a
+#                   prerelease as "latest" - and the app asks for
+#                   releases/latest/download/latest.json - so no user's updater can see it.
+#                   Download that installer yourself to try a build before committing to it.
+#
+# The hyphen is semver's own marker for a prerelease, which is why it is what gets tested.
 #
 # Two repository secrets must exist before this can produce a usable release, and neither may
 # ever be committed:
@@ -66,7 +77,11 @@ jobs:
           # Published rather than drafted: the app polls releases/latest/download/latest.json,
           # and a draft is not "latest" to anyone.
           releaseDraft: false
-          prerelease: false
+          # True for a tag like v0.2.0-beta.1, false for v0.2.0. A prerelease still builds, still
+          # signs and still uploads latest.json beside its installer - it simply never becomes
+          # the "latest" release, which is the only one the updater ever asks for. That is what
+          # makes it safe to publish a build only you will install.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           # uploadUpdaterJson and uploadUpdaterSignatures both default to true, which is what
           # writes latest.json and the .sig beside the installer. Left implicit rather than
           # restated, so they cannot drift out of step with the action's own defaults.
