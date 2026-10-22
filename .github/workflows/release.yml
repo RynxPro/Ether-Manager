@@ -34,8 +34,8 @@ on:
       #
       #   git tag -f nightly && git push -f origin nightly
       #
-      # Bump the version in tauri.conf.json and package.json above whatever Stable is on first,
-      # or the app will compare the two builds, find the same number, and offer nothing.
+      # Nothing to bump by hand: each nightly numbers itself from the run (see "Number this
+      # nightly" below), so consecutive nightlies differ and the updater can tell them apart.
       - "nightly"
 
 jobs:
@@ -72,6 +72,33 @@ jobs:
       # says anything about this build. They are worth running locally and worthless as a release
       # gate. Everything else runs: fs_ops, the repos, presets, characters.
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib -- --skip gamebanana
+
+      # Each nightly gets its own version, stamped in here rather than committed.
+      #
+      # It has to be the version and not just the release name: the updater decides whether to
+      # offer a build by comparing versions, so two nightlies both calling themselves 0.2.0 would
+      # mean the second one is never offered to anyone running the first.
+      #
+      # Stamped at build time so the repository keeps the plain version a stable tag needs. The
+      # suffix is semver's own prerelease form, which sorts after 0.1.1 and before 0.2.0 - so a
+      # nightly is an upgrade from the last release and the eventual stable is an upgrade from
+      # the nightly, both without anybody doing arithmetic. run_number only ever increases.
+      - name: Number this nightly
+        if: github.ref_name == 'nightly'
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const run = process.env.RUN_NUMBER;
+            for (const file of ['src-tauri/tauri.conf.json', 'package.json']) {
+              const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+              json.version = json.version.split('-')[0] + '-nightly.' + run;
+              fs.writeFileSync(file, JSON.stringify(json, null, 2));
+              console.log(file, '->', json.version);
+            }
+          "
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
 
       # tauri-action uploads into whatever release already carries this tag, and the nightly tag
       # always does. Clearing it first means each nightly is a clean set of artifacts rather than
