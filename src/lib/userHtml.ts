@@ -23,8 +23,37 @@ export const EXTERNAL_HREF_ATTR = "data-external-href";
  *
  * `form` and `base` go too: a form post navigates, and a `<base>` would silently retarget every
  * relative URL on the page. */
+/** What a mod description is allowed to be made of.
+ *
+ * An allowlist rather than a list of things to forbid, which is the safer shape: a tag nobody
+ * thought of is refused by default instead of waved through, and DOMPurify's own defaults
+ * change between versions.
+ *
+ * Drawn from what real descriptions actually contain, not guessed — every tag ten of the most
+ * downloaded ZZZ mods used is here, plus the handful of obvious siblings (the rest of the
+ * headings, table parts, blockquote). Two observed tags are deliberately absent: `iframe`,
+ * because a mod page is not something that gets to embed a document, and showcase videos
+ * already arrive separately through `_aEmbeddedMedia`; and `font`, which only carries colour —
+ * stripping the tag keeps the words. */
+const ALLOWED_TAGS = [
+  "a", "b", "blockquote", "br", "code", "del", "div", "em",
+  "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "li",
+  "ol", "p", "pre", "s", "span", "strong", "sub", "sup",
+  "table", "tbody", "td", "th", "thead", "tr", "u", "ul",
+];
+
+/** `href` survives sanitising only to be taken away below — the step that parks it has to be
+ * able to read it first. GameBanana's editor also litters the markup with `data-path-to-node`
+ * and friends, which `ALLOW_DATA_ATTR: false` drops: they are its own bookkeeping and mean
+ * nothing here. */
+const ALLOWED_ATTR = ["alt", "class", "height", "href", "rel", "src", "target", "title", "width"];
+
 export function sanitizeUserHtml(html: string): string {
-  const clean = DOMPurify.sanitize(html, { FORBID_TAGS: ["form", "base"] });
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+    ALLOW_DATA_ATTR: false,
+  });
   const doc = new DOMParser().parseFromString(clean, "text/html");
 
   for (const anchor of doc.querySelectorAll("a[href]")) {

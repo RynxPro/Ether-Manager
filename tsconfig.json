@@ -23,6 +23,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    /* A function that returns a value on one path and falls off the end on another. Borrowed
+       from the other mod manager's config, which had both of these and we did not. */
+    "noImplicitReturns": true,
+    /* An override that does not say it is one, so a rename in the base silently stops
+       overriding anything. */
+    "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
