@@ -18,3 +18,9 @@ export const SECTION_COPY = "mt-1.5 text-[13px] leading-relaxed text-muted-foreg
 /** Something gone wrong, in the machine's voice because it is the machine reporting. */
 export const ERROR_LINE =
   "mt-3 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-destructive";
+
+/** The press-me button these sheets use: the mods folder's picker, the update's Install, the
+ * log's reveal. Shared once there were three of them — two could each keep their own copy, three
+ * is where copies start disagreeing about a padding. */
+export const PRESS =
+  "inline-flex h-9 shrink-0 items-center px-5 font-sign text-[18px] uppercase tracking-[0.1em] shadow-slap transition-[translate] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";

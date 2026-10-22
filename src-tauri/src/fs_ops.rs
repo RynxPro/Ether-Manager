@@ -530,7 +530,7 @@ const MAX_NORMALIZE_DEPTH: usize = 16;
 pub fn normalize_ini_extensions(dir: &Path) -> usize {
     let renamed = normalize_ini_extensions_at(dir, 0);
     if renamed > 0 {
-        println!(
+        log::info!(
             "renamed {renamed} ini file(s) to a lowercase extension in {} so the game will load them",
             dir.display()
         );

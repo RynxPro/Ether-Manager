@@ -2,13 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import { InstallProgressBar } from "@/components/InstallProgressBar";
 import { useAppUpdate, useAppVersion, useInstallAppUpdate } from "@/lib/useAppUpdate";
 import { exactDate } from "@/lib/time";
-import { ERROR_LINE, SECTION_COPY, SECTION_TITLE, SHEET } from "./sheet";
-
-/** The press-me button, the same one the mods folder uses to open its picker. Repeated rather
- * than shared because there are exactly two of them on this page and a `Button` variant for a
- * pair is a component nobody asked for. */
-const PRESS =
-  "inline-flex h-9 shrink-0 items-center px-5 font-sign text-[18px] uppercase tracking-[0.1em] shadow-slap transition-[translate] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none";
+import { ERROR_LINE, PRESS, SECTION_COPY, SECTION_TITLE, SHEET } from "./sheet";
 
 /** The update's own date, when the release carried one.
  *

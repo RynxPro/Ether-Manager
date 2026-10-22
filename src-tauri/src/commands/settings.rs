@@ -79,7 +79,7 @@ pub fn allow_mods_folder_assets(app: &AppHandle, folder: &str) {
     {
         // Worth saying, not worth refusing to start over: every GameBanana mod's art comes from
         // the network and is unaffected. Only bundled previews fall back to the placeholder.
-        eprintln!("could not grant asset access to the mods folder: {e}");
+        log::warn!("could not grant asset access to the mods folder: {e}");
     }
 }
 

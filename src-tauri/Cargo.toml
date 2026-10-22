@@ -38,6 +38,10 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 tokio = { version = "1", features = ["fs", "sync", "time", "macros"] }
 futures-util = "0.3"
 tauri-plugin-window-state = "2.4.1"
+tauri-plugin-log = "2"
+# The logging facade itself, so modules call `log::warn!` without reaching through the plugin
+# that happens to install a logger. Already in the tree as one of its dependencies.
+log = "0.4"
 
 [dev-dependencies]
 # `net`/`io-util` stand up a deliberately silent HTTP server in-process, which is the only honest

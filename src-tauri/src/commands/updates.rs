@@ -197,7 +197,7 @@ async fn fetch_all_listings(
                 .emit("update-check-progress", UpdateCheckProgress { done, total })
                 .is_err()
             {
-                eprintln!("failed to emit update-check-progress ({done}/{total})");
+                log::warn!("failed to emit update-check-progress ({done}/{total})");
             }
         }
     }

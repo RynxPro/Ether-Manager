@@ -24,6 +24,7 @@ import {
 } from "./hooks";
 import { PageHeader } from "@/components/PageHeader";
 import { AppUpdateSheet } from "./AppUpdateSheet";
+import { LogSheet } from "./LogSheet";
 import { ERROR_LINE, SECTION_COPY, SECTION_TITLE, SHEET } from "./sheet";
 
 /** Shown for the moment before the stored settings arrive. Matches the Rust default so the
@@ -558,6 +559,10 @@ export function SettingsPage() {
         {/* After the settings, because it is not one. Everything above changes how the app
             behaves; this reports on the app itself and offers the one action that replaces it. */}
         <AppUpdateSheet />
+
+        {/* Last, and quietest. Nobody comes to Settings looking for this; they are sent here by
+            someone asking for the file. */}
+        <LogSheet />
       </div>
     </div>
   );

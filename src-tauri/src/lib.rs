@@ -46,6 +46,46 @@ pub struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Everything the app has to say about itself, written to a file next to the database.
+        //
+        // This replaces a dozen `eprintln!` calls, which in a release build go to a console that
+        // does not exist — so until now a bug report arrived with nothing attached to it, and
+        // anything that could not be reproduced on this machine could not be looked into at all.
+        //
+        // The stock defaults are not usable for that: 40 KB per file with one old file kept,
+        // which a single session of downloads scrolls past, losing exactly the beginning anyone
+        // would want to read. Five files of 5 MB is a few sessions of real history and still
+        // nothing anybody will notice on disk.
+        //
+        // Local time rather than the default UTC, because the person reading this file is the
+        // person the timestamps have to line up with: they are matching a line against "it froze
+        // around four o'clock", not against a server.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                // Debug while developing, Info in the shipped build. The noisy half of what the
+                // app knows is worth having at a terminal and is only weight in a user's file.
+                .level(if cfg!(debug_assertions) {
+                    tauri_plugin_log::log::LevelFilter::Debug
+                } else {
+                    tauri_plugin_log::log::LevelFilter::Info
+                })
+                // Dependencies that are chatty at Debug and say nothing a reader of this file
+                // wants. The updater is here for a second reason: at Debug it prints the whole
+                // of `latest.json` on every launch, signature included, which is kilobytes of
+                // one line between every pair of ours.
+                .level_for("reqwest", tauri_plugin_log::log::LevelFilter::Info)
+                .level_for("hyper", tauri_plugin_log::log::LevelFilter::Info)
+                .level_for("hyper_util", tauri_plugin_log::log::LevelFilter::Info)
+                .level_for("rustls", tauri_plugin_log::log::LevelFilter::Info)
+                .level_for(
+                    "tauri_plugin_updater",
+                    tauri_plugin_log::log::LevelFilter::Info,
+                )
+                .max_file_size(5_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         // Remembers window size, position and maximized state between launches — the
@@ -84,7 +124,7 @@ pub fn run() {
             // still staged on disk, they come back as paused, so closing the app mid-download
             // costs a click rather than the megabytes it had already pulled.
             if let Err(e) = db.park_interrupted_downloads() {
-                eprintln!("could not sweep interrupted downloads: {e}");
+                log::warn!("could not sweep interrupted downloads: {e}");
             }
             // Mods installed under an older layout are still where that layout put them, since
             // each row records its own path. Settling them here keeps the library one shape
@@ -96,14 +136,14 @@ pub fn run() {
                     match fs_ops::settle_mod_folders(&db, std::path::Path::new(&folder)) {
                         Ok(0) => {}
                         Ok(moved) => {
-                            println!("moved {moved} mod folder(s) into the current layout")
+                            log::info!("moved {moved} mod folder(s) into the current layout")
                         }
-                        Err(e) => eprintln!("could not settle mod folders: {e}"),
+                        Err(e) => log::warn!("could not settle mod folders: {e}"),
                     }
                     commands::settings::allow_mods_folder_assets(app.handle(), &folder);
                 }
                 Ok(None) => {}
-                Err(e) => eprintln!("could not read the mods folder setting: {e}"),
+                Err(e) => log::warn!("could not read the mods folder setting: {e}"),
             }
             app.manage(AppState {
                 db: Mutex::new(db),

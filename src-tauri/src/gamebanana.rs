@@ -737,7 +737,7 @@ fn parse_mod_records(values: Vec<serde_json::Value>) -> Vec<GbMod> {
             match serde_json::from_value::<GbMod>(v) {
                 Ok(m) => Some(m),
                 Err(e) => {
-                    eprintln!("skipped GameBanana mod record {name:?}: {e}");
+                    log::warn!("skipped GameBanana mod record {name:?}: {e}");
                     None
                 }
             }
@@ -1081,7 +1081,7 @@ impl GameBananaClient {
 
         match fetched {
             Ok(counts) => apply_download_counts(records, &counts),
-            Err(e) => eprintln!("download counts unavailable for this page: {e}"),
+            Err(e) => log::warn!("download counts unavailable for this page: {e}"),
         }
     }
 

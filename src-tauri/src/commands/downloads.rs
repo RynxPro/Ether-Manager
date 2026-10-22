@@ -421,7 +421,7 @@ async fn run_download(app: AppHandle, id: i64) {
         // never reached the end, and without this it would have no validator to resume against.
         if let Ok(db) = db.lock() {
             if let Err(e) = db.set_download_etag(id, etag) {
-                eprintln!("could not record download {id} validator: {e}");
+                log::warn!("could not record download {id} validator: {e}");
             }
         }
     };
@@ -535,7 +535,7 @@ async fn run_download(app: AppHandle, id: i64) {
         if let Ok(db) = state.db.lock() {
             if let Err(e) = db.set_download_progress(id, downloaded as i64, total.map(|t| t as i64))
             {
-                eprintln!("could not record download {id} byte counts: {e}");
+                log::warn!("could not record download {id} byte counts: {e}");
             }
         }
     }
@@ -584,7 +584,7 @@ fn set_status(
         // A failed status write is worth a log line and nothing more: the download itself already
         // happened, and there is no caller waiting on this to fail at.
         if let Err(e) = db.set_download_status(id, status, error) {
-            eprintln!("could not record download {id} as {}: {e}", status.as_str());
+            log::warn!("could not record download {id} as {}: {e}", status.as_str());
         }
     }
     notify_changed(app);
