@@ -77,16 +77,22 @@ export function AppUpdateSheet() {
               : error
                 ? "Could not reach the release server."
                 : update
-                  ? `Version ${update.version} is ready to install.`
-                  : "No newer release. This is the current build."}
+                  ? update.is_downgrade
+                    ? `This channel is on ${update.version}, behind the ${version ?? "build"} you are running. Installing it would take you back.`
+                    : `Version ${update.version} is ready to install.`
+                  : "Nothing newer on this channel. This is the current build."}
           </p>
           {update && (
             <button
               type="button"
-              className={`${PRESS} bg-primary text-primary-foreground`}
+              className={`${PRESS} ${
+                update.is_downgrade
+                  ? "bg-background text-foreground"
+                  : "bg-primary text-primary-foreground"
+              }`}
               onClick={() => install()}
             >
-              Install {update.version}
+              {update.is_downgrade ? `Go back to ${update.version}` : `Install ${update.version}`}
             </button>
           )}
           {/* Offered in every state, including the one where an update is waiting: a check that

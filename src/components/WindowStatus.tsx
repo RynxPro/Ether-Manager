@@ -133,10 +133,13 @@ export function WindowStatus({ trailing, onOpenSettings }: WindowStatusProps) {
       <span className="tabular-nums">{version ? `v${version}` : ""}</span>
 
       {/* Only ever rendered when there is genuinely something newer, so its presence is the
-          whole message — there is no "up to date" state of this badge to read past. Filled with
+          whole message — there is no "up to date" state of this badge to read past. A channel
+          offering something *older* is deliberately not badged: that is the way back from
+          Nightly, it is not news, and announcing it up here told someone who had just installed
+          0.2.0 that 0.1.1 was waiting for them. Filled with
           the accent because that is what the app uses for the live thing on screen, and this is
           the one reading in the row that is asking rather than telling. */}
-      {update && onOpenSettings && (
+      {update && !update.is_downgrade && onOpenSettings && (
         <button
           type="button"
           onClick={onOpenSettings}

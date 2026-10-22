@@ -115,6 +115,9 @@ export interface AppUpdateInfo {
   version: string;
   /** The release notes, when the release carried any. */
   notes: string | null;
+  /** True when the channel is offering something older than what is running — which is how
+   * leaving Nightly works, and is not an update. Never badge it as one. */
+  is_downgrade: boolean;
 }
 
 export function getUpdateChannel(): Promise<UpdateChannel> {

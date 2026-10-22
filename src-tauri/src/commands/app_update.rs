@@ -59,11 +59,40 @@ impl UpdateChannel {
 
 const CHANNEL_SETTING: &str = "update_channel";
 
+/// Whether `offered` is an earlier release than `running`.
+///
+/// Compared field by field rather than as strings, because "0.10.0" sorts before "0.9.0" as
+/// text. Anything that will not parse is reported as not-older: the honest default when the
+/// comparison cannot be made is to describe the offer plainly rather than to label it a
+/// downgrade on a guess.
+fn is_older(offered: &str, running: &str) -> bool {
+    let parts = |v: &str| -> Option<(u64, u64, u64)> {
+        let mut bits = v.split('-').next()?.split('.');
+        Some((
+            bits.next()?.parse().ok()?,
+            bits.next()?.parse().ok()?,
+            bits.next().unwrap_or("0").parse().ok()?,
+        ))
+    };
+    match (parts(offered), parts(running)) {
+        (Some(a), Some(b)) => a < b,
+        _ => false,
+    }
+}
+
 /// What the channel is offering, for the card in Settings to describe.
 #[derive(Debug, Clone, Serialize)]
 pub struct AppUpdateInfo {
     pub version: String,
     pub notes: Option<String>,
+    /// True when the channel is offering something *older* than what is running.
+    ///
+    /// This is not a failure and not a mistake — it is how leaving the nightly channel works,
+    /// since stable's number is behind. But it is emphatically not an update, and calling it
+    /// one was a real bug: a fresh install of a nightly build starts on the Stable channel,
+    /// found 0.1.1 next to its own 0.2.0, and announced an update to the older build. The
+    /// caller needs to tell the two apart to describe either honestly.
+    pub is_downgrade: bool,
 }
 
 /// Progress of the download, for the bar. Mirrors the mod installer's shape so the same
@@ -126,6 +155,7 @@ pub async fn check_app_update(
         .await
         .map_err(|e| e.to_string())?;
     Ok(found.map(|update| AppUpdateInfo {
+        is_downgrade: is_older(&update.version, &update.current_version),
         version: update.version,
         notes: update.body,
     }))
@@ -186,6 +216,28 @@ mod tests {
         for channel in [UpdateChannel::Stable, UpdateChannel::Nightly] {
             assert_eq!(UpdateChannel::from_stored(channel.as_str()), channel);
         }
+    }
+
+    #[test]
+    fn going_back_to_stable_is_recognised_as_going_back() {
+        // The case that shipped wrong: a nightly 0.2.0 install sitting on the Stable channel,
+        // which offers 0.1.1. Real, installable, and not an update.
+        assert!(is_older("0.1.1", "0.2.0"));
+        assert!(!is_older("0.2.0", "0.1.1"));
+        assert!(!is_older("0.2.0", "0.2.0"));
+    }
+
+    #[test]
+    fn versions_are_compared_as_numbers_not_text() {
+        // "0.10.0" sorts before "0.9.0" as a string, which would call an upgrade a downgrade.
+        assert!(!is_older("0.10.0", "0.9.0"));
+        assert!(is_older("0.9.0", "0.10.0"));
+    }
+
+    #[test]
+    fn an_unparseable_version_is_not_called_a_downgrade() {
+        assert!(!is_older("not-a-version", "0.2.0"));
+        assert!(!is_older("0.2.0", "whatever"));
     }
 
     #[test]
