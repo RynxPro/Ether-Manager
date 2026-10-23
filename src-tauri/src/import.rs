@@ -237,12 +237,35 @@ fn prettify_folder_name(folder: &str) -> String {
 pub fn guess_character_id(hints: &[String]) -> Option<String> {
     let seen: HashSet<String> = hints.iter().flat_map(|hint| name_tokens(hint)).collect();
 
+    // Whole words first. `split_words` already breaks camelCase, so `EllenJoe_v2` arrives as
+    // three tokens and matches without any of the below.
+    best_character(&seen, |token, word| token == word)
+        // Only if nothing matched outright: a character's name appearing *inside* one of the
+        // words. `split_words` has nothing to break on in `ellenjoe_swimsuit` or `NICOLEDEMARA`,
+        // so those arrive as one long token and the exact pass sees nothing at all — which is
+        // the case this is for, and it is a common way for folders to be named.
+        //
+        // Deliberately not edit distance, which is what the other manager uses. A name is
+        // either spelled right or it is not, and mod authors spell the character right far more
+        // often than they typo it; accepting near-misses would buy very little and would start
+        // confusing names that genuinely differ by a letter. Containment only ever fires on a
+        // name that is actually present, which keeps faith with the rule below.
+        .or_else(|| best_character(&seen, |token, word| word.contains(token)))
+}
+
+/// The character whose name tokens best match, by a caller-supplied notion of "match".
+///
+/// Ranked by how many of its tokens matched, then by the longest one, so a two-word name beats
+/// a one-word name and `Alexandrina` beats `Anby`. A tie returns nothing: a wrong guess files a
+/// mod somewhere the user will not look, and the confirmation step is where that would have
+/// been caught.
+fn best_character(seen: &HashSet<String>, matches: impl Fn(&str, &str) -> bool) -> Option<String> {
     let mut scored: Vec<(usize, usize, &str)> = Vec::new();
     for character in all_characters() {
         let mut matched = 0usize;
         let mut longest = 0usize;
         for token in name_tokens(&character.name) {
-            if token.len() >= MIN_NAME_TOKEN && seen.contains(&token) {
+            if token.len() >= MIN_NAME_TOKEN && seen.iter().any(|word| matches(&token, word)) {
                 matched += 1;
                 longest = longest.max(token.len());
             }
@@ -462,6 +485,38 @@ mod tests {
             guess_character_id(&["Nicole Demara pack".to_string()]),
             Some("nicole-demara".to_string())
         );
+    }
+
+    #[test]
+    fn a_name_run_together_is_still_recognised() {
+        // `split_words` has a hump to break on in `EllenJoe` and nothing at all in these, so
+        // the whole-word pass sees one long token and matches nothing. This is the gap the
+        // containment pass exists for, and it is a common way to name a folder.
+        assert_eq!(
+            guess_character_id(&["ellenjoe_swimsuit".to_string()]),
+            Some("ellen-joe".to_string())
+        );
+        assert_eq!(
+            guess_character_id(&["NICOLEDEMARA_v3".to_string()]),
+            Some("nicole-demara".to_string())
+        );
+    }
+
+    #[test]
+    fn a_whole_word_match_still_wins_over_a_fragment() {
+        // The containment pass only runs when the exact pass found nothing, so adding it
+        // cannot change an answer that already worked.
+        assert_eq!(
+            guess_character_id(&["Ellen Joe winter".to_string()]),
+            Some("ellen-joe".to_string())
+        );
+    }
+
+    #[test]
+    fn containment_does_not_invent_a_character_out_of_a_fragment() {
+        // Short fragments are what would make this reckless; MIN_NAME_TOKEN keeps it honest.
+        assert_eq!(guess_character_id(&["grandbluefantasy".to_string()]), None);
+        assert_eq!(guess_character_id(&["my_cool_mod_v2".to_string()]), None);
     }
 
     #[test]
