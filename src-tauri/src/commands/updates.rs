@@ -388,15 +388,40 @@ fn collect_ini_keepsakes(
     }
 }
 
-/// Writes the old inis back beside the new ones, under the name XXMI itself uses for this.
+/// Writes the old inis back beside the new ones, keeping one copy per file.
 ///
-/// `DISABLED_BACKUP_<unixtime>.<original name>` is not invented here — it is the spelling XXMI
-/// leaves behind when it edits a mod's ini, which means 3DMigoto skips it (`exclude_recursive =
-/// DISABLED*`), the import scanner already knows not to treat it as a second mod, and anyone who
-/// has used XXMI for a while already recognises the file.
+/// The `DISABLED` prefix is the game's own rule — `d3dx.ini` carries `exclude_recursive =
+/// DISABLED*` — so none of these are ever loaded, and `is_mod_ini` refuses them for the same
+/// reason. The rest of the name is ours on purpose. XXMI writes `DISABLED_BACKUP_<unixtime>.…`
+/// beside any ini it edits, and borrowing that exact spelling would leave no way to tell its
+/// copies from ours — which matters here, because the previous copy is deleted before a new one
+/// is written and deleting another tool's safety net is not ours to do.
+///
+/// One copy, not a pile. Every reinstall used to add another, so a mod updated through the year
+/// collected a year of them.
 ///
 /// Failures are ignored on purpose. The mod has been installed by this point; refusing to finish
 /// because a courtesy copy could not be written would turn a successful update into an error.
+/// Ours, and distinguishable from XXMI's `DISABLED_BACKUP_` so cleanup can never reach its files.
+const OUR_BACKUP_PREFIX: &str = "DISABLED_ETHERBACKUP_";
+
+/// Removes the copies this app made of one ini on earlier reinstalls.
+///
+/// Matched on our own prefix and the original file name, so a backup of `Nicole.ini` never
+/// removes one of `Body.ini`, and nothing another tool wrote is touched at all.
+fn discard_our_older_copies(dir: &std::path::Path, original: &str) {
+    let suffix = format!(".{original}");
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with(OUR_BACKUP_PREFIX) && name.ends_with(&suffix) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
 fn restore_ini_keepsakes(dir: &std::path::Path, keepsakes: &[(std::path::PathBuf, String)]) {
     if keepsakes.is_empty() {
         return;
@@ -416,8 +441,9 @@ fn restore_ini_keepsakes(dir: &std::path::Path, keepsakes: &[(std::path::PathBuf
         if std::fs::create_dir_all(&target_dir).is_err() {
             continue;
         }
+        discard_our_older_copies(&target_dir, name);
         let _ = std::fs::write(
-            target_dir.join(format!("DISABLED_BACKUP_{stamp}.{name}")),
+            target_dir.join(format!("{OUR_BACKUP_PREFIX}{stamp}.{name}")),
             text,
         );
     }
@@ -628,7 +654,7 @@ mod tests {
 
         let backups: Vec<String> = walk_names(&root)
             .into_iter()
-            .filter(|n| n.starts_with("DISABLED_BACKUP_"))
+            .filter(|n| n.starts_with(OUR_BACKUP_PREFIX))
             .collect();
         assert_eq!(backups.len(), 2, "one backup per ini, got {backups:?}");
         let restored: Vec<String> = backups
@@ -645,13 +671,52 @@ mod tests {
     }
 
     #[test]
-    fn backups_do_not_accumulate_across_reinstalls() {
-        // The failure this guards: if a backup counted as an ini, every reinstall would copy
-        // the last one too and the folder would double each time.
+    fn backups_are_not_themselves_backed_up() {
+        // If a backup counted as an ini, every reinstall would copy the last one too and the
+        // folder would double each time.
         let root = keepsake_dir("accumulate");
         std::fs::write(root.join("Nicole.ini"), "key = VK_F3").unwrap();
-        std::fs::write(root.join("DISABLED_BACKUP_1749653424.Nicole.ini"), "old").unwrap();
+        std::fs::write(root.join("DISABLED_BACKUP_1749653424.Nicole.ini"), "xxmi").unwrap();
+        std::fs::write(
+            root.join("DISABLED_ETHERBACKUP_1749653424.Nicole.ini"),
+            "ours",
+        )
+        .unwrap();
         assert_eq!(ini_keepsakes(&root).len(), 1);
+    }
+
+    #[test]
+    fn only_the_newest_copy_is_kept_and_only_ours_is_removed() {
+        let root = keepsake_dir("one-copy");
+        std::fs::write(root.join("Nicole.ini"), "second version").unwrap();
+        // What an earlier reinstall of ours left, and what XXMI left. Only the first is ours
+        // to clear away.
+        std::fs::write(root.join("DISABLED_ETHERBACKUP_1000.Nicole.ini"), "ours, old").unwrap();
+        std::fs::write(root.join("DISABLED_BACKUP_1000.Nicole.ini"), "xxmi, not ours").unwrap();
+        // A backup of a different file must survive: the match is per original name.
+        std::fs::write(root.join("DISABLED_ETHERBACKUP_1000.Body.ini"), "other file").unwrap();
+
+        restore_ini_keepsakes(
+            &root,
+            &[(std::path::PathBuf::from("Nicole.ini"), "first version".to_string())],
+        );
+
+        let ours: Vec<String> = walk_names(&root)
+            .into_iter()
+            .filter(|n| n.starts_with(OUR_BACKUP_PREFIX) && n.ends_with(".Nicole.ini"))
+            .collect();
+        assert_eq!(ours.len(), 1, "exactly one copy of Nicole.ini, got {ours:?}");
+        assert_eq!(find_and_read(&root, &ours[0]), "first version");
+
+        let names = walk_names(&root);
+        assert!(
+            names.contains(&"DISABLED_BACKUP_1000.Nicole.ini".to_string()),
+            "another tool's backup must be left alone"
+        );
+        assert!(
+            names.contains(&"DISABLED_ETHERBACKUP_1000.Body.ini".to_string()),
+            "our backup of a different file must survive"
+        );
     }
 
     fn walk_names(dir: &std::path::Path) -> Vec<String> {

@@ -84,7 +84,20 @@ function useModMutationInvalidation() {
  * mod's folder either way, so asking per character would do the same work several times over
  * and still have to compare across the results. */
 export function useModConflicts() {
-  return useQuery({ queryKey: ["modConflicts"], queryFn: listModConflicts });
+  return useQuery({
+    queryKey: ["modConflicts"],
+    queryFn: listModConflicts,
+    // This walks every enabled mod's folder, and it is mounted by both the library grid and
+    // each character page — so without a window on it, every move between the two re-read the
+    // disk from scratch. Invisible at a dozen mods and wasteful at three hundred.
+    //
+    // Thirty seconds rather than `Infinity`, even though the mutations below already invalidate
+    // this whenever the app changes anything. The app is not the only thing that moves these
+    // folders: XXMI renames them every time the game launches, which changes which mods are
+    // enabled and therefore which ones are fighting. A window keeps that from going unnoticed
+    // until the next toggle, while still collapsing a burst of navigation into one scan.
+    staleTime: 30_000,
+  });
 }
 
 export function useToggleMod() {

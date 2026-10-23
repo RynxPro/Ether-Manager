@@ -76,9 +76,13 @@ pub fn is_mod_ini(file_name: &str) -> bool {
     let lower = file_name.to_lowercase();
     lower.ends_with(".ini")
         && lower != "desktop.ini"
-        // XXMI writes one of these beside a mod's ini whenever it edits one. Treating it as a
-        // mod would turn every previously-managed folder into two.
-        && !lower.starts_with("disabled_backup_")
+        // Anything wearing the DISABLED prefix, which is the game's own rule rather than one
+        // tool's filename: `d3dx.ini` carries `exclude_recursive = DISABLED*`, so none of these
+        // are loaded and none of them describes a mod. It covers the backups XXMI leaves beside
+        // an ini it has edited, the ones this app leaves before replacing a folder, and
+        // whatever the next tool invents. Treating any of them as a mod would turn one managed
+        // folder into two.
+        && !lower.starts_with("disabled")
 }
 
 /// The directories in `root` that are mods, shallowest first.
@@ -394,6 +398,10 @@ mod tests {
         assert!(is_mod_ini("Nicole.ini"));
         assert!(is_mod_ini("NicoleBH.INI"));
         assert!(!is_mod_ini("desktop.ini"));
+        assert!(
+            !is_mod_ini("DISABLED_ETHERBACKUP_1758754490.Nicole.ini"),
+            "our own pre-reinstall copy is not a second mod either"
+        );
         assert!(
             !is_mod_ini("DISABLED_BACKUP_1758754490.Nicole.ini"),
             "XXMI's own backup would otherwise double every managed folder"
