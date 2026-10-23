@@ -10,6 +10,7 @@ import {
   getFeaturedMods,
   getGamebananaModDetail,
   getModPosts,
+  getPostReplies,
   listBookmarks,
   listCreatorBookmarks,
   type ModSort,
@@ -130,6 +131,20 @@ export function useModPosts(modId: number, enabled: boolean) {
     queryFn: ({ pageParam }) => getModPosts(modId, pageParam),
     initialPageParam: 1,
     getNextPageParam: (last, pages) => (last.is_complete ? undefined : pages.length + 1),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** The replies under one comment, fetched the first time the thread is opened.
+ *
+ * `enabled` is what keeps this affordable: a page of comments with replies under several of
+ * them would otherwise be a handful of requests for threads nobody unfolded. Once fetched it
+ * stays cached, so closing and reopening a thread costs nothing. */
+export function usePostReplies(postId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ["gbPostReplies", postId],
+    queryFn: () => getPostReplies(postId),
     enabled,
     staleTime: 5 * 60 * 1000,
   });

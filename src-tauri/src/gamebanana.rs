@@ -22,6 +22,15 @@ pub const ZZZ_GAME_ID: i64 = 19567;
 /// it halves the paging.
 const MOD_INDEX_PAGE_SIZE: u32 = 30;
 
+/// How many replies to a comment are asked for at once.
+///
+/// One page and no paging control, deliberately. A thread under a mod comment is a handful of
+/// messages, not a forum: the busiest one found across the mods this was built against had
+/// five. Fifty is far past anything real, so the request that opens a thread is also the last
+/// one — and a thread long enough to be cut off is a thread worth reading on GameBanana, which
+/// is where the link already goes.
+const POST_PAGE_SIZE: u32 = 50;
+
 /// API calls (search/detail) are small JSON responses and should always be fast — bounded
 /// tightly so a stalled connection surfaces as a real error instead of hanging the UI.
 const API_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -1272,6 +1281,40 @@ impl GameBananaClient {
         })
     }
 
+    /// The replies hanging off one comment.
+    ///
+    /// Fetched only when somebody asks for a particular thread, which is what makes it
+    /// affordable. A mod page carries fifteen comments and several of them have replies, so
+    /// pulling every thread with the page would multiply one request into a handful for
+    /// material most readers never open. Asked for one at a time, it is one request for the
+    /// thread somebody actually wants — and the replies are where the useful part of a comments
+    /// section usually is, since "does this work" is answered in them rather than in the
+    /// question.
+    ///
+    /// Same envelope and same record shape as `get_mod_posts`, so the whole page's worth of
+    /// parsing and rendering is reused. A reply with no poster is dropped: GameBanana returns
+    /// deleted ones as records with nothing in them, and an empty bubble with no name on it is
+    /// worse than one fewer reply.
+    pub async fn get_post_replies(&self, post_id: i64) -> Result<Vec<GbPost>, GameBananaError> {
+        let url = format!("{BASE_URL}/Post/{post_id}/Posts?_nPage=1&_nPerpage={POST_PAGE_SIZE}");
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        let raw = parse_list_response(&body)?;
+        Ok(raw
+            .records
+            .into_iter()
+            .filter_map(|record| serde_json::from_value::<GbPost>(record).ok())
+            .collect())
+    }
+
     /// One page of the newest ZZZ submissions, most recently added first.
     ///
     /// This is how the notification bell finds new work by the creators you follow, and it is
@@ -2121,6 +2164,30 @@ mod tests {
             detail.is_mature, detail.is_nsfw,
             "is_mature is derived from _bIsNsfw and cannot differ from it",
         );
+    }
+
+    #[tokio::test]
+    async fn replies_come_back_with_a_poster_and_their_words() {
+        // A real comment on a real mod that has replies. If GameBanana ever changes the shape
+        // of a nested post this is what notices — the records arrive through the same envelope
+        // as a mod's own comments, and that is the assumption the whole feature rests on.
+        let client = GameBananaClient::new();
+        let posts = client.get_mod_posts(537466, 1).await.unwrap();
+        let with_replies = posts
+            .records
+            .iter()
+            .find(|post| post.reply_count > 0)
+            .expect("the fixture mod has at least one comment with replies");
+
+        let replies = client.get_post_replies(with_replies.id).await.unwrap();
+        assert!(
+            !replies.is_empty(),
+            "a comment reporting {} replies returned none",
+            with_replies.reply_count
+        );
+        let first = &replies[0];
+        assert!(!first.poster.name.is_empty(), "a reply names who wrote it");
+        assert!(first.date_added > 0, "a reply carries when it was written");
     }
 
     #[tokio::test]

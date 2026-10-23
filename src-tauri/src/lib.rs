@@ -216,6 +216,7 @@ pub fn run() {
             commands::gamebanana::get_featured_mods,
             commands::gamebanana::get_gamebanana_mod_detail,
             commands::gamebanana::get_mod_posts,
+            commands::gamebanana::get_post_replies,
             commands::gamebanana::get_creator_profile,
             commands::gamebanana::get_creator_mods,
             commands::gamebanana::list_bookmarks,

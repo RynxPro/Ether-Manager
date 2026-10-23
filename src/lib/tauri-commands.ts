@@ -593,6 +593,13 @@ export function searchGamebananaMods(
   return invoke("search_gamebanana_mods", { query, categoryId, sort, page });
 }
 
+/** The replies under one comment.
+ *
+ * One request per thread, which is why it is asked for only when a reader opens one. */
+export function getPostReplies(postId: number): Promise<GbPost[]> {
+  return invoke("get_post_replies", { postId });
+}
+
 export function getGamebananaModDetail(modId: number): Promise<GbModDetail> {
   return invoke("get_gamebanana_mod_detail", { modId });
 }

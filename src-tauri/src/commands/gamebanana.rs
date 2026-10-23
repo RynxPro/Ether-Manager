@@ -13,7 +13,8 @@ use crate::db::{
     Bookmark, CreatorBookmark, Db, Mod, NewBookmark, NewCreatorBookmark, NewMod, Slot,
 };
 use crate::gamebanana::{
-    GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail, GbPostPage,
+    GameBananaClient, GameBananaError, GbCreator, GbFeaturedMod, GbFile, GbModDetail, GbPost,
+    GbPostPage,
     GbSearchResult, ModSort, ResumePoint,
 };
 use crate::{archive, fs_ops, AppState};
@@ -198,6 +199,22 @@ pub async fn get_mod_posts(
     state
         .gamebanana
         .get_mod_posts(mod_id, page)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The replies under one comment.
+///
+/// Its own command rather than part of the page above, because it is asked for one thread at a
+/// time when a reader opens it. Same absence of mature filtering, for the same reason: words.
+#[tauri::command]
+pub async fn get_post_replies(
+    state: State<'_, AppState>,
+    post_id: i64,
+) -> Result<Vec<GbPost>, String> {
+    state
+        .gamebanana
+        .get_post_replies(post_id)
         .await
         .map_err(|e| e.to_string())
 }
