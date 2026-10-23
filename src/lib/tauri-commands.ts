@@ -77,6 +77,15 @@ export interface Mod {
   updated_at: number;
 }
 
+/** Asks GameBanana who the characters are now and remembers anyone the bundled roster has
+ * never heard of. Resolves to how many were new.
+ *
+ * Nothing waits on this: the roster already on disk is what the library draws. This only
+ * decides whether the next read of it is longer. */
+export function refreshCharacters(): Promise<number> {
+  return invoke("refresh_characters");
+}
+
 export function listCharacters(): Promise<Character[]> {
   return invoke("list_characters");
 }

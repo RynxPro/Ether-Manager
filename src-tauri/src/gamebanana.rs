@@ -12,6 +12,10 @@ const BASE_URL: &str = "https://gamebanana.com/apiv11";
 /// `gamebanana-api-v11`). ZZZ is currently the only supported game.
 pub const ZZZ_GAME_ID: i64 = 19567;
 
+/// GameBanana's parent category for ZZZ characters. Every character is a child of it, which is
+/// what makes the roster something that can be asked for rather than shipped.
+const ZZZ_CHARACTER_CATEGORY_ID: i64 = 30305;
+
 /// GameBanana's `Mod/Index` defaults to 5 records per page (confirmed live) — too few for a
 /// browse grid.
 ///
@@ -1315,6 +1319,41 @@ impl GameBananaClient {
             .collect())
     }
 
+    /// Who GameBanana currently lists as a ZZZ character.
+    ///
+    /// The roster bundled with the app goes stale the moment a character is released — four of
+    /// them were already missing when this was written — and the only fix for a bundled list is
+    /// a new release of the app. GameBanana maintains the same list as categories, updates it
+    /// when a character arrives, and will answer for it in one request.
+    ///
+    /// Returned as plain id/name pairs rather than the category record, because that is all the
+    /// roster needs. `_bShowEmpty=true` matters: a character released this week has no mods yet
+    /// and would otherwise be left out at exactly the moment somebody goes looking for one.
+    pub async fn get_character_categories(&self) -> Result<Vec<(i64, String)>, GameBananaError> {
+        let url = format!(
+            "{BASE_URL}/Mod/Categories?_idCategoryRow={ZZZ_CHARACTER_CATEGORY_ID}&_sSort=a_to_z&_bShowEmpty=true"
+        );
+        let body = self
+            .http
+            .get(&url)
+            .timeout(API_REQUEST_TIMEOUT)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        // This endpoint answers with a bare array rather than the `_aRecords` envelope the
+        // listing endpoints use, so it is parsed directly.
+        let categories: Vec<GbCategoryDetail> = serde_json::from_str(&body).map_err(|_| {
+            GameBananaError::UnexpectedResponse(body.chars().take(500).collect())
+        })?;
+        Ok(categories
+            .into_iter()
+            .map(|category| (category.id, category.name))
+            .collect())
+    }
+
     /// One page of the newest ZZZ submissions, most recently added first.
     ///
     /// This is how the notification bell finds new work by the creators you follow, and it is
@@ -2163,6 +2202,32 @@ mod tests {
         assert_eq!(
             detail.is_mature, detail.is_nsfw,
             "is_mature is derived from _bIsNsfw and cannot differ from it",
+        );
+    }
+
+    #[tokio::test]
+    async fn gamebanana_still_lists_the_whole_character_roster() {
+        // The assumption the live roster rests on: this category holds the characters, it holds
+        // at least everyone the bundled file knows about, and it answers as a bare array rather
+        // than the `_aRecords` envelope. If GameBanana reorganises its categories, this is what
+        // says so — rather than sixty characters quietly vanishing from the library.
+        let client = GameBananaClient::new();
+        let listed = client.get_character_categories().await.unwrap();
+        assert!(
+            listed.len() >= 60,
+            "expected at least the bundled roster, got {}",
+            listed.len()
+        );
+
+        let listed_ids: std::collections::HashSet<i64> = listed.iter().map(|(id, _)| *id).collect();
+        let missing: Vec<&str> = crate::characters::all_characters()
+            .iter()
+            .filter(|c| c.gamebanana_category_id.is_some_and(|id| !listed_ids.contains(&id)))
+            .map(|c| c.name.as_str())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "bundled characters GameBanana no longer lists: {missing:?}"
         );
     }
 

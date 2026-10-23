@@ -87,6 +87,72 @@ pub fn pseudo_categories() -> Vec<Character> {
     ]
 }
 
+/// Turns a character's name into the id its art is filed under.
+///
+/// This has to reproduce the ids already in `zzz_characters.json` exactly, because those are
+/// what `public/characters/<id>.webp` and `public/banners/<id>.webp` are named. Get it wrong
+/// and the art stops resolving with no error at all — the card falls back to the initial, which
+/// is a real designed state, so it looks like a deliberate choice rather than a bug.
+///
+/// Apostrophes are dropped rather than treated as a separator, which is the one rule the
+/// obvious implementation gets wrong: `Sigrid de L'Azur` is filed as `sigrid-de-lazur`, not
+/// `sigrid-de-l-azur`. Hers is the only name in sixty that distinguishes the two, and the only
+/// one anybody would think to check afterwards.
+pub fn slugify_character_name(name: &str) -> String {
+    // Straight and curly, by code point rather than by escape, so the two are visibly the same
+    // decision rather than two lookalike literals.
+    fn is_apostrophe(c: char) -> bool {
+        matches!(c as u32, 0x27 | 0x2019)
+    }
+
+    let mut slug = String::with_capacity(name.len());
+    let mut pending_separator = false;
+    for ch in name.chars().filter(|c| !is_apostrophe(*c)) {
+        if ch.is_ascii_alphanumeric() {
+            if pending_separator && !slug.is_empty() {
+                slug.push('-');
+            }
+            pending_separator = false;
+            slug.push(ch.to_ascii_lowercase());
+        } else {
+            pending_separator = true;
+        }
+    }
+    slug
+}
+
+/// The bundled roster, plus anyone GameBanana lists that it has never heard of.
+///
+/// Matched on `gamebanana_category_id` rather than on the name, because that id is what every
+/// bundled entry already carries and what the rest of the app joins on — all sixty were
+/// confirmed present in GameBanana's live list, so the join has no orphans. Matching on the
+/// name would break the first time somebody is renamed.
+///
+/// A discovered character arrives with no portrait and no banner, which is not a problem that
+/// needs solving: seven of the bundled sixty have no portrait either, and the card has drawn
+/// their initial since long before this existed. Appearing without art beats not appearing.
+pub fn merge_discovered(bundled: &[Character], listed: &[(i64, String)]) -> Vec<Character> {
+    let known: std::collections::HashSet<i64> = bundled
+        .iter()
+        .filter_map(|c| c.gamebanana_category_id)
+        .collect();
+
+    let mut merged = bundled.to_vec();
+    for (category_id, name) in listed {
+        if known.contains(category_id) {
+            continue;
+        }
+        merged.push(Character {
+            id: slugify_character_name(name),
+            name: name.clone(),
+            portrait: None,
+            banner: None,
+            gamebanana_category_id: Some(*category_id),
+        });
+    }
+    merged
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -168,6 +234,63 @@ mod tests {
             missing.is_empty(),
             "characters missing a gamebanana_category_id: {missing:?}"
         );
+    }
+
+    #[test]
+    fn every_bundled_id_is_what_its_name_slugifies_to() {
+        // The art is filed under the id, so this is the rule that has to keep producing the
+        // filenames already on disk. The whole roster rather than a sample: one name that slugs
+        // differently is one character whose portrait silently stops loading.
+        for character in all_characters() {
+            assert_eq!(
+                slugify_character_name(&character.name),
+                character.id,
+                "{} does not slug to its own id",
+                character.name
+            );
+        }
+    }
+
+    #[test]
+    fn an_apostrophe_is_dropped_rather_than_separated() {
+        // The one name in the roster that tells a correct rule from a plausible one.
+        assert_eq!(slugify_character_name("Sigrid de L'Azur"), "sigrid-de-lazur");
+        assert_eq!(slugify_character_name("Sigrid de L’Azur"), "sigrid-de-lazur");
+    }
+
+    #[test]
+    fn a_character_gamebanana_lists_and_we_do_not_is_added_without_art() {
+        let bundled = all_characters();
+        let before = bundled.len();
+        let listed = vec![
+            (49001_i64, "Claret Flint".to_string()),
+            // Already in the roster under this id, so it must not arrive a second time.
+            (
+                bundled[0].gamebanana_category_id.unwrap(),
+                bundled[0].name.clone(),
+            ),
+        ];
+
+        let merged = merge_discovered(bundled, &listed);
+        assert_eq!(merged.len(), before + 1, "exactly one of them was new");
+
+        let added = merged.last().unwrap();
+        assert_eq!(added.id, "claret-flint");
+        assert_eq!(added.gamebanana_category_id, Some(49001));
+        assert!(
+            added.portrait.is_none() && added.banner.is_none(),
+            "nobody has art for a character the app has never seen"
+        );
+    }
+
+    #[test]
+    fn nothing_is_added_when_gamebanana_lists_only_who_we_have() {
+        let bundled = all_characters();
+        let listed: Vec<(i64, String)> = bundled
+            .iter()
+            .map(|c| (c.gamebanana_category_id.unwrap(), c.name.clone()))
+            .collect();
+        assert_eq!(merge_discovered(bundled, &listed).len(), bundled.len());
     }
 
     #[test]

@@ -178,6 +178,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::characters::list_characters,
+            commands::characters::refresh_characters,
             commands::mods::list_mods_for_character,
             commands::mods::list_mod_counts,
             commands::app_update::check_app_update,

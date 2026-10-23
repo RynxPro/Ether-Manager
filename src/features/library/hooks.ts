@@ -13,6 +13,7 @@ import {
   listAllMods,
   listModConflicts,
   listCharacters,
+  refreshCharacters,
   listModCounts,
   listModsForCharacter,
   listUpdateChecks,
@@ -32,6 +33,24 @@ import {
 } from "@/lib/tauri-commands";
 
 export function useCharacters() {
+  const queryClient = useQueryClient();
+
+  // Asked once per run, in the background, and nothing is waiting on it. The roster on disk is
+  // what renders; this only decides whether it grows. A character released since the app was
+  // built otherwise cannot be filed against at all until the next release of the app, which is
+  // a long time to tell somebody their mod belongs to nobody.
+  //
+  // Failure is silence on purpose. The bundled sixty are still right for everyone in them, and
+  // a dialog saying the roster could not be refreshed would be the first thing a user saw for a
+  // problem that costs them nothing.
+  useEffect(() => {
+    void refreshCharacters()
+      .then((added) => {
+        if (added > 0) queryClient.invalidateQueries({ queryKey: ["characters"] });
+      })
+      .catch(() => {});
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ["characters"],
     queryFn: listCharacters,
