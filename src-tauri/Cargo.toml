@@ -1,6 +1,6 @@
 [package]
 name = "ether-manager"
-version = "0.2.0"
+version = "0.3.0"
 description = "A mod manager/browser for Zenless Zone Zero, built on the GameBanana API and XXMI"
 authors = ["you"]
 edition = "2021"
