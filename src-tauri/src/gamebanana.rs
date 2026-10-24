@@ -988,8 +988,15 @@ impl GameBananaClient {
             // much longer allowance than small JSON API calls do.
             http: reqwest::Client::builder()
                 .connect_timeout(Duration::from_secs(10))
+                // Name the app. `reqwest` sends no `User-Agent` at all unless one is set, and
+                // an unidentified client is the first thing any API blocks when it decides to
+                // — which matters here, because this one free API is the whole app. The string
+                // is identical for every install and says nothing about who is running it:
+                // GameBanana already sees the caller's address, and this adds only which
+                // program called.
+                .user_agent(concat!("Ether-Manager/", env!("CARGO_PKG_VERSION")))
                 .build()
-                .expect("reqwest client with a connect timeout must build"),
+                .expect("reqwest client with a connect timeout and user agent must build"),
         }
     }
 
@@ -2741,6 +2748,61 @@ mod tests {
 
         std::fs::remove_file(&whole).unwrap();
         std::fs::remove_file(&resumed).unwrap();
+    }
+
+    /// Every request names the app and its version.
+    ///
+    /// Worth a test rather than trusting the builder: `reqwest` sends no `User-Agent` unless
+    /// one is configured, so losing this line would be silent — nothing in the app misbehaves,
+    /// and the only party who notices is the one whose API we depend on. The server records
+    /// what actually arrived on the wire rather than asking the client what it meant to send.
+    #[tokio::test]
+    async fn every_request_names_the_app_and_its_version() {
+        use tokio::io::AsyncReadExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0u8; 2048];
+            let read = socket.read(&mut request).await.unwrap_or(0);
+            let _ = tx.send(String::from_utf8_lossy(&request[..read]).into_owned());
+            let _ = socket
+                .write_all(b"HTTP/1.1 200 OK
+Content-Length: 2
+
+hi")
+                .await;
+        });
+
+        let client = GameBananaClient::new();
+        let dest = std::env::temp_dir().join(format!(
+            "ether-manager-gb-useragent-{}",
+            std::process::id()
+        ));
+        let _ = client
+            .download_file(
+                &format!("http://{addr}/named"),
+                &dest,
+                ResumePoint::fresh(),
+                |_| {},
+                |_, _| true,
+                || false,
+            )
+            .await;
+        let _ = std::fs::remove_file(&dest);
+
+        let request = tokio::time::timeout(Duration::from_secs(5), rx)
+            .await
+            .expect("the server never saw a request")
+            .expect("the server dropped the request before reporting it");
+        let expected = format!("user-agent: ether-manager/{}", env!("CARGO_PKG_VERSION"));
+        assert!(
+            request.to_ascii_lowercase().contains(&expected),
+            "the request went out without naming the app:
+{request}"
+        );
     }
 
     /// Regression test for a download that could not be stopped.
