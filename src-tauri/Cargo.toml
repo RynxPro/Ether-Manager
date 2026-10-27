@@ -67,6 +67,12 @@ strip = true
 # stay fast.
 [profile.dev.package."*"]
 opt-level = 2
+# Debug info for every crate we did not write, which is the bulk of what a debug build puts on
+# disk and none of which anyone here reads: a failed download is diagnosed from the error and
+# our own calling code, never by stepping through reqwest. Left on, it grew `target/debug` to
+# 50 GB, 30.8 GB of that in `deps/`. Our own crate is untouched and keeps full debug info, so
+# backtraces through our code say exactly what they said before.
+debug = false
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
