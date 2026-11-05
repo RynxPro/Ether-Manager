@@ -602,6 +602,10 @@ function App() {
                 // from the roster — so this branch falls through to the shared detail below.
                 selectedCharacter ? (
                   <CharacterDetail
+                    // Keyed so the header's art-failure flags belong to one character: without
+                    // it, moving from someone whose banner is missing to someone whose is not
+                    // would carry the first one's fallback across.
+                    key={selectedCharacter.id}
                     character={selectedCharacter}
                     onBrowse={() =>
                       goToBrowse(selectedCharacter.gamebanana_category_id)
@@ -621,6 +625,8 @@ function App() {
                 )
               ) : selectedCharacter ? (
                 <CharacterDetail
+                  // See the keyed mount above.
+                  key={selectedCharacter.id}
                   character={selectedCharacter}
                   onBrowse={() =>
                     goToBrowse(selectedCharacter.gamebanana_category_id)

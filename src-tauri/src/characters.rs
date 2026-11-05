@@ -2,17 +2,26 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
+/// A character, or one of the two library pseudo-categories.
+///
+/// Carries no art paths. A portrait lives at `/characters/<id>.webp` and a banner at
+/// `/banners/<id>.webp`, which the frontend derives from the id rather than either side storing
+/// a string it could compute — the roster used to hold all hundred and twenty of them, and a
+/// test here asserted they were exactly what the id produced, which is the definition of a
+/// field that should not exist.
+///
+/// Nothing here records *whether* such a file exists either. The one authority on that is the
+/// file, and the frontend falls back to the character's initial when a request for it fails.
+/// Rust cannot answer the question anyway: `public/` is bundled into the frontend, not readable
+/// from this side at runtime.
+///
+/// Unknown fields are ignored on the way in, which matters because discovered characters are
+/// persisted as this shape: rows written by an earlier build still carry `portrait` and
+/// `banner`, and keep deserializing without a migration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Character {
     pub id: String,
     pub name: String,
-    pub portrait: Option<String>,
-    /// A purpose-made 16:9 banner for the character page header, where one has been sourced.
-    /// Distinct from `portrait`: these are wide, composed with the figure to one side and a
-    /// transparent background, so they need no cropping. Defaulted rather than required —
-    /// most of the roster has none, and those fall back to the portrait.
-    #[serde(default)]
-    pub banner: Option<String>,
     pub gamebanana_category_id: Option<i64>,
 }
 
@@ -73,15 +82,11 @@ pub fn pseudo_categories() -> Vec<Character> {
         Character {
             id: UI_PSEUDO_CHARACTER_ID.to_string(),
             name: "UI".to_string(),
-            portrait: None,
-            banner: None,
             gamebanana_category_id: Some(UI_GAMEBANANA_CATEGORY_ID),
         },
         Character {
             id: MISC_PSEUDO_CHARACTER_ID.to_string(),
             name: "Misc".to_string(),
-            portrait: None,
-            banner: None,
             gamebanana_category_id: Some(MISC_GAMEBANANA_CATEGORY_ID),
         },
     ]
@@ -93,6 +98,10 @@ pub fn pseudo_categories() -> Vec<Character> {
 /// what `public/characters/<id>.webp` and `public/banners/<id>.webp` are named. Get it wrong
 /// and the art stops resolving with no error at all — the card falls back to the initial, which
 /// is a real designed state, so it looks like a deliberate choice rather than a bug.
+///
+/// Since the paths are derived from the id rather than stored, this function is the only link
+/// between a character and their art. `every_art_file_belongs_to_a_character` is what keeps a
+/// misnamed file from becoming that silent fallback.
 ///
 /// Apostrophes are dropped rather than treated as a separator, which is the one rule the
 /// obvious implementation gets wrong: `Sigrid de L'Azur` is filed as `sigrid-de-lazur`, not
@@ -128,13 +137,27 @@ pub fn slugify_character_name(name: &str) -> String {
 /// confirmed present in GameBanana's live list, so the join has no orphans. Matching on the
 /// name would break the first time somebody is renamed.
 ///
-/// A discovered character arrives with no portrait and no banner, which is not a problem that
-/// needs solving: seven of the bundled sixty have no portrait either, and the card has drawn
-/// their initial since long before this existed. Appearing without art beats not appearing.
+/// Art needs no handling here, and that is the point of deriving it. A discovered character's
+/// portrait is looked for at `/characters/<id>.webp` exactly like everyone else's, so dropping
+/// a file in is the whole of adding it — where this used to hand out a permanent `portrait:
+/// None` that nothing could ever fill in, and shipping a release was the only cure.
+///
+/// A name that slugs to an id already taken is skipped. Its category id is new by definition —
+/// that is how it reached here — but the id is what art is filed under, so admitting it would
+/// draw the established character's portrait under someone else's name. Dropping it costs a
+/// shelf that could not be filed to anyway; keeping it would state something untrue about who
+/// it is. The taken set includes the two pseudo-categories, so a literal "UI" category cannot
+/// arrive as a second UI shelf either.
 pub fn merge_discovered(bundled: &[Character], listed: &[(i64, String)]) -> Vec<Character> {
     let known: std::collections::HashSet<i64> = bundled
         .iter()
         .filter_map(|c| c.gamebanana_category_id)
+        .collect();
+    // Grown as we go, so two discovered names that slug alike cannot both land either.
+    let mut taken_ids: std::collections::HashSet<String> = bundled
+        .iter()
+        .map(|c| c.id.clone())
+        .chain(pseudo_categories().into_iter().map(|c| c.id))
         .collect();
 
     let mut merged = bundled.to_vec();
@@ -142,11 +165,13 @@ pub fn merge_discovered(bundled: &[Character], listed: &[(i64, String)]) -> Vec<
         if known.contains(category_id) {
             continue;
         }
+        let id = slugify_character_name(name);
+        if !taken_ids.insert(id.clone()) {
+            continue;
+        }
         merged.push(Character {
-            id: slugify_character_name(name),
+            id,
             name: name.clone(),
-            portrait: None,
-            banner: None,
             gamebanana_category_id: Some(*category_id),
         });
     }
@@ -191,34 +216,67 @@ mod tests {
     fn loads_all_sixty_characters() {
         let characters = all_characters();
         assert_eq!(characters.len(), 60);
-        assert!(characters
-            .iter()
-            .any(|c| c.id == "belle" && c.portrait.is_some()));
+        assert!(characters.iter().any(|c| c.id == "belle"));
     }
 
-    /// Art coverage is deliberately not asserted as a count — it grows as files are sourced,
-    /// and pinning the test to which characters currently lack a portrait or banner means it
-    /// fails every time more art is added, which is the opposite of useful. What must hold is
-    /// that any path present points where the app serves from, under the id it belongs to.
+    /// Coverage is deliberately not asserted — it grows as art is sourced, and a test pinned to
+    /// who currently lacks a portrait fails every time more is added, which is the opposite of
+    /// useful. This asserts the other direction: every file that *is* there is named after
+    /// somebody.
+    ///
+    /// That is the failure this project can actually have. Paths are derived from the id now, so
+    /// a path cannot be wrong — but a *filename* can, and when it is the art simply never
+    /// resolves and the card draws the initial, which is a designed state and therefore looks
+    /// deliberate. `sigrid-de-lazur.webp` versus `sigrid-de-l-azur.webp` is the whole distance
+    /// between working and silently blank, and this is what notices.
     #[test]
-    fn art_paths_follow_the_public_layout_and_match_their_character_id() {
+    fn every_art_file_belongs_to_a_character() {
+        let known: std::collections::HashSet<String> = all_characters()
+            .iter()
+            .map(|c| c.id.clone())
+            .chain(pseudo_categories().into_iter().map(|c| c.id))
+            .collect();
+
+        for folder in ["characters", "banners"] {
+            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("public")
+                .join(folder);
+            let entries = std::fs::read_dir(&dir)
+                .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()));
+
+            let mut seen = 0usize;
+            for entry in entries {
+                let path = entry.expect("a readable directory entry").path();
+                if path.extension().and_then(|e| e.to_str()) != Some("webp") {
+                    continue;
+                }
+                seen += 1;
+                let stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .expect("a utf-8 filename")
+                    .to_string();
+                assert!(
+                    known.contains(&stem),
+                    "public/{folder}/{stem}.webp is named after nobody in the roster, so it will never be served — art is filed under a character id"
+                );
+            }
+            assert!(seen > 0, "public/{folder} has no .webp files at all");
+        }
+    }
+
+    /// Ids have to be unique now that art is filed under them: two characters sharing one id
+    /// would share one portrait, and the second would wear the first's face.
+    #[test]
+    fn every_roster_id_is_unique() {
+        let mut seen = std::collections::HashSet::new();
         for character in all_characters() {
-            if let Some(portrait) = &character.portrait {
-                assert_eq!(
-                    portrait,
-                    &format!("/characters/{}.webp", character.id),
-                    "portrait path for {} does not match its id",
-                    character.id
-                );
-            }
-            if let Some(banner) = &character.banner {
-                assert_eq!(
-                    banner,
-                    &format!("/banners/{}.webp", character.id),
-                    "banner path for {} does not match its id",
-                    character.id
-                );
-            }
+            assert!(
+                seen.insert(character.id.as_str()),
+                "{:?} is used by more than one character",
+                character.id
+            );
         }
     }
 
@@ -259,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn a_character_gamebanana_lists_and_we_do_not_is_added_without_art() {
+    fn a_character_gamebanana_lists_and_we_do_not_is_added() {
         let bundled = all_characters();
         let before = bundled.len();
         let listed = vec![
@@ -277,10 +335,43 @@ mod tests {
         let added = merged.last().unwrap();
         assert_eq!(added.id, "claret-flint");
         assert_eq!(added.gamebanana_category_id, Some(49001));
-        assert!(
-            added.portrait.is_none() && added.banner.is_none(),
-            "nobody has art for a character the app has never seen"
+    }
+
+    /// The cost of deriving art from the id: an id collision is now a wrong face rather than a
+    /// missing one, so a discovered name that slugs onto an established character is refused.
+    #[test]
+    fn a_discovered_name_that_slugs_onto_an_existing_id_is_skipped() {
+        let bundled = all_characters();
+        let twin = &bundled[0];
+        // A category id nobody has, so only the id collision can keep this out.
+        let listed = vec![(49002_i64, twin.name.to_lowercase())];
+        assert_eq!(slugify_character_name(&twin.name.to_lowercase()), twin.id);
+
+        assert_eq!(
+            merge_discovered(bundled, &listed).len(),
+            bundled.len(),
+            "a name that slugs onto {:?} must not be admitted under that id",
+            twin.id
         );
+    }
+
+    /// Two unknown names that slug alike: the first is admitted, the second is not.
+    #[test]
+    fn two_discovered_names_that_slug_alike_yield_one_character() {
+        let bundled = all_characters();
+        let listed = vec![
+            (49003_i64, "Claret Flint".to_string()),
+            (49004_i64, "claret  flint".to_string()),
+        ];
+        assert_eq!(merge_discovered(bundled, &listed).len(), bundled.len() + 1);
+    }
+
+    /// A literal "UI" category cannot arrive as a second UI shelf beside the pseudo-category.
+    #[test]
+    fn a_discovered_category_named_like_a_pseudo_category_is_skipped() {
+        let bundled = all_characters();
+        let listed = vec![(49005_i64, "UI".to_string())];
+        assert_eq!(merge_discovered(bundled, &listed).len(), bundled.len());
     }
 
     #[test]

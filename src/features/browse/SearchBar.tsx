@@ -1,4 +1,5 @@
 import { ArrowDownWideNarrow, Layers, Search as SearchIcon, Users, X } from "lucide-react";
+import { useState } from "react";
 import { useCharacters } from "@/features/library/hooks";
 import {
   Select,
@@ -14,7 +15,13 @@ import {
   PAPER_SELECT_ITEM,
   PAPER_SELECT_PANEL,
 } from "@/lib/paperSelect";
-import { MISC_CHARACTER_ID, UI_CHARACTER_ID, type ModSort } from "@/lib/tauri-commands";
+import { portraitFor } from "@/lib/characterArt";
+import {
+  MISC_CHARACTER_ID,
+  UI_CHARACTER_ID,
+  type Character,
+  type ModSort,
+} from "@/lib/tauri-commands";
 import { SORT_OPTIONS } from "./sortOptions";
 
 const ALL_CHARACTERS_VALUE = "all";
@@ -187,17 +194,7 @@ export function SearchBar({
                   value={character.id}
                 >
                   <span className="flex items-center gap-2">
-                    {character.portrait ? (
-                      <img
-                        src={character.portrait}
-                        alt=""
-                        className="h-5 w-5 shrink-0 object-cover object-top"
-                      />
-                    ) : (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center bg-secondary font-heading text-[10px] text-muted-foreground">
-                        {character.name.charAt(0)}
-                      </span>
-                    )}
+                    <CharacterFace character={character} />
                     {character.name}
                   </span>
                 </SelectItem>
@@ -274,5 +271,33 @@ function Field({ label, children, className, hint, compact = false }: FieldProps
         {hint}
       </span>
     </div>
+  );
+}
+
+/** The 20px portrait beside a name in the character filter.
+ *
+ * Its own component only because of the `useState`: these are rendered in a `.map`, and a row
+ * has to remember whether *its* portrait failed to load. Hooks cannot be called in a loop, so
+ * the row becomes a component. The alternative — one failure flag shared by all sixty — would
+ * blank every face as soon as one was missing. */
+function CharacterFace({ character }: { character: Character }) {
+  const [missing, setMissing] = useState(false);
+  const portrait = missing ? null : portraitFor(character.id);
+
+  if (!portrait) {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center bg-secondary font-heading text-[10px] text-muted-foreground">
+        {character.name.charAt(0)}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={portrait}
+      alt=""
+      onError={() => setMissing(true)}
+      className="h-5 w-5 shrink-0 object-cover object-top"
+    />
   );
 }

@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
+import { portraitFor } from "@/lib/characterArt";
 import { tiltFor } from "@/lib/tilt";
 import type { Character, ModCounts } from "@/lib/tauri-commands";
 
@@ -54,6 +55,11 @@ export function CharacterCard({
   hasConflict,
   onSelect,
 }: CharacterCardProps) {
+  // Derived from the id, so a missing file is discovered by asking for it. The grid keys every
+  // card on `character.id` (`CharacterGrid.tsx:103`), which is what resets this when the roster
+  // re-renders rather than leaving one character's failure stuck on another's card.
+  const [portraitMissing, setPortraitMissing] = useState(false);
+  const portrait = portraitMissing ? null : portraitFor(character.id);
   const hasMods = counts.total > 0;
   const hasEnabled = counts.enabled > 0;
   // The same condition the character's own page warns about: ZZMI loads every enabled mod, and
@@ -111,9 +117,10 @@ export function CharacterCard({
       }`}
     >
       <span className="relative block aspect-[3/4] w-full overflow-hidden bg-art">
-        {character.portrait ? (
+        {portrait ? (
           <img
-            src={character.portrait}
+            src={portrait}
+            onError={() => setPortraitMissing(true)}
             alt=""
             // The whole figure, uncropped. 480×640 against a 3:4 well means the art lands in
             // the frame exactly: nothing cut, nothing letterboxed.
@@ -127,8 +134,9 @@ export function CharacterCard({
             className="absolute inset-0 h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
-          // 7 of the 60 characters ship without a portrait — a permanent state, not a load
-          // failure, so this initial is the designed representation rather than a placeholder.
+          // The designed representation of a character with no portrait, rather than a
+          // placeholder standing in for one. The whole roster has art today, so in practice this
+          // is reached by someone discovered on GameBanana whose file has not been drawn yet.
           <span className="absolute inset-0 flex items-center justify-center font-heading text-5xl text-card-foreground/15">
             {character.name.charAt(0)}
           </span>

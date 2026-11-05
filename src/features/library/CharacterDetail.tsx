@@ -1,5 +1,6 @@
 import { ArrowDown, Compass, FilePlus2, FolderOpen } from "lucide-react";
 import { EMPTY_SLAB } from "@/components/EmptyState";
+import { bannerFor, portraitFor } from "@/lib/characterArt";
 import { useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { PageHeader } from "@/components/PageHeader";
@@ -48,6 +49,14 @@ export function CharacterDetail({
   onOpenModDetail,
   onImport,
 }: CharacterDetailProps) {
+  // Both derived from the id and tracked separately, because the page's three-way header —
+  // banner, else the portrait twice, else the initial — needs to know which of the two is absent,
+  // and only a failed request can say. `App.tsx` keys this component on `character.id` so these
+  // reset when you move between characters.
+  const [bannerMissing, setBannerMissing] = useState(false);
+  const [portraitMissing, setPortraitMissing] = useState(false);
+  const banner = bannerMissing ? null : bannerFor(character.id);
+  const portrait = portraitMissing ? null : portraitFor(character.id);
   const { data: mods, isLoading } = useModsForCharacter(character.id);
   const { data: updateChecks } = useUpdateChecks();
   const toggleMod = useToggleMod();
@@ -187,7 +196,7 @@ export function CharacterDetail({
           and that near-miss is the whole trick. */}
       <div className="relative -rotate-[0.35deg] border-2 border-border bg-card p-[5px] shadow-slap-lift">
         <div className="relative h-[440px] overflow-hidden bg-art">
-          {character.banner ? (
+          {banner ? (
             // Filling the well rather than placed against its right edge.
             //
             // It used to be pinned right at its natural height, which is a defensible way to
@@ -201,22 +210,24 @@ export function CharacterDetail({
             // and the face sits in the upper third of essentially all of them — one blind rule
             // for the whole roster, the same call `CharacterCard` makes about its portraits.
             <img
-              src={character.banner}
+              src={banner}
               alt=""
               aria-hidden
+              onError={() => setBannerMissing(true)}
               className="absolute inset-0 h-full w-full object-cover"
               style={{ objectPosition: "50% 22%" }}
             />
-          ) : character.portrait ? (
+          ) : portrait ? (
             <>
               {/* The same portrait, blurred hard, fills the width behind the figure. Without it
                   the left two thirds are flat and the band reads as empty. Lifted from .34 to
                   .5: it is under the scrim now as well, and two darkenings stacked took it to
                   near-black. */}
               <img
-                src={character.portrait}
+                src={portrait}
                 alt=""
                 aria-hidden
+                onError={() => setPortraitMissing(true)}
                 className="absolute inset-0 h-full w-full scale-110 object-cover blur-3xl brightness-[.5] saturate-50"
               />
               {/* The figure itself, faded out on its left edge so it dissolves into the wash
@@ -225,7 +236,7 @@ export function CharacterDetail({
                   Scaled up, and that is the whole fix here. These are 480x640 transparent
                   cutouts of a standing figure, so a good third of the frame is empty air — drop
                   one into a box this size untouched and the character comes out about 200px
-                  wide in a 440px band, which is what made this fallback look thin beside the 58
+                  wide in a 440px band, which is what made this fallback look thin beside the
                   characters who have a real banner. `origin-top` with a 1.4x scale crops into
                   the art the way `CharacterCard` does, so the figure fills the height instead of
                   floating in the middle of it.
@@ -233,9 +244,10 @@ export function CharacterDetail({
                   Fixed width, not a percentage: cover scales the art up until it fills the box,
                   so a box that grew with the window would magnify the portrait with it. */}
               <img
-                src={character.portrait}
+                src={portrait}
                 alt=""
                 aria-hidden
+                onError={() => setPortraitMissing(true)}
                 className="absolute inset-y-0 right-0 h-full w-[560px] origin-top scale-[1.4] object-cover object-top"
                 style={{
                   maskImage: "linear-gradient(90deg, transparent, #000 34%)",
@@ -244,7 +256,9 @@ export function CharacterDetail({
               />
             </>
           ) : (
-            // 7 of the 60 ship without art. The initial takes the figure's place rather than
+            // Reached when neither file loaded. The whole bundled roster has both today, so in
+            // practice this is someone discovered on GameBanana whose art has not been drawn
+            // yet. The initial takes the figure's place rather than
             // stretching a placeholder across the whole band, and fades out on the same edge —
             // a flat panel here would put a hard vertical seam where the portrait feathers.
             <div
