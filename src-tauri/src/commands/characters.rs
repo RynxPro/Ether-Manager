@@ -20,8 +20,24 @@ const DISCOVERED_SETTING: &str = "discovered_characters";
 /// plus whatever a previous refresh found. `refresh_characters` is what goes and looks.
 #[tauri::command]
 pub fn list_characters(state: State<AppState>) -> Vec<Character> {
-    let mut all = characters::all_characters().to_vec();
-    all.extend(stored_discovered(&state));
+    let bundled = characters::all_characters();
+    let known_categories: std::collections::HashSet<i64> = bundled
+        .iter()
+        .filter_map(|c| c.gamebanana_category_id)
+        .collect();
+    let known_ids: std::collections::HashSet<&str> =
+        bundled.iter().map(|c| c.id.as_str()).collect();
+
+    let mut all = bundled.to_vec();
+    // Anyone found by an earlier refresh and bundled by a later release sits in both places at
+    // once, and the stored row is never cleaned up — it is a settings value written months ago.
+    // Without this they appear twice in every grid, filter and picker. The bundled row wins: it
+    // is the one with art filed under it and a name this build chose.
+    all.extend(stored_discovered(&state).into_iter().filter(|c| {
+        !known_ids.contains(c.id.as_str())
+            && c.gamebanana_category_id
+                .is_none_or(|id| !known_categories.contains(&id))
+    }));
     all.extend(characters::pseudo_categories());
     all
 }

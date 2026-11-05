@@ -213,9 +213,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn loads_all_sixty_characters() {
+    fn loads_the_whole_bundled_roster() {
         let characters = all_characters();
-        assert_eq!(characters.len(), 60);
+        assert_eq!(characters.len(), 64);
         assert!(characters.iter().any(|c| c.id == "belle"));
     }
 
@@ -229,6 +229,13 @@ mod tests {
     /// resolves and the card draws the initial, which is a designed state and therefore looks
     /// deliberate. `sigrid-de-lazur.webp` versus `sigrid-de-l-azur.webp` is the whole distance
     /// between working and silently blank, and this is what notices.
+    ///
+    /// It judges against the bundled roster, so art bundled for a character only GameBanana
+    /// knows about fails here even though it would be served correctly. That is the useful
+    /// reading rather than a false alarm: if somebody has had art drawn for them they are known,
+    /// and a roster row — carrying their category id, the one thing about them that cannot be
+    /// derived — is what makes them appear offline and on first paint instead of waiting for a
+    /// refresh to find them.
     #[test]
     fn every_art_file_belongs_to_a_character() {
         let known: std::collections::HashSet<String> = all_characters()
@@ -321,7 +328,7 @@ mod tests {
         let bundled = all_characters();
         let before = bundled.len();
         let listed = vec![
-            (49001_i64, "Claret Flint".to_string()),
+            (9_900_001_i64, "Testbed Example".to_string()),
             // Already in the roster under this id, so it must not arrive a second time.
             (
                 bundled[0].gamebanana_category_id.unwrap(),
@@ -333,8 +340,8 @@ mod tests {
         assert_eq!(merged.len(), before + 1, "exactly one of them was new");
 
         let added = merged.last().unwrap();
-        assert_eq!(added.id, "claret-flint");
-        assert_eq!(added.gamebanana_category_id, Some(49001));
+        assert_eq!(added.id, "testbed-example");
+        assert_eq!(added.gamebanana_category_id, Some(9_900_001));
     }
 
     /// The cost of deriving art from the id: an id collision is now a wrong face rather than a
@@ -344,7 +351,7 @@ mod tests {
         let bundled = all_characters();
         let twin = &bundled[0];
         // A category id nobody has, so only the id collision can keep this out.
-        let listed = vec![(49002_i64, twin.name.to_lowercase())];
+        let listed = vec![(9_900_002_i64, twin.name.to_lowercase())];
         assert_eq!(slugify_character_name(&twin.name.to_lowercase()), twin.id);
 
         assert_eq!(
@@ -360,8 +367,8 @@ mod tests {
     fn two_discovered_names_that_slug_alike_yield_one_character() {
         let bundled = all_characters();
         let listed = vec![
-            (49003_i64, "Claret Flint".to_string()),
-            (49004_i64, "claret  flint".to_string()),
+            (9_900_003_i64, "Testbed Example".to_string()),
+            (9_900_004_i64, "testbed  example".to_string()),
         ];
         assert_eq!(merge_discovered(bundled, &listed).len(), bundled.len() + 1);
     }
@@ -370,7 +377,7 @@ mod tests {
     #[test]
     fn a_discovered_category_named_like_a_pseudo_category_is_skipped() {
         let bundled = all_characters();
-        let listed = vec![(49005_i64, "UI".to_string())];
+        let listed = vec![(9_900_005_i64, "UI".to_string())];
         assert_eq!(merge_discovered(bundled, &listed).len(), bundled.len());
     }
 

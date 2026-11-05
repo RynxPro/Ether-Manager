@@ -298,5 +298,25 @@
     "id": "sigrid-de-lazur",
     "name": "Sigrid de L'Azur",
     "gamebanana_category_id": 47715
+  },
+  {
+    "id": "claret-flint",
+    "name": "Claret Flint",
+    "gamebanana_category_id": 49001
+  },
+  {
+    "id": "roxy-ifrita-pryce",
+    "name": "Roxy Ifrita Pryce",
+    "gamebanana_category_id": 49002
+  },
+  {
+    "id": "phoenix-reffaella",
+    "name": "Phoenix Reffaella",
+    "gamebanana_category_id": 50547
+  },
+  {
+    "id": "severian-lowell",
+    "name": "Severian Lowell",
+    "gamebanana_category_id": 50548
   }
 ]
